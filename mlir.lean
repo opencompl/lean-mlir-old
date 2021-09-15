@@ -4,35 +4,26 @@ import Lean.Parser.Extra
 open Lean
 open Lean.Parser
 
-structure SSAVal where
-  name: String
-
-structure Inst where
-    name: String
-
-structure Attribute where
-    key: String
-    value: String
+mutual
+-- | TODO: make this work with structure?
+inductive SSAVal : Type where
+  | SSAVal : String -> SSAVal
 
 
-structure Op where
-    name : String
-    args: List SSAVal
-    attributes: List Attribute
-    regions: List Region
-    ty : MLIRType
+inductive Attribute : Type where
+  | Attribute: (key: String) -> (value: String) -> Attribute
 
+inductive Op : Type where 
+ | Op: (name: String) -> (args: List SSAVal) -> (attrs: List Attribute) -> (region: List Region) -> Op
 
-structure Binding where
-    lhs: SSAVal
-    Op: Op
+-- | A path to a particular value.
+inductive Path : Type where 
+ | PathComponent: (regionix : Int) -> (bbix: Int) -> (opix: Int) -> (rec: Path) -> Path
+ | Path
 
-structure BasicBlock where
-  name: String
-  args: List SSAVal
-  ops : List Binding
+inductive BasicBlock: Type where
+| BasicBlock: (ops: List Op) -> BasicBlock
 
-
-structure Region where
-    blocks: List BasicBlock
-
+inductive Region: Type where
+| Region: (bbs: List BasicBlock) -> Region
+end
