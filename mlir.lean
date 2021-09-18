@@ -219,7 +219,7 @@ partial def pblock : P BasicBlock := do
 end  
 
 
--- #eval pop.runP locbegin "foo bar"  
+#check pop.runP locbegin "foo bar"  
 
 -- parseMLIRModule :: String -> Parser Module 
 
@@ -235,3 +235,8 @@ macro "^" n:str ":" : term => `(BasicBlock.mk $n [])
 macro "^" n:str ":" ops:term : term => `(BasicBlock.BasicBlock $n $ops)
 
 
+-- TOPLEVEL PARSER
+-- ==============
+
+def main : IO Unit := do
+  return ()
