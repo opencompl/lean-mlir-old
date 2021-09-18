@@ -42,7 +42,7 @@ inductive Path : Type where
  | Path
 
 inductive BasicBlock: Type where
-| mk: (name: String) -> (ops: List Op) -> BasicBlock
+| mk: (name: String) -> (args: List SSAVal) -> (ops: List Op) -> BasicBlock
 
 inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
@@ -81,90 +81,136 @@ structure ParseError where
   right : Loc
   kind : ErrKind
 
-def P (a: Type) : Type := Loc × String -> Result ParseError (Loc × String × a)
+structure P (a: Type) where 
+   runP: Loc -> String -> Result ParseError (Loc × String × a)
+
+
 
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
-def ppure {a: Type} (v: a): P a := λ(loc, s) => Result.ok (loc, s, v)
+def ppure {a: Type} (v: a): P a := { runP :=  λ loc s => Result.ok (loc, s, v) }
 
 def pbind {a b: Type} (pa: P a) (a2pb : a -> P b): P b := 
-   λs => match pa s with 
-            | Result.ok (l, s', a) => a2pb a (l, s')
+   { runP := λloc s => match pa.runP loc s with 
+            | Result.ok (l, s', a) => (a2pb a).runP l  s'
             | Result.err e => Result.err e
+   }
 
-def pfail : P a := λ(loc, s) => 
-  Result.err ({ left := loc, right := loc, kind := ErrKind.mk "fail"})
+instance : Monad P := {
+  pure := ppure,
+  bind := pbind
+}
 
 
--- | take string upto character delimiter, consuming character delimiter
-def pStrUpto (d: Char) : P String := λ(startloc, haystack) => 
+def pfail : P a := { 
+    runP := λ loc _  => 
+      Result.err ({ left := loc, right := loc, kind := ErrKind.mk "fail"})
+  }
+
+def psuccess (v: a): P a := { 
+    runP := λ loc s  => 
+      Result.ok (loc, s, v)
+  }
+
+
+-- | never fails.
+def ppeek (c: Char) : P Bool := { 
+  runP := λ loc haystack =>
+    if isEmpty haystack
+    then Result.ok (loc, haystack, False)
+    else Result.ok  (loc, haystack, front haystack == 'c')
+  }
+
+def pconsume (c: Char) : P Unit := do
+  let b <- ppeek c
+  if b then psuccess () else pfail
+
+
+
+-- -- | take string upto character delimiter, consuming character delimiter
+def puptoraw (d: Char) : P String :=
+{ runP := λ startloc haystack => 
   let go (loc: Loc) (s: String) (out: String): Result ParseError (Loc × String × String) :=
       if isEmpty s 
-      then Result.err ({left := startloc, right := loc, kind := ErrKind.mk ("expected delimiter but ran out of string")})
+      then Result.err {left := startloc, right := loc, kind := ErrKind.mk ("expected delimiter but ran out of string")}
       else 
         let c := front haystack;
         if c == d
         then Result.ok (loc, s, out)
         else Result.ok (loc, s, out)  -- go loc (s.drop) (out.extend c)  -- recursion, how?
   go startloc haystack  ""
+}
 
--- | parse a string and return the a
-def pstring (needle: String) (v: a): P a := λ(loc, haystack) =>
- if needle.isPrefixOf haystack
- -- | TODO: how do I write this as loc.advance needle?
- -- | TODO: produce better error of mismatch
- then Result.ok (advance loc needle, drop haystack (length needle), v)
- else Result.err ({left := loc, right := loc, kind := ErrKind.mk ("expected |" ++ needle ++ "|")})
+-- | pstar p d is either (i) a `d` or (ii) a  `p` followed by (pmany p d)
+partial def pstar (p: P a) (d: Char) : P (List a) := do
+   let done <- ppeek d
+   if done
+   then return []
+   else do
+       let a <- p
+       let as <- pstar p d
+       return (a::as)
 
-def pchar (needle: Char) (v: a): P a := λ(loc, haystack) =>
-  if isEmpty haystack
-  then Result.err ({left := loc, right := loc, kind := ErrKind.mk ("expected char |" ++ needle.toString ++ "| found empty")})
-  else if front haystack == needle 
-  then Result.ok (advanceone loc needle, drop haystack 1, v)
- else Result.err ({left := loc, right := loc, kind := ErrKind.mk ("expected |" ++ needle.toString ++ "| found invalid")})
+-- | pdelimited l p r is an l, followed by as many ps, followed by r
+partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
+  pconsume l
+  pstar p r
 
-
-def pstring_ (s: String) : P Unit := pstring s ()
-def pchar_ (c: Char) : P Unit := pchar c ()
 
 -- | parse things intercalated by character c upto character d
-def pintercalatedUpto (p: P a) (i: Char) (d: Char) : P (List a):= pfail
-
--- | parse things intercalated by character c upto character d
-def manyUpto (p: P a) (d: Char) : P (List a):= pfail
-
--- | never fails.
-def ppeek (c: Char) : P Bool := λ(loc, haystack) =>
-  if isEmpty haystack
-  then Result.ok (loc, haystack, False)
-  else Result.ok  (loc, haystack, front haystack == 'c')
+def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := pfail
 
 
+def pssaval : P SSAVal := pfail
+
+
+-- | mh, needs to be mutual. Let's see if LEAN lets me do this.
+-- def pregion : P Region :=  pdelimited '{' pblock '}'
 def pregion : P Region :=  pfail
 
+
+-- | parse "..."
+def pstr : P String := pfail
 def poperand : P SSAVal := pfail
 
--- | "name" (arg1, ..., argn) [(rgn1, ... rgnn)]?
 def pop : P Op := do 
-  let _ <- pchar_ '"'
-  let name <- pStrUpto '\"'
-  let args <- pintercalatedUpto poperand ',' ')'
-  -- let hasRegion <- ppeek '('
-  let hasRegion := true
+  let name <- pstr
+  let args <- pintercalated '(' poperand ',' ')'
+  let hasRegion <- ppeek '('
   let regions <- (if hasRegion 
-                   then manyUpto pregion ')' 
+                   then do 
+                     pdelimited '(' pregion ')' 
                    else ppure [])
-  return (Result.ok (Op.mk name args [] regions))
+  return (Op.mk name args [] regions)
 
 
--- def pblock : P BasicBlock := do
---   let c <- pchar_ '^' 
---   let name <- pStrUpto ':'
---   let ops <- pmany ops
+def popbinding : P (SSAVal × Op) := do
+   let val <- pssaval
+   pconsume '='
+   let op <- pop
+   return (val, op)
+   
 
-instance : Monad P := {
-  pure := ppure,
-  bind := pbind
-}
+
+-- | ppeekstar peeks for `l`.
+-- | (a) If it finds `l`, it returns `p` followed by `ppeekstar l`.
+-- |(ii) If it does not find `l`, it retrns []
+partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
+  let proceed <- ppeek l
+  if proceed then do 
+        let a <- p
+        let as <- ppeekstar l p
+        return (a :: as)
+  else return []
+
+def pblock : P BasicBlock := do
+   pconsume '^'
+   let name <- pstr -- actually should be identifier?
+   let args <- pintercalated '(' poperand ',' ')'
+   pconsume ':'
+   let ops <- ppeekstar '%' pop
+   return (BasicBlock.mk name args ops)
+  
+  
 
 -- parseMLIRModule :: String -> Parser Module 
 
