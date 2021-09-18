@@ -57,14 +57,14 @@ structure ParseError where
   right : Loc
   error : ParseErrorType
 
-def P (a: Type) : Type := String -> Result ParseError (String × a)
+def P (a: Type) : Type := Loc × String -> Result ParseError (Loc × String × a)
 
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
-def ppure {a: Type} (v: a): P a := λs => Result.ok (s, v)
+def ppure {a: Type} (v: a): P a := λ(l, s) => Result.ok (l, s, v)
 
 def pbind {a b: Type} (pa: P a) (a2pb : a -> P b): P b := 
    λs => match pa s with 
-            | Result.ok (s', a) => a2pb a s'
+            | Result.ok (l, s', a) => a2pb a (l, s')
             | Result.err e => Result.err e
 
 instance : Monad P := {
