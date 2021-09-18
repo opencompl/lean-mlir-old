@@ -63,6 +63,8 @@ structure Loc where
   line : Int
   column : Int
 
+def locbegin : Loc := { line := 1, column := 1 }
+
 -- | move a loc by a string.
 -- | TODO: this is incorrect!
 def advance (l: Loc) (s: String): Loc :=
@@ -215,7 +217,9 @@ partial def pblock : P BasicBlock := do
    let ops <- ppeekstar '%' pop
    return (BasicBlock.mk name args ops)
 end  
-  
+
+
+-- #eval pop.runP locbegin "foo bar"  
 
 -- parseMLIRModule :: String -> Parser Module 
 
