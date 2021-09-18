@@ -86,6 +86,7 @@ structure P (a: Type) where
 
 
 
+
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
 def ppure {a: Type} (v: a): P a := { runP :=  λ loc s => Result.ok (loc, s, v) }
 
@@ -105,6 +106,9 @@ def pfail : P a := {
     runP := λ loc _  => 
       Result.err ({ left := loc, right := loc, kind := ErrKind.mk "fail"})
   }
+
+instance : Inhabited (P a) where
+   default := pfail
 
 def psuccess (v: a): P a := { 
     runP := λ loc s  => 
@@ -159,20 +163,21 @@ partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
 -- | parse things intercalated by character c upto character d
 def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := pfail
 
-
-def pssaval : P SSAVal := pfail
+mutual
+partial def pssaval : P SSAVal := pfail
 
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
--- def pregion : P Region :=  pdelimited '{' pblock '}'
-def pregion : P Region :=  pfail
+partial def pregion : P Region :=  do
+  let rs <- pdelimited '{' pblock '}'
+  return (Region.mk rs)
 
 
 -- | parse "..."
-def pstr : P String := pfail
-def poperand : P SSAVal := pfail
+partial def pstr : P String := pfail
+partial def poperand : P SSAVal := pfail
 
-def pop : P Op := do 
+partial def pop : P Op := do 
   let name <- pstr
   let args <- pintercalated '(' poperand ',' ')'
   let hasRegion <- ppeek '('
@@ -183,7 +188,7 @@ def pop : P Op := do
   return (Op.mk name args [] regions)
 
 
-def popbinding : P (SSAVal × Op) := do
+partial def popbinding : P (SSAVal × Op) := do
    let val <- pssaval
    pconsume '='
    let op <- pop
@@ -202,14 +207,14 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
         return (a :: as)
   else return []
 
-def pblock : P BasicBlock := do
+partial def pblock : P BasicBlock := do
    pconsume '^'
    let name <- pstr -- actually should be identifier?
    let args <- pintercalated '(' poperand ',' ')'
    pconsume ':'
    let ops <- ppeekstar '%' pop
    return (BasicBlock.mk name args ops)
-  
+end  
   
 
 -- parseMLIRModule :: String -> Parser Module 
