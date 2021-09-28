@@ -1,5 +1,6 @@
 import Init.Data.String
 import Init.Data.String.Basic
+import Init.System.IO
 import Lean.Parser
 import Lean.Parser.Extra
 import Init.System.Platform
@@ -8,9 +9,16 @@ import Init.Data.Repr
 import Init.Data.ToString.Basic
 
 
+-- /home/bollu/work/lean4/tests/lean/server
+-- import Lean.Data.Lsp
+-- open IO Lean Lsp
+
+
 open String
 open Lean
 open Lean.Parser
+open IO
+open System
 
 namespace mlir
 
@@ -131,8 +139,7 @@ def pconsume (c: Char) : P Unit := do
   if b then psuccess () else pfail
 
 
-
--- -- | take string upto character delimiter, consuming character delimiter
+-- | take string upto character delimiter, consuming character delimiter
 def puptoraw (d: Char) : P String :=
 { runP := λ startloc haystack => 
   let go (loc: Loc) (s: String) (out: String): Result ParseError (Loc × String × String) :=
@@ -238,5 +245,9 @@ macro "^" n:str ":" ops:term : term => `(BasicBlock.BasicBlock $n $ops)
 -- TOPLEVEL PARSER
 -- ==============
 
-def main : IO Unit := do
+-- https://github.com/leanprover/lean4/blob/master/tests/playground/file.lean
+def main (xs: List String): IO Unit := do
+  let path : System.FilePath :=  xs.head!
+  let contents ← FS.readFile path;
+  IO.println contents
   return ()
