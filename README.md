@@ -12,3 +12,13 @@ This research project explores:
 - Purely functional, immutable rewriter with a carefully chosen set of
   primitives to enable both reasoning and efficient rewriting.
 
+# Build instructions
+
+```
+$ make
+/home/bollu/work/2-mlir-verif$ make 
+/home/bollu//work/lean4-contrib/build/stage1/bin/lean --version
+Lean (version 4.0.0, commit 850fd84e4340, Release)
+/home/bollu//work/lean4-contrib/build/stage1/bin/lean mlir.lean -c mlir-opt.c
+/home/bollu//work/lean4-contrib/build/stage1/bin/leanc mlir-opt.c -o mlir-opt
+```

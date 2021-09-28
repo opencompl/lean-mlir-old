@@ -1,3 +1,6 @@
+LEAN=${HOME}//work/lean4-contrib/build/stage1/bin/lean
+LEANC=${HOME}//work/lean4-contrib/build/stage1/bin/leanc
 mlir-opt:
-	lean mlir.lean -c mlir-opt.c
-	leanc mlir-opt.c -o mlir-opt
+	${LEAN} --version
+	${LEAN} mlir.lean -c mlir-opt.c
+	${LEANC} mlir-opt.c -o mlir-opt

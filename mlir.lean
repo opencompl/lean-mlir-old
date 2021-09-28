@@ -20,8 +20,6 @@ open Lean.Parser
 open IO
 open System
 
-namespace mlir
-
 
 -- EMBEDDING
 -- ==========
@@ -226,8 +224,6 @@ partial def pblock : P BasicBlock := do
 end  
 
 
-#check pop.runP locbegin "foo bar"  
-
 -- parseMLIRModule :: String -> Parser Module 
 
 -- EDSL MACRO
@@ -247,7 +243,8 @@ macro "^" n:str ":" ops:term : term => `(BasicBlock.BasicBlock $n $ops)
 
 -- https://github.com/leanprover/lean4/blob/master/tests/playground/file.lean
 def main (xs: List String): IO Unit := do
-  let path : System.FilePath :=  xs.head!
+  -- let path : System.FilePath :=  xs.head!
+  let path :=  xs.head!
   let contents ← FS.readFile path;
   IO.println contents
   return ()
