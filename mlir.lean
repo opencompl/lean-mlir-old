@@ -21,6 +21,39 @@ open IO
 open System
 
 
+-- PRETTYPRINTING
+-- ===============
+
+inductive Doc : Type where
+  | Concat : Doc -> Doc -> Doc
+  | Nest : Doc -> Doc
+  | VGroup : List Doc -> Doc
+  | Text: String -> Doc
+
+
+def doc_concat (ds: List Doc): Doc := ds.foldl Doc.Concat (Doc.Text "") 
+
+partial def layout 
+  (d: Doc)
+  (indent: Int) -- indent
+  (width: Int) -- width
+  (leftover: Int) -- characters left
+  (newline: Bool) -- create newlinw?
+  : String :=
+  match d with
+    | (Doc.Text s)  => (if newline then "\n" else "") ++ s
+    | (Doc.Concat d1 d2) =>
+         let s := layout d1 indent width leftover newline
+         s ++ " " ++ layout d2 indent width (leftover - (length s + 1)) false
+    | (Doc.Nest d) => layout d (indent+2) width leftover newline
+    | (Doc.VGroup ds) => 
+       let ssInline := layout (doc_concat ds) indent width leftover newline 
+       if length ssInline <= leftover then ssInline
+       else  
+         let width' := width - indent
+         String.join (ds.map (fun d => layout d indent width' width' True))
+
+
 -- EMBEDDING
 -- ==========
 
