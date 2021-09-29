@@ -290,7 +290,7 @@ partial def takeWhile (predicate: Char -> Bool)
       else 
         let c := front s;
         if predicate c
-        then takeWhile predicate startloc (advance1 loc c) (s.drop 1) (out.push c) 
+        then takeWhile predicate startloc (advance1 loc c) (s.drop 1) (out.push c)
         else Result.ok (loc, s, out)
 
 partial def ptakeWhile (predicateWhile: Char -> Bool) : P String :=
@@ -300,8 +300,21 @@ partial def ptakeWhile (predicateWhile: Char -> Bool) : P String :=
 -- | take an identifier. TODO: ban symbols
 def pident : P String := ptakeWhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':')
 
+-- | consume as long as predicate is true
+partial def pstarUntilPredicate (p: P a) (continue?: Char -> Bool) : P (List a) := do
+   eat_whitespace
+   let c <- ppeek
+   if continue? c
+   then do 
+       let a <- p
+       let as <- pstarUntil p d
+       return (a::as)
+  else return []
+
+
+
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
-partial def pstar (p: P a) (d: Char) : P (List a) := do
+partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
    eat_whitespace
    if (<- ppeek d)
    then do 
@@ -309,13 +322,16 @@ partial def pstar (p: P a) (d: Char) : P (List a) := do
      return []
    else do
        let a <- p
-       let as <- pstar p d
+       let as <- pstarUntil p d
        return (a::as)
+
+
+
 
 -- | pdelimited l p r is an l, followed by as many ps, followed by r
 partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
   pconsume l
-  pstar p r
+  pstarUntil p r
 
 
 
@@ -409,12 +425,12 @@ partial def pBB : P BasicBlock := do
    let name <- pident
    pexact ":"
    eat_whitespace
-   let op <- pOp
+   let ops <- pstarUntil pOp '^' 
    return (BasicBlock.mk name [] [op])
 
 partial def pRegion : P Region := do
   pWhitespaceExact "{"
-  let bbs <- pstar pBB '}'
+  let bbs <- pstarUntil pBB '}'
   return (Region.mk bbs)
 
 
@@ -429,7 +445,7 @@ partial def pfunc : P Op := do
 partial def pmodule : P Op := do
   let _ <- pWhitespaceExact "module"
   pWhitespaceExact "{"
-  let fs <- pstar pfunc '}'
+  let fs <- pstarUntil pfunc '}'
   -- pWhitespaceExact "}"
   return (Op.mk "module" [] [] [Region.mk [BasicBlock.mk "entry" [] fs]])
 
