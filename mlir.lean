@@ -170,21 +170,33 @@ partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
 -- | parse things intercalated by character c upto character d
 def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := pfail
 
+
+-- workaround: https://github.com/leanprover/lean4/issues/697
+constant pssaval : P SSAVal
+constant pregion : P Region
+constant pstr : P String
+constant poperand : P SSAVal
+constant pop : P Op
+constant popbinding : P (SSAVal × Op)
+constant ppeekstar (l: Char) (p: P a) : P (List a)
+constant pblock : P BasicBlock
+
 mutual
-partial def pssaval : P SSAVal := pfail
+
+partial def pssavalImpl : P SSAVal := pfail
 
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
-partial def pregion : P Region :=  do
+partial def pregionImpl : P Region :=  do
   let rs <- pdelimited '{' pblock '}'
   return (Region.mk rs)
 
 
 -- | parse "..."
-partial def pstr : P String := pfail
-partial def poperand : P SSAVal := pfail
+partial def pstrImpl : P String := pfail
+partial def poperandImpl : P SSAVal := pfail
 
-partial def pop : P Op := do 
+partial def popImpl : P Op := do 
   let name <- pstr
   let args <- pintercalated '(' poperand ',' ')'
   let hasRegion <- ppeek '('
@@ -195,7 +207,7 @@ partial def pop : P Op := do
   return (Op.mk name args [] regions)
 
 
-partial def popbinding : P (SSAVal × Op) := do
+partial def popbindingImpl : P (SSAVal × Op) := do
    let val <- pssaval
    pconsume '='
    let op <- pop
@@ -206,7 +218,7 @@ partial def popbinding : P (SSAVal × Op) := do
 -- | ppeekstar peeks for `l`.
 -- | (a) If it finds `l`, it returns `p` followed by `ppeekstar l`.
 -- |(ii) If it does not find `l`, it retrns []
-partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
+partial def ppeekstarImpl (l: Char) (p: P a) : P (List a) := do
   let proceed <- ppeek l
   if proceed then do 
         let a <- p
@@ -214,7 +226,7 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
         return (a :: as)
   else return []
 
-partial def pblock : P BasicBlock := do
+partial def pblockImpl : P BasicBlock := do
    pconsume '^'
    let name <- pstr -- actually should be identifier?
    let args <- pintercalated '(' poperand ',' ')'
@@ -224,18 +236,17 @@ partial def pblock : P BasicBlock := do
 end  
 
 
--- parseMLIRModule :: String -> Parser Module 
 
 -- EDSL MACRO
 -- ==========
 
-notation:100 "{" "}" => Region.Region  []
-notation:100 "{" bbs "}" => Region.Region bbs
-notation:100 "module" r => Op.mk "module" [] [] [r]
--- notation:100 "^" name ":" => BasicBlock.mk name []
--- https://arxiv.org/pdf/2001.10490.pdf#page=11
-macro "^" n:str ":" : term => `(BasicBlock.mk $n [])
-macro "^" n:str ":" ops:term : term => `(BasicBlock.BasicBlock $n $ops)
+-- notation:100 "{" "}" => Region.Region  []
+-- notation:100 "{" bbs "}" => Region.Region bbs
+-- notation:100 "module" r => Op.mk "module" [] [] [r]
+-- -- notation:100 "^" name ":" => BasicBlock.mk name []
+-- -- https://arxiv.org/pdf/2001.10490.pdf#page=11
+-- macro "^" n:str ":" : term => `(BasicBlock.mk $n [])
+-- macro "^" n:str ":" ops:term : term => `(BasicBlock.BasicBlock $n $ops)
 
 
 -- TOPLEVEL PARSER
