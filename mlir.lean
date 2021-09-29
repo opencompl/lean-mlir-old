@@ -71,6 +71,10 @@ inductive Result (e : Type) (a : Type) : Type where
 | ok: a -> Result e a
 | err: e -> Result e a
 
+instance [Inhabited e] : Inhabited (Result e a) where
+   default := Result.err (Inhabited.default) 
+
+
 inductive ErrKind : Type where
 | mk : (name : String) -> ErrKind
 
@@ -79,6 +83,11 @@ instance : ToString ErrKind := {
     match k with
     | ErrKind.mk s => s
 }
+
+
+instance : Inhabited ErrKind where
+   default := ErrKind.mk ""
+
 
 structure Loc where
   line : Int
@@ -113,6 +122,9 @@ structure ParseError where
   right : Loc
   kind : ErrKind
 
+
+instance : Inhabited ParseError where
+   default := { left := Inhabited.default, right := Inhabited.default, kind := Inhabited.default }
 
 instance : ToString ParseError := {
   toString := fun err => 
@@ -181,36 +193,40 @@ def eat_whitespace : P Unit := {
 
  
 -- | Exact match a string
-def pexact_ (s: String) : P Unit := { 
+def pexact (s: String) : P Unit := { 
   runP := λ loc haystack =>
     if haystack.take (s.length) == s
     then Result.ok (advance loc s, drop haystack (s.length), ())
     else Result.err { left := loc, right := loc, kind := ErrKind.mk ("expected identifier |" ++ s ++ "|") }
   }
 
-def pconsume (c: Char) : P Unit := pexact_ c.toString
+def pconsume (c: Char) : P Unit := pexact c.toString
 
 
 -- | match preceded by whitespace.
 def pWhitespaceExact (s: String) : P Unit := do
   eat_whitespace
-  pexact_ s
+  pexact s
 
-
-
--- | take string upto character delimiter, consuming character delimiter
-def puptoraw (d: Char) : P String :=
-{ runP := λ startloc haystack => 
-  let go (loc: Loc) (s: String) (out: String): Result ParseError (Loc × String × String) :=
+partial def takeWhile (predicate: Char -> Bool)
+   (startloc: Loc)
+   (loc: Loc)
+   (s: String)
+   (out: String): Result ParseError (Loc × String × String) :=
       if isEmpty s 
       then Result.err {left := startloc, right := loc, kind := ErrKind.mk ("expected delimiter but ran out of string")}
       else 
-        let c := front haystack;
-        if c == d
-        then Result.ok (loc, s, out)
-        else Result.ok (loc, s, out)  -- go loc (s.drop) (out.extend c)  -- recursion, how?
-  go startloc haystack  ""
+        let c := front s;
+        if predicate c
+        then takeWhile predicate startloc (advance1 loc c) (s.drop 1) out -- (extend out c)  -- recursion, how?
+        else Result.ok (loc, s, out)
+
+partial def ptakeWhile (predicateWhile: Char -> Bool) : P String :=
+{ runP := λ startloc haystack =>  takeWhile predicateWhile startloc startloc haystack ""
 }
+
+-- | take an identifier. TODO: ban symbols
+def pident : P String := ptakeWhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':')
 
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstar (p: P a) (d: Char) : P (List a) := do
@@ -310,10 +326,32 @@ attribute [implementedBy ppeekstarImpl] ppeekstar
 attribute [implementedBy pblockImpl] pblock
 
 
-partial def ptoplevel : P Op := do
+partial def pOp : P Op := do
+  eat_whitespace
+  pexact "return"
+  return (Op.mk "return" [] [] [])
+
+partial def pBB : P BasicBlock := do
+   pexact "^"
+   let name <- pident
+   pexact ":"
+   eat_whitespace
+   let op <- pOp
+   return (BasicBlock.mk name [] [])
+
+partial def pfunc : P Op := do
+  pWhitespaceExact "func"
+  eat_whitespace
+  pexact "@"
+  let name <- pident
+  pWhitespaceExact "{"
+  let _ <- pstar pBB '}'
+  return (Op.mk "module" [] [] [])
+
+partial def pmodule : P Op := do
   let _ <- pWhitespaceExact "module"
   pWhitespaceExact "{"
-  let _ <- pstar (pWhitespaceExact "foo") '}'
+  let _ <- pstar pfunc '}'
   -- pWhitespaceExact "}"
   return (Op.mk "module" [] [] [])
 
@@ -329,7 +367,7 @@ def main (xs: List String): IO Unit := do
   IO.println "FILE\n====\n"
   IO.println contents
   IO.println "PARSING\n=======\n"
-  let res := ptoplevel.runP locbegin contents
+  let res := pmodule.runP locbegin contents
   match res with
    | Result.ok (loc, str, op) => IO.println op
    | Result.err res => IO.println res
