@@ -20,3 +20,7 @@ settings.json
 CMakeSettings.json
 CppProperties.json
 result
+mlir-opt
+mlir-opt.c
+crash
+crash.c

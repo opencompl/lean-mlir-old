@@ -22,3 +22,4 @@ Lean (version 4.0.0, commit 850fd84e4340, Release)
 /home/bollu//work/lean4-contrib/build/stage1/bin/lean mlir.lean -c mlir-opt.c
 /home/bollu//work/lean4-contrib/build/stage1/bin/leanc mlir-opt.c -o mlir-opt
 ```
+

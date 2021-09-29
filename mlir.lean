@@ -65,9 +65,21 @@ inductive Result (e : Type) (a : Type) : Type where
 inductive ErrKind : Type where
 | mk : (name : String) -> ErrKind
 
+instance : ToString ErrKind := {
+  toString := fun k => 
+    match k with
+    | ErrKind.mk s => s
+}
+
 structure Loc where
   line : Int
   column : Int
+
+instance : ToString Loc := {
+  toString := fun loc => 
+    toString loc.line ++ ":" ++ toString loc.column
+}
+
 
 def locbegin : Loc := { line := 1, column := 1 }
 
@@ -88,6 +100,13 @@ structure ParseError where
   left : Loc
   right : Loc
   kind : ErrKind
+
+
+instance : ToString ParseError := {
+  toString := fun err => 
+    toString err.left ++ " " ++ toString err.kind
+}
+
 
 structure P (a: Type) where 
    runP: Loc -> String -> Result ParseError (Loc × String × a)
@@ -236,17 +255,15 @@ partial def pblockImpl : P BasicBlock := do
 end  
 
 
+attribute [implementedBy pssavalImpl] pssaval
+attribute [implementedBy pregionImpl] pregion
+attribute [implementedBy pstrImpl] pstr
+attribute [implementedBy poperandImpl] poperand
+attribute [implementedBy popImpl] pop
+attribute [implementedBy popbindingImpl] popbinding
+attribute [implementedBy ppeekstarImpl] ppeekstar
+attribute [implementedBy pblockImpl] pblock
 
--- EDSL MACRO
--- ==========
-
--- notation:100 "{" "}" => Region.Region  []
--- notation:100 "{" bbs "}" => Region.Region bbs
--- notation:100 "module" r => Op.mk "module" [] [] [r]
--- -- notation:100 "^" name ":" => BasicBlock.mk name []
--- -- https://arxiv.org/pdf/2001.10490.pdf#page=11
--- macro "^" n:str ":" : term => `(BasicBlock.mk $n [])
--- macro "^" n:str ":" ops:term : term => `(BasicBlock.BasicBlock $n $ops)
 
 
 -- TOPLEVEL PARSER
@@ -257,5 +274,11 @@ def main (xs: List String): IO Unit := do
   -- let path : System.FilePath :=  xs.head!
   let path :=  xs.head!
   let contents ← FS.readFile path;
+  IO.println "FILE\n====\n"
   IO.println contents
+  IO.println "PARSING\n=======\n"
+  let res := pop.runP locbegin contents
+  match res with
+   | Result.ok res => IO.println "ok!"
+   | Result.err res => IO.println res
   return ()
