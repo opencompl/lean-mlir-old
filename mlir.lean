@@ -39,6 +39,8 @@ inductive Op : Type where
       -> (attrs: List Attribute)
       -> (region: List Region) -> Op
 
+
+
 inductive Path : Type where 
  | PathComponent: (regionix : Int) 
     -> (bbix: Int) 
@@ -53,6 +55,13 @@ inductive BasicBlock: Type where
 inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
 end
+
+-- | TODO: create lambda case.
+instance : ToString Op := {
+  toString := fun op => 
+    match op with
+    | (Op.mk name args attrs region) => name
+}
 
 
 -- PARSER
@@ -131,7 +140,7 @@ instance : Monad P := {
 
 def pfail : P a := { 
     runP := λ loc _  => 
-      Result.err ({ left := loc, right := loc, kind := ErrKind.mk "fail"})
+      Result.err ({ left := loc, right := loc, kind := ErrKind.mk "pfail"})
   }
 
 instance : Inhabited (P a) where
@@ -151,9 +160,18 @@ def ppeek (c: Char) : P Bool := {
     else Result.ok  (loc, haystack, front haystack == 'c')
   }
 
+-- | todo: move loc
 def pconsume (c: Char) : P Unit := do
   let b <- ppeek c
   if b then psuccess () else pfail
+
+def pident (s: String) : P Unit := { 
+  runP := λ loc haystack =>
+    if haystack.take (s.length) == s
+    then Result.ok (advance loc s, drop haystack (s.length), ())
+    else Result.err { left := loc, right := loc, kind := ErrKind.mk ("expected identifier |" ++ s ++ "|") }
+  }
+
 
 
 -- | take string upto character delimiter, consuming character delimiter
@@ -184,6 +202,7 @@ partial def pstar (p: P a) (d: Char) : P (List a) := do
 partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
   pconsume l
   pstar p r
+
 
 
 -- | parse things intercalated by character c upto character d
@@ -265,6 +284,12 @@ attribute [implementedBy ppeekstarImpl] ppeekstar
 attribute [implementedBy pblockImpl] pblock
 
 
+partial def ptoplevel : P Op := do
+  let _ <- pident "module"
+  -- pconsume '{'
+  -- pconsume '}'
+  return (Op.mk "module" [] [] [])
+
 
 -- TOPLEVEL PARSER
 -- ==============
@@ -277,8 +302,8 @@ def main (xs: List String): IO Unit := do
   IO.println "FILE\n====\n"
   IO.println contents
   IO.println "PARSING\n=======\n"
-  let res := pop.runP locbegin contents
+  let res := ptoplevel.runP locbegin contents
   match res with
-   | Result.ok res => IO.println "ok!"
+   | Result.ok (loc, str, op) => IO.println op
    | Result.err res => IO.println res
   return ()
