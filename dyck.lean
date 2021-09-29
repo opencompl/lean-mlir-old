@@ -11,6 +11,7 @@ syntax "{" brack "}" : brack
 -- auxiliary notation for translating `brack` into `term`
 syntax "fromBrack% " brack : term
 
+set_option trace.Elab.definition true in
 macro_rules
   | `(fromBrack% End) => `(Dyck.End)
   | `(fromBrack% ( $b )) => `(Dyck.Round (fromBrack% $b))
