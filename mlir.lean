@@ -30,29 +30,42 @@ inductive Doc : Type where
   | VGroup : List Doc -> Doc
   | Text: String -> Doc
 
+instance : Inhabited Doc where
+  default := Doc.Text ""
+
+
+instance : Coe String Doc where
+  coe := Doc.Text
+
+instance : Append Doc where 
+  append := Doc.Concat
 
 def doc_concat (ds: List Doc): Doc := ds.foldl Doc.Concat (Doc.Text "") 
+
 
 partial def layout 
   (d: Doc)
   (indent: Int) -- indent
   (width: Int) -- width
   (leftover: Int) -- characters left
-  (newline: Bool) -- create newlinw?
+  (newline: Bool) -- create newline?
   : String :=
   match d with
-    | (Doc.Text s)  => (if newline then "\n" else "") ++ s
+    | (Doc.Text s)  => (if newline then "\n".pushn ' ' indent.toNat else "") ++ s
     | (Doc.Concat d1 d2) =>
          let s := layout d1 indent width leftover newline
-         s ++ " " ++ layout d2 indent width (leftover - (length s + 1)) false
-    | (Doc.Nest d) => layout d (indent+2) width leftover newline
+         s ++ layout d2 indent width (leftover - (length s + 1)) false
+    | (Doc.Nest d) => layout d (indent+1) width leftover newline
     | (Doc.VGroup ds) => 
        let ssInline := layout (doc_concat ds) indent width leftover newline 
-       if length ssInline <= leftover then ssInline
+       if false then ssInline -- length ssInline <= leftover then ssInline
        else  
          let width' := width - indent
-         String.join (ds.map (fun d => layout d indent width' width' True))
+         -- TODO: don't make 
+         String.join (ds.map (fun d => layout d indent width width True))
 
+
+def layout80col (d: Doc) : String := layout d 0 80 0 false
 
 -- EMBEDDING
 -- ==========
@@ -92,32 +105,34 @@ inductive Region: Type where
 end
 
 
+
+
 mutual
-partial def op_to_string (op: Op): String := 
+partial def op_to_doc (op: Op): Doc := 
     match op with
-    | (Op.mk name args attrs rgns) => name ++ "(" ++ intercalate "\n, " (rgns.map rgn_to_string) ++ ")"
+    | (Op.mk name args attrs rgns) => name ++ " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc) ++ ")")
 
-partial def bb_to_string(bb: BasicBlock): String :=
+partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
-  | (BasicBlock.mk name args ops) => toString name ++ ":" ++ "\n" ++ intercalate "\n" (ops.map op_to_string)
+  | (BasicBlock.mk name args ops) => Doc.VGroup [Doc.Text (name ++ ": "), Doc.Nest (Doc.VGroup (ops.map op_to_doc))]
 
-partial def rgn_to_string(rgn: Region): String :=
+partial def rgn_to_doc(rgn: Region): Doc :=
   match rgn with
-  | (Region.mk bbs) => "{\n" ++ intercalate "\n" (bbs.map bb_to_string) ++ "\n}"
+  | (Region.mk bbs) => Doc.VGroup ["{", Doc.Nest (Doc.VGroup (bbs.map bb_to_doc)), "}"]
  
 end
 
 instance : ToString Op := {
-  toString := op_to_string
+  toString := fun op =>  layout80col (op_to_doc op)
 }
 
 
 instance : ToString BasicBlock := {
-  toString := bb_to_string
+  toString := fun bb => layout80col (bb_to_doc bb)
 }
 
 instance : ToString Region := {
-  toString := rgn_to_string
+  toString := fun rgn => layout80col (rgn_to_doc rgn)
 }
 
 
@@ -275,7 +290,7 @@ partial def takeWhile (predicate: Char -> Bool)
       else 
         let c := front s;
         if predicate c
-        then takeWhile predicate startloc (advance1 loc c) (s.drop 1) out -- (extend out c)  -- recursion, how?
+        then takeWhile predicate startloc (advance1 loc c) (s.drop 1) (out.push c) 
         else Result.ok (loc, s, out)
 
 partial def ptakeWhile (predicateWhile: Char -> Bool) : P String :=
@@ -383,6 +398,7 @@ attribute [implementedBy ppeekstarImpl] ppeekstar
 attribute [implementedBy pblockImpl] pblock
 
 
+-- https://mlir.llvm.org/docs/LangRef/
 partial def pOp : P Op := do
   eat_whitespace
   pexact "return"
@@ -394,16 +410,21 @@ partial def pBB : P BasicBlock := do
    pexact ":"
    eat_whitespace
    let op <- pOp
-   return (BasicBlock.mk name [] [])
+   return (BasicBlock.mk name [] [op])
+
+partial def pRegion : P Region := do
+  pWhitespaceExact "{"
+  let bbs <- pstar pBB '}'
+  return (Region.mk bbs)
+
 
 partial def pfunc : P Op := do
   pWhitespaceExact "func"
   eat_whitespace
   pexact "@"
   let name <- pident
-  pWhitespaceExact "{"
-  let _ <- pstar pBB '}'
-  return (Op.mk "module" [] [] [])
+  let body <- pRegion
+  return (Op.mk "func" [] [] [body])
 
 partial def pmodule : P Op := do
   let _ <- pWhitespaceExact "module"
