@@ -52,15 +52,39 @@ inductive Path : Type where
 inductive BasicBlock: Type where
 | mk: (name: String) -> (args: List SSAVal) -> (ops: List Op) -> BasicBlock
 
+
+
 inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
 end
 
--- | TODO: create lambda case.
-instance : ToString Op := {
-  toString := fun op => 
+
+mutual
+partial def op_to_string (op: Op): String := 
     match op with
-    | (Op.mk name args attrs region) => name
+    | (Op.mk name args attrs rgns) => name ++ "(" ++ intercalate "\n, " (rgns.map rgn_to_string) ++ ")"
+
+partial def bb_to_string(bb: BasicBlock): String :=
+  match bb with
+  | (BasicBlock.mk name args ops) => toString name ++ ":" ++ "\n" ++ intercalate "\n" (ops.map op_to_string)
+
+partial def rgn_to_string(rgn: Region): String :=
+  match rgn with
+  | (Region.mk bbs) => "{\n" ++ intercalate "\n" (bbs.map bb_to_string) ++ "\n}"
+ 
+end
+
+instance : ToString Op := {
+  toString := op_to_string
+}
+
+
+instance : ToString BasicBlock := {
+  toString := bb_to_string
+}
+
+instance : ToString Region := {
+  toString := rgn_to_string
 }
 
 
@@ -351,9 +375,9 @@ partial def pfunc : P Op := do
 partial def pmodule : P Op := do
   let _ <- pWhitespaceExact "module"
   pWhitespaceExact "{"
-  let _ <- pstar pfunc '}'
+  let fs <- pstar pfunc '}'
   -- pWhitespaceExact "}"
-  return (Op.mk "module" [] [] [])
+  return (Op.mk "module" [] [] [Region.mk [BasicBlock.mk "entry" [] fs]])
 
 
 -- TOPLEVEL PARSER
