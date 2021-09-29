@@ -84,6 +84,10 @@ structure Loc where
   line : Int
   column : Int
 
+instance : Inhabited Loc where
+   default := { line := 1, column := 1 }
+
+
 instance : ToString Loc := {
   toString := fun loc => 
     toString loc.line ++ ":" ++ toString loc.column
@@ -93,14 +97,13 @@ instance : ToString Loc := {
 def locbegin : Loc := { line := 1, column := 1 }
 
 -- | move a loc by a string.
--- | TODO: this is incorrect!
 def advance (l: Loc) (s: String): Loc :=
   if isEmpty s then l
   else if front s == '\n'
     then { line := l.line + 1, column := 1  }
-    else return { line := l.line, column := l.column + 1}
+    else { line := l.line, column := l.column + 1}
  
-def advanceone (l: Loc) (c: Char): Loc :=
+def advance1 (l: Loc) (c: Char): Loc :=
   if c == '\n'
     then { line := l.line + 1, column := 1  }
     else return { line := l.line, column := l.column + 1}
@@ -165,12 +168,32 @@ def pconsume (c: Char) : P Unit := do
   let b <- ppeek c
   if b then psuccess () else pfail
 
-def pident (s: String) : P Unit := { 
+partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
+    if isEmpty s
+    then (l, s)
+    else  
+     let c:= front s
+     if c == ' ' || c == '\t'  || c == '\n'
+     then eat_whitespace_ (advance1 l c) (s.drop 1)
+     else (l, s)
+
+def eat_whitespace : P Unit := {
+  runP := λ loc s =>
+    let (l', s') := eat_whitespace_ loc s
+    Result.ok (l', s', ())
+  }
+
+ 
+def pident_ (s: String) : P Unit := { 
   runP := λ loc haystack =>
     if haystack.take (s.length) == s
     then Result.ok (advance loc s, drop haystack (s.length), ())
     else Result.err { left := loc, right := loc, kind := ErrKind.mk ("expected identifier |" ++ s ++ "|") }
   }
+
+def pident (s: String) : P Unit := do
+  eat_whitespace
+  pident_ s
 
 
 
