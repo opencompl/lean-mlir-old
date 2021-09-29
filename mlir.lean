@@ -160,13 +160,9 @@ def ppeek (c: Char) : P Bool := {
   runP := λ loc haystack =>
     if isEmpty haystack
     then Result.ok (loc, haystack, False)
-    else Result.ok  (loc, haystack, front haystack == 'c')
+    else Result.ok  (loc, haystack, front haystack == c)
   }
 
--- | todo: move loc
-def pconsume (c: Char) : P Unit := do
-  let b <- ppeek c
-  if b then psuccess () else pfail
 
 partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
     if isEmpty s
@@ -184,16 +180,21 @@ def eat_whitespace : P Unit := {
   }
 
  
-def pident_ (s: String) : P Unit := { 
+-- | Exact match a string
+def pexact_ (s: String) : P Unit := { 
   runP := λ loc haystack =>
     if haystack.take (s.length) == s
     then Result.ok (advance loc s, drop haystack (s.length), ())
     else Result.err { left := loc, right := loc, kind := ErrKind.mk ("expected identifier |" ++ s ++ "|") }
   }
 
-def pident (s: String) : P Unit := do
+def pconsume (c: Char) : P Unit := pexact_ c.toString
+
+
+-- | match preceded by whitespace.
+def pWhitespaceExact (s: String) : P Unit := do
   eat_whitespace
-  pident_ s
+  pexact_ s
 
 
 
@@ -211,11 +212,13 @@ def puptoraw (d: Char) : P String :=
   go startloc haystack  ""
 }
 
--- | pstar p d is either (i) a `d` or (ii) a  `p` followed by (pmany p d)
+-- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstar (p: P a) (d: Char) : P (List a) := do
-   let done <- ppeek d
-   if done
-   then return []
+   eat_whitespace
+   if (<- ppeek d)
+   then do 
+     pconsume d
+     return []
    else do
        let a <- p
        let as <- pstar p d
@@ -308,9 +311,10 @@ attribute [implementedBy pblockImpl] pblock
 
 
 partial def ptoplevel : P Op := do
-  let _ <- pident "module"
-  -- pconsume '{'
-  -- pconsume '}'
+  let _ <- pWhitespaceExact "module"
+  pWhitespaceExact "{"
+  let _ <- pstar (pWhitespaceExact "foo") '}'
+  -- pWhitespaceExact "}"
   return (Op.mk "module" [] [] [])
 
 
