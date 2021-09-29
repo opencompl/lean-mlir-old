@@ -1,5 +1,6 @@
-inductive Dyck: Type := 
-   | Round : Dyck -> Dyck 
+
+inductive Dyck: Type :=
+   | Round : Dyck -> Dyck
    | End : Dyck
 
 declare_syntax_cat brack
@@ -7,21 +8,25 @@ syntax "End" : brack
 syntax "(" brack ")" : brack
 syntax "{" brack "}" : brack
 
-macro "End" : term => `(Dyck.End)
-macro "(" expr:brack ")" : term => `(Dyck.Round $expr)
+-- auxiliary notation for translating `brack` into `term`
+syntax "fromBrack% " brack : term
 
-syntax "brack" ident "->" brack : command
+macro_rules
+  | `(fromBrack% End) => `(Dyck.End)
+  | `(fromBrack% ( $b )) => `(fromBrack% $b)
+  | `(fromBrack% { $b }) => `(Dyck.Round (fromBrack% $b))
 
-macro "brack" n:ident "End": command => 
-   `(def $n : Dyck := End)
+-- Remark: after this command `brack` will be a "reserved" keyword, and we will have to use `«brack»`
+-- to reference the `brack` syntax category
+macro "brack" n:ident "->" e:brack  : command =>
+   `(def $n:ident : Dyck := fromBrack% $e)
 
--- | macro that wants `( brack )`
-macro "brack" n:ident "->" "(" e:brack ")" : command => 
-   `(def $n : Dyck := Dyck.Round $e)
+brack bar -> ( End )
+#print bar
+/-
+def bar : Dyck :=
+Dyck.End
+-/
 
-brack foo End
-print foo
-
-brack bar ( End )
-print bar
-
+brack foo -> ( { { End } } )
+#print foo
