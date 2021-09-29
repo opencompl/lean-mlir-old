@@ -1,6 +1,6 @@
-
 inductive Dyck: Type :=
    | Round : Dyck -> Dyck
+   | Flower : Dyck -> Dyck
    | End : Dyck
 
 declare_syntax_cat brack
@@ -13,8 +13,8 @@ syntax "fromBrack% " brack : term
 
 macro_rules
   | `(fromBrack% End) => `(Dyck.End)
-  | `(fromBrack% ( $b )) => `(fromBrack% $b)
-  | `(fromBrack% { $b }) => `(Dyck.Round (fromBrack% $b))
+  | `(fromBrack% ( $b )) => `(Dyck.Round (fromBrack% $b))
+  | `(fromBrack% { $b }) => `(Dyck.Flower (fromBrack% $b))
 
 -- Remark: after this command `brack` will be a "reserved" keyword, and we will have to use `«brack»`
 -- to reference the `brack` syntax category
