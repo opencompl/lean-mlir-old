@@ -391,12 +391,11 @@ partial def pssaval : P SSAVal := perror "pssaval"
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
 partial def pregion (_: Unit) : P Region :=  do
-  let rs <- pdelimited '{' (pblock ()) '}'
-  return (Region.mk rs)
+  -- let rs <- pdelimited '{' (pblock ()) '}'
+  let b <- pblock ()
+  return (Region.mk [b])
 
 
--- | parse <whitespace> "..."
-   
 partial def poperand : P SSAVal := perror "poperandImpl"
 
 partial def pop (_: Unit) : P Op := do 
@@ -407,7 +406,9 @@ partial def pop (_: Unit) : P Op := do
     let args <- pintercalated '(' poperand ',' ')'
     let hasRegion <- ppeek? '('
     let regions <- (if hasRegion 
-                      then pdelimited '(' (pregion ()) ')' 
+                      then do
+                          let rgn <- pregion ()
+                          return [rgn]
                       else ppure [])
      return (Op.mk  name args [] regions)
   | some '%' => perror "found %, don't know how to parse ops yet"
