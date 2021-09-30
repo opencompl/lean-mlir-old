@@ -82,16 +82,22 @@ inductive MLIRTy : Type where
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
 
-inductive Attribute : Type where
-  | Attribute: (key: String) 
-      -> (value: String)
-      -> Attribute
+inductive AttrVal : Type where
+| str : String -> AttrVal
+| type :MLIRTy -> AttrVal
+
+inductive Attr : Type where
+  | mk: (key: String) 
+      -> (value: AttrVal)
+      -> Attr
 
 inductive Op : Type where 
  | mk: (name: String) 
       -> (args: List SSAVal)
-      -> (attrs: List Attribute)
-      -> (region: List Region) -> Op
+      -> (attrs: List Attr)
+      -> (region: List Region) 
+      -> (ty: MLIRTy)
+      -> Op
 
 
 
@@ -137,7 +143,7 @@ def ssaval_to_doc (val: SSAVal): Doc :=
 mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
-    | (Op.mk name args attrs rgns) => name ++ " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc) ++ ")")
+    | (Op.mk name args attrs rgns ty) => name ++ " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc) ++ ")" ++ Doc.Text (":" ++ (toString ty)))
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
@@ -243,6 +249,14 @@ structure P (a: Type) where
 
 
 
+-- | map for parsers
+def pmap (f : a -> b) (pa: P a): P b := {
+  runP :=  λ loc s => 
+    match pa.runP loc s with
+      | Result.ok (l', s', a) => Result.ok (l', s', f a)
+      | Result.err e => Result.err e
+}
+
 
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
 def ppure {a: Type} (v: a): P a := { runP :=  λ loc s => Result.ok (loc, s, v) }
@@ -279,6 +293,12 @@ def por (p: P a) (q: P a) : P a :=  {
       | Result.ok a => Result.ok a 
       | Result.err _ => q.runP loc s
 }
+
+-- def pors (ps: List (p a)) : P a := 
+--  match ps with
+--  | [] => []
+--  | [p] => p
+--  | (p::ps) por p (pors ps)
 
 
 -- | eat till '\n'
@@ -360,7 +380,7 @@ partial def ptakewhile (predicateWhile: Char -> Bool) : P String :=
 -- | take an identifier. TODO: ban symbols
 def pident : P String := do
   eat_whitespace 
-  ptakewhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':' && isAlphanum c)
+  ptakewhile (fun c => (c != ' ' && c != '\t' && c != '\n') && (isAlphanum c || c == '_'))
 
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
@@ -490,6 +510,20 @@ partial def pblockoperand : P (SSAVal × MLIRTy) := do
   let ty <- (ptype ())
   return (operand, ty)
 
+
+-- | either a string, or a type. Can be others.
+partial def pattrvalue : P AttrVal := do
+ por (pmap AttrVal.str pstr) (pmap AttrVal.type (ptype ()))
+
+partial def pattr : P Attr := do
+  eat_whitespace
+  let name <- pident
+  eat_whitespace
+  pconsume '='
+  let value <- pattrvalue
+  return (Attr.mk name value)
+  
+
 partial def pop (u: Unit) : P Op := do 
   eat_whitespace
   match (<- ppeek) with 
@@ -500,7 +534,14 @@ partial def pop (u: Unit) : P Op := do
     let regions <- (if hasRegion 
                       then pintercalated '(' (pregion ()) ',' ')'
                       else pure [])
-     return (Op.mk  name args [] regions)
+    -- | parse attributes
+    let hasAttrs <- ppeek? '{'
+    let attrs <- (if hasAttrs
+              then  pintercalated '{' pattr ',' '}' 
+              else pure [])
+    pconsume ':'
+    let ty <- ptype u
+    return (Op.mk  name args [] regions ty)
   | some '%' => perror "found %, don't know how to parse ops yet"
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 
@@ -511,9 +552,6 @@ partial def popcall (u: Unit) : P BasicBlockStmt := do
      let val <- pssaval
      pconsume '='
      let op <- pop u
-     pconsume ':'
-     let ty <- (ptype u)
-     perror ("found type to be: " ++ (toString ty))
      return (BasicBlockStmt.StmtAssign val op)
    else do
      let op <- pop u
