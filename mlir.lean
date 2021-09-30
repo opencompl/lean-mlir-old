@@ -375,15 +375,6 @@ partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) :=
                   return (a :: as)
    | _ => perror "expected either ')' or a term to be parsed. Found EOF"
 
--- workaround: https://github.com/leanprover/lean4/issues/697
-constant pssaval : P SSAVal
-constant pregion : P Region
--- constant pstr : P String
-constant poperand : P SSAVal
-constant pop : P Op
-constant popbinding : P (SSAVal × Op)
-constant ppeekstar (l: Char) (p: P a) : P (List a)
-constant pblock : P BasicBlock
 
 partial def pstr : P String :=  do
    eat_whitespace
@@ -393,22 +384,31 @@ partial def pstr : P String :=  do
    return s
 
 
+-- | ppeekstar peeks for `l`.
+-- | (a) If it finds `l`, it returns `p` followed by `ppeekstar l`.
+-- |(ii) If it does not find `l`, it retrns []
+partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
+  let proceed <- ppeek? l
+  if proceed then do 
+        let a <- p
+        let as <- ppeekstar l p
+        return (a :: as)
+  else return []
+
 mutual
-
-partial def pssavalImpl : P SSAVal := perror "pssavalImpl"
-
+partial def pssaval : P SSAVal := perror "pssaval"
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
-partial def pregionImpl : P Region :=  do
-  let rs <- pdelimited '{' pblock '}'
+partial def pregion : P Region :=  do
+  let rs <- pdelimited '{' pbb '}'
   return (Region.mk rs)
 
 
 -- | parse <whitespace> "..."
    
-partial def poperandImpl : P SSAVal := perror "poperandImpl"
+partial def poperand : P SSAVal := perror "poperandImpl"
 
-partial def popImpl : P Op := do 
+partial def pop : P Op := do 
   eat_whitespace
   match (<- ppeek) with 
   | some '\"' => do
@@ -425,24 +425,13 @@ partial def popImpl : P Op := do
 
 
 
-partial def popbindingImpl : P (SSAVal × Op) := do
+partial def popbinding : P (SSAVal × Op) := do
    let val <- pssaval
    pconsume '='
    let op <- pop
    return (val, op)
    
 
-
--- | ppeekstar peeks for `l`.
--- | (a) If it finds `l`, it returns `p` followed by `ppeekstar l`.
--- |(ii) If it does not find `l`, it retrns []
-partial def ppeekstarImpl (l: Char) (p: P a) : P (List a) := do
-  let proceed <- ppeek? l
-  if proceed then do 
-        let a <- p
-        let as <- ppeekstar l p
-        return (a :: as)
-  else return []
 
 partial def pblockImpl : P BasicBlock := do
    pconsume '^'
@@ -453,55 +442,6 @@ partial def pblockImpl : P BasicBlock := do
    return (BasicBlock.mk name args ops)
 end  
 
-
-attribute [implementedBy pssavalImpl] pssaval
-attribute [implementedBy pregionImpl] pregion
--- attribute [implementedBy pstrImpl] pstr
-attribute [implementedBy poperandImpl] poperand
-attribute [implementedBy popImpl] pop
-attribute [implementedBy popbindingImpl] popbinding
-attribute [implementedBy ppeekstarImpl] ppeekstar
-attribute [implementedBy pblockImpl] pblock
-
-
--- https://mlir.llvm.org/docs/LangRef/
--- | either starts with "op_name" or %result = ...
--- partial def pOp : P Op := do
---   eat_whitespace
---   match (<- ppeek) with
---    | some '\"' => (Op.mk "QUOTE" [] [] [])
---    | some '%' => (Op.mk "PERCENT" [] [] [])
---    | some c => (Op.mk (toString c) [] [] [])
---    | _ => Op.mk ("ERROR") [] [] []
-
--- partial def pBB : P BasicBlock := do
---    pexact "^"
---    let name <- pident
---    pexact ":"
---    eat_whitespace
---    let ops <- pstarUntil pOp '^' 
---    return (BasicBlock.mk name [] ops)
-
--- partial def pRegion : P Region := do
---   pWhitespaceExact "{"
---   let bbs <- pstarUntil pBB '}'
---   return (Region.mk bbs)
-
-
--- partial def pfunc : P Op := do
---   pWhitespaceExact "func"
---   eat_whitespace
---   pexact "@"
---   let name <- pident
---   let body <- pRegion
---   return (Op.mk "func" [] [] [body])
-
--- partial def pmodule : P Op := do
---   let _ <- pWhitespaceExact "module"
---   pWhitespaceExact "{"
---   let fs <- pstarUntil pfunc '}'
---   -- pWhitespaceExact "}"
---   return (Op.mk "module" [] [] [Region.mk [BasicBlock.mk "entry" [] fs]])
 
 
 -- TOPLEVEL PARSER
