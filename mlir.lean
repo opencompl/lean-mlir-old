@@ -71,6 +71,11 @@ def layout80col (d: Doc) : String := layout d 0 80 0 false
 -- ==========
 
 mutual
+inductive MLIRTy : Type where
+| fn : MLIRTy -> MLIRTy -> MLIRTy
+| int : Int -> MLIRTy
+| tuple : List MLIRTy -> MLIRTy
+
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
 
@@ -429,6 +434,94 @@ partial def pblock (_: Unit) : P BasicBlock := do
    let ops <- ppeekstar '%' (pop ())
    return (BasicBlock.mk name args ops)
 end  
+
+-- EDSL
+-- ====
+
+declare_syntax_cat mlir_bb_line
+declare_syntax_cat mlir_op_results
+declare_syntax_cat mlir_op_call
+declare_syntax_cat mlir_op_call_args
+declare_syntax_cat mlir_op_call_type
+declare_syntax_cat mlir_op_operand
+declare_syntax_cat mlir_type
+
+
+syntax mlir_op_call : mlir_bb_line
+syntax mlir_op_results "=" mlir_op_call  : mlir_bb_line
+syntax strLit mlir_op_call_args ":" mlir_op_call_type : mlir_op_call -- no region
+
+
+syntax "(" ")" : mlir_op_call_args
+syntax "(" mlir_op_operand ")" : mlir_op_call_args
+syntax "(" mlir_op_operand "," mlir_op_operand","* ")" : mlir_op_call_args
+
+
+-- EDSL OPERANDS
+-- ==============
+
+syntax "%" ident : mlir_op_operand
+
+syntax "mlir_op_operand% " mlir_op_operand : term -- translate mlir_op_call into term
+macro_rules
+  | `(mlir_op_operand% % $x:ident) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
+
+def xx := (mlir_op_operand% %x)
+def xxx := (mlir_op_operand% %x)
+#print xx
+#print xxx
+
+
+-- EDSL OP CALL
+-- ============
+
+syntax "mlir_op_call_args% " mlir_op_call_args : term -- translate mlir_op_call into term
+macro_rules
+  | `(mlir_op_call_args% ( ) ) => `([])
+  | `(mlir_op_call_args% ( $x:mlir_op_operand ) ) => `([mlir_op_operand% $x])
+  | `(mlir_op_call_args% ( $x:mlir_op_operand, $y:mlir_op_operand ) ) => `([mlir_op_operand% $x, mlir_op_operand% $y])
+
+
+def call0 : List SSAVal := (mlir_op_call_args% ())
+def call1 : List SSAVal := (mlir_op_call_args% (%x))
+def call2 : List SSAVal := (mlir_op_call_args% (%x, %y))
+#print call0
+#print call1
+#print call2
+
+
+-- EDSL MLIR TYPES
+-- ===============
+
+syntax "(" ")" : mlir_type
+syntax "(" mlir_type ")" : mlir_type
+syntax "(" mlir_type "," mlir_type ")" : mlir_type
+syntax mlir_type "->" mlir_type : mlir_type
+syntax "i"numLit : mlir_type
+
+syntax "mlir_type%" mlir_type : term
+
+macro_rules
+  | `(mlir_type% ( ) ) => `(MLIRTy.tuple [])
+  | `(mlir_type% ( $x:mlir_type ) ) => `(MLIRTy.tuple [(mlir_type% $x)])
+  | `(mlir_type% ( $x:mlir_type, $y:mlir_type ) ) => `(MLIRTy.tuple [(mlir_type% $x), (mlir_type% $y)])
+  | `(mlir_type% i $x:numLit ) => `(MLIRTy.int $x)
+  | `(mlir_type% $dom:mlir_type -> $codom:mlir_type) => `(MLIRTy.fn (mlir_type% $dom) (mlir_type% $codom))
+
+def ty0 : MLIRTy := (mlir_type% ())
+def tyi32 : MLIRTy := (mlir_type% i 32) -- TODO: how to keep no gap?
+-- def tyi32' : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
+def tysingle : MLIRTy := (mlir_type% (i 42))
+def typair : MLIRTy := (mlir_type% (i 32, i 64))
+def tyfn0 : MLIRTy := (mlir_type% () -> ())
+def tyfn1 : MLIRTy := (mlir_type% (i 11) -> (i 12))
+def tyfn2 : MLIRTy := (mlir_type% (i 21, i 22) -> (i 23, i 24))
+#print ty0
+#print tyi32
+#print typair
+#print tyfn0
+#print tyfn1
+-- #print tyi32'
 
 
 
