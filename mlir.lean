@@ -247,6 +247,14 @@ def ppeek (c: Char) : P Bool := {
     else Result.ok  (loc, haystack, front haystack == c)
   }
 
+-- | TOO: convert to token based.
+def ppeekPred (pred: Char -> Bool) (default: Bool) : P Bool := { 
+  runP := λ loc haystack =>
+    if isEmpty haystack
+    then Result.ok (loc, haystack, default)
+    else Result.ok  (loc, haystack, pred (front haystack))
+  }
+
 
 partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
     if isEmpty s
@@ -303,11 +311,11 @@ def pident : P String := ptakeWhile (fun c => c != ' ' && c != '\t' && c != '\n'
 -- | consume as long as predicate is true
 partial def pstarUntilPredicate (p: P a) (continue?: Char -> Bool) : P (List a) := do
    eat_whitespace
-   let c <- ppeek
-   if continue? c
+   let take <- ppeekPred continue? false
+   if take
    then do 
        let a <- p
-       let as <- pstarUntil p d
+       let as <- pstarUntilPredicate p continue?
        return (a::as)
   else return []
 
@@ -324,8 +332,6 @@ partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
        let a <- p
        let as <- pstarUntil p d
        return (a::as)
-
-
 
 
 -- | pdelimited l p r is an l, followed by as many ps, followed by r
