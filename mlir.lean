@@ -9,6 +9,7 @@ import Init.Data.Repr
 import Init.Data.ToString.Basic
 
 
+-- https://mlir.llvm.org/docs/LangRef/
 -- /home/bollu/work/lean4/tests/lean/server
 -- import Lean.Data.Lsp
 -- open IO Lean Lsp
@@ -119,7 +120,7 @@ partial def op_to_doc (op: Op): Doc :=
 
 partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
-  | (BasicBlock.mk name args ops) => Doc.VGroup [Doc.Text (name ++ ": "), Doc.Nest (Doc.VGroup (ops.map op_to_doc))]
+  | (BasicBlock.mk name args ops) => Doc.VGroup [Doc.Text ("^" ++ name ++ ": "), Doc.Nest (Doc.VGroup (ops.map op_to_doc))]
 
 partial def rgn_to_doc(rgn: Region): Doc :=
   match rgn with
@@ -284,8 +285,10 @@ def padvance_char_INTERNAL (c: Char) : P Unit := {
 def pconsume(c: Char) : P Unit := do
   let cm <- ppeek
   match cm with 
-  | some c => padvance_char_INTERNAL c
-  | _ =>  perror ("expected character |" ++ toString c ++ "|. Found: |" ++ toString cm ++ "|." )
+  | some c' => 
+     if c == c' then padvance_char_INTERNAL c
+     else perror ("pconsume: expected character |" ++ toString c ++ "|. Found |" ++ toString c' ++ "|.")
+  | none =>  perror ("pconsume: expected character |" ++ toString c ++ "|. Found EOF")
 
 
 def ppeek?(c: Char) : P Bool := do
@@ -341,33 +344,37 @@ partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
   pstarUntil p r
 
 
--- parse an <r> or a <i> <p> <pintercalated_>
+-- parse an [ <r> | <i> <p> <pintercalated_> ]
 partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
   eat_whitespace
   match (<- ppeek) with
-   | some c => if c == r
-               then do pconsume r;return []
-               else if c == i
-               then do
-                 pconsume i
-                 eat_whitespace
-                 let a <- p
-                 let as <- pintercalated_ p i r
-                 return (a :: as)
-               else perror ("expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found|" ++ c.toString ++ "|.")
-   | _ =>  perror ("expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found EOF" )
+   | some c => perror ("intercalate: I see |" ++ c.toString ++ "|")
+               -- if c == r
+               -- then do pconsume r; return []
+               -- else if c == i
+               -- then do
+               --   pconsume i
+               --   eat_whitespace
+               --   let a <- p
+               --   let as <- pintercalated_ p i r
+               --   return (a :: as)
+               -- else perror ("intercalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found |" ++ c.toString ++ "|.")
+   | _ =>  perror ("intecalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found EOF" )
 
 
--- | parse things intercalated by character c upto character d
+-- | parse things starting with a <l>, followed by <p> intercalated by <i>, ending with <r>
 partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := do
+  eat_whitespace
   pconsume l
   match (<- ppeek) with
    | some c => if c == r
                then do pconsume r; return []
                else do
                   let a <- p
-                  let as <- pintercalated_ p i r 
-                  return (a :: as)
+                  pconsume r
+                  return [a]
+                  -- let as <- pintercalated_ p i r 
+                  -- return (a :: as)
    | _ => perror "expected either ')' or a term to be parsed. Found EOF"
 
 
@@ -397,8 +404,10 @@ partial def pssaval : P SSAVal := perror "pssaval"
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
 partial def pregion (u: Unit) : P Region :=  do
-  -- let rs <- pdelimited '{' (pblock ()) '}'
-  let b <- pblock u
+  pconsume '{'
+  let b <- pblock u --  pdelimited '{' (pblock ()) '}'
+  pconsume '}'
+  perror ("region has bb: |" ++ toString b ++ "|")
   return (Region.mk [b])
 
 
@@ -416,10 +425,8 @@ partial def pop (u: Unit) : P Op := do
     let args <- pintercalated '(' poperand ',' ')'
     let hasRegion <- ppeek? '('
     let regions <- (if hasRegion 
-                      then do
-                          let rgn <- pregion u
-                          return [rgn]
-                      else ppure [])
+                      then pintercalated '(' (pregion ()) ',' ')'
+                      else pure [])
      return (Op.mk  name args [] regions)
   | some '%' => perror "found %, don't know how to parse ops yet"
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
