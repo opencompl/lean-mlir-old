@@ -1,5 +1,6 @@
 import Init.Data.String
 import Init.Data.String.Basic
+import Init.Data.Char.Basic
 import Init.System.IO
 import Lean.Parser
 import Lean.Parser.Extra
@@ -16,6 +17,7 @@ import Init.Data.ToString.Basic
 
 
 open String
+open Char
 open Lean
 open Lean.Parser
 open IO
@@ -101,8 +103,12 @@ inductive Path : Type where
     -> Path
  | Path
 
+inductive BasicBlockStmt : Type where
+| StmtAssign : SSAVal -> Op -> BasicBlockStmt
+| StmtOp : Op -> BasicBlockStmt
+
 inductive BasicBlock: Type where
-| mk: (name: String) -> (args: List SSAVal) -> (ops: List Op) -> BasicBlock
+| mk: (name: String) -> (args: List (SSAVal × MLIRTy)) -> (ops: List BasicBlockStmt) -> BasicBlock
 
 
 
@@ -111,16 +117,36 @@ inductive Region: Type where
 end
 
 
+partial def mlirty_to_string (ty: MLIRTy): String :=
+  match ty with
+  | MLIRTy.int k => "i" ++ (toString k)
+  | MLIRTy.tuple ts => "(" ++ (intercalate "," (ts.map mlirty_to_string)) ++ ")"
+  | MLIRTy.fn dom codom => (mlirty_to_string dom) ++ "->" ++ (mlirty_to_string codom)
 
+instance : ToString MLIRTy := {
+ toString := mlirty_to_string
+}
+
+
+
+
+def ssaval_to_doc (val: SSAVal): Doc := 
+  match val with
+  | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
 
 mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
     | (Op.mk name args attrs rgns) => name ++ " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc) ++ ")")
 
+partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
+  match stmt with
+  | BasicBlockStmt.StmtAssign lhs rhs => (ssaval_to_doc lhs) ++ " = " ++ (op_to_doc rhs)
+  | BasicBlockStmt.StmtOp rhs => (op_to_doc rhs)
+
 partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
-  | (BasicBlock.mk name args ops) => Doc.VGroup [Doc.Text ("^" ++ name ++ ": "), Doc.Nest (Doc.VGroup (ops.map op_to_doc))]
+  | (BasicBlock.mk name args stmts) => Doc.VGroup [Doc.Text ("^" ++ name ++ ": "), Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))]
 
 partial def rgn_to_doc(rgn: Region): Doc :=
   match rgn with
@@ -211,6 +237,7 @@ instance : ToString ParseError := {
 }
 
 
+-- | TODO: enable notes, refactor type into Loc x String x [Note] x (Result ParseError a)
 structure P (a: Type) where 
    runP: Loc -> String -> Result ParseError (Loc × String × a)
 
@@ -244,6 +271,14 @@ def psuccess (v: a): P a := {
     runP := λ loc s  => 
       Result.ok (loc, s, v)
   }
+
+-- try p. if success, return value. if not, run q
+def por (p: P a) (q: P a) : P a :=  {
+  runP := λ loc s => 
+    match p.runP loc s with
+      | Result.ok a => Result.ok a 
+      | Result.err _ => q.runP loc s
+}
 
 
 -- | eat till '\n'
@@ -320,10 +355,12 @@ partial def ptakewhile (predicateWhile: Char -> Bool) : P String :=
 { runP := λ startloc haystack =>  takeWhile predicateWhile startloc startloc haystack ""
 }
 
+
+
 -- | take an identifier. TODO: ban symbols
 def pident : P String := do
   eat_whitespace 
-  ptakewhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':')
+  ptakewhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':' && isAlphanum c)
 
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
@@ -348,17 +385,17 @@ partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
 partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
   eat_whitespace
   match (<- ppeek) with
-   | some c => perror ("intercalate: I see |" ++ c.toString ++ "|")
-               -- if c == r
-               -- then do pconsume r; return []
-               -- else if c == i
-               -- then do
-               --   pconsume i
-               --   eat_whitespace
-               --   let a <- p
-               --   let as <- pintercalated_ p i r
-               --   return (a :: as)
-               -- else perror ("intercalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found |" ++ c.toString ++ "|.")
+   | some c => -- perror ("intercalate: I see |" ++ c.toString ++ "|")
+               if c == r
+               then do pconsume r; return []
+               else if c == i
+               then do
+                 pconsume i
+                 eat_whitespace
+                 let a <- p
+                 let as <- pintercalated_ p i r
+                 return (a :: as)
+               else perror ("intercalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found |" ++ c.toString ++ "|.")
    | _ =>  perror ("intecalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found EOF" )
 
 
@@ -371,10 +408,8 @@ partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) :=
                then do pconsume r; return []
                else do
                   let a <- p
-                  pconsume r
-                  return [a]
-                  -- let as <- pintercalated_ p i r 
-                  -- return (a :: as)
+                  let as <- pintercalated_ p i r 
+                  return (a :: as)
    | _ => perror "expected either ')' or a term to be parsed. Found EOF"
 
 
@@ -397,32 +432,70 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
         return (a :: as)
   else return []
 
+
+-- | parse <p>+ for a given <p>
+partial def pmany1 (p: P a) : P (List a) := do
+  let a1 <- p
+  let as <- por (pmany1 p) (psuccess [])
+  return (a1::as)
+
 mutual
 
-
-partial def pssaval : P SSAVal := perror "pssaval"
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
 partial def pregion (u: Unit) : P Region :=  do
   pconsume '{'
-  let b <- pblock u --  pdelimited '{' (pblock ()) '}'
+  -- HACK: entry block need not print block header. See: examples/region-with-no-args.mlir
+  let b <- if (<- ppeek? '^')
+           then pblock u 
+           else pentryblock_no_label u -- TODO: make this many
   pconsume '}'
-  perror ("region has bb: |" ++ toString b ++ "|")
   return (Region.mk [b])
 
 
-partial def poperand : P SSAVal := do
+partial def pssaval : P SSAVal := do
   eat_whitespace
   pconsume '%'
   let name <- pident
   return (SSAVal.SSAVal name)
+
+
+partial def ptype (u: Unit) : P MLIRTy := do
+  eat_whitespace
+  let dom <- (match (<- ppeek) with
+             | some '(' => do
+                let args <- pintercalated '(' (ptype u) ',' ')'
+                return MLIRTy.tuple args
+             | some 'i' => do
+                 pconsume 'i'
+                 let _ <- pident -- HACK: we should actually consume a number
+                 return MLIRTy.int 42
+             | other => do
+                perror ("uknown type starting with |" ++ toString other ++ "|."))
+  eat_whitespace
+  match (<- ppeek? '-')  with
+  | true => do
+        pconsume '-'
+        pconsume '>' -- consume arrow
+        let codom <- (ptype u)
+        return MLIRTy.fn dom codom
+  | false => do
+     return dom
+
+
+partial def pblockoperand : P (SSAVal × MLIRTy) := do
+  eat_whitespace
+  let operand <- pssaval
+  pconsume ':'
+  let ty <- (ptype ())
+  return (operand, ty)
 
 partial def pop (u: Unit) : P Op := do 
   eat_whitespace
   match (<- ppeek) with 
   | some '\"' => do
     let name <- pstr
-    let args <- pintercalated '(' poperand ',' ')'
+    let args <- pintercalated '(' pssaval ',' ')'
     let hasRegion <- ppeek? '('
     let regions <- (if hasRegion 
                       then pintercalated '(' (pregion ()) ',' ')'
@@ -432,18 +505,33 @@ partial def pop (u: Unit) : P Op := do
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 
 
-partial def popbinding (u: Unit) : P (SSAVal × Op) := do
-   let val <- pssaval
-   pconsume '='
-   let op <- pop u
-   return (val, op)
+partial def popcall (u: Unit) : P BasicBlockStmt := do
+   if (<- ppeek? '%')
+   then do 
+     let val <- pssaval
+     pconsume '='
+     let op <- pop u
+     pconsume ':'
+     let ty <- (ptype u)
+     perror ("found type to be: " ++ (toString ty))
+     return (BasicBlockStmt.StmtAssign val op)
+   else do
+     let op <- pop u
+     return (BasicBlockStmt.StmtOp op)
+
+-- | parse a sequence of ops, with no label
+partial def pentryblock_no_label (u: Unit) : P BasicBlock := do
+   let ops <- pmany1 (popcall u)
+   return (BasicBlock.mk "entry" [] ops)
+
+
    
 partial def pblock (u: Unit) : P BasicBlock := do
    pconsume '^'
-   let name <- pstr -- actually should be identifier?
-   let args <- pintercalated '(' poperand ',' ')'
+   let name <- pident
+   let args <- pintercalated '(' pblockoperand ',' ')'
    pconsume ':'
-   let ops <- ppeekstar '%' (pop u)
+   let ops <- pmany1 (popcall u)
    return (BasicBlock.mk name args ops)
 end  
 
