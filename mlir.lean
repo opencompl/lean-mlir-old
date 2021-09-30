@@ -184,17 +184,16 @@ instance : ToString Loc := {
 
 def locbegin : Loc := { line := 1, column := 1 }
 
--- | move a loc by a string.
-def advance (l: Loc) (s: String): Loc :=
-  if isEmpty s then l
-  else if front s == '\n'
-    then { line := l.line + 1, column := 1  }
-    else { line := l.line, column := l.column + 1}
  
 def advance1 (l: Loc) (c: Char): Loc :=
   if c == '\n'
     then { line := l.line + 1, column := 1  }
     else return { line := l.line, column := l.column + 1}
+
+-- | move a loc by a string.
+partial def advance (l: Loc) (s: String): Loc :=
+  if isEmpty s then l
+  else let c := s.front; advance (advance1 l c) (s.drop 1)
 
 structure ParseError where
   left : Loc
@@ -344,17 +343,19 @@ partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
 
 -- parse an <r> or a <i> <p> <pintercalated_>
 partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
+  eat_whitespace
   match (<- ppeek) with
    | some c => if c == r
                then do pconsume r;return []
                else if c == i
                then do
                  pconsume i
+                 eat_whitespace
                  let a <- p
                  let as <- pintercalated_ p i r
                  return (a :: as)
-               else perror ("expected |" ++ i.toString ++ "|, or |" ++ r.toString ++ "|, found|" ++ c.toString ++ "|.")
-   | _ =>  perror ("expected |" ++ i.toString ++ "|, or |" ++ r.toString ++ "|, found EOF" )
+               else perror ("expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found|" ++ c.toString ++ "|.")
+   | _ =>  perror ("expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found EOF" )
 
 
 -- | parse things intercalated by character c upto character d
@@ -395,15 +396,19 @@ mutual
 partial def pssaval : P SSAVal := perror "pssaval"
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
-partial def pregion (_: Unit) : P Region :=  do
+partial def pregion (u: Unit) : P Region :=  do
   -- let rs <- pdelimited '{' (pblock ()) '}'
-  let b <- pblock ()
+  let b <- pblock u
   return (Region.mk [b])
 
 
-partial def poperand : P SSAVal := perror "poperandImpl"
+partial def poperand : P SSAVal := do
+  eat_whitespace
+  pconsume '%'
+  let name <- pident
+  return (SSAVal.SSAVal name)
 
-partial def pop (_: Unit) : P Op := do 
+partial def pop (u: Unit) : P Op := do 
   eat_whitespace
   match (<- ppeek) with 
   | some '\"' => do
@@ -412,7 +417,7 @@ partial def pop (_: Unit) : P Op := do
     let hasRegion <- ppeek? '('
     let regions <- (if hasRegion 
                       then do
-                          let rgn <- pregion ()
+                          let rgn <- pregion u
                           return [rgn]
                       else ppure [])
      return (Op.mk  name args [] regions)
@@ -420,18 +425,18 @@ partial def pop (_: Unit) : P Op := do
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 
 
-partial def popbinding (_: Unit) : P (SSAVal × Op) := do
+partial def popbinding (u: Unit) : P (SSAVal × Op) := do
    let val <- pssaval
    pconsume '='
-   let op <- pop ()
+   let op <- pop u
    return (val, op)
    
-partial def pblock (_: Unit) : P BasicBlock := do
+partial def pblock (u: Unit) : P BasicBlock := do
    pconsume '^'
    let name <- pstr -- actually should be identifier?
    let args <- pintercalated '(' poperand ',' ')'
    pconsume ':'
-   let ops <- ppeekstar '%' (pop ())
+   let ops <- ppeekstar '%' (pop u)
    return (BasicBlock.mk name args ops)
 end  
 
