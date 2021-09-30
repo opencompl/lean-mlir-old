@@ -289,22 +289,11 @@ def ppeek?(c: Char) : P Bool := do
   return (cm == some c)
 
 
--- | TOO: convert to token based.
-def ppeekPred (pred: Char -> Bool) (default: Bool) : P Bool := do
- let cm <- ppeek
- match cm with
- | some c => return (pred c)
- | none => return default
-
-
-
 def eat_whitespace : P Unit := {
   runP := λ loc s =>
     let (l', s') := eat_whitespace_ loc s
     Result.ok (l', s', ())
   }
-
- 
 
 
 partial def takeWhile (predicate: Char -> Bool)
@@ -396,11 +385,13 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
   else return []
 
 mutual
+
+
 partial def pssaval : P SSAVal := perror "pssaval"
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
-partial def pregion : P Region :=  do
-  let rs <- pdelimited '{' pbb '}'
+partial def pregion (_: Unit) : P Region :=  do
+  let rs <- pdelimited '{' (pblock ()) '}'
   return (Region.mk rs)
 
 
@@ -408,7 +399,7 @@ partial def pregion : P Region :=  do
    
 partial def poperand : P SSAVal := perror "poperandImpl"
 
-partial def pop : P Op := do 
+partial def pop (_: Unit) : P Op := do 
   eat_whitespace
   match (<- ppeek) with 
   | some '\"' => do
@@ -416,29 +407,25 @@ partial def pop : P Op := do
     let args <- pintercalated '(' poperand ',' ')'
     let hasRegion <- ppeek? '('
     let regions <- (if hasRegion 
-                      then pdelimited '(' pregion ')' 
+                      then pdelimited '(' (pregion ()) ')' 
                       else ppure [])
      return (Op.mk  name args [] regions)
   | some '%' => perror "found %, don't know how to parse ops yet"
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 
 
-
-
-partial def popbinding : P (SSAVal × Op) := do
+partial def popbinding (_: Unit) : P (SSAVal × Op) := do
    let val <- pssaval
    pconsume '='
-   let op <- pop
+   let op <- pop ()
    return (val, op)
    
-
-
-partial def pblockImpl : P BasicBlock := do
+partial def pblock (_: Unit) : P BasicBlock := do
    pconsume '^'
    let name <- pstr -- actually should be identifier?
    let args <- pintercalated '(' poperand ',' ')'
    pconsume ':'
-   let ops <- ppeekstar '%' pop
+   let ops <- ppeekstar '%' (pop ())
    return (BasicBlock.mk name args ops)
 end  
 
@@ -455,7 +442,7 @@ def main (xs: List String): IO Unit := do
   IO.println "FILE\n====\n"
   IO.println contents
   IO.println "PARSING\n=======\n"
-  let res := pop.runP locbegin contents
+  let res := (pop ()).runP locbegin contents
   match res with
    | Result.ok (loc, str, op) => IO.println op
    | Result.err res => IO.println res
