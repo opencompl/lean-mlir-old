@@ -139,6 +139,8 @@ instance : ToString Region := {
 -- PARSER
 -- ==========
 
+
+
 inductive Result (e : Type) (a : Type) : Type where 
 | ok: a -> Result e a
 | err: e -> Result e a
@@ -225,13 +227,13 @@ instance : Monad P := {
 }
 
 
-def pfail : P a := { 
-    runP := λ loc _  => 
-      Result.err ({ left := loc, right := loc, kind := ErrKind.mk "pfail"})
-  }
+def perror (err: String) :  P a := {
+  runP := λ loc _ =>
+     Result.err ({ left := loc, right := loc, kind := ErrKind.mk err})
+}
 
 instance : Inhabited (P a) where
-   default := pfail
+   default := perror "INHABITED INSTANCE OF PARSER"
 
 def psuccess (v: a): P a := { 
     runP := λ loc s  => 
@@ -239,31 +241,62 @@ def psuccess (v: a): P a := {
   }
 
 
--- | never fails.
-def ppeek (c: Char) : P Bool := { 
-  runP := λ loc haystack =>
-    if isEmpty haystack
-    then Result.ok (loc, haystack, False)
-    else Result.ok  (loc, haystack, front haystack == c)
-  }
-
--- | TOO: convert to token based.
-def ppeekPred (pred: Char -> Bool) (default: Bool) : P Bool := { 
-  runP := λ loc haystack =>
-    if isEmpty haystack
-    then Result.ok (loc, haystack, default)
-    else Result.ok  (loc, haystack, pred (front haystack))
-  }
-
+-- | eat till '\n'
+partial def eat_line_ (l: Loc) (s: String): Loc × String :=
+  if isEmpty s then (l, s)
+  else let c := front s
+  if c == '\n'
+  then (l, s)
+  else return eat_line_ (advance1 l c) (s.drop 1)
 
 partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
     if isEmpty s
     then (l, s)
     else  
      let c:= front s
-     if c == ' ' || c == '\t'  || c == '\n'
-     then eat_whitespace_ (advance1 l c) (s.drop 1)
-     else (l, s)
+     if isPrefixOf "//" s
+     then 
+      let (l, s) := eat_line_ l s
+      eat_whitespace_ l s
+     else if c == ' ' || c == '\t'  || c == '\n'
+       then eat_whitespace_ (advance1 l c) (s.drop 1)
+       else (l, s)
+
+
+-- | never fails.
+def ppeek : P (Option Char) := { 
+  runP := λ loc haystack =>
+    if isEmpty haystack
+    then Result.ok (loc, haystack, none)
+    else do
+     let (loc, haystack) := eat_whitespace_ loc haystack
+     Result.ok (loc, haystack, some (front haystack))
+  }
+
+def padvance_char_INTERNAL (c: Char) : P Unit := {
+  runP := λ loc haystack => Result.ok (advance1 loc c, drop haystack 1, ())
+}
+
+def pconsume(c: Char) : P Unit := do
+  let cm <- ppeek
+  match cm with 
+  | some c => padvance_char_INTERNAL c
+  | _ =>  perror ("expected character |" ++ toString c ++ "|. Found: |" ++ toString cm ++ "|." )
+
+
+def ppeek?(c: Char) : P Bool := do
+  let cm <- ppeek
+  return (cm == some c)
+
+
+-- | TOO: convert to token based.
+def ppeekPred (pred: Char -> Bool) (default: Bool) : P Bool := do
+ let cm <- ppeek
+ match cm with
+ | some c => return (pred c)
+ | none => return default
+
+
 
 def eat_whitespace : P Unit := {
   runP := λ loc s =>
@@ -272,21 +305,7 @@ def eat_whitespace : P Unit := {
   }
 
  
--- | Exact match a string
-def pexact (s: String) : P Unit := { 
-  runP := λ loc haystack =>
-    if haystack.take (s.length) == s
-    then Result.ok (advance loc s, drop haystack (s.length), ())
-    else Result.err { left := loc, right := loc, kind := ErrKind.mk ("expected identifier |" ++ s ++ "|") }
-  }
 
-def pconsume (c: Char) : P Unit := pexact c.toString
-
-
--- | match preceded by whitespace.
-def pWhitespaceExact (s: String) : P Unit := do
-  eat_whitespace
-  pexact s
 
 partial def takeWhile (predicate: Char -> Bool)
    (startloc: Loc)
@@ -301,30 +320,19 @@ partial def takeWhile (predicate: Char -> Bool)
         then takeWhile predicate startloc (advance1 loc c) (s.drop 1) (out.push c)
         else Result.ok (loc, s, out)
 
-partial def ptakeWhile (predicateWhile: Char -> Bool) : P String :=
+partial def ptakewhile (predicateWhile: Char -> Bool) : P String :=
 { runP := λ startloc haystack =>  takeWhile predicateWhile startloc startloc haystack ""
 }
 
 -- | take an identifier. TODO: ban symbols
-def pident : P String := ptakeWhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':')
-
--- | consume as long as predicate is true
-partial def pstarUntilPredicate (p: P a) (continue?: Char -> Bool) : P (List a) := do
-   eat_whitespace
-   let take <- ppeekPred continue? false
-   if take
-   then do 
-       let a <- p
-       let as <- pstarUntilPredicate p continue?
-       return (a::as)
-  else return []
-
-
+def pident : P String := do
+  eat_whitespace 
+  ptakewhile (fun c => c != ' ' && c != '\t' && c != '\n' && c != ':')
 
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
    eat_whitespace
-   if (<- ppeek d)
+   if (<- ppeek? d)
    then do 
      pconsume d
      return []
@@ -334,30 +342,60 @@ partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
        return (a::as)
 
 
--- | pdelimited l p r is an l, followed by as many ps, followed by r
+-- | pdelimited l p r is an l, followed by as many ps, followed by r.
 partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
   pconsume l
   pstarUntil p r
 
 
+-- parse an <r> or a <i> <p> <pintercalated_>
+partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
+  match (<- ppeek) with
+   | some c => if c == r
+               then do pconsume r;return []
+               else if c == i
+               then do
+                 pconsume i
+                 let a <- p
+                 let as <- pintercalated_ p i r
+                 return (a :: as)
+               else perror ("expected |" ++ i.toString ++ "|, or |" ++ r.toString ++ "|, found|" ++ c.toString ++ "|.")
+   | _ =>  perror ("expected |" ++ i.toString ++ "|, or |" ++ r.toString ++ "|, found EOF" )
+
 
 -- | parse things intercalated by character c upto character d
-def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := pfail
-
+partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := do
+  pconsume l
+  match (<- ppeek) with
+   | some c => if c == r
+               then do pconsume r; return []
+               else do
+                  let a <- p
+                  let as <- pintercalated_ p i r 
+                  return (a :: as)
+   | _ => perror "expected either ')' or a term to be parsed. Found EOF"
 
 -- workaround: https://github.com/leanprover/lean4/issues/697
 constant pssaval : P SSAVal
 constant pregion : P Region
-constant pstr : P String
+-- constant pstr : P String
 constant poperand : P SSAVal
 constant pop : P Op
 constant popbinding : P (SSAVal × Op)
 constant ppeekstar (l: Char) (p: P a) : P (List a)
 constant pblock : P BasicBlock
 
+partial def pstr : P String :=  do
+   eat_whitespace
+   pconsume '"'
+   let s <- ptakewhile (fun c => c != '"')
+   pconsume '"'
+   return s
+
+
 mutual
 
-partial def pssavalImpl : P SSAVal := pfail
+partial def pssavalImpl : P SSAVal := perror "pssavalImpl"
 
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
@@ -366,19 +404,25 @@ partial def pregionImpl : P Region :=  do
   return (Region.mk rs)
 
 
--- | parse "..."
-partial def pstrImpl : P String := pfail
-partial def poperandImpl : P SSAVal := pfail
+-- | parse <whitespace> "..."
+   
+partial def poperandImpl : P SSAVal := perror "poperandImpl"
 
 partial def popImpl : P Op := do 
-  let name <- pstr
-  let args <- pintercalated '(' poperand ',' ')'
-  let hasRegion <- ppeek '('
-  let regions <- (if hasRegion 
-                   then do 
-                     pdelimited '(' pregion ')' 
-                   else ppure [])
-  return (Op.mk name args [] regions)
+  eat_whitespace
+  match (<- ppeek) with 
+  | some '\"' => do
+    let name <- pstr
+    let args <- pintercalated '(' poperand ',' ')'
+    let hasRegion <- ppeek? '('
+    let regions <- (if hasRegion 
+                      then pdelimited '(' pregion ')' 
+                      else ppure [])
+     return (Op.mk  name args [] regions)
+  | some '%' => perror "found %, don't know how to parse ops yet"
+  | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
+
+
 
 
 partial def popbindingImpl : P (SSAVal × Op) := do
@@ -393,7 +437,7 @@ partial def popbindingImpl : P (SSAVal × Op) := do
 -- | (a) If it finds `l`, it returns `p` followed by `ppeekstar l`.
 -- |(ii) If it does not find `l`, it retrns []
 partial def ppeekstarImpl (l: Char) (p: P a) : P (List a) := do
-  let proceed <- ppeek l
+  let proceed <- ppeek? l
   if proceed then do 
         let a <- p
         let as <- ppeekstar l p
@@ -412,7 +456,7 @@ end
 
 attribute [implementedBy pssavalImpl] pssaval
 attribute [implementedBy pregionImpl] pregion
-attribute [implementedBy pstrImpl] pstr
+-- attribute [implementedBy pstrImpl] pstr
 attribute [implementedBy poperandImpl] poperand
 attribute [implementedBy popImpl] pop
 attribute [implementedBy popbindingImpl] popbinding
@@ -421,39 +465,43 @@ attribute [implementedBy pblockImpl] pblock
 
 
 -- https://mlir.llvm.org/docs/LangRef/
-partial def pOp : P Op := do
-  eat_whitespace
-  pexact "return"
-  return (Op.mk "return" [] [] [])
+-- | either starts with "op_name" or %result = ...
+-- partial def pOp : P Op := do
+--   eat_whitespace
+--   match (<- ppeek) with
+--    | some '\"' => (Op.mk "QUOTE" [] [] [])
+--    | some '%' => (Op.mk "PERCENT" [] [] [])
+--    | some c => (Op.mk (toString c) [] [] [])
+--    | _ => Op.mk ("ERROR") [] [] []
 
-partial def pBB : P BasicBlock := do
-   pexact "^"
-   let name <- pident
-   pexact ":"
-   eat_whitespace
-   let ops <- pstarUntil pOp '^' 
-   return (BasicBlock.mk name [] [op])
+-- partial def pBB : P BasicBlock := do
+--    pexact "^"
+--    let name <- pident
+--    pexact ":"
+--    eat_whitespace
+--    let ops <- pstarUntil pOp '^' 
+--    return (BasicBlock.mk name [] ops)
 
-partial def pRegion : P Region := do
-  pWhitespaceExact "{"
-  let bbs <- pstarUntil pBB '}'
-  return (Region.mk bbs)
+-- partial def pRegion : P Region := do
+--   pWhitespaceExact "{"
+--   let bbs <- pstarUntil pBB '}'
+--   return (Region.mk bbs)
 
 
-partial def pfunc : P Op := do
-  pWhitespaceExact "func"
-  eat_whitespace
-  pexact "@"
-  let name <- pident
-  let body <- pRegion
-  return (Op.mk "func" [] [] [body])
+-- partial def pfunc : P Op := do
+--   pWhitespaceExact "func"
+--   eat_whitespace
+--   pexact "@"
+--   let name <- pident
+--   let body <- pRegion
+--   return (Op.mk "func" [] [] [body])
 
-partial def pmodule : P Op := do
-  let _ <- pWhitespaceExact "module"
-  pWhitespaceExact "{"
-  let fs <- pstarUntil pfunc '}'
-  -- pWhitespaceExact "}"
-  return (Op.mk "module" [] [] [Region.mk [BasicBlock.mk "entry" [] fs]])
+-- partial def pmodule : P Op := do
+--   let _ <- pWhitespaceExact "module"
+--   pWhitespaceExact "{"
+--   let fs <- pstarUntil pfunc '}'
+--   -- pWhitespaceExact "}"
+--   return (Op.mk "module" [] [] [Region.mk [BasicBlock.mk "entry" [] fs]])
 
 
 -- TOPLEVEL PARSER
@@ -467,7 +515,7 @@ def main (xs: List String): IO Unit := do
   IO.println "FILE\n====\n"
   IO.println contents
   IO.println "PARSING\n=======\n"
-  let res := pmodule.runP locbegin contents
+  let res := pop.runP locbegin contents
   match res with
    | Result.ok (loc, str, op) => IO.println op
    | Result.err res => IO.println res
