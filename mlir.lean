@@ -33,6 +33,26 @@ inductive Doc : Type where
   | VGroup : List Doc -> Doc
   | Text: String -> Doc
 
+
+class Pretty (a : Type) where
+  doc : a -> Doc
+
+open Pretty
+
+def vgroup [Pretty a] (as: List a): Doc :=
+  Doc.VGroup (as.map doc)
+
+def nest_vgroup [Pretty a] (as: List a): Doc :=
+  Doc.Nest (vgroup as)
+
+
+
+instance : Pretty Doc where
+  doc (d: Doc) := d
+
+instance : Pretty String where
+  doc := Doc.Text
+
 instance : Inhabited Doc where
   default := Doc.Text ""
 
@@ -44,6 +64,17 @@ instance : Append Doc where
   append := Doc.Concat
 
 def doc_concat (ds: List Doc): Doc := ds.foldl Doc.Concat (Doc.Text "") 
+
+partial def intercalate_doc_rec_ [Pretty d] (ds: List d) (i: Doc): Doc :=
+  match ds with
+  | [] => Doc.Text ""
+  | (d::ds) => i ++ (doc d) ++ intercalate_doc_rec_ ds i
+
+partial def  intercalate_doc [Pretty d] (ds: List d) (i: Doc): Doc :=
+ match ds with
+ | [] => Doc.Text ""
+ | [d] => doc d
+ | (d::ds) => (doc d) ++ intercalate_doc_rec_ ds i
 
 
 partial def layout 
@@ -69,6 +100,9 @@ partial def layout
 
 
 def layout80col (d: Doc) : String := layout d 0 80 0 false
+
+instance : Coe Doc String where
+   coe := layout80col
 
 -- EMBEDDING
 -- ==========
@@ -118,99 +152,104 @@ inductive BasicBlock: Type where
 
 
 
+
 inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
 end
 
 
-partial def mlirty_to_string (ty: MLIRTy): String :=
-  match ty with
-  | MLIRTy.int k => "i" ++ (toString k)
-  | MLIRTy.tuple ts => "(" ++ (intercalate ", " (ts.map mlirty_to_string)) ++ ")"
-  | MLIRTy.fn dom codom => (mlirty_to_string dom) ++ " -> " ++ (mlirty_to_string codom)
+partial instance :  Pretty MLIRTy where
+  doc (ty: MLIRTy) :=
+    let rec  go (ty: MLIRTy) :=  
+    match ty with
+    | MLIRTy.int k => "i" ++ (toString k)
+    | MLIRTy.tuple ts => "(" ++ (intercalate_doc (ts.map go) (doc ", ") ) ++ ")"
+    | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
+    go ty
 
-instance : ToString MLIRTy := {
- toString := mlirty_to_string
-}
 
 
-instance : ToString AttrVal := {
- toString := fun v => match v with
+instance : Pretty AttrVal where
+ doc (v: AttrVal) := 
+   match v with
    | AttrVal.str str => (toString '"') ++ str ++ (toString '"')
-   | AttrVal.type ty => toString ty
-}
-
-instance : ToString Attr := {
- toString := fun attr => match attr with
-   | Attr.mk k v => k ++ " = " ++ (toString v)
-}
+   | AttrVal.type ty => doc ty
 
 
-
-def ssaval_to_doc (val: SSAVal): Doc := 
-  match val with
-  | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
-
-partial def intercalate_doc_rec_ (ds: List d) (f: d -> Doc) (i: Doc): Doc :=
-  match ds with
-  | [] => Doc.Text ""
-  | (d::ds) => i ++ f d ++ intercalate_doc_rec_ ds f i
-
-partial def intercalate_doc (ds: List d) (f: d -> Doc) (i: Doc): Doc :=
- match ds with
- | [] => Doc.Text ""
- | [d] => f d
- | (d::ds) => (f d) ++ intercalate_doc_rec_ ds f i
+instance : Pretty Attr where
+  doc (attr: Attr) := 
+    match attr with
+    | Attr.mk k v => k ++ " = " ++ (doc v)
 
 
+
+
+
+instance : Pretty SSAVal where
+   doc (val: SSAVal) := 
+     match val with
+     | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
+
+
+
+-- | TODO: add a typeclass `Pretty` for things that can be converted to `Doc`.
 mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
     | (Op.mk name args attrs rgns ty) => 
         let doc_name := (toString '"') ++ name ++ (toString '"')
-        let doc_rgns := if List.isEmpty rgns then Doc.Text "" else " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc)) ++ ")"
-        let doc_ty := toString ty
-        let doc_args := "(" ++ intercalate_doc args ssaval_to_doc ", " ++ ")"
+        let doc_rgns := 
+            if List.isEmpty rgns
+            then Doc.Text ""
+            else " (" ++ nest_vgroup (rgns.map rgn_to_doc) ++ ")"
+        let doc_args := "(" ++ intercalate_doc args ", " ++ ")"
         let doc_attrs :=
           if List.isEmpty attrs
           then Doc.Text ""
-          else "{" ++ intercalate_doc attrs (fun attr => Doc.Text (toString attr)) ", " ++ "}"
-        doc_name ++ doc_args ++  doc_rgns ++ doc_attrs ++ " : " ++ doc_ty
+          else "{" ++ intercalate_doc attrs  ", " ++ "}"
+        doc_name ++ doc_args ++  doc_rgns ++ doc_attrs ++ " : " ++ doc ty
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
-  | BasicBlockStmt.StmtAssign lhs rhs => (ssaval_to_doc lhs) ++ " = " ++ (op_to_doc rhs)
+  | BasicBlockStmt.StmtAssign lhs rhs => (doc lhs) ++ " = " ++ (op_to_doc rhs)
   | BasicBlockStmt.StmtOp rhs => (op_to_doc rhs)
 
 partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
   | (BasicBlock.mk name args stmts) => 
-     let bbargs := if args.isEmpty then Doc.Text ""
-                   else "(" ++ 
-                         intercalate_doc args (fun (ssaval, ty) => ssaval_to_doc ssaval ++ ":" ++ mlirty_to_string ty) ", " ++ 
-                         ")"
+     let doc_arg (arg: SSAVal × MLIRTy) := 
+        match arg with
+        | (ssaval, ty) => doc ssaval ++ ":" ++ doc ty
+     let bbargs := 
+        if args.isEmpty then Doc.Text ""
+        else "(" ++ 
+             (intercalate_doc (args.map doc_arg) ", ") ++ 
+             ")"
      let bbname := "^" ++ name ++ bbargs ++ ":"
      let bbbody := Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))
      Doc.VGroup [bbname, bbbody]
 
 partial def rgn_to_doc(rgn: Region): Doc :=
   match rgn with
-  | (Region.mk bbs) => "{" ++ Doc.VGroup [Doc.Nest (Doc.VGroup (bbs.map bb_to_doc)), "}"]
+  | (Region.mk bbs) => "{" ++ Doc.VGroup [nest_vgroup (bbs.map bb_to_doc), "}"]
  
 end
 
-instance : ToString Op := {
-  toString := fun op =>  layout80col (op_to_doc op)
-}
+instance : Pretty Op where
+  doc := op_to_doc
 
+instance : Pretty BasicBlockStmt where
+  doc := bb_stmt_to_doc
 
-instance : ToString BasicBlock := {
-  toString := fun bb => layout80col (bb_to_doc bb)
-}
+instance : Pretty BasicBlock where
+  doc := bb_to_doc
 
-instance : ToString Region := {
-  toString := fun rgn => layout80col (rgn_to_doc rgn)
-}
+instance : Pretty Region where
+  doc := rgn_to_doc
+
+instance [Pretty a] : ToString a where
+  toString (v: a) := layout80col (doc v)
+
 
 
 -- PARSER
@@ -512,11 +551,15 @@ mutual
 partial def pregion (u: Unit) : P Region :=  do
   pconsume '{'
   -- HACK: entry block need not print block header. See: examples/region-with-no-args.mlir
-  let b <- if (<- ppeek? '^')
+  let b <- (if (<- ppeek? '^')
            then pblock u 
-           else pentryblock_no_label u -- TODO: make this many
+           else pentryblock_no_label u)
+
+  let bs <- (if (<- ppeek? '^')
+            then pmany1 (pblock u)
+            else ppure [])
   pconsume '}'
-  return (Region.mk [b])
+  return (Region.mk (b::bs))
 
 
 partial def pssaval : P SSAVal := do
@@ -593,6 +636,7 @@ partial def pop (u: Unit) : P Op := do
 
 
 partial def popcall (u: Unit) : P BasicBlockStmt := do
+   eat_whitespace
    if (<- ppeek? '%')
    then do 
      let val <- pssaval
@@ -616,6 +660,7 @@ partial def pblock (u: Unit) : P BasicBlock := do
    let args <- pintercalated '(' pblockoperand ',' ')'
    pconsume ':'
    let ops <- pmany1 (popcall u)
+   perror $ "ops: " ++ List.toString ops
    return (BasicBlock.mk name args ops)
 end  
 
@@ -989,11 +1034,11 @@ def main (xs: List String): IO Unit := do
   let contents ← FS.readFile path;
   IO.println "FILE\n====\n"
   IO.println contents
+  IO.println "\nEDSL TESTING\n============\n"
+  IO.println opRgnAttr0
   IO.println "PARSING\n=======\n"
   let res := (pop ()).runP locbegin contents
   match res with
    | Result.ok (loc, str, op) => IO.println op
    | Result.err res => IO.println res
-  IO.println "\nEDSL TESTING\n============\n"
-  IO.println opRgnAttr0
   return ()
