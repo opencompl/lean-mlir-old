@@ -309,7 +309,7 @@ partial def advance (l: Loc) (s: String): Loc :=
 structure ParseError where
   left : Loc
   right : Loc
-  kind : ErrKind
+  kind : Doc
 
 
 instance : Inhabited ParseError where
@@ -354,9 +354,9 @@ instance : Monad P := {
 }
 
 
-def perror (err: String) :  P a := {
+def perror [Pretty e] (err: e) :  P a := {
   runP := λ loc s =>
-     (loc, s, Result.err ({ left := loc, right := loc, kind := ErrKind.mk err}))
+     (loc, s, Result.err ({ left := loc, right := loc, kind := doc err}))
 }
 
 instance : Inhabited (P a) where
@@ -445,7 +445,9 @@ partial def takeWhile (predicate: Char -> Bool)
    (s: String)
    (out: String):  (Loc × String × Result ParseError String) :=
       if isEmpty s 
-      then (loc, s, Result.err {left := startloc, right := loc, kind := ErrKind.mk ("expected delimiter but ran out of string")})
+      then (loc, s, Result.err {left := startloc, 
+                                right := loc,
+                                kind := "expected delimiter but ran out of string"})
       else 
         let c := front s;
         if predicate c
