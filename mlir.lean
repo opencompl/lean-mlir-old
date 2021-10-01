@@ -852,6 +852,32 @@ def rgn2 : Region :=
   })
 #print rgn2
 
+-- MLIR OPS WITH REGIONS
+-- =====================
+
+-- Now that we have regions, can extend the grammar to allow ops with regions :D
+
+syntax strLit mlir_op_call_args "(" mlir_region,* ")" ":" mlir_type : mlir_op_call
+
+macro_rules 
+  | `(mlir_op_call% $name:strLit $args:mlir_op_call_args ( $rgns,* ) : $ty:mlir_type ) => do
+        let initList <- `([])
+        let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
+        `(Op.mk $name -- name
+                (mlir_op_call_args% $args) -- args
+                [] -- attrs
+                $rgnsList -- regions
+                (mlir_type% $ty)) -- type
+
+def oprgn0 : Op := (mlir_op_call%
+ "func"() ( {
+  ^bb0(%arg0: i 32, %arg1: i 32):
+    %x = "std.addi"(%arg0, %arg1) : (i 32, i 32) -> i 32
+    "std.return"(%x) : (i 32) -> ()
+  }) : () -> ()
+)
+#print oprgn0
+
 -- MLIR ATTRIBUTE VALUE
 -- ====================
 
@@ -892,28 +918,63 @@ def attr0Str : Attr := (mlir_attr% sym_name = "add")
 def attr1Type : Attr := (mlir_attr% type = (i 32, i 32) -> i 32)
 #print attr1Type
 
-
--- MLIR OPS WITH REGIONS
+-- MLIR OPS WITH ATTRIBUTES
 -- =====================
 
--- Now that we have regions, can extend the grammar to allow ops with regions :D
+-- Now that we have attributes, can extend the grammar to allow ops with regions :D
 
-syntax strLit mlir_op_call_args "(" mlir_region,* ")" ":" mlir_type : mlir_op_call
+syntax strLit mlir_op_call_args "{" sepBy(mlir_attr, ",") "}" ":" mlir_type : mlir_op_call
 
 macro_rules 
-  | `(mlir_op_call% $name:strLit $args:mlir_op_call_args ( $rgns,* ) : $ty:mlir_type ) => do
+  | `(mlir_op_call% $name:strLit $args:mlir_op_call_args { $attrs,* } : $ty:mlir_type ) => do
         let initList <- `([])
-        let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
+        let attrsList <- attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
         `(Op.mk $name -- name
                 (mlir_op_call_args% $args) -- args
-                [] -- attrs
+                $attrsList -- attrs
                 [] -- regions
                 (mlir_type% $ty)) -- type
 
+def opattr0 : Op := (mlir_op_call%
+ "foo"() { sym_name = "add", type = (i 32, i 32) -> i 32 } : () -> ()
+)
+#print opattr0
 
 
--- MLIR EDSL: FULL STACK EXAMPLE
--- =============================
+
+-- MLIR OPS WITH REGIONS AND ATTRIBUTES
+-- ====================================
+
+
+syntax strLit mlir_op_call_args "(" mlir_region,* ")"  "{" mlir_attr,* "}" ":" mlir_type : mlir_op_call
+
+macro_rules 
+  | `(mlir_op_call% $name:strLit $args:mlir_op_call_args ( $rgns,* ) { $attrs,* } : $ty:mlir_type ) => do
+        let initList <- `([])
+        let attrsList <- attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
+        let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
+        `(Op.mk $name -- name
+                (mlir_op_call_args% $args) -- args
+                $attrsList -- attrs
+                $rgnsList -- regions
+                (mlir_type% $ty)) -- type
+
+-- | note that this is a "full stack" example!
+def opRgnAttr0 : Op := (mlir_op_call%
+ "module"() (
+ {
+  ^entry:
+   "func"() (
+    {
+     ^bb0(%arg0:i 32, %arg1:i 32):
+      %zero = "std.addi"(%arg0 , %arg1) : (i 32, i 32) -> i 32
+      "std.return"(%zero) : (i 32) -> ()
+    }){sym_name = "add", type = (i 32, i 32) -> i 32} : () -> ()
+   "module_terminator"() : () -> ()
+ }) : () -> ()
+)
+#print opRgnAttr0
+
 
 
 
@@ -933,4 +994,6 @@ def main (xs: List String): IO Unit := do
   match res with
    | Result.ok (loc, str, op) => IO.println op
    | Result.err res => IO.println res
+  IO.println "\nEDSL TESTING\n============\n"
+  IO.println opRgnAttr0
   return ()
