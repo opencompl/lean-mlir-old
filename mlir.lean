@@ -126,8 +126,8 @@ end
 partial def mlirty_to_string (ty: MLIRTy): String :=
   match ty with
   | MLIRTy.int k => "i" ++ (toString k)
-  | MLIRTy.tuple ts => "(" ++ (intercalate "," (ts.map mlirty_to_string)) ++ ")"
-  | MLIRTy.fn dom codom => (mlirty_to_string dom) ++ "->" ++ (mlirty_to_string codom)
+  | MLIRTy.tuple ts => "(" ++ (intercalate ", " (ts.map mlirty_to_string)) ++ ")"
+  | MLIRTy.fn dom codom => (mlirty_to_string dom) ++ " -> " ++ (mlirty_to_string codom)
 
 instance : ToString MLIRTy := {
  toString := mlirty_to_string
@@ -140,10 +140,26 @@ def ssaval_to_doc (val: SSAVal): Doc :=
   match val with
   | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
 
+partial def intercalate_doc_rec_ (ds: List d) (f: d -> Doc) (i: Doc): Doc :=
+  match ds with
+  | [] => Doc.Text ""
+  | (d::ds) => i ++ f d ++ intercalate_doc_rec_ ds f i
+
+partial def intercalate_doc (ds: List d) (f: d -> Doc) (i: Doc): Doc :=
+ match ds with
+ | [] => Doc.Text ""
+ | [d] => f d
+ | (d::ds) => (f d) ++ intercalate_doc_rec_ ds f i
+
+
 mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
-    | (Op.mk name args attrs rgns ty) => name ++ " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc) ++ ")" ++ Doc.Text (":" ++ (toString ty)))
+    | (Op.mk name args attrs rgns ty) => 
+        let doc_rgns := if List.isEmpty rgns then Doc.Text "" else " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc)) ++ ")"
+        let doc_ty := toString ty
+        let doc_args := "(" ++ intercalate_doc args ssaval_to_doc ", " ++ ")"
+        name ++ doc_args ++  doc_rgns ++ " : " ++ doc_ty
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
@@ -152,11 +168,15 @@ partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
 
 partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
-  | (BasicBlock.mk name args stmts) => Doc.VGroup [Doc.Text ("^" ++ name ++ ": "), Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))]
+  | (BasicBlock.mk name args stmts) => 
+     let bbargs := intercalate_doc args (fun (ssaval, ty) => ssaval_to_doc ssaval ++ ":" ++ mlirty_to_string ty) ", "
+     let bbname := "^" ++ name ++ "(" ++ bbargs ++ ")"
+     let bbbody := Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))
+     Doc.VGroup [bbname, bbbody]
 
 partial def rgn_to_doc(rgn: Region): Doc :=
   match rgn with
-  | (Region.mk bbs) => Doc.VGroup ["{", Doc.Nest (Doc.VGroup (bbs.map bb_to_doc)), "}"]
+  | (Region.mk bbs) => "{" ++ Doc.VGroup [Doc.Nest (Doc.VGroup (bbs.map bb_to_doc)), "}"]
  
 end
 
