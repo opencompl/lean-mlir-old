@@ -623,6 +623,7 @@ end
 -- ====
 
 declare_syntax_cat mlir_bb
+declare_syntax_cat mlir_region
 declare_syntax_cat mlir_bb_stmt
 declare_syntax_cat mlir_op_results
 declare_syntax_cat mlir_op_call
@@ -816,6 +817,41 @@ def bb3MultipleArgs : BasicBlock :=
 
   )
 #print bb3MultipleArgs
+
+
+-- EDSL MLIR REGIONS
+-- =================
+
+syntax "{" (ws mlir_bb ws)* "}": mlir_region
+syntax "mlir_region% " mlir_region : term
+
+
+macro_rules
+| `(mlir_region% { $[ $bbs ]* }) => do
+   let initList <- `([])
+   let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb% $x])
+   `(Region.mk $bbsList)
+
+def rgn0 : Region := (mlir_region%  { })
+#print rgn0
+
+def rgn1 : Region := 
+  (mlir_region%  { 
+    ^entry:
+      "std.return"(%x0) : (i 42) -> ()
+  })
+#print rgn1
+
+def rgn2 : Region := 
+  (mlir_region%  { 
+    ^entry:
+      "std.return"(%x0) : (i 42) -> ()
+
+    ^loop:
+      "std.return"(%x1) : (i 42) -> ()
+  })
+#print rgn2
+
 
 
 
