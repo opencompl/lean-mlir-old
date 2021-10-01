@@ -134,6 +134,17 @@ instance : ToString MLIRTy := {
 }
 
 
+instance : ToString AttrVal := {
+ toString := fun v => match v with
+   | AttrVal.str str => (toString '"') ++ str ++ (toString '"')
+   | AttrVal.type ty => toString ty
+}
+
+instance : ToString Attr := {
+ toString := fun attr => match attr with
+   | Attr.mk k v => k ++ " = " ++ (toString v)
+}
+
 
 
 def ssaval_to_doc (val: SSAVal): Doc := 
@@ -160,7 +171,11 @@ partial def op_to_doc (op: Op): Doc :=
         let doc_rgns := if List.isEmpty rgns then Doc.Text "" else " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc)) ++ ")"
         let doc_ty := toString ty
         let doc_args := "(" ++ intercalate_doc args ssaval_to_doc ", " ++ ")"
-        doc_name ++ doc_args ++  doc_rgns ++ " : " ++ doc_ty
+        let doc_attrs :=
+          if List.isEmpty attrs
+          then Doc.Text ""
+          else "{" ++ intercalate_doc attrs (fun attr => Doc.Text (toString attr)) ", " ++ "}"
+        doc_name ++ doc_args ++  doc_rgns ++ doc_attrs ++ " : " ++ doc_ty
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
@@ -171,7 +186,9 @@ partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
   | (BasicBlock.mk name args stmts) => 
      let bbargs := if args.isEmpty then Doc.Text ""
-                   else "(" ++ intercalate_doc args (fun (ssaval, ty) => ssaval_to_doc ssaval ++ ":" ++ mlirty_to_string ty) ", " ++ ")"
+                   else "(" ++ 
+                         intercalate_doc args (fun (ssaval, ty) => ssaval_to_doc ssaval ++ ":" ++ mlirty_to_string ty) ", " ++ 
+                         ")"
      let bbname := "^" ++ name ++ bbargs ++ ":"
      let bbbody := Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))
      Doc.VGroup [bbname, bbbody]
@@ -563,7 +580,7 @@ partial def pop (u: Unit) : P Op := do
               else pure [])
     pconsume ':'
     let ty <- ptype u
-    return (Op.mk  name args [] regions ty)
+    return (Op.mk  name args attrs regions ty)
   | some '%' => perror "found %, don't know how to parse ops yet"
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 

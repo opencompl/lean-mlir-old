@@ -5,11 +5,11 @@
 //   }
 // }
 
-"builtin.module"() ( {
-  "builtin.func"() ( {
+"module"() ( {
+  "func"() ( {
   ^bb0(%arg0: i32, %arg1: i32):  // no predecessors
     %0 = "std.addi"(%arg0, %arg1) : (i32, i32) -> i32
     "std.return"(%0) : (i32) -> ()
   }) {sym_name = "add", type = (i32, i32) -> i32} : () -> ()
+  "module_terminator"() : () -> ()
 }) : () -> ()
-
