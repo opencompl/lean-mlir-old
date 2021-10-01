@@ -421,6 +421,13 @@ def pident : P String := do
   eat_whitespace 
   ptakewhile (fun c => (c != ' ' && c != '\t' && c != '\n') && (isAlphanum c || c == '_'))
 
+
+def pnumber : P Int := do
+  let name <- pident
+  match name.toInt? with
+   | some num => return num
+   | none => perror $ "expected number, found |" ++ name ++ "|."
+
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
    eat_whitespace
@@ -527,8 +534,8 @@ partial def ptype (u: Unit) : P MLIRTy := do
                 return MLIRTy.tuple args
              | some 'i' => do
                  pconsume 'i'
-                 let _ <- pident -- HACK: we should actually consume a number
-                 return MLIRTy.int 42
+                 let num <- pnumber -- HACK: we should actually consume a number
+                 return MLIRTy.int num
              | other => do
                 perror ("uknown type starting with |" ++ toString other ++ "|."))
   eat_whitespace
@@ -754,6 +761,8 @@ macro_rules
 | `(mlir_bb_operand% $name:mlir_op_operand : $ty:mlir_type ) => 
      `( (mlir_op_operand% $name, mlir_type% $ty) ) 
 
+def bbop1 : SSAVal × MLIRTy := mlir_bb_operand% %x : i 32
+#print bbop1
 
 
 
@@ -762,6 +771,7 @@ macro_rules
 
 
 syntax "^" ident ":" (ws mlir_bb_stmt ws)* : mlir_bb
+syntax "^" ident "(" mlir_bb_operand,+ ")" ":" (ws mlir_bb_stmt ws)* : mlir_bb
 
 syntax "mlir_bb%" mlir_bb : term
 
