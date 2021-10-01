@@ -747,6 +747,23 @@ def bbstmt2: BasicBlockStmt := (mlir_bb_stmt% %z = "foo"(%x, %y) : (i 32, i 32) 
 -- ======================
 
 
+syntax (ws mlir_bb_stmt ws)* : mlir_bb
+
+syntax "mlir_bb%" mlir_bb : term
+
+macro_rules 
+| `(mlir_bb% $[ $ops ]* ) => do
+   let initList <- `([])
+   ops.foldlM (init := initList) fun xs kv => `((mlir_bb_stmt% $kv) :: $xs )
+
+def bb1 : List BasicBlockStmt := 
+  (mlir_bb%
+     "foo"(%x, %y) : (i 32, i 32) -> i 32
+      %z = "bar"(%x) : (i 32) -> (i 32)
+  )
+#print bb1
+
+
 
 -- TOPLEVEL PARSER
 -- ==============
