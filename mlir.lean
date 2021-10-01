@@ -70,8 +70,7 @@ partial def intercalate_doc_rec_ [Pretty d] (ds: List d) (i: Doc): Doc :=
   | [] => Doc.Text ""
   | (d::ds) => i ++ (doc d) ++ intercalate_doc_rec_ ds i
 
-partial def  intercalate_doc [Pretty d] (ds: List d) (i: Doc): Doc :=
- match ds with
+partial def  intercalate_doc [Pretty d] (ds: List d) (i: Doc): Doc := match ds with
  | [] => Doc.Text ""
  | [d] => doc d
  | (d::ds) => (doc d) ++ intercalate_doc_rec_ ds i
@@ -118,6 +117,7 @@ inductive SSAVal : Type where
 
 inductive AttrVal : Type where
 | str : String -> AttrVal
+| int : Int -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
 
 inductive Attr : Type where
@@ -174,6 +174,7 @@ instance : Pretty AttrVal where
    match v with
    | AttrVal.str str => (toString '"') ++ str ++ (toString '"')
    | AttrVal.type ty => doc ty
+   | AttrVal.int i ty => toString i ++ " : " ++ doc ty
 
 
 instance : Pretty Attr where
@@ -282,21 +283,22 @@ instance : Inhabited ErrKind where
 structure Loc where
   line : Int
   column : Int
+  ix : Int
 
 instance : Inhabited Loc where
-   default := { line := 1, column := 1 }
+   default := { line := 1, column := 1, ix := 0 }
 
 instance : Pretty Loc where
    doc (loc: Loc) := toString loc.line ++ ":" ++ toString loc.column
 
 
-def locbegin : Loc := { line := 1, column := 1 }
+def locbegin : Loc := { line := 1, column := 1, ix := 0 }
 
  
 def advance1 (l: Loc) (c: Char): Loc :=
   if c == '\n'
-    then { line := l.line + 1, column := 1  }
-    else return { line := l.line, column := l.column + 1}
+    then { line := l.line + 1, column := 1, ix := l.ix + 1  }
+    else return { line := l.line, column := l.column + 1, ix := l.ix + 1}
 
 -- | move a loc by a string.
 partial def advance (l: Loc) (s: String): Loc :=
@@ -322,26 +324,26 @@ instance : Pretty Note where
 
 -- | TODO: enable notes, refactor type into Loc x String x [Note] x (Result ParseError a)
 structure P (a: Type) where 
-   runP: Loc -> String ->  (Loc × String × Result Note a)
+   runP: Loc -> List Note -> String ->  (Loc × (List Note) × String × (Result Note a))
 
 
 
 -- | map for parsers
 def pmap (f : a -> b) (pa: P a): P b := {
-  runP :=  λ loc s => 
-    match pa.runP loc s with
-      | (l', s', Result.ok a) => (l', s', Result.ok (f a))
-      | (l', s', Result.err e) => (l', s', Result.err e)
+  runP :=  λ loc ns s => 
+    match pa.runP loc ns s with
+      | (l, ns, s, Result.ok a) => (l, ns,  s, Result.ok (f a))
+      | (l, ns, s, Result.err e) => (l, ns, s, Result.err e)
 }
 
 
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
-def ppure {a: Type} (v: a): P a := { runP :=  λ loc s =>  (loc, s, Result.ok v) }
+def ppure {a: Type} (v: a): P a := { runP :=  λ loc ns s =>  (loc, ns, s, Result.ok v) }
 
 def pbind {a b: Type} (pa: P a) (a2pb : a -> P b): P b := 
-   { runP := λloc s => match pa.runP loc s with 
-            | (l, s', Result.ok a) => (a2pb a).runP l  s'
-            | (l, s', Result.err e) => (l, s', Result.err e)
+   { runP := λloc ns s => match pa.runP loc ns s with 
+            | (l, ns, s, Result.ok a) => (a2pb a).runP l ns  s
+            | (l, ns, s, Result.err e) => (l, ns, s, Result.err e)
    }
 
 instance : Monad P := {
@@ -350,25 +352,41 @@ instance : Monad P := {
 }
 
 
+def pnote [Pretty α] (a: α): P Unit := {
+  runP := λ loc ns s => 
+    let n := { left := loc, right := loc, kind := doc a }
+    (loc, ns ++ [n], s, Result.ok ())
+}
+
 def perror [Pretty e] (err: e) :  P a := {
-  runP := λ loc s =>
-     (loc, s, Result.err ({ left := loc, right := loc, kind := doc err}))
+  runP := λ loc ns s =>
+     (loc, ns, s, Result.err ({ left := loc, right := loc, kind := doc err}))
 }
 
 instance : Inhabited (P a) where
    default := perror "INHABITED INSTANCE OF PARSER"
 
 def psuccess (v: a): P a := { 
-    runP := λ loc s  => 
-      (loc, s, Result.ok v)
+    runP := λ loc ns s  => 
+      (loc, ns, s, Result.ok v)
   }
 
+
+def pmay (p: P a): P (Option a) := { 
+    runP := λ loc ns s  => 
+      match p.runP loc ns s with
+        |  (loc, ns, s, Result.ok v) => (loc, ns, s, Result.ok (Option.some v))
+        | (loc, ns, s, Result.err e) => (loc, ns, s, Result.ok Option.none)
+  }
+
+
 -- try p. if success, return value. if not, run q
+-- TODO: think about what to do about notes from p in por.
 def por (p: P a) (q: P a) : P a :=  {
-  runP := λ loc s => 
-    match p.runP loc s with
-      | (loc', s', Result.ok a) => (loc', s', Result.ok a)
-      | (loc', s', Result.err e) => q.runP loc s
+  runP := λ loc ns s => 
+    match p.runP loc ns s with
+      | (loc', ns', s', Result.ok a) => (loc', ns', s', Result.ok a)
+      | (loc', ns', s', Result.err e) => q.runP loc ns s
 }
 
 -- def pors (ps: List (p a)) : P a := 
@@ -402,16 +420,16 @@ partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
 
 -- | never fails.
 def ppeek : P (Option Char) := { 
-  runP := λ loc haystack =>
+  runP := λ loc ns haystack =>
     if isEmpty haystack
-    then (loc, haystack, Result.ok none)
+    then (loc, ns, haystack, Result.ok none)
     else do
      let (loc, haystack) := eat_whitespace_ loc haystack
-     (loc, haystack, Result.ok ∘ some ∘ front $ haystack)
+     (loc, ns, haystack, Result.ok ∘ some ∘ front $ haystack)
   }
 
 def padvance_char_INTERNAL (c: Char) : P Unit := {
-  runP := λ loc haystack => (advance1 loc c, drop haystack 1, Result.ok ())
+  runP := λ loc ns haystack => (advance1 loc c, ns, drop haystack 1, Result.ok ())
 }
 
 def pconsume(c: Char) : P Unit := do
@@ -429,9 +447,9 @@ def ppeek?(c: Char) : P Bool := do
 
 
 def eat_whitespace : P Unit := {
-  runP := λ loc s =>
+  runP := λ loc ns s =>
     let (l', s') := eat_whitespace_ loc s
-    (l', s', Result.ok ())
+    (l', ns, s', Result.ok ())
   }
 
 
@@ -451,8 +469,9 @@ partial def takeWhile (predicate: Char -> Bool)
         else (loc, s, Result.ok out)
 
 partial def ptakewhile (predicateWhile: Char -> Bool) : P String :=
-{ runP := λ startloc haystack => 
-      takeWhile predicateWhile startloc startloc haystack ""
+{ runP := λ startloc ns haystack => 
+      let (loc, s) := takeWhile predicateWhile startloc startloc haystack ""
+      (loc, ns, s)
 }
 
 
@@ -540,10 +559,20 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
   else return []
 
 
+partial def  pmany0 [Pretty a] (p: P a) : P (List a) := do
+  match (<- pmay p) with
+    | Option.some a => do
+        pnote $ "pmany0: found" ++ doc a
+        let as <- pmany0 p
+        return (a::as)
+    | Option.none =>
+        pnote $ "pmany0: found none"
+       return []
+
 -- | parse <p>+ for a given <p>
-partial def pmany1 (p: P a) : P (List a) := do
+partial def  pmany1 [Pretty a] (p: P a) : P (List a) := do
   let a1 <- p
-  let as <- por (pmany1 p) (psuccess [])
+  let as <- pmany0 p
   return (a1::as)
 
 mutual
@@ -603,8 +632,15 @@ partial def pblockoperand : P (SSAVal × MLIRTy) := do
 
 
 -- | either a string, or a type. Can be others.
+
+partial def pattrvalue_int : P AttrVal := do
+  let num <- pnumber
+  pconsume ':'
+  let ty <- ptype ()
+  return AttrVal.int num ty
+
 partial def pattrvalue : P AttrVal := do
- por (pmap AttrVal.str pstr) (pmap AttrVal.type (ptype ()))
+ por (pattrvalue_int) $ por (pmap AttrVal.str pstr) (pmap AttrVal.type (ptype ()))
 
 partial def pattr : P Attr := do
   eat_whitespace
@@ -652,6 +688,7 @@ partial def popcall (u: Unit) : P BasicBlockStmt := do
 -- | parse a sequence of ops, with no label
 partial def pentryblock_no_label (u: Unit) : P BasicBlock := do
    let ops <- pmany1 (popcall u)
+   pnote $ "pentry ops: " ++ List.toString ops
    return (BasicBlock.mk "entry" [] ops)
 
 
@@ -662,7 +699,7 @@ partial def pblock (u: Unit) : P BasicBlock := do
    let args <- pintercalated '(' pblockoperand ',' ')'
    pconsume ':'
    let ops <- pmany1 (popcall u)
-   perror $ "ops: " ++ List.toString ops
+   pnote $ "pblock ops: " ++ List.toString ops
    return (BasicBlock.mk name args ops)
 end  
 
@@ -1023,8 +1060,20 @@ def opRgnAttr0 : Op := (mlir_op_call%
 #print opRgnAttr0
 
 
+-- TODO: switch to String.position
+-- | find smallest n such that s[ix + delta^n] = '\n'. Usually will use
+-- delta = +-1
+-- partial def find_newline_via_delta (s: String) (delta: Int) (ix: Int): Int :=
+--  if ix <= 0
+--  then 0
+--  else if ix >= s.length -1  then s.length - 1
+--  else if s.get ix == '\n' then ix -- TODO: figure out how to use string position nonsense
+--  else find_newline_via_delta s delta (ix + delta)
 
 
+def note_add_annotation (contents: String) (note: Note): Doc :=
+  doc note
+  
 
 -- TOPLEVEL PARSER
 -- ==============
@@ -1039,8 +1088,13 @@ def main (xs: List String): IO Unit := do
   IO.println "\nEDSL TESTING\n============\n"
   IO.println opRgnAttr0
   IO.println "PARSING\n=======\n"
-  let res := (pop ()).runP locbegin contents
+  let ns := []
+  let res := (pop ()).runP locbegin ns contents
   match res with
-   | (loc, str, Result.ok op) => IO.println op
-   | (loc, str, Result.err res) => IO.println res
+   | (loc, ns, str, Result.ok op) => do
+     IO.println (vgroup $ ns.map (note_add_annotation contents))
+     IO.println op
+   | (loc, ns, str, Result.err res) => do
+      IO.println (vgroup ns)
+      IO.println res
   return ()
