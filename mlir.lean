@@ -852,6 +852,69 @@ def rgn2 : Region :=
   })
 #print rgn2
 
+-- MLIR ATTRIBUTE VALUE
+-- ====================
+
+declare_syntax_cat mlir_attr_val
+
+syntax str: mlir_attr_val
+syntax mlir_type : mlir_attr_val
+
+syntax "mlir_attr_val%" mlir_attr_val : term
+
+macro_rules 
+  | `(mlir_attr_val% $s:strLit) => `(AttrVal.str $s)
+  | `(mlir_attr_val% $ty:mlir_type) => `(AttrVal.type (mlir_type% $ty))
+
+
+def attrVal0Str : AttrVal := mlir_attr_val% "foo"
+#print attrVal0Str
+
+def attrVal1Ty : AttrVal := mlir_attr_val% (i 32, i 64) -> i 32
+#print attrVal1Ty
+
+-- MLIR ATTRIBUTE
+-- ===============
+
+declare_syntax_cat mlir_attr
+
+syntax ident "=" mlir_attr_val : mlir_attr
+
+syntax "mlir_attr%" mlir_attr : term
+
+macro_rules 
+  | `(mlir_attr% $name:ident  = $v:mlir_attr_val) => 
+     `(Attr.mk $(Lean.quote (toString name.getId))  (mlir_attr_val% $v))
+
+def attr0Str : Attr := (mlir_attr% sym_name = "add")
+#print attr0Str
+
+def attr1Type : Attr := (mlir_attr% type = (i 32, i 32) -> i 32)
+#print attr1Type
+
+
+-- MLIR OPS WITH REGIONS
+-- =====================
+
+-- Now that we have regions, can extend the grammar to allow ops with regions :D
+
+syntax strLit mlir_op_call_args "(" mlir_region,* ")" ":" mlir_type : mlir_op_call
+
+macro_rules 
+  | `(mlir_op_call% $name:strLit $args:mlir_op_call_args ( $rgns,* ) : $ty:mlir_type ) => do
+        let initList <- `([])
+        let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
+        `(Op.mk $name -- name
+                (mlir_op_call_args% $args) -- args
+                [] -- attrs
+                [] -- regions
+                (mlir_type% $ty)) -- type
+
+
+
+-- MLIR EDSL: FULL STACK EXAMPLE
+-- =============================
+
 
 
 
