@@ -742,24 +742,42 @@ def bbstmt1 : BasicBlockStmt := (mlir_bb_stmt% "foo"(%x, %y) : (i 32, i 32) -> i
 def bbstmt2: BasicBlockStmt := (mlir_bb_stmt% %z = "foo"(%x, %y) : (i 32, i 32) -> i 32)
 #print bbstmt2
 
+-- EDSL MLIR BASIC BLOCK OPERANDS
+-- ==============================
+
+declare_syntax_cat mlir_bb_operand
+syntax mlir_op_operand ":" mlir_type : mlir_bb_operand
+
+syntax "mlir_bb_operand%" mlir_bb_operand : term
+
+macro_rules 
+| `(mlir_bb_operand% $name:mlir_op_operand : $ty:mlir_type ) => 
+     `( (mlir_op_operand% $name, mlir_type% $ty) ) 
+
+
+
 
 -- EDSL MLIR BASIC BLOCKS
 -- ======================
 
 
-syntax (ws mlir_bb_stmt ws)* : mlir_bb
+syntax "^" ident ":" (ws mlir_bb_stmt ws)* : mlir_bb
 
 syntax "mlir_bb%" mlir_bb : term
 
 macro_rules 
-| `(mlir_bb% $[ $ops ]* ) => do
+| `(mlir_bb% ^ $name:ident : $[ $ops ]* ) => do
    let initList <- `([])
-   ops.foldlM (init := initList) fun xs kv => `((mlir_bb_stmt% $kv) :: $xs )
+   let opsList <- ops.foldlM (init := initList) fun ops cur => `($ops ++ [mlir_bb_stmt% $cur])
+   `(BasicBlock.mk $(Lean.quote (toString name.getId)) [] $opsList)
 
-def bb1 : List BasicBlockStmt := 
+def bb1 : BasicBlock := 
   (mlir_bb%
+     ^entry:
      "foo"(%x, %y) : (i 32, i 32) -> i 32
       %z = "bar"(%x) : (i 32) -> (i 32)
+      "std.return"(%x0) : (i 42) -> ()
+
   )
 #print bb1
 
