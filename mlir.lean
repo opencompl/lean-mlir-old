@@ -286,11 +286,8 @@ structure Loc where
 instance : Inhabited Loc where
    default := { line := 1, column := 1 }
 
-
-instance : ToString Loc := {
-  toString := fun loc => 
-    toString loc.line ++ ":" ++ toString loc.column
-}
+instance : Pretty Loc where
+   doc (loc: Loc) := toString loc.line ++ ":" ++ toString loc.column
 
 
 def locbegin : Loc := { line := 1, column := 1 }
@@ -306,27 +303,26 @@ partial def advance (l: Loc) (s: String): Loc :=
   if isEmpty s then l
   else let c := s.front; advance (advance1 l c) (s.drop 1)
 
-structure ParseError where
+structure Note where
   left : Loc
   right : Loc
   kind : Doc
 
 
-instance : Inhabited ParseError where
+instance : Inhabited Note where
    default := 
      { left := Inhabited.default 
        , right := Inhabited.default
        , kind := Inhabited.default }
 
-instance : ToString ParseError := {
-  toString := fun err => 
-    toString err.left ++ " " ++ toString err.kind
-}
+instance : Pretty Note where 
+  doc (note: Note) := 
+      doc note.left ++ " " ++  note.kind
 
 
 -- | TODO: enable notes, refactor type into Loc x String x [Note] x (Result ParseError a)
 structure P (a: Type) where 
-   runP: Loc -> String ->  (Loc × String × Result ParseError a)
+   runP: Loc -> String ->  (Loc × String × Result Note a)
 
 
 
@@ -443,7 +439,7 @@ partial def takeWhile (predicate: Char -> Bool)
    (startloc: Loc)
    (loc: Loc)
    (s: String)
-   (out: String):  (Loc × String × Result ParseError String) :=
+   (out: String):  (Loc × String × Result Note String) :=
       if isEmpty s 
       then (loc, s, Result.err {left := startloc, 
                                 right := loc,
