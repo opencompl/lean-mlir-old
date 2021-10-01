@@ -156,10 +156,11 @@ mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
     | (Op.mk name args attrs rgns ty) => 
+        let doc_name := (toString '"') ++ name ++ (toString '"')
         let doc_rgns := if List.isEmpty rgns then Doc.Text "" else " (" ++ Doc.Nest (Doc.VGroup (rgns.map rgn_to_doc)) ++ ")"
         let doc_ty := toString ty
         let doc_args := "(" ++ intercalate_doc args ssaval_to_doc ", " ++ ")"
-        name ++ doc_args ++  doc_rgns ++ " : " ++ doc_ty
+        doc_name ++ doc_args ++  doc_rgns ++ " : " ++ doc_ty
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
@@ -169,8 +170,9 @@ partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
 partial def bb_to_doc(bb: BasicBlock): Doc :=
   match bb with
   | (BasicBlock.mk name args stmts) => 
-     let bbargs := intercalate_doc args (fun (ssaval, ty) => ssaval_to_doc ssaval ++ ":" ++ mlirty_to_string ty) ", "
-     let bbname := "^" ++ name ++ "(" ++ bbargs ++ ")"
+     let bbargs := if args.isEmpty then Doc.Text ""
+                   else "(" ++ intercalate_doc args (fun (ssaval, ty) => ssaval_to_doc ssaval ++ ":" ++ mlirty_to_string ty) ", " ++ ")"
+     let bbname := "^" ++ name ++ bbargs ++ ":"
      let bbbody := Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))
      Doc.VGroup [bbname, bbbody]
 
