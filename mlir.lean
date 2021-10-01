@@ -771,17 +771,22 @@ def bbop1 : SSAVal × MLIRTy := mlir_bb_operand% %x : i 32
 
 
 syntax "^" ident ":" (ws mlir_bb_stmt ws)* : mlir_bb
-syntax "^" ident "(" mlir_bb_operand,+ ")" ":" (ws mlir_bb_stmt ws)* : mlir_bb
+syntax "^" ident "(" sepBy(mlir_bb_operand, ",") ")" ":" (ws mlir_bb_stmt ws)* : mlir_bb
 
 syntax "mlir_bb%" mlir_bb : term
 
 macro_rules 
-| `(mlir_bb% ^ $name:ident : $[ $ops ]* ) => do
+| `(mlir_bb% ^ $name:ident ( $operands,* ) : $[ $stmts ]* ) => do
    let initList <- `([])
-   let opsList <- ops.foldlM (init := initList) fun ops cur => `($ops ++ [mlir_bb_stmt% $cur])
+   let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_operand% $x])
+   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_stmt% $x])
+   `(BasicBlock.mk $(Lean.quote (toString name.getId)) $argsList $opsList)
+| `(mlir_bb% ^ $name:ident : $[ $stmts ]* ) => do
+   let initList <- `([])
+   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_stmt% $x])
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) [] $opsList)
 
-def bb1 : BasicBlock := 
+def bb1NoArgs : BasicBlock := 
   (mlir_bb%
      ^entry:
      "foo"(%x, %y) : (i 32, i 32) -> i 32
@@ -789,7 +794,28 @@ def bb1 : BasicBlock :=
       "std.return"(%x0) : (i 42) -> ()
 
   )
-#print bb1
+#print bb1NoArgs
+
+def bb2SingleArg : BasicBlock := 
+  (mlir_bb%
+     ^entry(%argp : i 32):
+     "foo"(%x, %y) : (i 32, i 32) -> i 32
+      %z = "bar"(%x) : (i 32) -> (i 32)
+      "std.return"(%x0) : (i 42) -> ()
+
+  )
+#print bb2SingleArg
+
+
+def bb3MultipleArgs : BasicBlock := 
+  (mlir_bb%
+     ^entry(%argp : i 32, %argq : i 64):
+     "foo"(%x, %y) : (i 32, i 32) -> i 32
+      %z = "bar"(%x) : (i 32) -> (i 32)
+      "std.return"(%x0) : (i 42) -> ()
+
+  )
+#print bb3MultipleArgs
 
 
 
