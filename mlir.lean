@@ -313,7 +313,10 @@ structure ParseError where
 
 
 instance : Inhabited ParseError where
-   default := { left := Inhabited.default, right := Inhabited.default, kind := Inhabited.default }
+   default := 
+     { left := Inhabited.default 
+       , right := Inhabited.default
+       , kind := Inhabited.default }
 
 instance : ToString ParseError := {
   toString := fun err => 
@@ -323,7 +326,7 @@ instance : ToString ParseError := {
 
 -- | TODO: enable notes, refactor type into Loc x String x [Note] x (Result ParseError a)
 structure P (a: Type) where 
-   runP: Loc -> String -> Result ParseError (Loc × String × a)
+   runP: Loc -> String ->  (Loc × String × Result ParseError a)
 
 
 
@@ -331,18 +334,18 @@ structure P (a: Type) where
 def pmap (f : a -> b) (pa: P a): P b := {
   runP :=  λ loc s => 
     match pa.runP loc s with
-      | Result.ok (l', s', a) => Result.ok (l', s', f a)
-      | Result.err e => Result.err e
+      | (l', s', Result.ok a) => (l', s', Result.ok (f a))
+      | (l', s', Result.err e) => (l', s', Result.err e)
 }
 
 
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
-def ppure {a: Type} (v: a): P a := { runP :=  λ loc s => Result.ok (loc, s, v) }
+def ppure {a: Type} (v: a): P a := { runP :=  λ loc s =>  (loc, s, Result.ok v) }
 
 def pbind {a b: Type} (pa: P a) (a2pb : a -> P b): P b := 
    { runP := λloc s => match pa.runP loc s with 
-            | Result.ok (l, s', a) => (a2pb a).runP l  s'
-            | Result.err e => Result.err e
+            | (l, s', Result.ok a) => (a2pb a).runP l  s'
+            | (l, s', Result.err e) => (l, s', Result.err e)
    }
 
 instance : Monad P := {
@@ -352,8 +355,8 @@ instance : Monad P := {
 
 
 def perror (err: String) :  P a := {
-  runP := λ loc _ =>
-     Result.err ({ left := loc, right := loc, kind := ErrKind.mk err})
+  runP := λ loc s =>
+     (loc, s, Result.err ({ left := loc, right := loc, kind := ErrKind.mk err}))
 }
 
 instance : Inhabited (P a) where
@@ -361,15 +364,15 @@ instance : Inhabited (P a) where
 
 def psuccess (v: a): P a := { 
     runP := λ loc s  => 
-      Result.ok (loc, s, v)
+      (loc, s, Result.ok v)
   }
 
 -- try p. if success, return value. if not, run q
 def por (p: P a) (q: P a) : P a :=  {
   runP := λ loc s => 
     match p.runP loc s with
-      | Result.ok a => Result.ok a 
-      | Result.err _ => q.runP loc s
+      | (loc', s', Result.ok a) => (loc', s', Result.ok a)
+      | (loc', s', Result.err e) => q.runP loc s
 }
 
 -- def pors (ps: List (p a)) : P a := 
@@ -405,14 +408,14 @@ partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
 def ppeek : P (Option Char) := { 
   runP := λ loc haystack =>
     if isEmpty haystack
-    then Result.ok (loc, haystack, none)
+    then (loc, haystack, Result.ok none)
     else do
      let (loc, haystack) := eat_whitespace_ loc haystack
-     Result.ok (loc, haystack, some (front haystack))
+     (loc, haystack, Result.ok ∘ some ∘ front $ haystack)
   }
 
 def padvance_char_INTERNAL (c: Char) : P Unit := {
-  runP := λ loc haystack => Result.ok (advance1 loc c, drop haystack 1, ())
+  runP := λ loc haystack => (advance1 loc c, drop haystack 1, Result.ok ())
 }
 
 def pconsume(c: Char) : P Unit := do
@@ -432,7 +435,7 @@ def ppeek?(c: Char) : P Bool := do
 def eat_whitespace : P Unit := {
   runP := λ loc s =>
     let (l', s') := eat_whitespace_ loc s
-    Result.ok (l', s', ())
+    (l', s', Result.ok ())
   }
 
 
@@ -440,17 +443,18 @@ partial def takeWhile (predicate: Char -> Bool)
    (startloc: Loc)
    (loc: Loc)
    (s: String)
-   (out: String): Result ParseError (Loc × String × String) :=
+   (out: String):  (Loc × String × Result ParseError String) :=
       if isEmpty s 
-      then Result.err {left := startloc, right := loc, kind := ErrKind.mk ("expected delimiter but ran out of string")}
+      then (loc, s, Result.err {left := startloc, right := loc, kind := ErrKind.mk ("expected delimiter but ran out of string")})
       else 
         let c := front s;
         if predicate c
         then takeWhile predicate startloc (advance1 loc c) (s.drop 1) (out.push c)
-        else Result.ok (loc, s, out)
+        else (loc, s, Result.ok out)
 
 partial def ptakewhile (predicateWhile: Char -> Bool) : P String :=
-{ runP := λ startloc haystack =>  takeWhile predicateWhile startloc startloc haystack ""
+{ runP := λ startloc haystack => 
+      takeWhile predicateWhile startloc startloc haystack ""
 }
 
 
@@ -1039,6 +1043,6 @@ def main (xs: List String): IO Unit := do
   IO.println "PARSING\n=======\n"
   let res := (pop ()).runP locbegin contents
   match res with
-   | Result.ok (loc, str, op) => IO.println op
-   | Result.err res => IO.println res
+   | (loc, str, Result.ok op) => IO.println op
+   | (loc, str, Result.err res) => IO.println res
   return ()
