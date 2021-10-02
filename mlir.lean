@@ -291,6 +291,7 @@ instance [Pretty a] : ToString a where
 inductive Result (e : Type) (a : Type) : Type where 
 | ok: a -> Result e a
 | err: e -> Result e a
+| debugfail : e -> Result e a
 
 instance [Inhabited e] : Inhabited (Result e a) where
    default := Result.err (Inhabited.default) 
@@ -365,6 +366,7 @@ def pmap (f : a -> b) (pa: P a): P b := {
     match pa.runP loc ns s with
       | (l, ns, s, Result.ok a) => (l, ns,  s, Result.ok (f a))
       | (l, ns, s, Result.err e) => (l, ns, s, Result.err e)
+      | (l, ns, s, Result.debugfail e) => (l, ns, s, Result.debugfail e)
 }
 
 
@@ -375,6 +377,7 @@ def pbind {a b: Type} (pa: P a) (a2pb : a -> P b): P b :=
    { runP := λloc ns s => match pa.runP loc ns s with 
             | (l, ns, s, Result.ok a) => (a2pb a).runP l ns  s
             | (l, ns, s, Result.err e) => (l, ns, s, Result.err e)
+            | (l, ns, s, Result.debugfail e) => (l, ns, s, Result.debugfail e)
    }
 
 instance : Monad P := {
@@ -394,6 +397,11 @@ def perror [Pretty e] (err: e) :  P a := {
      (loc, ns, s, Result.err ({ left := loc, right := loc, kind := doc err}))
 }
 
+def pdebugfail [Pretty e] (err: e) :  P a := {
+  runP := λ loc ns s =>
+     (loc, ns, s, Result.debugfail ({ left := loc, right := loc, kind := doc err}))
+}
+
 
 instance : Inhabited (P a) where
    default := perror "INHABITED INSTANCE OF PARSER"
@@ -409,6 +417,7 @@ def pmay (p: P a): P (Option a) := {
       match p.runP loc ns s with
         |  (loc, ns, s, Result.ok v) => (loc, ns, s, Result.ok (Option.some v))
         | (loc, ns, s, Result.err e) => (loc, ns, s, Result.ok Option.none)
+        | (l, ns, s, Result.debugfail e) => (l, ns, s, Result.debugfail e)
   }
 
 
@@ -419,6 +428,7 @@ def por (p: P a) (q: P a) : P a :=  {
     match p.runP loc ns s with
       | (loc', ns', s', Result.ok a) => (loc', ns', s', Result.ok a)
       | (loc', ns', s', Result.err e) => q.runP loc ns s
+      | (l, ns, s, Result.debugfail e) => (l, ns, s, Result.debugfail e)
 }
 
 -- def pors (ps: List (p a)) : P a := 
@@ -522,7 +532,8 @@ def pident? (s: String) : P Unit := do
 
 
 def pnumber : P Int := do
-  let name <- pident
+  eat_whitespace
+  let name <- ptakewhile (fun c => c.isDigit)
   match name.toInt? with
    | some num => return num
    | none => perror $ "expected number, found |" ++ name ++ "|."
@@ -650,11 +661,8 @@ partial def ptype_vector : P MLIRTy := do
   pident? "vector"
   pconsume '<'
   let sz <- pnumber
-  pnote $ "found sz: |" ++ doc sz ++ " |"
   pconsume 'x'
-  pident? "i32"
-  let ty := MLIRTy.int 32
-  pnote $ "found sz: |" ++ doc sz ++ " | found type |" ++ doc ty ++ "|"
+  let ty <- ptype ()
   pconsume '>'
   return MLIRTy.vector sz ty
   
@@ -697,9 +705,7 @@ partial def pattrvalue_int : P AttrVal := do
   return AttrVal.int num ty
 
 partial def pattrvalue_dense : P AttrVal := do
-  pnote "finding Dense..."
   pident? "dense"
-  pnote "found Dense!"
   pconsume '<'
   let v <- pnumber
   pconsume '>'
@@ -1203,4 +1209,8 @@ def main (xs: List String): IO Unit := do
    | Result.err err => do
       IO.println "***Parse Error:***"
       IO.println (note_add_file_content contents err)
+   | Result.debugfail err =>  do
+      IO.println "***Debug Error:***"
+      IO.println (note_add_file_content contents err)
+     
   return ()
