@@ -63,7 +63,9 @@ jobs:
       # Build LLVM if we didn't hit in the cache.
       - name: Rebuild and Install LLVM
         if: steps.cache-llvm.outputs.cache-hit != 'true'
-        run: utils/build-llvm.sh
+        run: |
+         ls -l | sort
+         utils/build-llvm.sh
 
 
     # Installing the results into the cache is an action which is automatically
