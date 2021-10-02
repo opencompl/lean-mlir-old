@@ -7,31 +7,62 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.shell || 'sh' }}
-    strategy:
-      matrix:
-        include:
-        - name: Ubuntu
-          os: ubuntu-latest
-        - name: MacOS
-          os: macos-latest
-        - name: Windows
-          os: windows-latest
-          shell: msys2 {0}
-      # complete all jobs
-      fail-fast: false
+  # Build the LLVM submodule then cache it. Do not rebuild if hit in the
+  # cache.
+  build-llvm:
+    name: Build LLVM
+    runs-on: ubuntu-latest
     steps:
-    - name: Install MSYS2 w/ LLVM (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: msys2/setup-msys2@v2
-      with:
-        path-type: inherit
-        install: curl unzip make mingw-w64-x86_64-llvm mingw-w64-x86_64-gcc diffutils
+      # Get Python for MLIR Python bindings
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install python deps
+        run:  |
+          python -m pip install --upgrade pip
+          pip install numpy pybind11
+      - name: Install ninja
+        run:  |
+          sudo apt install build-essential && sudo apt-get install ninja-build && ninja --version
+      # Clone the dyn-dialect repo and its submodules. Do shallow clone to save clone
+      # time.
+      - name: Get Dyn-dialect
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          submodules: "true"
+
+      # Extract the LLVM submodule hash for use in the cache key.
+      - name: Get LLVM Hash
+        id: get-llvm-hash
+        run: echo "::set-output name=hash::$(git rev-parse @:./llvm-project)"
+        shell: bash
+
+      # Try to fetch LLVM from the cache.
+      - name: Cache LLVM
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: llvm-project
+          key: ${{ runner.os }}-llvm-install-${{ steps.get-llvm-hash.outputs.hash }}
+
+      # Build LLVM if we didn't hit in the cache.
+      - name: Rebuild and Install LLVM
+        if: steps.cache-llvm.outputs.cache-hit != 'true'
+        run: utils/build-llvm.sh
+
+
+    # Installing the results into the cache is an action which is automatically
+    # added by the cache action above.
+
+  # --- end of build-llvm job.
+  build-lean-mlir:
+    name: Build lean-mlir
+    needs: build-llvm
+    runs-on: ubuntu-latest
+
+    steps:
     - name: Install Elan (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -39,25 +70,29 @@ jobs:
         chmod +x elan-init.sh
         ./elan-init.sh -y
         echo "$HOME/.elan/bin" >> $GITHUB_PATH
-    - name: Install Elan (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        curl -sSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh > elan-init.sh
-        ./elan-init.sh -y
-        cygpath -w "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
-    - name: Install Elan (MacOS)
-      if: matrix.os == 'macOS-latest'
-      run: brew install elan
-    # - name: Install LLVM (MacOS)
-    #   if: matrix.os == 'macOS-latest'
-    #   run: |
-    #     brew install llvm@12
-    #     echo "$(brew --prefix)/opt/llvm/bin" >> $GITHUB_PATH
-    #     # - name: Install LLVM (Ubuntu)
-    #     #   if: matrix.os == 'ubuntu-latest'
-    #     #   run: |
-    #     #     sudo apt-get install llvm-12
-    #     #     llvm-config-12 --bindir >> $GITHUB_PATH
+    # Extract the LLVM submodule hash for use in the cache key.
+    - name: Get LLVM Hash
+      id: get-llvm-hash
+      run: echo "::set-output name=hash::$(git rev-parse @:./llvm-project)"
+      shell: bash
+
+    # Try to fetch LLVM from the cache.
+    - name: Cache LLVM
+      id: cache-llvm
+      uses: actions/cache@v2
+      with:
+        path: llvm-project
+        key: ${{ runner.os }}-llvm-install-${{ steps.get-llvm-hash.outputs.hash }}
+
+
+    # Build LLVM if we didn't hit in the cache. Even though we build it in
+    # the previous job, there is a low chance that it'll have been evicted by
+    # the time we get here.
+    - name: Rebuild and Install LLVM
+      if: steps.cache-llvm.outputs.cache-hit != 'true'
+      run: utils/build-llvm.sh
+
+    # TODO: refactor into utils/build.sh && utils/test.sh
     - name: Checkout
       uses: actions/checkout@v2
     - name: Check Lean
