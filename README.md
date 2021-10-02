@@ -39,6 +39,12 @@ $ leanpkg build bin
 $ ./build/bin/MLIR <path-to-generic-mlir-file.mlir>
 ```
 
+# Test instructions
+
+```
+$ cd examples; lit -v . # run all examples, report failures.
+```
+
 
 # Other projects of interest
 
