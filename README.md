@@ -3,10 +3,10 @@
 This provides infrastructure for:
 
 - An embedding of the MLIR AST in lean (`MLIR/AST.lean`)
-- An lightweight parser combinator library with error tracking (`MLIR/P.lean`)
-- A parser from MLIR generic into LEAN data structures (`MLIR/MLIRParser.lean`)
+- A lightweight pretty printer library to pretty print the MLIR AST and parse errors (`MLIR/Doc.lean`)
 - A embedded-domain-specific language to build MLIR generic operations via macros (`MLIR/EDSL.lean`)
-- Ability to write proofs over MLIR.
+- A parser from MLIR generic into LEAN data structures (`MLIR/MLIRParser.lean`)
+- A lightweight parser combinator library with error tracking (`MLIR/P.lean`)
 
 ```lean
 def opRgnAttr0 : Op := (mlir_op_call%
