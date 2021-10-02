@@ -12,7 +12,7 @@ inductive BBName
 
 instance : Pretty BBName where
   doc name := match name with 
-              | BBName.mk s => doc s
+              | BBName.mk s => "^" ++ doc s
 
 mutual
 inductive MLIRTy : Type where
@@ -125,7 +125,7 @@ partial def op_to_doc (op: Op): Doc :=
           if List.isEmpty attrs
           then Doc.Text ""
           else "{" ++ intercalate_doc attrs  ", " ++ "}"
-        doc_name ++ doc_args ++  doc_rgns ++ doc_attrs ++ " : " ++ doc ty
+        doc_name ++ doc_args ++  doc_bbs ++ doc_rgns ++ doc_attrs ++ " : " ++ doc ty
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
