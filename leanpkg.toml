@@ -1,0 +1,5 @@
+[package]
+name = "MLIR"
+version = "0.1"
+lean_version = "leanprover/lean4:master"
+

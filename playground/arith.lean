@@ -42,3 +42,26 @@ arith baz2 -> ("x" :+ "y")
 arith baz3 -> ("x" :+ ("z" :* "y"))
 #print baz3
 
+
+syntax ident : «arith»  -- Have to use french quotes since `arith` is now a keyword
+
+macro_rules
+  | `(fromArith% $x:ident) => `(Arith.Symbol $(Lean.quote (toString x.getId)))
+
+arith foo2 -> x 
+#print foo2
+
+arith foo3 -> x :+ y
+#print foo3
+
+-- arith foo2 -> x + y + z
+-- #print foo2
+ 
+syntax "{" term "}" : «arith» -- escape for embedding terms into `Arith`
+ 
+macro_rules
+  | `(fromArith% { $e }) => e
+
+arith boo -> {foo3}
+#print boo
+-- 

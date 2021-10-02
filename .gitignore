@@ -24,3 +24,4 @@ mlir-opt
 mlir-opt.c
 crash
 crash.c
+build/

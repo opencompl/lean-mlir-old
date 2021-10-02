@@ -4,9 +4,9 @@ inductive Foo
 deriving Inhabited 
 
 mutual
-  partial def even (_: Unit) : Foo :=
+  partial def even (_: Unit) : Foo := do
      Foo.mk (fun i => odd () )
-  partial def odd (_: Unit) : Foo :=
+  partial def odd (_: Unit) : Foo := do
     Foo.mk (fun i => even ())
 end
 
