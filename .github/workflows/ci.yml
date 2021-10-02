@@ -25,13 +25,21 @@ jobs:
       - name: Install ninja
         run:  |
           sudo apt install build-essential && sudo apt-get install ninja-build && ninja --version
-      # Clone the dyn-dialect repo and its submodules. Do shallow clone to save clone
-      # time.
-      - name: Get Dyn-dialect
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-          submodules: "true"
+      
+      # Extract the LLVM submodule hash for use in the cache key.
+      - name: Get LLVM
+        id: get-llvm-repo
+        # https://github.com/llvm/llvm-project/commit/9452ec722ce0ba356a5ad178b0b1964ba8efb534
+        run: git clone --depth=1 https://github.com/llvm/llvm-project.git 9452ec722ce0ba356a5ad178b0b1964ba8efb534
+
+
+      # # Clone the dyn-dialect repo and its submodules. Do shallow clone to save clone
+      # # time.
+      # - name: Get Dyn-dialect
+      #   uses: actions/checkout@v2
+      #   with:
+      #     fetch-depth: 1
+      #     submodules: "true"
 
       # Extract the LLVM submodule hash for use in the cache key.
       - name: Get LLVM Hash
@@ -69,14 +77,6 @@ jobs:
         chmod +x elan-init.sh
         ./elan-init.sh -y
         echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
-    # Extract the LLVM submodule hash for use in the cache key.
-    - name: Get LLVM
-      id: get-llvm-repo
-      # https://github.com/llvm/llvm-project/commit/9452ec722ce0ba356a5ad178b0b1964ba8efb534
-      run: git clone --depth=1 https://github.com/llvm/llvm-project.git 9452ec722ce0ba356a5ad178b0b1964ba8efb534
-      shell: bash
-
 
     # Extract the LLVM submodule hash for use in the cache key.
     - name: Get LLVM Hash
