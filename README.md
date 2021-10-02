@@ -1,25 +1,41 @@
-# EMLIR: embedded MLIR in LEAN
+# `mlir-lean`: embedded MLIR in LEAN
 
 This provides infrastructure for:
 
-- A parser from MLIR generic into LEAN data structures.
-- A pretty printer from LEAN data structures back into MLIR.
+- An embedding of the MLIR AST in lean (`MLIR/AST.lean`)
+- An lightweight parser combinator library with error tracking (`MLIR/P.lean`)
+- A parser from MLIR generic into LEAN data structures (`MLIR/MLIRParser.lean`)
+- A embedded-domain-specific language to build MLIR generic operations via macros (`MLIR/EDSL.lean`)
 - Ability to write proofs over MLIR.
 
-This research project explores:
+```lean
+def opRgnAttr0 : Op := (mlir_op_call%
+ "module"() (
+ {
+  ^entry:
+   "func"() (
+    {
+     ^bb0(%arg0:i 32, %arg1:i 32):
+      %zero = "std.addi"(%arg0 , %arg1) : (i 32, i 32) -> i 32
+      "std.return"(%zero) : (i 32) -> ()
+    }){sym_name = "add", type = (i 32, i 32) -> i 32} : () -> ()
+   "module_terminator"() : () -> ()
+ }) : () -> ()
+)
+#print opRgnAttr0
+```
 
+As a research project, we explore:
+
+- How to provide formal semantics for MLIR, especially in the presence of multiple dialects.
 - What default logics are useful, and how best to enable them for MLIR? Hoare logic? Separation logic?
 - Purely functional, immutable rewriter with a carefully chosen set of
-  primitives to enable both reasoning and efficient rewriting.
+  primitives to enable reasoning and efficient rewriting.
 
 # Build instructions
 
 ```
-$ make
-/home/bollu/work/2-mlir-verif$ make 
-/home/bollu//work/lean4-contrib/build/stage1/bin/lean --version
-Lean (version 4.0.0, commit 850fd84e4340, Release)
-/home/bollu//work/lean4-contrib/build/stage1/bin/lean mlir.lean -c mlir-opt.c
-/home/bollu//work/lean4-contrib/build/stage1/bin/leanc mlir-opt.c -o mlir-opt
+$ leanpkg build bin
+$ ./build/bin/MLIR <path-to-generic-mlir-file.mlir>
 ```
 
