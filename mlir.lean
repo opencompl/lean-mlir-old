@@ -46,12 +46,20 @@ def nest_vgroup [Pretty a] (as: List a): Doc :=
   Doc.Nest (vgroup as)
 
 
+  
+
 
 instance : Pretty Doc where
   doc (d: Doc) := d
 
 instance : Pretty String where
   doc := Doc.Text
+
+instance : Pretty Int where
+  doc := Doc.Text ∘ toString
+
+instance : Pretty Char where
+  doc := Doc.Text ∘ toString
 
 instance : Inhabited Doc where
   default := Doc.Text ""
@@ -62,6 +70,12 @@ instance : Coe String Doc where
 
 instance : Append Doc where 
   append := Doc.Concat
+
+def doc_dbl_quot : Doc :=  doc '"'
+
+def doc_surround_dbl_quot [Pretty a] (v: a): Doc := 
+    doc_dbl_quot ++ doc v ++ doc_dbl_quot
+  
 
 def doc_concat (ds: List Doc): Doc := ds.foldl Doc.Concat (Doc.Text "") 
 
@@ -118,6 +132,7 @@ inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
 | int : Int -> MLIRTy
 | tuple : List MLIRTy -> MLIRTy
+| vector: Int -> MLIRTy -> MLIRTy
 
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
@@ -126,6 +141,7 @@ inductive AttrVal : Type where
 | str : String -> AttrVal
 | int : Int -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
+| dense: Int -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 
 inductive Attr : Type where
   | mk: (key: String) 
@@ -171,9 +187,10 @@ partial instance :  Pretty MLIRTy where
   doc (ty: MLIRTy) :=
     let rec  go (ty: MLIRTy) :=  
     match ty with
-    | MLIRTy.int k => "i" ++ (toString k)
+    | MLIRTy.int k => "i" ++ doc k
     | MLIRTy.tuple ts => "(" ++ (intercalate_doc (ts.map go) (doc ", ") ) ++ ")"
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
+    | MLIRTy.vector sz ty => "vector<" ++ toString sz ++ "x" ++ go ty ++ ">"
     go ty
 
 
@@ -181,9 +198,10 @@ partial instance :  Pretty MLIRTy where
 instance : Pretty AttrVal where
  doc (v: AttrVal) := 
    match v with
-   | AttrVal.str str => (toString '"') ++ str ++ (toString '"')
+   | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
-   | AttrVal.int i ty => toString i ++ " : " ++ doc ty
+   | AttrVal.int i ty => doc i ++ " : " ++ doc ty
+   | AttrVal.dense i ty => "dense<" ++ doc i ++ ">" ++ ":" ++ doc ty
 
 
 instance : Pretty Attr where
@@ -207,7 +225,7 @@ mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
     | (Op.mk name args bbs rgns attrs ty) => 
-        let doc_name := (toString '"') ++ name ++ (toString '"')
+        let doc_name := doc_surround_dbl_quot name 
         let doc_bbs := if bbs.isEmpty
                        then doc ""
                        else "[" ++ intercalate_doc bbs ", " ++ "]"
@@ -376,6 +394,7 @@ def perror [Pretty e] (err: e) :  P a := {
      (loc, ns, s, Result.err ({ left := loc, right := loc, kind := doc err}))
 }
 
+
 instance : Inhabited (P a) where
    default := perror "INHABITED INSTANCE OF PARSER"
 
@@ -494,6 +513,13 @@ def pident : P String := do
   eat_whitespace 
   ptakewhile (fun c => (c != ' ' && c != '\t' && c != '\n') && (isAlphanum c || c == '_'))
 
+def pident? (s: String) : P Unit := do
+   let i <- pident
+   pnote $ "pident? looking for ident: " ++ s ++ " | found: |" ++ i ++ "|"
+   if i == s
+   then psuccess ()
+   else perror $ "expected |" ++ s ++ "| but found |" ++ i ++ "|"
+
 
 def pnumber : P Int := do
   let name <- pident
@@ -534,8 +560,8 @@ partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
                  let a <- p
                  let as <- pintercalated_ p i r
                  return (a :: as)
-               else perror ("intercalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found |" ++ c.toString ++ "|.")
-   | _ =>  perror ("intecalate: expected |" ++ i.toString ++ "|  or |" ++ r.toString ++ "|, found EOF" )
+               else perror ("intercalate: expected |" ++ doc i ++ "|  or |" ++ doc r ++ "|, found |" ++ c.toString ++ "|.")
+   | _ =>  perror ("intecalate: expected |" ++ doc i ++ "|  or |" ++ doc r ++ "|, found EOF" )
 
 
 -- | parse things starting with a <l>, followed by <p> intercalated by <i>, ending with <r>
@@ -575,11 +601,11 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
 partial def  pmany0 [Pretty a] (p: P a) : P (List a) := do
   match (<- pmay p) with
     | Option.some a => do
-        pnote $ "pmany0: found " ++ doc a
+        -- pnote $ "pmany0: found " ++ doc a
         let as <- pmany0 p
         return (a::as)
     | Option.none =>
-        pnote $ "pmany0: found none"
+        -- pnote $ "pmany0: found none"
        return []
 
 -- | parse <p>+ for a given <p>
@@ -604,7 +630,6 @@ partial def pssaval : P SSAVal := do
 
 mutual
 
-
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
 partial def pregion (u: Unit) : P Region :=  do
   pconsume '{'
@@ -621,6 +646,18 @@ partial def pregion (u: Unit) : P Region :=  do
 
 
 
+partial def ptype_vector : P MLIRTy := do
+  pident? "vector"
+  pconsume '<'
+  let sz <- pnumber
+  pnote $ "found sz: |" ++ doc sz ++ " |"
+  pconsume 'x'
+  pident? "i32"
+  let ty := MLIRTy.int 32
+  pnote $ "found sz: |" ++ doc sz ++ " | found type |" ++ doc ty ++ "|"
+  pconsume '>'
+  return MLIRTy.vector sz ty
+  
 partial def ptype (u: Unit) : P MLIRTy := do
   eat_whitespace
   let dom <- (match (<- ppeek) with
@@ -629,7 +666,7 @@ partial def ptype (u: Unit) : P MLIRTy := do
                 return MLIRTy.tuple args
              | some 'i' => do
                  pconsume 'i'
-                 let num <- pnumber -- HACK: we should actually consume a number
+                 let num <- pnumber
                  return MLIRTy.int num
              | other => do
                 perror ("uknown type starting with |" ++ toString other ++ "|."))
@@ -642,7 +679,6 @@ partial def ptype (u: Unit) : P MLIRTy := do
         return MLIRTy.fn dom codom
   | false => do
      return dom
-
 
 partial def pblockoperand : P (SSAVal × MLIRTy) := do
   eat_whitespace
@@ -660,8 +696,23 @@ partial def pattrvalue_int : P AttrVal := do
   let ty <- ptype ()
   return AttrVal.int num ty
 
+partial def pattrvalue_dense : P AttrVal := do
+  pnote "finding Dense..."
+  pident? "dense"
+  pnote "found Dense!"
+  pconsume '<'
+  let v <- pnumber
+  pconsume '>'
+  pconsume ':'
+  let ty <- ptype_vector
+  return AttrVal.dense v ty
+   
+  
+  
+ 
 partial def pattrvalue : P AttrVal := do
- por (pattrvalue_int) $ por (pmap AttrVal.str pstr) (pmap AttrVal.type (ptype ()))
+ pnote "hunting for attribute value"
+ por pattrvalue_int $ por (pmap AttrVal.str pstr) $ por (pmap AttrVal.type (ptype ())) pattrvalue_dense
 
 partial def pattr : P Attr := do
   eat_whitespace
@@ -724,7 +775,7 @@ partial def pblock (u: Unit) : P BasicBlock := do
    let args <- pintercalated '(' pblockoperand ',' ')'
    pconsume ':'
    let ops <- pmany1 (popcall u)
-   pnote $ "pblock ops: " ++ List.toString ops
+   -- pnote $ "pblock ops: " ++ List.toString ops
    return (BasicBlock.mk name args ops)
 end  
 
@@ -1122,7 +1173,7 @@ def note_add_file_content (contents: String) (note: Note): Doc :=
   let substr : Substring := (contents.toSubstring.drop ixl.toNat).take len.toNat
   let nspaces : Int := note.left.ix - ixl
   let underline : String :=   ("".pushn ' ' nspaces.toNat).push '^'
-  vgroup [doc "---|" ++ note.kind ++ "|---"
+  vgroup [doc "---|" ++ note.kind ++ "|---" 
           , doc note.left ++ " " ++ substr.toString
           , doc note.left ++ " " ++ underline
           , doc "---"]
