@@ -39,3 +39,8 @@ $ leanpkg build bin
 $ ./build/bin/MLIR <path-to-generic-mlir-file.mlir>
 ```
 
+
+# Other projects of interest
+
+- [`tydeu/lean4-papyrus`](https://github.com/tydeu/lean4-papyrus) is an LLVM interface for Lean 4.
+- [`GaloisInc/lean-llvm`](https://github.com/GaloisInc/lean-llvm) is Lean4 bindings to the LLVM library.
