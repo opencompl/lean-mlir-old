@@ -32,26 +32,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Get LLVM
-        id: get-llvm-repo
-        run: | 
-          git clone --depth=1 https://github.com/opencompl/llvm-project 
-          ls -1u | sort
-          cd llvm-project && git rev-parse HEAD
-
-
-      # # Clone the dyn-dialect repo and its submodules. Do shallow clone to save clone
-      # # time.
-      # - name: Get Dyn-dialect
-      #   uses: actions/checkout@v2
-      #   with:
-      #     fetch-depth: 1
-      #     submodules: "true"
-
       # Extract the LLVM submodule hash for use in the cache key.
       - name: Get LLVM Hash
         id: get-llvm-hash
-        run: echo "::set-output name=hash::$(cd llvm-project && git rev-parse HEAD)"
+        run: echo "::set-output name=hash::$(cat LLVM_COMMIT)"
         shell: bash
 
       # Try to fetch LLVM from the cache.
@@ -65,9 +49,7 @@ jobs:
       # Build LLVM if we didn't hit in the cache.
       - name: Rebuild and Install LLVM
         if: steps.cache-llvm.outputs.cache-hit != 'true'
-        run: |
-         ls -l | sort
-         utils/build-llvm.sh
+        run: utils/build-llvm.sh
 
 
     # Installing the results into the cache is an action which is automatically
@@ -92,17 +74,16 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 1
+
+    # TODO: refactor into utils/build.sh && utils/test.sh
+    - name: Checkout
+      uses: actions/checkout@v2
     
-    - name: Get LLVM
-      id: get-llvm-repo
-      run: | 
-        git clone --depth=1 https://github.com/opencompl/llvm-project 
-        ls -1u | sort
 
     # Extract the LLVM submodule hash for use in the cache key.
     - name: Get LLVM Hash
       id: get-llvm-hash
-      run: echo "::set-output name=hash::$(cd llvm-project && git rev-parse HEAD)"
+      run: echo "::set-output name=hash::$(cat LLVM_COMMIT)"
       shell: bash
 
     # Try to fetch LLVM from the cache.
@@ -121,9 +102,6 @@ jobs:
       if: steps.cache-llvm.outputs.cache-hit != 'true'
       run: utils/build-llvm.sh
 
-    # TODO: refactor into utils/build.sh && utils/test.sh
-    - name: Checkout
-      uses: actions/checkout@v2
     - name: Check Lean
       run: lean --version
     - name: Configure leanpkg
