@@ -134,8 +134,10 @@ jobs:
         leanpkg build bin
     - name: Test examples
       run: |
+        ls -1u
         export PATH=`pwd`/build/bin:$PATH # add MLIR from lean-MLIR to path
         export PATH=`pwd`/llvm-project/build/bin:$PATH  # add mlir-opt from llvm-project to path
+        echo $PATH
         pip install lit --user # install llvm-lit
         cd examples && lit -v . # run llvm-lit to test examples.
     # - name: Build C Lib
