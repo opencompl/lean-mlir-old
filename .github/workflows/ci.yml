@@ -72,7 +72,7 @@ jobs:
       run: |
         export PATH=`pwd`/build/bin:$PATH # add MLIR to path
         pip install lit --user # install llvm-lit
-        cd examples && llvm-lit -v . # run llvm-lit to test examples.
+        cd examples && lit -v . # run llvm-lit to test examples.
     # - name: Build C Lib
     #   run: make -C c -j4
     # - name: Build Lean Lib
