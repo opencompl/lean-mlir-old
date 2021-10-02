@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell || 'sh' }}
+    strategy:
+      matrix:
+        include:
+        - name: Ubuntu
+          os: ubuntu-latest
+        - name: MacOS
+          os: macos-latest
+        - name: Windows
+          os: windows-latest
+          shell: msys2 {0}
+      # complete all jobs
+      fail-fast: false
+    steps:
+    - name: Install MSYS2 w/ LLVM (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: msys2/setup-msys2@v2
+      with:
+        path-type: inherit
+        install: curl unzip make mingw-w64-x86_64-llvm mingw-w64-x86_64-gcc diffutils
+    - name: Install Elan (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        curl -sSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh > elan-init.sh
+        chmod +x elan-init.sh
+        ./elan-init.sh -y
+        echo "$HOME/.elan/bin" >> $GITHUB_PATH
+    - name: Install Elan (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        curl -sSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh > elan-init.sh
+        ./elan-init.sh -y
+        cygpath -w "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
+    - name: Install Elan (MacOS)
+      if: matrix.os == 'macOS-latest'
+      run: brew install elan
+    # - name: Install LLVM (MacOS)
+    #   if: matrix.os == 'macOS-latest'
+    #   run: |
+    #     brew install llvm@12
+    #     echo "$(brew --prefix)/opt/llvm/bin" >> $GITHUB_PATH
+    #     # - name: Install LLVM (Ubuntu)
+    #     #   if: matrix.os == 'ubuntu-latest'
+    #     #   run: |
+    #     #     sudo apt-get install llvm-12
+    #     #     llvm-config-12 --bindir >> $GITHUB_PATH
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Check Lean
+      run: lean --version
+    - name: Check Leanpkg
+      run: leanpkg --version
+    - name: Build package
+      run: |
+        leanpkg build
+        leanpkg build bin
+    # - name: Build C Lib
+    #   run: make -C c -j4
+    # - name: Build Lean Lib
+    #   run: make lib -j4
+    # - name: Build Lean Plugin
+    #   run: make -C plugin -j4
+    # - name: Test
+    #   run: make -C test -j4
