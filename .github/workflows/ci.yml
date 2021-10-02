@@ -36,6 +36,8 @@ jobs:
         id: get-llvm-repo
         run: | 
           git clone --depth=1 https://github.com/opencompl/llvm-project 
+          ls -1u | sort
+          cd llvm-project && git rev-parse HEAD
 
 
       # # Clone the dyn-dialect repo and its submodules. Do shallow clone to save clone
@@ -49,7 +51,7 @@ jobs:
       # Extract the LLVM submodule hash for use in the cache key.
       - name: Get LLVM Hash
         id: get-llvm-hash
-        run: echo "::set-output name=hash::${git rev-parse @:./llvm-project}"
+        run: echo "::set-output name=hash::${cd llvm-project && git rev-parse HEAD}"
         shell: bash
 
       # Try to fetch LLVM from the cache.
@@ -95,11 +97,12 @@ jobs:
       id: get-llvm-repo
       run: | 
         git clone --depth=1 https://github.com/opencompl/llvm-project 
+        ls -1u | sort
 
     # Extract the LLVM submodule hash for use in the cache key.
     - name: Get LLVM Hash
       id: get-llvm-hash
-      run: echo "::set-output name=hash::$(git rev-parse @:./llvm-project)"
+      run: echo "::set-output name=hash::$(cd llvm-project && git rev-parse HEAD)"
       shell: bash
 
     # Try to fetch LLVM from the cache.
