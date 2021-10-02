@@ -62,8 +62,8 @@ jobs:
       uses: actions/checkout@v2
     - name: Check Lean
       run: lean --version
-    - name: Check Leanpkg
-      run: leanpkg --version
+    - name: Configure leanpkg
+      run: leanpkg configure
     - name: Build package
       run: |
         leanpkg build
