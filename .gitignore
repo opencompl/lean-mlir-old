@@ -25,3 +25,5 @@ mlir-opt.c
 crash
 crash.c
 build/
+examples/.lit_test_times.txt
+examples/Output

@@ -161,7 +161,9 @@ partial def pentryblock_no_label (u: Unit) : P BasicBlock := do
 partial def pblock (u: Unit) : P BasicBlock := do
    pconsume '^'
    let name <- pident
-   let args <- pintercalated '(' pblockoperand ',' ')'
+   let args <-  (if (<- ppeek? '(')
+                then pintercalated '(' pblockoperand ',' ')'
+                else return [])
    pconsume ':'
    let ops <- pmany1 (popcall u)
    -- pnote $ "pblock ops: " ++ List.toString ops
