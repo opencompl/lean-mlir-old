@@ -106,6 +106,13 @@ instance : Coe Doc String where
 -- EMBEDDING
 -- ==========
 
+inductive BBName
+| mk: String -> BBName
+
+instance : Pretty BBName where
+  doc name := match name with 
+              | BBName.mk s => doc s
+
 mutual
 inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
@@ -128,8 +135,9 @@ inductive Attr : Type where
 inductive Op : Type where 
  | mk: (name: String) 
       -> (args: List SSAVal)
+      -> (bbs: List BBName)
+      -> (regions: List Region) 
       -> (attrs: List Attr)
-      -> (region: List Region) 
       -> (ty: MLIRTy)
       -> Op
 
@@ -146,6 +154,7 @@ inductive Path : Type where
 inductive BasicBlockStmt : Type where
 | StmtAssign : SSAVal -> Op -> BasicBlockStmt
 | StmtOp : Op -> BasicBlockStmt
+
 
 inductive BasicBlock: Type where
 | mk: (name: String) -> (args: List (SSAVal × MLIRTy)) -> (ops: List BasicBlockStmt) -> BasicBlock
@@ -197,10 +206,13 @@ instance : Pretty SSAVal where
 mutual
 partial def op_to_doc (op: Op): Doc := 
     match op with
-    | (Op.mk name args attrs rgns ty) => 
+    | (Op.mk name args bbs rgns attrs ty) => 
         let doc_name := (toString '"') ++ name ++ (toString '"')
+        let doc_bbs := if bbs.isEmpty
+                       then doc ""
+                       else "[" ++ intercalate_doc bbs ", " ++ "]"
         let doc_rgns := 
-            if List.isEmpty rgns
+            if rgns.isEmpty
             then Doc.Text ""
             else " (" ++ nest_vgroup (rgns.map rgn_to_doc) ++ ")"
         let doc_args := "(" ++ intercalate_doc args ", " ++ ")"
@@ -304,6 +316,7 @@ def advance1 (l: Loc) (c: Char): Loc :=
 partial def advance (l: Loc) (s: String): Loc :=
   if isEmpty s then l
   else let c := s.front; advance (advance1 l c) (s.drop 1)
+
 
 structure Note where
   left : Loc
@@ -562,7 +575,7 @@ partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
 partial def  pmany0 [Pretty a] (p: P a) : P (List a) := do
   match (<- pmay p) with
     | Option.some a => do
-        pnote $ "pmany0: found" ++ doc a
+        pnote $ "pmany0: found " ++ doc a
         let as <- pmany0 p
         return (a::as)
     | Option.none =>
@@ -574,6 +587,20 @@ partial def  pmany1 [Pretty a] (p: P a) : P (List a) := do
   let a1 <- p
   let as <- pmany0 p
   return (a1::as)
+
+-- | ^ <name>
+def pbbname : P BBName := do 
+  pconsume '^'
+  let name <- pident
+   return (BBName.mk name)
+
+-- | % <name>
+partial def pssaval : P SSAVal := do
+  eat_whitespace
+  pconsume '%'
+  let name <- pident
+  return (SSAVal.SSAVal name)
+
 
 mutual
 
@@ -592,12 +619,6 @@ partial def pregion (u: Unit) : P Region :=  do
   pconsume '}'
   return (Region.mk (b::bs))
 
-
-partial def pssaval : P SSAVal := do
-  eat_whitespace
-  pconsume '%'
-  let name <- pident
-  return (SSAVal.SSAVal name)
 
 
 partial def ptype (u: Unit) : P MLIRTy := do
@@ -649,6 +670,7 @@ partial def pattr : P Attr := do
   pconsume '='
   let value <- pattrvalue
   return (Attr.mk name value)
+
   
 
 partial def pop (u: Unit) : P Op := do 
@@ -657,6 +679,9 @@ partial def pop (u: Unit) : P Op := do
   | some '\"' => do
     let name <- pstr
     let args <- pintercalated '(' pssaval ',' ')'
+    let bbs <- (if (<- ppeek? '[' ) 
+                then pintercalated '[' pbbname ','  ']'
+                else return [])
     let hasRegion <- ppeek? '('
     let regions <- (if hasRegion 
                       then pintercalated '(' (pregion ()) ',' ')'
@@ -668,7 +693,7 @@ partial def pop (u: Unit) : P Op := do
               else pure [])
     pconsume ':'
     let ty <- ptype u
-    return (Op.mk  name args attrs regions ty)
+    return (Op.mk  name args bbs regions attrs ty)
   | some '%' => perror "found %, don't know how to parse ops yet"
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 
@@ -803,8 +828,9 @@ macro_rules
   | `(mlir_op_call% $name:strLit $args:mlir_op_call_args : $ty:mlir_type ) =>
         `(Op.mk $name -- name
                 (mlir_op_call_args% $args) -- args
-                [] -- attrs
+                [] -- bbs
                 [] -- regions
+                [] -- attrs
                 (mlir_type% $ty)) -- type
 
 
@@ -949,8 +975,9 @@ macro_rules
         let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
         `(Op.mk $name -- name
                 (mlir_op_call_args% $args) -- args
-                [] -- attrs
+                [] -- bbs
                 $rgnsList -- regions
+                [] -- attrs
                 (mlir_type% $ty)) -- type
 
 def oprgn0 : Op := (mlir_op_call%
@@ -1015,8 +1042,9 @@ macro_rules
         let attrsList <- attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
         `(Op.mk $name -- name
                 (mlir_op_call_args% $args) -- args
+                [] -- bbs
+                [] -- regions   
                 $attrsList -- attrs
-                [] -- regions
                 (mlir_type% $ty)) -- type
 
 def opattr0 : Op := (mlir_op_call%
@@ -1039,8 +1067,9 @@ macro_rules
         let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
         `(Op.mk $name -- name
                 (mlir_op_call_args% $args) -- args
-                $attrsList -- attrs
+                [] -- bbs
                 $rgnsList -- regions
+                $attrsList -- attrs
                 (mlir_type% $ty)) -- type
 
 -- | note that this is a "full stack" example!
@@ -1060,19 +1089,44 @@ def opRgnAttr0 : Op := (mlir_op_call%
 #print opRgnAttr0
 
 
--- TODO: switch to String.position
--- | find smallest n such that s[ix + delta^n] = '\n'. Usually will use
--- delta = +-1
--- partial def find_newline_via_delta (s: String) (delta: Int) (ix: Int): Int :=
---  if ix <= 0
---  then 0
---  else if ix >= s.length -1  then s.length - 1
---  else if s.get ix == '\n' then ix -- TODO: figure out how to use string position nonsense
---  else find_newline_via_delta s delta (ix + delta)
+-- | 
+partial def find_newline_in_dir
+   (s: String)
+   (pos: Int)
+   (dir: Int): Int :=
+ if pos <= 0
+ then 0
+ else if pos >= s.length -1  then s.length - 1
+ else if s.get pos.toNat == '\n' then pos - dir
+ else find_newline_in_dir s (pos + dir) dir
 
 
-def note_add_annotation (contents: String) (note: Note): Doc :=
-  doc note
+-- | find rightmost newline in s[0, pos].
+partial def find_earlier_newline
+   (s: String)
+   (pos: Int): Int := find_newline_in_dir s pos (-1)
+
+-- | find leftmost newline in s[pos, end]
+partial def find_later_newline
+   (s: String)
+   (pos: Int): Int := find_newline_in_dir s pos 1
+
+
+
+-- | add a pointer showing the file contents at the given line
+def note_add_file_content (contents: String) (note: Note): Doc :=
+  let ixl := find_earlier_newline contents (note.left.ix)
+  let ixr := find_later_newline contents (note.right.ix)
+  -- | closed interval
+  let len := ixr - ixl + 1
+  let substr : Substring := (contents.toSubstring.drop ixl.toNat).take len.toNat
+  let nspaces : Int := note.left.ix - ixl
+  let underline : String :=   ("".pushn ' ' nspaces.toNat).push '^'
+  vgroup [doc "---|" ++ note.kind ++ "|---"
+          , doc note.left ++ " " ++ substr.toString
+          , doc note.left ++ " " ++ underline
+          , doc "---"]
+ 
   
 
 -- TOPLEVEL PARSER
@@ -1089,12 +1143,13 @@ def main (xs: List String): IO Unit := do
   IO.println opRgnAttr0
   IO.println "PARSING\n=======\n"
   let ns := []
-  let res := (pop ()).runP locbegin ns contents
+  let (loc, ns, _, res) <-  (pop ()).runP locbegin ns contents
+  IO.println (vgroup $ ns.map (note_add_file_content contents))
   match res with
-   | (loc, ns, str, Result.ok op) => do
-     IO.println (vgroup $ ns.map (note_add_annotation contents))
+   | Result.ok op => do
+     IO.println "parse success:"
      IO.println op
-   | (loc, ns, str, Result.err res) => do
-      IO.println (vgroup ns)
-      IO.println res
+   | Result.err err => do
+      IO.println "***Parse Error:***"
+      IO.println (note_add_file_content contents err)
   return ()
