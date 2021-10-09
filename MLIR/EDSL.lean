@@ -16,15 +16,15 @@ declare_syntax_cat mlir_bb
 declare_syntax_cat mlir_region
 declare_syntax_cat mlir_bb_stmt
 declare_syntax_cat mlir_op_results
-declare_syntax_cat mlir_op_call
-declare_syntax_cat mlir_op_call_args
+declare_syntax_cat mlir_op
+declare_syntax_cat mlir_op_args
 declare_syntax_cat mlir_op_successor_args
-declare_syntax_cat mlir_op_call_type
+declare_syntax_cat mlir_op_type
 declare_syntax_cat mlir_op_operand
 declare_syntax_cat mlir_type
 
 
--- syntax strLit mlir_op_call_args ":" mlir_op_call_type : mlir_op_call -- no region
+-- syntax strLit mlir_op_args ":" mlir_op_type : mlir_op -- no region
 -- 
 
 
@@ -50,20 +50,20 @@ def xxx := (mlir_op_operand% %x)
 -- EDSL OP-CALL-ARGS
 -- =================
 
-syntax "(" ")" : mlir_op_call_args
-syntax "(" mlir_op_operand ")" : mlir_op_call_args
-syntax "(" mlir_op_operand "," mlir_op_operand","* ")" : mlir_op_call_args
+syntax "(" ")" : mlir_op_args
+syntax "(" mlir_op_operand ")" : mlir_op_args
+syntax "(" mlir_op_operand "," mlir_op_operand","* ")" : mlir_op_args
 
-syntax "mlir_op_call_args% " mlir_op_call_args : term -- translate mlir_op_call args into term
+syntax "mlir_op_args% " mlir_op_args : term -- translate mlir_op args into term
 macro_rules
-  | `(mlir_op_call_args% ( ) ) => `([])
-  | `(mlir_op_call_args% ( $x:mlir_op_operand ) ) => `([mlir_op_operand% $x])
-  | `(mlir_op_call_args% ( $x:mlir_op_operand, $y:mlir_op_operand ) ) => `([mlir_op_operand% $x, mlir_op_operand% $y])
+  | `(mlir_op_args% ( ) ) => `([])
+  | `(mlir_op_args% ( $x:mlir_op_operand ) ) => `([mlir_op_operand% $x])
+  | `(mlir_op_args% ( $x:mlir_op_operand, $y:mlir_op_operand ) ) => `([mlir_op_operand% $x, mlir_op_operand% $y])
 
 
-def call0 : List SSAVal := (mlir_op_call_args% ())
-def call1 : List SSAVal := (mlir_op_call_args% (%x))
-def call2 : List SSAVal := (mlir_op_call_args% (%x, %y))
+def call0 : List SSAVal := (mlir_op_args% ())
+def call1 : List SSAVal := (mlir_op_args% (%x))
+def call2 : List SSAVal := (mlir_op_args% (%x, %y))
 #print call0
 #print call1
 #print call2
@@ -126,21 +126,21 @@ def tyfn2 : MLIRTy := (mlir_type% (i 21, i 22) -> (i 23, i 24))
 -- EDSL MLIR OP CALL, MLIR BB STMT
 -- ===============================
 
--- syntax strLit mlir_op_call_args ":" mlir_type : mlir_op_call
+-- syntax strLit mlir_op_args ":" mlir_type : mlir_op
 
-syntax "mlir_op_call%" mlir_op_call : term
+syntax "mlir_op%" mlir_op : term
 
 
-syntax mlir_op_call: mlir_bb_stmt
-syntax mlir_op_operand "=" mlir_op_call : mlir_bb_stmt
+syntax mlir_op: mlir_bb_stmt
+syntax mlir_op_operand "=" mlir_op : mlir_bb_stmt
 syntax "mlir_bb_stmt%" mlir_bb_stmt : term
 
 
 macro_rules
-  | `(mlir_bb_stmt% $call:mlir_op_call ) =>
-       `(BasicBlockStmt.StmtOp (mlir_op_call% $call))
-  | `(mlir_bb_stmt% $res:mlir_op_operand = $call:mlir_op_call) => 
-       `(BasicBlockStmt.StmtAssign (mlir_op_operand% $res) (mlir_op_call% $call))
+  | `(mlir_bb_stmt% $call:mlir_op ) =>
+       `(BasicBlockStmt.StmtOp (mlir_op% $call))
+  | `(mlir_bb_stmt% $res:mlir_op_operand = $call:mlir_op) => 
+       `(BasicBlockStmt.StmtAssign (mlir_op_operand% $res) (mlir_op% $call))
 
 
 
@@ -238,11 +238,11 @@ def attr1Type : Attr := (mlir_attr% type = (i 32, i 32) -> i 32)
 -- =========================================================
 
 
-syntax strLit mlir_op_call_args ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op_call
+syntax strLit mlir_op_args ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op
 
 
 macro_rules 
-  | `(mlir_op_call% $name:strLit $args:mlir_op_call_args
+  | `(mlir_op% $name:strLit $args:mlir_op_args
         $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
         $[ { $attrs,* } ]? : $ty:mlir_type ) => do
@@ -257,7 +257,7 @@ macro_rules
                           | none => `([]) 
                           | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
         `(Op.mk $name -- name
-                (mlir_op_call_args% $args) -- args
+                (mlir_op_args% $args) -- args
                 $succList -- bbs
                 $rgnsList -- regions
                 $attrsList -- attrs
@@ -327,18 +327,18 @@ def rgn2 : Region :=
 
 
 -- | test simple ops [no regions]
-def opcall1 : Op := (mlir_op_call% "foo" (%x, %y) : (i 32, i 32) -> i 32)
+def opcall1 : Op := (mlir_op% "foo" (%x, %y) : (i 32, i 32) -> i 32)
 
 #print opcall1
 
 
-def opattr0 : Op := (mlir_op_call%
+def opattr0 : Op := (mlir_op%
  "foo"() { sym_name = "add", type = (i 32, i 32) -> i 32 } : () -> ()
 )
 #print opattr0
 
 
-def oprgn0 : Op := (mlir_op_call%
+def oprgn0 : Op := (mlir_op%
  "func"() ( {
   ^bb0(%arg0: i 32, %arg1: i 32):
     %x = "std.addi"(%arg0, %arg1) : (i 32, i 32) -> i 32
@@ -349,7 +349,7 @@ def oprgn0 : Op := (mlir_op_call%
 
 
 -- | note that this is a "full stack" example!
-def opRgnAttr0 : Op := (mlir_op_call%
+def opRgnAttr0 : Op := (mlir_op%
  "module"() (
  {
   ^entry:
@@ -367,7 +367,7 @@ def opRgnAttr0 : Op := (mlir_op_call%
 
 
 -- | test simple ops [no regions, but with bb args]
-def opcall2 : Op := (mlir_op_call% "foo" (%x, %y) [^bb1, ^bb2] : (i 32, i 32) -> i 32)
+def opcall2 : Op := (mlir_op% "foo" (%x, %y) [^bb1, ^bb2] : (i 32, i 32) -> i 32)
 #print opcall2
 
 end MLIR.EDSL
