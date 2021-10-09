@@ -8,6 +8,7 @@ open MLIR.EDSL
 
 syntax "addi" mlir_op_operand mlir_op_operand : term
 syntax "br" mlir_op_successor_arg : term
+syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor_arg : term
 
 macro_rules
   | `(addi $op1:mlir_op_operand $op2:mlir_op_operand ) => 
@@ -15,6 +16,12 @@ macro_rules
 macro_rules
   | `(br $op1:mlir_op_successor_arg) => 
         `(mlir_op% "br" () [$op1] : () -> ())
+
+macro_rules
+  | `(cond_br $flag: mlir_op_operand ,
+          $truebb:mlir_op_successor_arg , 
+          $falsebb:mlir_op_successor_arg) => 
+        `(mlir_op% "cond_br" ($flag) [$truebb, $falsebb] : (i 1) -> () )
 
 -- | TODO: add block arguments. 
 -- syntax "br" 
@@ -24,3 +31,6 @@ def add0 : Op := addi %c0 %c1
 
 def br0 : Op := br ^entry
 #print br0
+
+def condbr0 : Op := cond_br %flag, ^loopheader, ^loopexit
+#print condbr0
