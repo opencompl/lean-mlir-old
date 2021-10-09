@@ -37,15 +37,31 @@ def condbr0 : Op := (mlir_op% cond_br %flag, ^loopheader, ^loopexit)
 #print condbr0
 
 
-syntax "while" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
-
+syntax "scf.while" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
 
 macro_rules
-  | `(mlir_op% while ( $flag ) : $retty  $body ) => 
-        `(mlir_op% "while" ($flag) ($body) : $retty )
+  | `(mlir_op% scf.while ( $flag ) : $retty  $body ) => 
+        `(mlir_op% "scf.while" ($flag) ($body) : $retty )
 
-def while0 := (mlir_op% while (%x) : (i 32) -> (i 32) { 
+def scfWhile0 := (mlir_op% scf.while (%x) : (i 32) -> (i 32) { 
     ^entry: 
       addi %c0 %x
 })
-#print while0
+#print scfWhile0
+
+syntax "scf.if" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
+
+macro_rules
+  | `(mlir_op% scf.if ( $flag ) : $retty  $body ) => 
+        `(mlir_op% "scf.if" ($flag) ($body) : $retty )
+
+def scfIf0 := (mlir_op% scf.if (%x) : (i 32) -> (i 32) { 
+    ^entry: 
+      %z = addi %c0 %x
+      scf.while (%x) : (i 32) -> (i 32) { 
+        ^entry: 
+          addi %c0 %z
+      }
+
+})
+#print scfIf0

@@ -1,4 +1,5 @@
 import MLIR.Doc
+open Lean PrettyPrinter
 
 open MLIR.Doc
 open Pretty -- open typeclass for `doc`
@@ -107,6 +108,11 @@ instance : Pretty SSAVal where
 
 
 
+instance : ToFormat SSAVal where
+    format (x: SSAVal) := layout80col (doc x)
+
+
+
 -- | TODO: add a typeclass `Pretty` for things that can be converted to `Doc`.
 mutual
 partial def op_to_doc (op: Op): Doc := 
@@ -167,5 +173,9 @@ instance : Pretty Region where
 
 instance [Pretty a] : ToString a where
   toString (v: a) := layout80col (doc v)
+
+instance : ToFormat Op where
+    format (x: Op) := layout80col (doc x)
+
 
 end MLIR.AST
