@@ -85,28 +85,8 @@ macro_rules
   | `(mlir_op_successor_arg% ^ $x:ident  ) => 
       `(BBName.mk $(Lean.quote (toString x.getId)))
 
-
-syntax "[" "]" : mlir_op_successor_args
-syntax "["  sepBy(mlir_op_successor_arg, ",") "]" : mlir_op_successor_args
-
-syntax "mlir_op_successor_args% " mlir_op_successor_args : term -- translate mlir_op_call basic block args into term
-macro_rules
-  | `(mlir_op_successor_args% [ ]  ) => `([]) 
-  | `(mlir_op_successor_args% [ $args,*]  ) => do 
-     let initList  ← `([])
-     let argsList ← args.getElems.foldlM (init := initList) fun xs x => 
-            `($xs ++ [mlir_op_successor_arg% $x])
-      return argsList
-
-
-
-def succ0 : List BBName := (mlir_op_successor_args% [])
-def succ1 : List BBName := (mlir_op_successor_args% [ ^bb1 ])
-def succ2 : List BBName := (mlir_op_successor_args% [ ^bb1, ^bb2 ])
-
+def succ0 :  BBName := (mlir_op_successor_arg% ^bb)
 #print succ0
-#print succ1
-#print succ2
 
 
 -- EDSL MLIR TYPES
@@ -147,7 +127,6 @@ def tyfn2 : MLIRTy := (mlir_type% (i 21, i 22) -> (i 23, i 24))
 -- ===============================
 
 -- syntax strLit mlir_op_call_args ":" mlir_type : mlir_op_call
--- syntax strLit mlir_op_call_args (mlir_op_successor_args)? ":" mlir_type : mlir_op_call
 
 syntax "mlir_op_call%" mlir_op_call : term
 
@@ -215,26 +194,6 @@ macro_rules
    `(Region.mk $bbsList)
 
 
--- MLIR OPS WITH REGIONS
--- =====================
-
--- Now that we have regions, can extend the grammar to allow ops with regions :D
-
--- syntax strLit mlir_op_call_args "(" mlir_region,* ")" ":" mlir_type : mlir_op_call
-
-
--- macro_rules 
---   | `(mlir_op_call% $name:strLit $args:mlir_op_call_args ( $rgns,* ) : $ty:mlir_type ) => do
---         let initList <- `([])
---         let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
---         `(Op.mk $name -- name
---                 (mlir_op_call_args% $args) -- args
---                 [] -- bbs
---                 $rgnsList -- regions
---                 [] -- attrs
---                 (mlir_type% $ty)) -- type
-
-
 -- MLIR ATTRIBUTE VALUE
 -- ====================
 
@@ -275,63 +234,22 @@ def attr0Str : Attr := (mlir_attr% sym_name = "add")
 def attr1Type : Attr := (mlir_attr% type = (i 32, i 32) -> i 32)
 #print attr1Type
 
--- MLIR OPS WITH ATTRIBUTES
--- =====================
-
--- Now that we have attributes, can extend the grammar to allow ops with regions :D
-
--- syntax strLit mlir_op_call_args "{" sepBy(mlir_attr, ",") "}" ":" mlir_type : mlir_op_call
-
--- macro_rules 
---   | `(mlir_op_call% $name:strLit $args:mlir_op_call_args { $attrs,* } : $ty:mlir_type ) => do
---         let initList <- `([])
---         let attrsList <- attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
---         `(Op.mk $name -- name
---                 (mlir_op_call_args% $args) -- args
---                 [] -- bbs
---                 [] -- regions   
---                 $attrsList -- attrs
---                 (mlir_type% $ty)) -- type
-
-
-
-
--- MLIR OPS WITH REGIONS AND ATTRIBUTES
--- ====================================
-
-
--- syntax strLit mlir_op_call_args "(" mlir_region,* ")"  "{" mlir_attr,* "}" ":" mlir_type : mlir_op_call
-
--- macro_rules 
---   | `(mlir_op_call% $name:strLit $args:mlir_op_call_args ( $rgns,* ) { $attrs,* } : $ty:mlir_type ) => do
---         let initList <- `([])
---         let attrsList <- attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
---         let rgnsList <- rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
---         `(Op.mk $name -- name
---                 (mlir_op_call_args% $args) -- args
---                 [] -- bbs
---                 $rgnsList -- regions
---                 $attrsList -- attrs
---                 (mlir_type% $ty)) -- type
-
-
-
 -- MLIR OPS WITH REGIONS AND ATTRIBUTES AND BASIC BLOCK ARGS
 -- =========================================================
 
 
-syntax strLit mlir_op_call_args (mlir_op_successor_args)? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op_call
+syntax strLit mlir_op_call_args ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op_call
 
 
 macro_rules 
   | `(mlir_op_call% $name:strLit $args:mlir_op_call_args
-        $[ $succ:mlir_op_successor_args ]?
+        $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
         $[ { $attrs,* } ]? : $ty:mlir_type ) => do
         let initList <- `([])
         let succList <- match succ with
                 | none => `([])
-                | some xs => `(mlir_op_successor_arg% $xs)
+                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_op_successor_arg% $x])
         let attrsList <- match attrs with 
                           | none => `([]) 
                           | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
@@ -449,7 +367,7 @@ def opRgnAttr0 : Op := (mlir_op_call%
 
 
 -- | test simple ops [no regions, but with bb args]
--- def opcall2 : Op := (mlir_op_call% "foo" (%x, %y) [^bb1, ^bb2] : (i 32, i 32) -> i 32)
--- #print opcall2
+def opcall2 : Op := (mlir_op_call% "foo" (%x, %y) [^bb1, ^bb2] : (i 32, i 32) -> i 32)
+#print opcall2
 
 end MLIR.EDSL
