@@ -1,6 +1,7 @@
 import MLIR.AST
 import Lean.Parser
 import Lean.Parser.Extra
+-- import Lean.Init.Meta
 
 
 open Lean
@@ -96,25 +97,40 @@ syntax "(" ")" : mlir_type
 syntax "(" mlir_type ")" : mlir_type
 syntax "(" mlir_type "," mlir_type ")" : mlir_type
 syntax mlir_type "->" mlir_type : mlir_type
-syntax "i" numLit : mlir_type
+syntax ident: mlir_type
+
+-- | TODO: fix this rule, it interfers with way too much other stuff!
+-- syntax "i" numLit : mlir_type
 
 syntax "mlir_type%" mlir_type : term
+
+macro_rules
+  | `(mlir_type% $x:ident ) => do
+        let xstr := x.getId.toString
+        if xstr.front == 'i'
+        then do 
+          let xstr' := xstr.drop 1
+          let lit := Lean.Syntax.mkNumLit xstr'
+          `(MLIRTy.int $lit)
+        else Macro.throwError "expected i<int>" -- `(MLIRTy.int 1337)
+
+def tyi32NoGap : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
 
 macro_rules
   | `(mlir_type% ( ) ) => `(MLIRTy.tuple [])
   | `(mlir_type% ( $x:mlir_type ) ) => `(MLIRTy.tuple [(mlir_type% $x)])
   | `(mlir_type% ( $x:mlir_type, $y:mlir_type ) ) => `(MLIRTy.tuple [(mlir_type% $x), (mlir_type% $y)])
-  | `(mlir_type% i $x:numLit ) => `(MLIRTy.int $x)
+  -- | `(mlir_type% i $x:numLit ) => `(MLIRTy.int $x)
   | `(mlir_type% $dom:mlir_type -> $codom:mlir_type) => `(MLIRTy.fn (mlir_type% $dom) (mlir_type% $codom))
 
 def ty0 : MLIRTy := (mlir_type% ())
-def tyi32 : MLIRTy := (mlir_type% i 32) -- TODO: how to keep no gap?
+def tyi32 : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
 -- def tyi32' : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
-def tysingle : MLIRTy := (mlir_type% (i 42))
-def typair : MLIRTy := (mlir_type% (i 32, i 64))
+def tysingle : MLIRTy := (mlir_type% (i42))
+def typair : MLIRTy := (mlir_type% (i32, i64))
 def tyfn0 : MLIRTy := (mlir_type% () -> ())
-def tyfn1 : MLIRTy := (mlir_type% (i 11) -> (i 12))
-def tyfn2 : MLIRTy := (mlir_type% (i 21, i 22) -> (i 23, i 24))
+def tyfn1 : MLIRTy := (mlir_type% (i11) -> (i12))
+def tyfn2 : MLIRTy := (mlir_type% (i21, i22) -> (i23, i24))
 #print ty0
 #print tyi32
 #print typair
@@ -185,13 +201,17 @@ macro_rules
 
 syntax "{" (ws mlir_bb ws)* "}": mlir_region
 syntax "mlir_region% " mlir_region : term
-
+syntax "<[" term "]>" : mlir_region
 
 macro_rules
 | `(mlir_region% { $[ $bbs ]* }) => do
    let initList <- `([])
    let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb% $x])
    `(Region.mk $bbsList)
+
+macro_rules
+| `(mlir_region% <[ $t: term ]>) => t
+
 
 
 -- MLIR ATTRIBUTE VALUE
@@ -212,7 +232,7 @@ macro_rules
 def attrVal0Str : AttrVal := mlir_attr_val% "foo"
 #print attrVal0Str
 
-def attrVal1Ty : AttrVal := mlir_attr_val% (i 32, i 64) -> i 32
+def attrVal1Ty : AttrVal := mlir_attr_val% (i32, i64) -> i32
 #print attrVal1Ty
 
 -- MLIR ATTRIBUTE
@@ -231,7 +251,7 @@ macro_rules
 def attr0Str : Attr := (mlir_attr% sym_name = "add")
 #print attr0Str
 
-def attr1Type : Attr := (mlir_attr% type = (i 32, i 32) -> i 32)
+def attr1Type : Attr := (mlir_attr% type = (i32, i32) -> i32)
 #print attr1Type
 
 -- MLIR OPS WITH REGIONS AND ATTRIBUTES AND BASIC BLOCK ARGS
@@ -265,30 +285,30 @@ macro_rules
 
 
 
-def bbstmt1 : BasicBlockStmt := (mlir_bb_stmt% "foo"(%x, %y) : (i 32, i 32) -> i 32)
+def bbstmt1 : BasicBlockStmt := (mlir_bb_stmt% "foo"(%x, %y) : (i32, i32) -> i32)
 #print bbstmt1
-def bbstmt2: BasicBlockStmt := (mlir_bb_stmt% %z = "foo"(%x, %y) : (i 32, i 32) -> i 32)
+def bbstmt2: BasicBlockStmt := (mlir_bb_stmt% %z = "foo"(%x, %y) : (i32, i32) -> i32)
 #print bbstmt2
 
-def bbop1 : SSAVal × MLIRTy := mlir_bb_operand% %x : i 32
+def bbop1 : SSAVal × MLIRTy := mlir_bb_operand% %x : i32
 #print bbop1
 
 def bb1NoArgs : BasicBlock := 
   (mlir_bb%
      ^entry:
-     "foo"(%x, %y) : (i 32, i 32) -> i 32
-      %z = "bar"(%x) : (i 32) -> (i 32)
-      "std.return"(%x0) : (i 42) -> ()
+     "foo"(%x, %y) : (i32, i32) -> i32
+      %z = "bar"(%x) : (i32) -> (i32)
+      "std.return"(%x0) : (i42) -> ()
 
   )
 #print bb1NoArgs
 
 def bb2SingleArg : BasicBlock := 
   (mlir_bb%
-     ^entry(%argp : i 32):
-     "foo"(%x, %y) : (i 32, i 32) -> i 32
-      %z = "bar"(%x) : (i 32) -> (i 32)
-      "std.return"(%x0) : (i 42) -> ()
+     ^entry(%argp : i32):
+     "foo"(%x, %y) : (i32, i32) -> i32
+      %z = "bar"(%x) : (i32) -> (i32)
+      "std.return"(%x0) : (i42) -> ()
 
   )
 #print bb2SingleArg
@@ -296,10 +316,10 @@ def bb2SingleArg : BasicBlock :=
 
 def bb3MultipleArgs : BasicBlock := 
   (mlir_bb%
-     ^entry(%argp : i 32, %argq : i 64):
-     "foo"(%x, %y) : (i 32, i 32) -> i 32
-      %z = "bar"(%x) : (i 32) -> (i 32)
-      "std.return"(%x0) : (i 42) -> ()
+     ^entry(%argp : i32, %argq : i64):
+     "foo"(%x, %y) : (i32, i32) -> i32
+      %z = "bar"(%x) : (i32) -> (i32)
+      "std.return"(%x0) : (i42) -> ()
 
   )
 #print bb3MultipleArgs
@@ -311,38 +331,38 @@ def rgn0 : Region := (mlir_region%  { })
 def rgn1 : Region := 
   (mlir_region%  { 
     ^entry:
-      "std.return"(%x0) : (i 42) -> ()
+      "std.return"(%x0) : (i42) -> ()
   })
 #print rgn1
 
 def rgn2 : Region := 
   (mlir_region%  { 
     ^entry:
-      "std.return"(%x0) : (i 42) -> ()
+      "std.return"(%x0) : (i42) -> ()
 
     ^loop:
-      "std.return"(%x1) : (i 42) -> ()
+      "std.return"(%x1) : (i42) -> ()
   })
 #print rgn2
 
 
 -- | test simple ops [no regions]
-def opcall1 : Op := (mlir_op% "foo" (%x, %y) : (i 32, i 32) -> i 32)
+def opcall1 : Op := (mlir_op% "foo" (%x, %y) : (i32, i32) -> i32)
 
 #print opcall1
 
 
 def opattr0 : Op := (mlir_op%
- "foo"() { sym_name = "add", type = (i 32, i 32) -> i 32 } : () -> ()
+ "foo"() { sym_name = "add", type = (i32, i32) -> i32 } : () -> ()
 )
 #print opattr0
 
 
 def oprgn0 : Op := (mlir_op%
  "func"() ( {
-  ^bb0(%arg0: i 32, %arg1: i 32):
-    %x = "std.addi"(%arg0, %arg1) : (i 32, i 32) -> i 32
-    "std.return"(%x) : (i 32) -> ()
+  ^bb0(%arg0: i32, %arg1: i32):
+    %x = "std.addi"(%arg0, %arg1) : (i32, i32) -> i32
+    "std.return"(%x) : (i32) -> ()
   }) : () -> ()
 )
 #print oprgn0
@@ -355,10 +375,10 @@ def opRgnAttr0 : Op := (mlir_op%
   ^entry:
    "func"() (
     {
-     ^bb0(%arg0:i 32, %arg1:i 32):
-      %zero = "std.addi"(%arg0 , %arg1) : (i 32, i 32) -> i 32
-      "std.return"(%zero) : (i 32) -> ()
-    }){sym_name = "add", type = (i 32, i 32) -> i 32} : () -> ()
+     ^bb0(%arg0:i32, %arg1:i32):
+      %zero = "std.addi"(%arg0 , %arg1) : (i32, i32) -> i32
+      "std.return"(%zero) : (i32) -> ()
+    }){sym_name = "add", type = (i32, i32) -> i32} : () -> ()
    "module_terminator"() : () -> ()
  }) : () -> ()
 )
@@ -367,7 +387,7 @@ def opRgnAttr0 : Op := (mlir_op%
 
 
 -- | test simple ops [no regions, but with bb args]
-def opcall2 : Op := (mlir_op% "foo" (%x, %y) [^bb1, ^bb2] : (i 32, i 32) -> i 32)
+def opcall2 : Op := (mlir_op% "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32)
 #print opcall2
 
 end MLIR.EDSL

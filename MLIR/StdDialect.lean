@@ -5,6 +5,7 @@ open MLIR.AST
 open MLIR.EDSL
 
 -- https://mlir.llvm.org/docs/Dialects/Standard/        
+-- -- some delaborators: https://github.com/leanprover/lean4/blob/68867d02ac1550288427195fa09e46866bd409b8/src/Init/NotationExtra.lean
 
 syntax "addi" mlir_op_operand mlir_op_operand : mlir_op
 
@@ -13,7 +14,7 @@ syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor
 
 macro_rules
   | `(mlir_op% addi $op1:mlir_op_operand $op2:mlir_op_operand ) => 
-        `(mlir_op% "std.addi" ($op1, $op2) : (i 32, i 32) )
+        `(mlir_op% "std.addi" ($op1, $op2) : () )
 macro_rules
   | `(mlir_op% br $op1:mlir_op_successor_arg) => 
         `(mlir_op% "br" () [$op1] : () -> ())
@@ -22,7 +23,7 @@ macro_rules
   | `(mlir_op% cond_br $flag: mlir_op_operand ,
           $truebb:mlir_op_successor_arg , 
           $falsebb:mlir_op_successor_arg) => 
-        `(mlir_op% "cond_br" ($flag) [$truebb, $falsebb] : (i 1) -> () )
+        `(mlir_op% "cond_br" ($flag) [$truebb, $falsebb] : () )
 
 -- | TODO: add block arguments. 
 -- syntax "br" 
@@ -43,7 +44,7 @@ macro_rules
   | `(mlir_op% scf.while ( $flag ) : $retty  $body ) => 
         `(mlir_op% "scf.while" ($flag) ($body) : $retty )
 
-def scfWhile0 := (mlir_op% scf.while (%x) : (i 32) -> (i 32) { 
+def scfWhile0 := (mlir_op% scf.while (%x) : (i32) -> (i32) { 
     ^entry: 
       addi %c0 %x
 })
@@ -55,13 +56,176 @@ macro_rules
   | `(mlir_op% scf.if ( $flag ) : $retty  $body ) => 
         `(mlir_op% "scf.if" ($flag) ($body) : $retty )
 
-def scfIf0 := (mlir_op% scf.if (%x) : (i 32) -> (i 32) { 
+def scfIf0 := (mlir_op% scf.if (%x) : (i32) -> (i32) { 
     ^entry: 
       %z = addi %c0 %x
-      scf.while (%x) : (i 32) -> (i 32) { 
+      scf.while (%x) : (i32) -> (i32) { 
         ^entry: 
           addi %c0 %z
       }
 
 })
 #print scfIf0
+
+
+
+
+
+syntax "scf.for" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
+
+
+-- EINSTEIN SUMMATION
+-- ===================
+namespace ns_einsum
+
+inductive Ein
+| Sym: String -> Ein
+| Upper: Ein -> String -> Ein
+| Lower: Ein -> String -> Ein
+| Mul: Ein -> Ein -> Ein
+| Add: Ein -> Ein -> Ein
+| Sub: Ein -> Ein -> Ein
+
+declare_syntax_cat ein_leaf
+
+syntax ident : ein_leaf
+syntax ein_leaf "^"  ident : ein_leaf
+syntax "[ein_leaf|" ein_leaf "]" : term
+
+macro_rules 
+| `([ein_leaf| $xraw:ident ]) => do 
+  let xstr := xraw.getId.toString
+  let splits := xstr.split $ fun c => c == '_'
+  match splits with 
+  | x::xs => do 
+    let fst <- `(Ein.Sym $(Lean.quote x))
+    xs.foldlM (fun e ix => `(Ein.Lower $e $(Lean.quote ix))) fst
+  | _ => `(Ein.Sym "will never reach ein_leaf")
+
+
+macro_rules
+| `([ein_leaf| $x:ein_leaf ^ $ixsraw:ident]) => do 
+  let splits := ixsraw.getId.toString.split $ fun c => c == '_'
+  match splits with 
+  | ix::ixs => do
+      let fst <- `(Ein.Upper [ein_leaf| $x] $(Lean.quote ix))
+      ixs.foldlM (fun e ixcur => `(Ein.Lower $e $(Lean.quote ixcur))) fst
+  | _ => `(Ein.Sym "will never reach ein_leaf")
+  
+def leaf0 : Ein := [ein_leaf| x ]
+#print leaf0
+
+def leafd : Ein := [ein_leaf| x ]
+#print leafd
+
+def leafu : Ein := [ein_leaf| x^j ]
+#print leafu
+
+
+def leafdd : Ein := [ein_leaf| x_i_j ]
+#print leafdd
+
+def leafdu : Ein := [ein_leaf| x_i^j ]
+#print leafdu
+-- 
+def leafud : Ein := [ein_leaf| x^i_j ]
+#print leafud
+-- 
+def leafuu : Ein := [ein_leaf| x^j^k ]
+#print leafuu
+
+-- 
+declare_syntax_cat ein_factor
+syntax ein_leaf : ein_factor
+syntax ein_factor ein_leaf : ein_factor -- multiplication by juxtaposition
+syntax "[ein_factor|" ein_factor "]"  : term
+
+macro_rules
+| `([ein_factor| $x:ein_leaf ]) => `([ein_leaf| $x])
+| `([ein_factor| $x:ein_factor $y:ein_leaf]) => 
+  `(Ein.Mul [ein_factor| $x]  [ein_leaf| $y])
+  
+def facu := [ein_factor| x^k]
+#print facu
+
+def facd := [ein_factor| x_k]
+#print facd
+
+def facuu := [ein_factor| x^k x^j]
+#print facuu
+
+def facud := [ein_factor| x^j x_j]
+#print facud
+
+def fac3 := [ein_factor| x^i_k x_j^k x_k_l]
+#print fac3
+
+declare_syntax_cat ein_term
+syntax ein_factor : ein_term
+syntax ein_term "+" ein_factor : ein_term
+syntax ein_term "-" ein_factor : ein_term
+
+syntax "[ein|" ein_term "]" : term
+
+macro_rules -- | bracketed terms are leaves
+| `([ein| $x:ein_factor ]) => `([ein_factor| $x ])
+| `([ein| $x:ein_term + $y:ein_factor ]) => 
+  `(Ein.Add [ein| $x ] [ein_factor| $y ])
+| `([ein| $x:ein_term - $y:ein_factor ]) => 
+  `(Ein.Sub [ein| $x ] [ein_factor| $y ])
+
+def t0 : Ein := [ein| x_i ]
+#print t0
+
+def t1 : Ein := [ein| x_i x^k + y_j - z_i_k^l]
+#print t1
+
+
+
+syntax "(" ein_term ")" : ein_leaf
+macro_rules -- | bracketed terms are leaves
+| `([ein_leaf| ( $x:ein_term) ]) => `([ein| $x ])
+
+def tbrack1 : Ein := [ein| (x + y)_j^k ]
+#print tbrack1 
+
+def tbrack2 : Ein := [ein| (x_j + y_j)^k_l ]
+#print tbrack2 
+
+
+-- UNEXPANDER
+-- =============
+
+
+-- set_option pp.rawOnError true
+-- @[appUnexpander Ein.Sym]
+-- def unexpandEinSym : 
+-- Lean.PrettyPrinter.Unexpander
+-- | `(Ein.Sym $x) => do
+--     Lean.quote x -- TODO: learn how to get name directly
+-- | _ => throw ()
+
+-- def unexpand0 : Ein := [ein| x]
+
+-- #print unexpand0
+
+-- @[appUnexpander Ein.Lower]
+-- def unexpandEinLower: 
+-- Lean.PrettyPrinter.Unexpander
+-- | `(Ein.Lower $x $l) => `($x _ $l) -- TODO: learn how to make identifiers
+-- | _ => throw ()
+
+-- def unexpandl : Ein := [ein| x_l]
+-- #print unexpandl
+
+-- @[appUnexpander Ein.Upper]
+-- def unexpandEinUpper: 
+-- Lean.PrettyPrinter.Unexpander
+-- | `(Ein.Upper $x $l) => do
+--     `( $x^$l) -- TODO: learn how to make identifiers
+-- | _ => throw ()
+
+-- def unexpandu : Ein := [ein| x^u]
+-- #print unexpandu
+
+end ns_einsum

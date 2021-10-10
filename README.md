@@ -15,10 +15,10 @@ def opRgnAttr0 : Op := (mlir_op_call%
   ^entry:
    "func"() (
     {
-     ^bb0(%arg0:i 32, %arg1:i 32):
-      %zero = "std.addi"(%arg0 , %arg1) : (i 32, i 32) -> i 32
+     ^bb0(%arg0:i32, %arg1:i32):
+      %zero = "std.addi"(%arg0 , %arg1) : (i32, i32) -> i32
       "std.return"(%zero) : (i 32) -> ()
-    }){sym_name = "add", type = (i 32, i 32) -> i 32} : () -> ()
+    }){sym_name = "add", type = (i32, i32) -> i32} : () -> ()
    "module_terminator"() : () -> ()
  }) : () -> ()
 )
