@@ -208,7 +208,7 @@ def facuu := [ein_factor| x^k x^j]
 def facud := [ein_factor| x^j x_j]
 #print facud
 
-def fac3 := [ein_factor| x^i_k x_j^k x_k_l]
+def fac3 := [ein_factor| x^i_k y_j^k x_k_l]
 #print fac3
 
 declare_syntax_cat ein_term
@@ -230,6 +230,8 @@ def t0 : Ein := [ein| x_i ]
 
 def t1 : Ein := [ein| x_i x^k + y_j - z_i_k^l]
 #print t1
+
+
 
 
 
@@ -341,6 +343,23 @@ partial def codegen_ein_loop_nest (e: Ein) : Op :=
 #eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i x^i]
 #eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i x_i]
 #eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i_j y^j_i_k]
+
+
+syntax "[ein|" ein_term "]": mlir_op
+
+macro_rules
+| `([mlir_op| [ein| $x:ein_term ] ]) => `(codegen_ein_loop_nest [ein| $x])
+
+def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({ 
+    ^entry: 
+      addi %c0 %x
+     -- | use einstein summation convention inside
+     -- the `[mlir_op|` DSL as we build a `scf.while` op:
+      [ein| x_i x^i]
+}) : ()
+]
+#eval IO.eprintln $ Pretty.doc $ einAsMlirOp0
+
 
 -- UNEXPANDER
 -- =============
