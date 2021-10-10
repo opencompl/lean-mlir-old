@@ -154,13 +154,13 @@ syntax "[mlir_op|" mlir_op "]" : term
 
 syntax mlir_op: mlir_bb_stmt
 syntax mlir_op_operand "=" mlir_op : mlir_bb_stmt
-syntax "mlir_bb_stmt%" mlir_bb_stmt : term
+syntax "[mlir_bb_stmt|" mlir_bb_stmt "]" : term
 
 
 macro_rules
-  | `(mlir_bb_stmt% $call:mlir_op ) =>
+  | `([mlir_bb_stmt| $call:mlir_op ]) =>
        `(BasicBlockStmt.StmtOp ([mlir_op| $call]))
-  | `(mlir_bb_stmt% $res:mlir_op_operand = $call:mlir_op) => 
+  | `([mlir_bb_stmt| $res:mlir_op_operand = $call:mlir_op]) => 
        `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) ([mlir_op| $call]))
 
 
@@ -187,17 +187,17 @@ macro_rules
 syntax "^" ident ":" (ws mlir_bb_stmt ws)* : mlir_bb
 syntax "^" ident "(" sepBy(mlir_bb_operand, ",") ")" ":" (ws mlir_bb_stmt ws)* : mlir_bb
 
-syntax "mlir_bb%" mlir_bb : term
+syntax "[mlir_bb|" mlir_bb "]": term
 
 macro_rules 
-| `(mlir_bb% ^ $name:ident ( $operands,* ) : $[ $stmts ]* ) => do
+| `([mlir_bb| ^ $name:ident ( $operands,* ) : $[ $stmts ]* ]) => do
    let initList <- `([])
    let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_operand% $x])
-   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_stmt% $x])
+   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) $argsList $opsList)
-| `(mlir_bb% ^ $name:ident : $[ $stmts ]* ) => do
+| `([mlir_bb| ^ $name:ident : $[ $stmts ]* ]) => do
    let initList <- `([])
-   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_stmt% $x])
+   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) [] $opsList)
 
 
@@ -211,7 +211,7 @@ syntax "<[" term "]>" : mlir_region
 macro_rules
 | `(mlir_region% { $[ $bbs ]* }) => do
    let initList <- `([])
-   let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb% $x])
+   let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb|$x]])
    `(Region.mk $bbsList)
 
 macro_rules
@@ -289,43 +289,42 @@ macro_rules
                 [mlir_type| $ty]) -- type
 
 
-def bbstmt1 : BasicBlockStmt := (mlir_bb_stmt% "foo"(%x, %y) : (i32, i32) -> i32)
+def bbstmt1 : BasicBlockStmt := 
+  [mlir_bb_stmt| "foo"(%x, %y) : (i32, i32) -> i32]
 #print bbstmt1
-def bbstmt2: BasicBlockStmt := (mlir_bb_stmt% %z = "foo"(%x, %y) : (i32, i32) -> i32)
+def bbstmt2: BasicBlockStmt := 
+  [mlir_bb_stmt| %z = "foo"(%x, %y) : (i32, i32) -> i32]
 #print bbstmt2
 
 def bbop1 : SSAVal × MLIRTy := mlir_bb_operand% %x : i32
 #print bbop1
 
 def bb1NoArgs : BasicBlock := 
-  (mlir_bb%
+  [mlir_bb|
      ^entry:
      "foo"(%x, %y) : (i32, i32) -> i32
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
-
-  )
+  ]
 #print bb1NoArgs
 
 def bb2SingleArg : BasicBlock := 
-  (mlir_bb%
+  [mlir_bb|
      ^entry(%argp : i32):
      "foo"(%x, %y) : (i32, i32) -> i32
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
-
-  )
+  ]
 #print bb2SingleArg
 
 
 def bb3MultipleArgs : BasicBlock := 
-  (mlir_bb%
+  [mlir_bb|
      ^entry(%argp : i32, %argq : i64):
      "foo"(%x, %y) : (i32, i32) -> i32
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
-
-  )
+  ]
 #print bb3MultipleArgs
 
 
