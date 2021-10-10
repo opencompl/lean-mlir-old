@@ -12,9 +12,10 @@ syntax "addi" mlir_op_operand mlir_op_operand : mlir_op
 syntax "br" mlir_op_successor_arg : mlir_op
 syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor_arg : mlir_op
 
+set_option hygiene false in -- need to disable hygiene for i32 expansion.
 macro_rules
   | `([mlir_op| addi $op1:mlir_op_operand $op2:mlir_op_operand]) => 
-        `( [mlir_op| "std.addi" (%op1, %op2) : (i32) ] )
+        `( [mlir_op| "std.addi" (%op1, %op2) : (i32, i32) -> (i32) ] )
 macro_rules
   | `([mlir_op| br $op1:mlir_op_successor_arg]) => 
         `([mlir_op| "br" () [$op1] : () -> ()])
@@ -25,7 +26,6 @@ macro_rules
           $falsebb:mlir_op_successor_arg]) => 
         `([mlir_op| "cond_br" ($flag) [$truebb, $falsebb] : ()])
 
--- | TODO: add block arguments. 
 -- syntax "br" 
 
 def add0Raw := [mlir_op| "std.addi" (%op1, %op2) : (i32)]
