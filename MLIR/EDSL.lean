@@ -104,10 +104,10 @@ syntax ident: mlir_type
 -- | TODO: fix this rule, it interfers with way too much other stuff!
 -- syntax "i" numLit : mlir_type
 
-syntax "mlir_type%" mlir_type : term
+syntax "[mlir_type|" mlir_type "]" : term
 
 macro_rules
-  | `(mlir_type% $x:ident ) => do
+  | `([mlir_type| $x:ident ]) => do
         let xstr := x.getId.toString
         if xstr.front == 'i'
         then do 
@@ -116,23 +116,26 @@ macro_rules
           `(MLIRTy.int $lit)
         else Macro.throwError "expected i<int>" -- `(MLIRTy.int 1337)
 
-def tyi32NoGap : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
+def tyi32NoGap : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
 
 macro_rules
-  | `(mlir_type% ( ) ) => `(MLIRTy.tuple [])
-  | `(mlir_type% ( $x:mlir_type ) ) => `(MLIRTy.tuple [(mlir_type% $x)])
-  | `(mlir_type% ( $x:mlir_type, $y:mlir_type ) ) => `(MLIRTy.tuple [(mlir_type% $x), (mlir_type% $y)])
-  -- | `(mlir_type% i $x:numLit ) => `(MLIRTy.int $x)
-  | `(mlir_type% $dom:mlir_type -> $codom:mlir_type) => `(MLIRTy.fn (mlir_type% $dom) (mlir_type% $codom))
+  | `([mlir_type| ( ) ]) => `(MLIRTy.tuple [])
+  | `([mlir_type| ( $x:mlir_type )]) => 
+        `(MLIRTy.tuple [ [mlir_type|$x] ])
+  | `([mlir_type| ( $x:mlir_type, $y:mlir_type )]) => 
+    `(MLIRTy.tuple [ [mlir_type|$x], [mlir_type|$y] ] )
+  -- | `([mlir_type| i $x:numLit ) => `(MLIRTy.int $x)
+  | `([mlir_type| $dom:mlir_type -> $codom:mlir_type]) =>
+     `(MLIRTy.fn [mlir_type|$dom] [mlir_type|$codom])
 
-def ty0 : MLIRTy := (mlir_type% ())
-def tyi32 : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
--- def tyi32' : MLIRTy := (mlir_type% i32) -- TODO: how to keep no gap?
-def tysingle : MLIRTy := (mlir_type% (i42))
-def typair : MLIRTy := (mlir_type% (i32, i64))
-def tyfn0 : MLIRTy := (mlir_type% () -> ())
-def tyfn1 : MLIRTy := (mlir_type% (i11) -> (i12))
-def tyfn2 : MLIRTy := (mlir_type% (i21, i22) -> (i23, i24))
+def ty0 : MLIRTy := [mlir_type| ()]
+def tyi32 : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
+-- def tyi32' : MLIRTy := ([mlir_type| i32) -- TODO: how to keep no gap?
+def tysingle : MLIRTy := [mlir_type| (i42)]
+def typair : MLIRTy := [mlir_type| (i32, i64)]
+def tyfn0 : MLIRTy := [mlir_type| () -> ()]
+def tyfn1 : MLIRTy := [mlir_type| (i11) -> (i12)]
+def tyfn2 : MLIRTy := [mlir_type| (i21, i22) -> (i23, i24)]
 #print ty0
 #print tyi32
 #print typair
@@ -173,7 +176,7 @@ syntax "mlir_bb_operand%" mlir_bb_operand : term
 
 macro_rules 
 | `(mlir_bb_operand% $name:mlir_op_operand : $ty:mlir_type ) => 
-     `( ([mlir_op_operand| $name], mlir_type% $ty) ) 
+     `( ([mlir_op_operand| $name], [mlir_type|$ty]) ) 
 
 
 
@@ -228,7 +231,7 @@ syntax "mlir_attr_val%" mlir_attr_val : term
 
 macro_rules 
   | `(mlir_attr_val% $s:strLit) => `(AttrVal.str $s)
-  | `(mlir_attr_val% $ty:mlir_type) => `(AttrVal.type (mlir_type% $ty))
+  | `(mlir_attr_val% $ty:mlir_type) => `(AttrVal.type [mlir_type| $ty])
 
 
 def attrVal0Str : AttrVal := mlir_attr_val% "foo"
@@ -271,7 +274,7 @@ macro_rules
         let initList <- `([])
         let succList <- match succ with
                 | none => `([])
-                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [ [mlir_op_successor_arg| $x] ])
+                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
         let attrsList <- match attrs with 
                           | none => `([]) 
                           | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
@@ -283,8 +286,7 @@ macro_rules
                 $succList -- bbs
                 $rgnsList -- regions
                 $attrsList -- attrs
-                (mlir_type% $ty)) -- type
-
+                [mlir_type| $ty]) -- type
 
 
 def bbstmt1 : BasicBlockStmt := (mlir_bb_stmt% "foo"(%x, %y) : (i32, i32) -> i32)
