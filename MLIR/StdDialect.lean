@@ -13,64 +13,61 @@ syntax "br" mlir_op_successor_arg : mlir_op
 syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor_arg : mlir_op
 
 macro_rules
-  | `(mlir_op% addi $op1:mlir_op_operand $op2:mlir_op_operand ) => 
-        `(mlir_op% "std.addi" ($op1, $op2) : () )
+  | `([mlir_op| addi $op1:mlir_op_operand $op2:mlir_op_operand]) => 
+        `([mlir_op| "std.addi" ($op1, $op2) : (i32)])
 macro_rules
-  | `(mlir_op% br $op1:mlir_op_successor_arg) => 
-        `(mlir_op% "br" () [$op1] : () -> ())
+  | `([mlir_op| br $op1:mlir_op_successor_arg]) => 
+        `([mlir_op| "br" () [$op1] : () -> ()])
 
 macro_rules
-  | `(mlir_op% cond_br $flag: mlir_op_operand ,
+  | `([mlir_op| cond_br $flag: mlir_op_operand ,
           $truebb:mlir_op_successor_arg , 
-          $falsebb:mlir_op_successor_arg) => 
-        `(mlir_op% "cond_br" ($flag) [$truebb, $falsebb] : () )
+          $falsebb:mlir_op_successor_arg]) => 
+        `([mlir_op| "cond_br" ($flag) [$truebb, $falsebb] : ()])
 
 -- | TODO: add block arguments. 
 -- syntax "br" 
 
-def add0 : Op := (mlir_op% addi %c0 %c1)
+-- def add0 : Op := ([mlir_op| addi %c0 %c1)
+def add0 := [mlir_op| "std.addi" (%op1, %op2) : (i32)]
 #print add0
 
-def br0 : Op := (mlir_op% br ^entry)
+def br0 : Op := [mlir_op| br ^entry]
 #print br0
 
-def condbr0 : Op := (mlir_op% cond_br %flag, ^loopheader, ^loopexit)
+def condbr0 : Op := [mlir_op| cond_br %flag, ^loopheader, ^loopexit]
 #print condbr0
 
 
 syntax "scf.while" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
 
 macro_rules
-  | `(mlir_op% scf.while ( $flag ) : $retty  $body ) => 
-        `(mlir_op% "scf.while" ($flag) ($body) : $retty )
+  | `([mlir_op| scf.while ( $flag ) : $retty  $body]) => 
+        `([mlir_op| "scf.while" ($flag) ($body) : $retty ])
 
-def scfWhile0 := (mlir_op% scf.while (%x) : (i32) -> (i32) { 
+def scfWhile0 := [mlir_op| "scf.while" (%x) ({ 
     ^entry: 
-      addi %c0 %x
-})
-#print scfWhile0
+      -- addi %c0 %x
+}) : ()
+]
+-- #print scfWhile0
 
-syntax "scf.if" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
+-- syntax "scf.if" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
 
-macro_rules
-  | `(mlir_op% scf.if ( $flag ) : $retty  $body ) => 
-        `(mlir_op% "scf.if" ($flag) ($body) : $retty )
+-- macro_rules
+--   | `([mlir_op| scf.if ( $flag ) : $retty  $body]) => 
+--         `([mlir_op| "scf.if" ($flag) ($body) : $retty])
 
-def scfIf0 := (mlir_op% scf.if (%x) : (i32) -> (i32) { 
-    ^entry: 
-      %z = addi %c0 %x
-      scf.while (%x) : (i32) -> (i32) { 
-        ^entry: 
-          addi %c0 %z
-      }
+-- def scfIf0 := [mlir_op| scf.if (%x) : (i32) -> (i32) { 
+--     ^entry: 
+--       %z = addi %c0 %x
+--       scf.while (%x) : (i32) -> (i32) { 
+--         ^entry: 
+--           addi %c0 %z
+--       }
 
-})
-#print scfIf0
-
-
-
-
-
+-- }]
+-- #print scfIf0
 syntax "scf.for" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
 
 

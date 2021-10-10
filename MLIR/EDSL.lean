@@ -36,14 +36,14 @@ syntax "%" ident : mlir_op_operand
 syntax "<[" term "]>" : mlir_op_operand
 syntax "{{" term "}}" : mlir_op_operand
 
-syntax "mlir_op_operand% " mlir_op_operand : term -- translate operands into term
+syntax "[mlir_op_operand| " mlir_op_operand "]" : term -- translate operands into term
 macro_rules
-  | `(mlir_op_operand% % $x:ident) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
-  | `(mlir_op_operand% <[ $t:term ]>) => t
-  | `(mlir_op_operand% {{ $t:term }}) => t
+  | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
+  | `([mlir_op_operand| <[ $t:term ]> ]) => t
+  | `([mlir_op_operand| {{ $t:term }} ]) => t
 
-def xx := (mlir_op_operand% %x)
-def xxx := (mlir_op_operand% %x)
+def xx := ([mlir_op_operand| %x])
+def xxx := ([mlir_op_operand| %x])
 #print xx
 #print xxx
 
@@ -58,8 +58,10 @@ syntax "(" mlir_op_operand "," mlir_op_operand","* ")" : mlir_op_args
 syntax "mlir_op_args% " mlir_op_args : term -- translate mlir_op args into term
 macro_rules
   | `(mlir_op_args% ( ) ) => `([])
-  | `(mlir_op_args% ( $x:mlir_op_operand ) ) => `([mlir_op_operand% $x])
-  | `(mlir_op_args% ( $x:mlir_op_operand, $y:mlir_op_operand ) ) => `([mlir_op_operand% $x, mlir_op_operand% $y])
+  | `(mlir_op_args% ( $x:mlir_op_operand ) ) => 
+      `([ [mlir_op_operand| $x] ])
+  | `(mlir_op_args% ( $x:mlir_op_operand, $y:mlir_op_operand ) ) => 
+      `([[mlir_op_operand| $x], [mlir_op_operand| $y]])
 
 
 def call0 : List SSAVal := (mlir_op_args% ())
@@ -144,7 +146,7 @@ def tyfn2 : MLIRTy := (mlir_type% (i21, i22) -> (i23, i24))
 
 -- syntax strLit mlir_op_args ":" mlir_type : mlir_op
 
-syntax "mlir_op%" mlir_op : term
+syntax "[mlir_op|" mlir_op "]" : term
 
 
 syntax mlir_op: mlir_bb_stmt
@@ -154,9 +156,9 @@ syntax "mlir_bb_stmt%" mlir_bb_stmt : term
 
 macro_rules
   | `(mlir_bb_stmt% $call:mlir_op ) =>
-       `(BasicBlockStmt.StmtOp (mlir_op% $call))
+       `(BasicBlockStmt.StmtOp ([mlir_op| $call]))
   | `(mlir_bb_stmt% $res:mlir_op_operand = $call:mlir_op) => 
-       `(BasicBlockStmt.StmtAssign (mlir_op_operand% $res) (mlir_op% $call))
+       `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) ([mlir_op| $call]))
 
 
 
@@ -171,7 +173,7 @@ syntax "mlir_bb_operand%" mlir_bb_operand : term
 
 macro_rules 
 | `(mlir_bb_operand% $name:mlir_op_operand : $ty:mlir_type ) => 
-     `( (mlir_op_operand% $name, mlir_type% $ty) ) 
+     `( ([mlir_op_operand| $name], mlir_type% $ty) ) 
 
 
 
@@ -262,10 +264,10 @@ syntax strLit mlir_op_args ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,*
 
 
 macro_rules 
-  | `(mlir_op% $name:strLit $args:mlir_op_args
+  | `([mlir_op| $name:strLit $args:mlir_op_args
         $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
-        $[ { $attrs,* } ]? : $ty:mlir_type ) => do
+        $[ { $attrs,* } ]? : $ty:mlir_type ]) => do
         let initList <- `([])
         let succList <- match succ with
                 | none => `([])
@@ -347,29 +349,28 @@ def rgn2 : Region :=
 
 
 -- | test simple ops [no regions]
-def opcall1 : Op := (mlir_op% "foo" (%x, %y) : (i32, i32) -> i32)
-
+def opcall1 : Op := [mlir_op| "foo" (%x, %y) : (i32, i32) -> i32 ]
 #print opcall1
 
 
-def opattr0 : Op := (mlir_op%
+def opattr0 : Op := [mlir_op|
  "foo"() { sym_name = "add", type = (i32, i32) -> i32 } : () -> ()
-)
+]
 #print opattr0
 
 
-def oprgn0 : Op := (mlir_op%
+def oprgn0 : Op := [mlir_op|
  "func"() ( {
   ^bb0(%arg0: i32, %arg1: i32):
     %x = "std.addi"(%arg0, %arg1) : (i32, i32) -> i32
     "std.return"(%x) : (i32) -> ()
   }) : () -> ()
-)
+]
 #print oprgn0
 
 
 -- | note that this is a "full stack" example!
-def opRgnAttr0 : Op := (mlir_op%
+def opRgnAttr0 : Op := [mlir_op|
  "module"() (
  {
   ^entry:
@@ -381,13 +382,13 @@ def opRgnAttr0 : Op := (mlir_op%
     }){sym_name = "add", type = (i32, i32) -> i32} : () -> ()
    "module_terminator"() : () -> ()
  }) : () -> ()
-)
+]
 #print opRgnAttr0
 
 
 
 -- | test simple ops [no regions, but with bb args]
-def opcall2 : Op := (mlir_op% "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32)
+def opcall2 : Op := [mlir_op| "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32]
 #print opcall2
 
 end MLIR.EDSL
