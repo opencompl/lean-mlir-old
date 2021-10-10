@@ -205,17 +205,17 @@ macro_rules
 -- =================
 
 syntax "{" (ws mlir_bb ws)* "}": mlir_region
-syntax "mlir_region% " mlir_region : term
+syntax "[mlir_region|" mlir_region "]" : term
 syntax "<[" term "]>" : mlir_region
 
 macro_rules
-| `(mlir_region% { $[ $bbs ]* }) => do
+| `([mlir_region| { $[ $bbs ]* } ]) => do
    let initList <- `([])
    let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb|$x]])
    `(Region.mk $bbsList)
 
 macro_rules
-| `(mlir_region% <[ $t: term ]>) => t
+| `([mlir_region| <[ $t: term ]> ]) => t
 
 
 
@@ -280,7 +280,7 @@ macro_rules
                           | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
         let rgnsList <- match rgns with 
                           | none => `([]) 
-                          | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_region% $x])
+                          | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
         `(Op.mk $name -- name
                 ([mlir_op_args| $args ]) -- args
                 $succList -- bbs
@@ -328,24 +328,24 @@ def bb3MultipleArgs : BasicBlock :=
 #print bb3MultipleArgs
 
 
-def rgn0 : Region := (mlir_region%  { })
+def rgn0 : Region := ([mlir_region|  { }])
 #print rgn0
 
 def rgn1 : Region := 
-  (mlir_region%  { 
+  [mlir_region|  { 
     ^entry:
       "std.return"(%x0) : (i42) -> ()
-  })
+  }]
 #print rgn1
 
 def rgn2 : Region := 
-  (mlir_region%  { 
+  [mlir_region|  { 
     ^entry:
       "std.return"(%x0) : (i42) -> ()
 
     ^loop:
       "std.return"(%x1) : (i42) -> ()
-  })
+  }]
 #print rgn2
 
 
