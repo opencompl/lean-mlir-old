@@ -112,8 +112,12 @@ macro_rules
         if xstr.front == 'i'
         then do 
           let xstr' := xstr.drop 1
-          let lit := Lean.Syntax.mkNumLit xstr'
-          `(MLIRTy.int $lit)
+          match xstr'.toInt? with
+          | some i => 
+            let lit := Lean.Syntax.mkNumLit xstr'
+            `(MLIRTy.int $lit)
+          | none => 
+              Macro.throwError $ "cannot convert suffix of i to int: " ++ xstr
         else Macro.throwError "expected i<int>" -- `(MLIRTy.int 1337)
 
 def tyi32NoGap : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
