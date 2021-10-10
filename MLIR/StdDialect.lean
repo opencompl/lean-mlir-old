@@ -338,7 +338,8 @@ partial def codegen_ein_loop_nest (e: Ein) : Op :=
   go $ List.eraseDups (repeated ++ unrepeated)
 
 
-#eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i_j x^i_j]
+#eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i x^i]
+#eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i x_i]
 
 -- UNEXPANDER
 -- =============
