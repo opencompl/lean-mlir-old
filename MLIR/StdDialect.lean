@@ -248,8 +248,8 @@ def t1 : Ein := [ein| x_i x^k + y_j - z_i_k^l]
 def get_ixs_inorder(e: Ein): List String :=
 match e with
 | Ein.Sym _ => []
-| Ein.Upper e ix => ix::get_ixs_inorder e
-| Ein.Lower e ix => ix::get_ixs_inorder e
+| Ein.Upper e ix => get_ixs_inorder e ++ [ix]
+| Ein.Lower e ix => get_ixs_inorder e ++ [ix]
 | Ein.Sub l r => get_ixs_inorder l ++ get_ixs_inorder r
 | Ein.Add l r => get_ixs_inorder l ++ get_ixs_inorder r
 | Ein.Mul l r => get_ixs_inorder l ++ get_ixs_inorder r
@@ -340,6 +340,7 @@ partial def codegen_ein_loop_nest (e: Ein) : Op :=
 
 #eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i x^i]
 #eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i x_i]
+#eval IO.eprintln $ Pretty.doc $ codegen_ein_loop_nest [ein| x_i_j y^j_i_k]
 
 -- UNEXPANDER
 -- =============
