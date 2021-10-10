@@ -45,8 +45,6 @@ inductive Op : Type where
       -> (ty: MLIRTy)
       -> Op
 
-
-
 inductive Path : Type where 
  | PathComponent: (regionix : Int) 
     -> (bbix: Int) 
@@ -176,6 +174,12 @@ instance [Pretty a] : ToString a where
 
 instance : ToFormat Op where
     format (x: Op) := layout80col (doc x)
+
+
+instance : Inhabited Op where
+  default := Op.mk "INHABITANT" [] [] [] [] (MLIRTy.tuple [])
+
+
 
 
 end MLIR.AST

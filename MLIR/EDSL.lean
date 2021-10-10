@@ -158,6 +158,8 @@ syntax "[mlir_op|" mlir_op "]" : term
 
 syntax mlir_op: mlir_bb_stmt
 syntax mlir_op_operand "=" mlir_op : mlir_bb_stmt
+syntax "{{" term "}}" : mlir_bb_stmt
+
 syntax "[mlir_bb_stmt|" mlir_bb_stmt "]" : term
 
 
@@ -166,6 +168,7 @@ macro_rules
        `(BasicBlockStmt.StmtOp ([mlir_op| $call]))
   | `([mlir_bb_stmt| $res:mlir_op_operand = $call:mlir_op]) => 
        `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) ([mlir_op| $call]))
+  | `([mlir_bb_stmt| {{ $t }} ]) => t
 
 
 
@@ -211,6 +214,7 @@ macro_rules
 syntax "{" (ws mlir_bb ws)* "}": mlir_region
 syntax "[mlir_region|" mlir_region "]" : term
 syntax "<[" term "]>" : mlir_region
+syntax "{{" term "}}" : mlir_region
 
 macro_rules
 | `([mlir_region| { $[ $bbs ]* } ]) => do
@@ -220,6 +224,7 @@ macro_rules
 
 macro_rules
 | `([mlir_region| <[ $t: term ]> ]) => t
+| `([mlir_region| {{ $t: term }} ]) => t
 
 
 
