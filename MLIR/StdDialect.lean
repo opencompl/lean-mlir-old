@@ -14,7 +14,7 @@ syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor
 
 macro_rules
   | `([mlir_op| addi $op1:mlir_op_operand $op2:mlir_op_operand]) => 
-        `([mlir_op| "std.addi" ($op1, $op2) : (i32)])
+        `( [mlir_op| "std.addi" (%op1, %op2) : (i32) ] )
 macro_rules
   | `([mlir_op| br $op1:mlir_op_successor_arg]) => 
         `([mlir_op| "br" () [$op1] : () -> ()])
@@ -28,8 +28,10 @@ macro_rules
 -- | TODO: add block arguments. 
 -- syntax "br" 
 
--- def add0 : Op := ([mlir_op| addi %c0 %c1)
-def add0 := [mlir_op| "std.addi" (%op1, %op2) : (i32)]
+def add0Raw := [mlir_op| "std.addi" (%op1, %op2) : (i32)]
+#print add0Raw
+
+def add0 : Op := [mlir_op| addi %c0 %c1]
 #print add0
 
 def br0 : Op := [mlir_op| br ^entry]
@@ -48,9 +50,10 @@ macro_rules
 def scfWhile0 := [mlir_op| "scf.while" (%x) ({ 
     ^entry: 
       -- addi %c0 %x
+     "std.addi" (%op1, %op2) : (i32) 
 }) : ()
 ]
--- #print scfWhile0
+#print scfWhile0
 
 -- syntax "scf.if" "(" mlir_op_operand ")" ":" mlir_type mlir_region : mlir_op
 
