@@ -244,26 +244,7 @@ def proof : ∃ m, matcher_done m := by {
   apply kind? "sub";
   apply focus! "root"; 
 
-  -- try apply matcher_done.done; 
-  -- try apply matcher_done.arg?_done;
-  -- try apply matcher_done.focus!_done;
-  -- try apply matcher_done.root_done;
-
-
-  apply matcher_done.focus!_done;
-  apply matcher_done.kind?_done;
-  apply matcher_done.arg?_done;
-  apply matcher_done.arg?_done;
-  apply matcher_done.arg?_done;
-  apply matcher_done.kind?_done;
-  apply matcher_done.focus!_done;
-  apply matcher_done.arg?_done;
-  apply matcher_done.arg?_done;
-  apply matcher_done.kind?_done;
-  apply matcher_done.root_done;
-  apply matcher_done.done;
-
-
+  repeat constructor; -- does not succeed!
 }
 
 
