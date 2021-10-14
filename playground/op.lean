@@ -1,6 +1,8 @@
 import Lean.PrettyPrinter
 import Std.Data.AssocList
+import Lean.Meta
 open Lean.PrettyPrinter
+open Lean.Meta
 open Std
 open Std.AssocList
 
@@ -80,9 +82,35 @@ match m with
                 , opArgs := AssocList.empty }
 
 
+declare_syntax_cat str_newline
+
+
+
+partial def stx_vgroup_strings (ss: Array String)
+: Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
+
+  let si := Lean.SourceInfo.original 
+      "".toSubstring 0
+      "asd".toSubstring 1
+  -- let newline :=   Lean.Syntax.atom si "atom"
+  
+  let newline :=
+    -- Lean.mkNode `antiquot #[Lean.Syntax.atom si "atom"]
+    Lean.mkNode Lean.nullKind #[Lean.mkAtom "atom"]
+  -- let newline := 
+  --   Lean.Syntax.ident si 
+  --     "\n\n".toSubstring
+  --     (Lean.Name.str Lean.Name.anonymous "asd" 1) []
+  let mut out <- `("")
+  for s in ss do
+    out :=  (<- `($out
+                  $newline
+                   $(Lean.quote s)))
+  return out
+  
 partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
   let matchinfo <- computeMatcher_ m
-  let mut prettyOps : String := ""
+  let mut prettyOps : Array String := #[]
   for (opName, ()) in matchinfo.ops do
     let mut s := "\n"
     if matchinfo.focus == opName
@@ -91,8 +119,8 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
 
     s := s ++ " %" ++ opName ++ ":= ";
     match matchinfo.kinds.find? opName with
-    | some kind => s := s ++ "kind:" ++ kind ++ "["
-    | none => s := s ++ "kind:? ["
+    | some kind => s := s ++  kind ++ "["
+    | none => s := s ++ "??? ["
     
     match matchinfo.opArgs.find? opName with
     | none => ()
@@ -100,9 +128,13 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
       for (argix, argname) in args do 
         s := s ++ "(arg" ++ toString argix ++ "=%" ++ argname ++ ")" ++ " "
     s := s ++ "]"
-    prettyOps := prettyOps ++ s ++ "; "
-  `($(Lean.quote prettyOps))
-
+    prettyOps := prettyOps.push s
+  -- `($(Lean.quote prettyOps))
+  let mut outstr : String := "----¬"
+  for s in prettyOps do
+    outstr := outstr ++ s ++ "\n"
+  return Lean.mkIdent (Lean.Name.append Lean.Name.anonymous outstr)   
+  -- stx_vgroup_strings prettyOps
 
 -- @[appUnexpander matcher.done]
 -- partial def unexpandMatcherDone : 
@@ -196,11 +228,40 @@ def begin (m: matcher)
     match prf with 
     | matcher_done.root_done _ prf => prf
 
+-- %x2 = set %x1 %k %v
+-- %root = get %x2 %k
 def proof : ∃ m, matcher_done m := by {
   apply Exists.intro;
   apply root;
-  apply arg? 0 "add";
+  apply kind? "get";
+  apply arg? 0 "x2";
+  apply arg? 1 "k";
+  apply focus! "x2";
+  apply kind? "set";
+  apply arg? 0 "x1";
+  apply arg? 1 "k";
+  apply arg? 2 "v";
   apply kind? "sub";
+  apply focus! "root"; 
+
+  -- try apply matcher_done.done; 
+  -- try apply matcher_done.arg?_done;
+  -- try apply matcher_done.focus!_done;
+  -- try apply matcher_done.root_done;
+
+
+  apply matcher_done.focus!_done;
+  apply matcher_done.kind?_done;
+  apply matcher_done.arg?_done;
+  apply matcher_done.arg?_done;
+  apply matcher_done.arg?_done;
+  apply matcher_done.kind?_done;
+  apply matcher_done.focus!_done;
+  apply matcher_done.arg?_done;
+  apply matcher_done.arg?_done;
+  apply matcher_done.kind?_done;
+  apply matcher_done.root_done;
+  apply matcher_done.done;
 
 
 }
