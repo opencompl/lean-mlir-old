@@ -360,42 +360,58 @@ def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({
 ]
 #eval IO.eprintln $ Pretty.doc $ einAsMlirOp0
 
+-- https://pytorch.org/docs/stable/nn.html
+-- torch has equations for everything!
 
--- UNEXPANDER
--- =============
+-- https://www.tensorflow.org/api_docs/python/tf/nn
+
+-- atrous convolution
+-- ==================
+-- output[batch, height, width, out_channel] =
+--     sum_{dheight, dwidth, in_channel} (
+--         filters[dheight, dwidth, in_channel, out_channel] *
+--         value[batch, height + rate*dheight, width + rate*dwidth, in_channel]
+--     )
 
 
--- set_option pp.rawOnError true
--- @[appUnexpander Ein.Sym]
--- def unexpandEinSym : 
--- Lean.PrettyPrinter.Unexpander
--- | `(Ein.Sym $x) => do
---     Lean.quote x -- TODO: learn how to get name directly
--- | _ => throw ()
+-- tf.nn.avg_pool(
+--     input, ksize, strides, padding, data_format=None, name=None
+-- )
+-- ============================
+-- NO DESCRIPTION
 
--- def unexpand0 : Ein := [ein| x]
 
--- #print unexpand0
+-- mlir/include/mlir/Dialect/Linalg/IR/LinalgStructuredOps.td
+-- ===========================================================
+--     linalg.copy(%arg0, %arg1) : memref<?xf32, stride_specification>,
+--                                 memref<?xf32, stride_specification>
 
--- @[appUnexpander Ein.Lower]
--- def unexpandEinLower: 
--- Lean.PrettyPrinter.Unexpander
--- | `(Ein.Lower $x $l) => `($x _ $l) -- TODO: learn how to make identifiers
--- | _ => throw ()
 
--- def unexpandl : Ein := [ein| x_l]
--- #print unexpandl
+-- pooling base:
+--       output[x[0], ..., x[N-1]] =
+--         REDUCE_{z[0], ..., z[N-1]}
+--           input[
+--                 x[0] * strides[0] - pad_before[0] + dilation_rate[0]*z[0],
+--                 ...
+--                 x[N-1]*strides[N-1] - pad_before[N-1] + dilation_rate[N-1]*z[N-1]
+--                 ],
+--     ```
 
--- @[appUnexpander Ein.Upper]
--- def unexpandEinUpper: 
--- Lean.PrettyPrinter.Unexpander
--- | `(Ein.Upper $x $l) => do
---     `( $x^$l) -- TODO: learn how to make identifiers
--- | _ => throw ()
 
--- def unexpandu : Ein := [ein| x^u]
--- #print unexpandu
 
+-- conv op:
+--       output[b, x[0], ..., x[N-1], k] =
+--       sum_{z[0], ..., z[N-1], q}
+--           filter[z[0], ..., z[N-1], q, k] *
+--           padded_input[b,
+--                        x[0] * strides[0] + dilation_rate[0] * z[0],
+--                        ...,
+--                        x[N-1] * strides[N-1] + dilation_rate[N-1] * z[N-1],
+--                        q]
+-- 
+
+-- mlir/include/mlir/Dialect/Linalg/IR/LinalgNamedStructuredOps.yaml
+-- matvec, vecmat, matmul, batch_matmul
 end ns_einsum
 
 
@@ -407,4 +423,79 @@ namespace circt_comb
   def comb_add (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
     let ty := MLIRTy.int width
     [mlir_op| "comb.add"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+  -- | TODO: think about how to do types
+  def comb_and (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.and"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+  def comb_concat (x: SSAVal) (wx: Int) (y: SSAVal) (wy: Int) : Op := 
+    let tyx := MLIRTy.int $ wx
+    let tyy := MLIRTy.int $ wy
+    let ty := MLIRTy.int $ wx + wy
+    [mlir_op| "comb.concat"({{ x }}, {{y}}) : ({{tyx}}, {{tyy}}) -> {{ty}}]
+  def comb_divS (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int $ width
+    [mlir_op| "comb.divs"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_divU (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int $ width
+    [mlir_op| "comb.divu"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  -- def comb_extract (x: SSAVal)  (width: Int) (lowBit: Int) : Op := 
+  --   let ty := MLIRTy.int $ width
+  --   -- | TODO: add integer attribute
+  --   [mlir_op| "comb.extract"({{ x }}){ lowBit=10} : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_icmp (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.icmp"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_modS (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.mods"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_modU (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.modu"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_mul (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.mul"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_mux (cond: SSAVal) (trueVal: SSAVal) (falseVal: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.mux"({{ cond }}, {{trueVal}}, {{falseVal}}) : (i1, {{ty}}) -> ({{ty}}) ]
+
+  def comb_or (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.or"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_parity (x: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.parity"({{ x }}) : ({{ty}}) -> (i1)]
+
+
+  def comb_sext (x: SSAVal) (width: Int) (outWidth: Int) : Op := 
+    let tyin := MLIRTy.int width
+    let tyout := MLIRTy.int outWidth
+    [mlir_op| "comb.sext"({{ x }}) : ({{tyin}}) -> ({{tyout}})]
+
+  def comb_shl (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.shl"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_shrS (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.shrs"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_shrU (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.shru"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_sub (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.sub"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+
+  def comb_xor (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.sub"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
 end circt_comb
