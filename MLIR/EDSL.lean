@@ -48,30 +48,6 @@ def xxx := ([mlir_op_operand| %x])
 #print xxx
 
 
--- EDSL OP-CALL-ARGS
--- =================
-
-syntax "(" ")" : mlir_op_args
-syntax "(" mlir_op_operand ")" : mlir_op_args
-syntax "(" mlir_op_operand "," mlir_op_operand","* ")" : mlir_op_args
-
-syntax "[mlir_op_args| " mlir_op_args "]" : term -- translate mlir_op args into term
-macro_rules
-  | `([mlir_op_args| ( )]) => `([])
-  | `([mlir_op_args| ( $x:mlir_op_operand )]) => 
-      `([ [mlir_op_operand| $x] ])
-  | `([mlir_op_args| ( $x:mlir_op_operand, $y:mlir_op_operand ) ]) => 
-      `([[mlir_op_operand| $x], [mlir_op_operand| $y]])
-
-
-def call0 : List SSAVal := ([mlir_op_args| () ])
-def call1 : List SSAVal := ([mlir_op_args| (%x) ])
-def call2 : List SSAVal := ([mlir_op_args| (%x, %y) ])
-#print call0
-#print call1
-#print call2
-
-
 -- EDSL OP-SUCCESSOR-ARGS
 -- =================
 
@@ -261,6 +237,7 @@ declare_syntax_cat mlir_attr
 
 syntax ident "=" mlir_attr_val : mlir_attr
 
+-- | TODO: change to [mlir_attr| .. ]
 syntax "mlir_attr%" mlir_attr : term
 
 macro_rules 
@@ -277,15 +254,17 @@ def attr1Type : Attr := (mlir_attr% type = (i32, i32) -> i32)
 -- =========================================================
 
 
-syntax strLit mlir_op_args ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op
+syntax strLit "(" mlir_op_operand,* ")" ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op
 
 
 macro_rules 
-  | `([mlir_op| $name:strLit $args:mlir_op_args
+  | `([mlir_op| $name:strLit 
+        ( $operands,* )
         $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
         $[ { $attrs,* } ]? : $ty:mlir_type ]) => do
         let initList <- `([])
+        let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
         let succList <- match succ with
                 | none => `([])
                 | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
@@ -296,7 +275,7 @@ macro_rules
                           | none => `([]) 
                           | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
         `(Op.mk $name -- name
-                ([mlir_op_args| $args ]) -- args
+                $operandsList -- operands
                 $succList -- bbs
                 $rgnsList -- regions
                 $attrsList -- attrs
