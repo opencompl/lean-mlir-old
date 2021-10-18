@@ -41,6 +41,7 @@ syntax "@" : game_cell -- player
 
 syntax "│" game_cell* "│\n" : game_row
 
+
 syntax:max game_top_row game_row* game_bottom_row : term
 
 inductive CellContents where
@@ -162,8 +163,7 @@ def delabGameState : Lean.Expr → Lean.PrettyPrinter.Delaborator.Delab
      let a2 := update2dArrayMulti a1 walls $ ← `(game_cell| ▓)
      let aa ← Array.mapM delabGameRow a2
 
-     `(┌$topBar:horizontal_border*┐
-       $aa:game_row*
+     `(┌$topBar:horizontal_border*┐ $aa:game_row*
        └$topBar:horizontal_border*┘)
 
 -- The attribute [delab] registers this function as a delaborator for the GameState.mk constructor.

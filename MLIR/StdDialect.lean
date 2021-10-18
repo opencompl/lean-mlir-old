@@ -397,3 +397,14 @@ def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({
 -- #print unexpandu
 
 end ns_einsum
+
+
+-- COMBINATORIAL DIALECT
+-- ====================
+-- https://circt.llvm.org/docs/Dialects/Comb/
+namespace circt_comb
+  -- | TODO: think about how to do types
+  def comb_add (x: SSAVal) (y: SSAVal) (width: Int) : Op := 
+    let ty := MLIRTy.int width
+    [mlir_op| "comb.add"({{ x }}, {{y}}) : ({{ty}}, {{ty}}) -> {{ty}}]
+end circt_comb

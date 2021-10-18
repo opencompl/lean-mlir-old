@@ -43,7 +43,7 @@ def set_singleton {α: Type} (a: α) (compare: α -> α -> Ordering): Set α com
 structure MatchInfo where
   focus: String
   kinds: RBMap String String compare
-  ops: Set String compare
+  ops: List String -- list to maintain order of introduction. Earliest first
   opArgs: AssocList String (RBMap Nat String compare)
 
 partial def computeMatcher_ (m: Lean.Syntax) 
@@ -52,14 +52,17 @@ match m with
 | `(matcher.root $m) => 
       return  { focus := "root"
                 , kinds := RBMap.empty
-                , ops := set_singleton "root" compare
+                , ops :=  ["root"]
                 , opArgs := AssocList.empty
                 }
 | `(matcher.focus! $name $m) => do
     let prev <- computeMatcher_ m
     match name.isStrLit? with
-    | some n => -- update focus  
-      return { prev with focus := n, ops := set_insert prev.ops n }
+    | some n => -- update focus
+      if (prev.ops.contains n) 
+      then return { prev with focus := n }
+      else  -- | add new op
+        return { prev with focus := n, ops := n::prev.ops }
     | _ =>  prev
 | `(matcher.kind? $kind $m) => do
     let prev <- computeMatcher_ m
@@ -78,7 +81,7 @@ match m with
     | _ => prev 
 | m => return { focus := toString ""
                 , kinds := RBMap.empty
-                , ops := RBMap.empty
+                , ops := []
                 , opArgs := AssocList.empty }
 
 
@@ -111,7 +114,7 @@ partial def stx_vgroup_strings (ss: Array String)
 partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
   let matchinfo <- computeMatcher_ m
   let mut prettyOps : Array String := #[]
-  for (opName, ()) in matchinfo.ops do
+  for opName in matchinfo.ops do
     let mut s := "\n"
     if matchinfo.focus == opName
     then s := ">"
@@ -130,35 +133,10 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
     s := s ++ "]"
     prettyOps := prettyOps.push s
   -- `($(Lean.quote prettyOps))
-  let mut outstr : String := "----¬"
+  let mut outstr : String := "-----\n"
   for s in prettyOps do
     outstr := outstr ++ s ++ "\n"
   return Lean.mkIdent (Lean.Name.append Lean.Name.anonymous outstr)   
-  -- stx_vgroup_strings prettyOps
-
--- @[appUnexpander matcher.done]
--- partial def unexpandMatcherDone : 
--- Lean.PrettyPrinter.Unexpander := unexpandMatch
-
--- @[appUnexpander matcher.kind?]
--- partial def unexpandMatcherKind : 
--- Lean.PrettyPrinter.Unexpander := unexpandMatch
-
--- @[appUnexpander matcher.arg?]
--- partial def unexpandMatcherArg? : Lean.PrettyPrinter.Unexpander :=
---   fun m =>
---     match m with
---     | `(matcher.arg? $ix $name $m) => `("ARG KNOWN" $m)
---     | _ => `("ARG UNK")
-
--- @[appUnexpander matcher.focus!]
--- partial def unexpandMatcherFocus : 
--- Lean.PrettyPrinter.Unexpander := unexpandMatch
-
--- @[appUnexpander matcher.root]
--- partial def unexpandMatcherRoot : 
--- Lean.PrettyPrinter.Unexpander := unexpandMatch
-
 
 
 inductive matcher_done : matcher -> Prop where
@@ -241,10 +219,9 @@ def proof : ∃ m, matcher_done m := by {
   apply arg? 0 "x1";
   apply arg? 1 "k";
   apply arg? 2 "v";
-  apply kind? "sub";
   apply focus! "root"; 
 
-  repeat constructor; -- does not succeed!
+  repeat constructor;
 }
 
 

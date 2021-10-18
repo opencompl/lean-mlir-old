@@ -99,6 +99,7 @@ syntax "(" ")" : mlir_type
 syntax "(" mlir_type ")" : mlir_type
 syntax "(" mlir_type "," mlir_type ")" : mlir_type
 syntax mlir_type "->" mlir_type : mlir_type
+syntax "{{" term "}}" : mlir_type
 syntax ident: mlir_type
 
 -- | TODO: fix this rule, it interfers with way too much other stuff!
@@ -121,6 +122,10 @@ macro_rules
         else Macro.throwError "expected i<int>" -- `(MLIRTy.int 1337)
 
 def tyi32NoGap : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
+
+
+macro_rules
+| `([mlir_type| {{ $t }} ]) => t -- antiquot type
 
 macro_rules
   | `([mlir_type| ( ) ]) => `(MLIRTy.tuple [])
