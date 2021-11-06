@@ -7,7 +7,7 @@ instance [ToString α ] [ToString β] {compare: α -> α -> Ordering}: ToString 
   toString (x: RBMap α β compare) := 
     toString (x.toList)
 
-instance [BEq α ] [BEq β] {compare: α -> α -> Ordering}: BEq (RBMap α β compare) where
+instance [BEq α] [BEq β] {compare: α -> α -> Ordering}: BEq (RBMap α β compare) where
   beq (x y: RBMap α β compare) := 
     BEq.beq (x.toList) (y.toList) -- TODO: this assumes they are made into lists based on ordering!
 
@@ -82,3 +82,5 @@ def RBMap.set_filter {α: Type} (p: α → Bool)
 
 
 
+inductive RunCombExpr : RBMap String Int compare -> Op -> RBMap String Int -> Prop where
+| RunFoo: ∀ (m: RBMap String Int compare) (o: op), RunCombExpr m o m
