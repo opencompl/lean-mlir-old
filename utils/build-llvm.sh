@@ -17,9 +17,9 @@ INSTALL_DIR=${2:-"install"}
 
 git clone https://github.com/opencompl/llvm-project 
 cd llvm-project && git checkout $(cat ../LLVM_COMMIT)
-mkdir -p llvm-project/$BUILD_DIR
-mkdir -p llvm-project/$INSTALL_DIR
-cd llvm-project/$BUILD_DIR
+mkdir -p $BUILD_DIR
+mkdir -p $INSTALL_DIR
+cd $BUILD_DIR
 cmake -G Ninja ../llvm \
   -DLLVM_BUILD_EXAMPLES=OFF \
   -DLLVM_TARGETS_TO_BUILD="host" \
