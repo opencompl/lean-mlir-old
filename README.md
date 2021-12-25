@@ -45,6 +45,11 @@ $ ./build/bin/MLIR <path-to-generic-mlir-file.mlir>
 $ cd examples; lit -v . # run all examples, report failures.
 ```
 
+# Documentation
+
+- Go to [`docs/README.md`](./docs/README.md) for library documentation.
+
+
 
 # Other projects of interest
 
