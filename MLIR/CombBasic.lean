@@ -50,7 +50,7 @@ def evalStmt (s : Stmt) (e : Env) : Option Env :=
     | none => none
   | unreachable => none
 
-def eval (p : Program) (e : Env) : Option Env := do
+def eval (p : Program) (e : Env) : Option Env := 
   match p with
   | [] => some e
   | s :: p' =>

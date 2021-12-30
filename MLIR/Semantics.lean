@@ -73,7 +73,7 @@ def RBMap.set_to_list {α: Type} {compare: α -> α -> Ordering} (as: Set α com
 
 -- filter seems expensive?
 def RBMap.set_filter {α: Type} (p: α → Bool)
-    {compare: α -> α -> Ordering} (as: Set α compare): Set α compare := do
+    {compare: α -> α -> Ordering} (as: Set α compare): Set α compare := Id.run do
     let mut out := RBMap.set_empty compare
     for (a, ()) in as do
         if p a then
@@ -82,5 +82,5 @@ def RBMap.set_filter {α: Type} (p: α → Bool)
 
 
 
-inductive RunCombExpr : RBMap String Int compare -> Op -> RBMap String Int -> Prop where
-| RunFoo: ∀ (m: RBMap String Int compare) (o: op), RunCombExpr m o m
+-- inductive RunCombExpr : RBMap String Int compare -> Op -> RBMap String Int -> Prop where
+-- | RunFoo: ∀ (m: RBMap String Int compare) (o: op), RunCombExpr m o m
