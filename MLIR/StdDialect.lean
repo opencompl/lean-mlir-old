@@ -321,7 +321,7 @@ def codegen_ein_loop_body (e: Ein) : Region :=
   let lhs_store := Op.mk "store" ([lhsval] ++ unrepeated ++ [rhsval] ) [] [] [] [mlir_type| i32]
   let body := body ++ [BasicBlockStmt.StmtAssign lhs_prev_val lhs_load, BasicBlockStmt.StmtAssign lhsval lhs_add, BasicBlockStmt.StmtOp lhs_store]
 
-  return Region.mk $ [BasicBlock.mk "entry" [] body]
+  Region.mk $ [BasicBlock.mk "entry" [] body]
 
 
 partial def codegen_ein_loop_nest (e: Ein) : Op := 

@@ -51,7 +51,7 @@ def locbegin : Loc := { line := 1, column := 1, ix := 0 }
 def advance1 (l: Loc) (c: Char): Loc :=
   if c == '\n'
     then { line := l.line + 1, column := 1, ix := l.ix + 1  }
-    else return { line := l.line, column := l.column + 1, ix := l.ix + 1}
+    else { line := l.line, column := l.column + 1, ix := l.ix + 1}
 
 -- | move a loc by a string.
 partial def advance (l: Loc) (s: String): Loc :=
@@ -166,7 +166,7 @@ partial def eat_line_ (l: Loc) (s: String): Loc × String :=
   else let c := front s
   if c == '\n'
   then (l, s)
-  else return eat_line_ (advance1 l c) (s.drop 1)
+  else eat_line_ (advance1 l c) (s.drop 1)
 
 partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
     if isEmpty s
@@ -187,7 +187,7 @@ def ppeek : P (Option Char) := {
   runP := λ loc ns haystack =>
     if isEmpty haystack
     then (loc, ns, haystack, Result.ok none)
-    else do
+    else
      let (loc, haystack) := eat_whitespace_ loc haystack
      (loc, ns, haystack, Result.ok ∘ some ∘ front $ haystack)
   }
