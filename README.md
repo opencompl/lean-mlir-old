@@ -39,6 +39,33 @@ $ leanpkg build bin
 $ ./build/bin/MLIR <path-to-generic-mlir-file.mlir>
 ```
 
+## Nix
+
+Start a "lean shell" per the [Nix Setup documentation](https://leanprover.github.io/lean4/doc/setup.html#nix-setup) for lean:
+
+> After installing (any version of) Nix (https://nixos.org/download.html), you can easily open a shell with the particular pre-release version of Nix needed by and tested with our setup (called the "Lean shell" from here on):
+> ```
+> $ nix-shell https://github.com/leanprover/lean4/archive/master.tar.gz -A nix
+> ```
+
+Ensure that these extra options are active in the nix you are running. Under NixOS, this means putting this in top-level config. Under a non OS level isntall, this means putting this in the `.nix-profile` and restarting the nix daemon.
+
+```nix=
+  nix = {
+      package = pkgs.nixUnstable; # or versioned attributes like nix_2_4
+      extraOptions = ''
+        experimental-features = nix-command flakes
+        max-jobs = auto  # Allow building multiple derivations in parallel
+        keep-outputs = true  # Do not garbage-collect build time-only dependencies (e.g. clang)
+        # Allow fetching build results from the Lean Cachix cache
+        trusted-substituters = https://lean4.cachix.org/
+        trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= lean4.cachix.org-1:mawtxSxcaiWE24xCXXgh3qnvlTkyU7evRRnGeAhD4Wk=
+        allow-import-from-derivation = true
+      '';
+  };
+```
+
+
 # Test instructions
 
 ```
