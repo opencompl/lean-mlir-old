@@ -1,15 +1,12 @@
-{
-  description = "My Lean package";
+{ pkgs ? import <nixpkgs> {} }:
 
-  inputs.lean.url = github:leanprover/lean4-nightly/nightly-2021-12-24;
-  inputs.mine = ./MLIR;
-  inputs.flake-utils.url = github:numtide/flake-utils;
+with pkgs;
 
-  outputs = { pkgs ? import <nixpkgs>, self, lean, flake-utils, mine }: flake-utils.lib.eachDefaultSystem (system:
-  pkgs.dockerTools.buildImage {
+# give me bash, git, busybox
+# and the environment of lean-mlir (ie, whatever the flake needs to build)
+pkgs.dockerTools.buildImage {
   name = "hello-docker";
   config = {
-	    Cmd = [ "${pkgs.hello}/bin/hello" ];
-	  };
-  });
+    Cmd = [ "${pkgs.hello}/bin/hello" ];
+  };
 }
