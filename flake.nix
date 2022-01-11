@@ -17,16 +17,16 @@
     in {
       packages = pkg // {
         inherit (leanPkgs) lean;
-        dockerImage = pkgs.dockerTools.buildImage {
-          contents = [lean.packages.${system} 
-		      leanPkgs.lean-dev
-		      leanPkgs.emacs-dev
-		      pkg.modRoot
-		      pkgs.busybox]; # add everything pkg='MLIR' and its dependencies has???
-          name = "mlir-docker";
-          # config.Cmd = [ "${pkgs.hello}/bin/hello" ];
-          config.Cmd = [ "${pkgs.bash}/bin/bash" ];
-        };
+        # dockerImage = pkgs.dockerTools.buildImageWithNixDb  {
+	# fromImage = 
+        # contents = [lean.packages.${system} 
+	#	      leanPkgs.lean-dev
+	#	      leanPkgs.emacs-dev
+	#	      pkg.modRoot
+	#	      pkgs.busybox]; # add everything pkg='MLIR' and its dependencies has???
+        # name = "mlir-docker";
+        # config.Cmd = [ "${pkgs.bash}/bin/bash" ];
+        # };
 
       };
       defaultPackage = pkg.modRoot;
