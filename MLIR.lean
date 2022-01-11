@@ -5,8 +5,11 @@ import MLIR.MLIRParser
 import MLIR.EDSL
 import MLIR.Main
 import MLIR.Main
+import MLIR.Semantics
 import MLIR.StdDialect
 import MLIR.PatternMatch
+import MLIR.Linalg
+import MLIR.Comb
 
 
 
