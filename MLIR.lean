@@ -10,7 +10,7 @@ import MLIR.StdDialect
 import MLIR.PatternMatch
 import MLIR.Linalg
 import MLIR.Comb
-
+import MLIR.Linalg
 
 
 

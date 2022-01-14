@@ -9,6 +9,87 @@ open MLIR.Doc
 -- open MLIR.StdDialect
 open Std
 
+-- LINALG
+-- =====
+
+
+namespace affine_syntax
+inductive affine_expr
+| var: String -> affine_expr
+abbrev affine_tuple := List affine_expr
+abbrev affine_basic_map := affine_tuple × affine_tuple
+abbrev affine_map := List affine_basic_map
+
+declare_syntax_cat affine_map 
+declare_syntax_cat basic_affine_map
+declare_syntax_cat affine_tuple
+declare_syntax_cat affine_expr
+
+syntax ident : affine_expr
+syntax "(" sepBy(affine_expr, ",") ")" : affine_tuple
+syntax affine_tuple "->" affine_tuple : basic_affine_map
+syntax "[" sepBy(basic_affine_map, ",") "]" : affine_map
+end affine_syntax
+
+syntax "[affine_expr|" affine_expr "]" : term
+syntax "[affine_tuple|" affine_tuple "]" : term 
+syntax "[basic_affine_map|" basic_affine_map "]" : term  
+syntax "[affine_map|" affine_map "]" : term  
+
+macro_rules 
+| `([affine_expr| $xraw:ident ]) => do 
+  let xstr := xraw.getId.toString
+  `(affine_expr.var xstr)
+
+macro_rules
+| `([affine_tuple| ( $xs,* ) ]) => do
+   let initList  <- `([])
+   let argsList <- xs.getElems.foldlM
+    (init := initList) 
+    (fun xs x => `($xs ++ [affine_expr| $x]))
+   return argsList
+   
+  
+macro_rules
+| `([basic_affine_map| $xs:affine_tuple -> $ys:affine_tuple]) => do
+  let xs' <- `([affine_tuple| $xs])
+  let ys' <- `([affine_tuple| $ys])
+  `( ($xs', $ys') )
+  
+
+macro_rules
+| `([affine_map| [ $xs,* ] ]) => do
+   let initList  <- `([])
+   let ys <- xs.getElems.foldlM
+    (init := initList) 
+    (fun xs x => `($xs ++ [basic_affine_map| $x]))
+   return ys
+
+-- #eval [affine_expr| x]
+
+
+ 
+
+namespace linalg
+
+-- https://mlir.llvm.org/docs/Dialects/Linalg/#linalggeneric-mlirlinalggenericop
+declare_syntax_cat linalg_arglist 
+declare_syntax_cat linalg_arglist_ops
+declare_syntax_cat linalg_arglist_tys
+syntax mlir_op_operand : linalg_arglist_ops
+syntax mlir_op_type : linalg_arglist_tys
+syntax  "(" sepBy(linalg_arglist_ops, ",") ":" 
+  sepBy(linalg_arglist_tys, ",") ")"  : linalg_arglist
+
+-- | TODO: create an MLIR trait attribute in parser
+syntax "linalg.generic" "#" ident 
+  "ins" linalg_arglist
+  "outs" linalg_arglist
+  mlir_region : mlir_op -- linalg op
+
+  
+end linalg
+
 
 -- EINSTEIN SUMMATION
 -- ===================
