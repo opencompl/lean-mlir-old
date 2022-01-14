@@ -11,66 +11,81 @@ open Std
 
 -- LINALG
 -- =====
+-- #matmul_accesses = [
+--   affine_map<(m, n, k) -> (m, k)>,
+--   affine_map<(m, n, k) -> (k, n)>,
+--   affine_map<(m, n, k) -> (m, n)>
+-- ]
+-- 
+-- #matmul_trait = {
+--   doc = "C(m, n) += A(m, k) * B(k, n)",
+--   indexing_maps = #matmul_accesses,
+--   library_call = "linalg_matmul",
+--   iterator_types = ["parallel", "parallel", "reduction"]
+-- }
+-- 
+-- func @main(%A:memref<?x?xf32>, %B: memref<?x?xf32>, %C:memref<?x?xf32>) {
+--   linalg.generic #matmul_trait
+--     ins(%A, %B : memref<?x?xf32>,
+--         memref<?x?xf32>)
+--     outs(%C : memref<?x?xf32>)
+--   {
+--   ^bb0(%a: f32, %b: f32, %c: f32) :
+--     %d = mulf %a, %b: f32
+--     %e = addf %c, %d: f32
+--     linalg.yield %e : f32
+--   }
+--   return
+-- }
 
+ 
 
 namespace affine_syntax
-inductive affine_expr
-| var: String -> affine_expr
-abbrev affine_tuple := List affine_expr
-abbrev affine_basic_map := affine_tuple × affine_tuple
-abbrev affine_map := List affine_basic_map
+inductive AffineExpr
+| Var: String -> AffineExpr
 
-declare_syntax_cat affine_map 
-declare_syntax_cat basic_affine_map
-declare_syntax_cat affine_tuple
+abbrev affine_tuple := List AffineExpr
+abbrev affine_map := affine_tuple × affine_tuple
+
 declare_syntax_cat affine_expr
+declare_syntax_cat affine_tuple
+declare_syntax_cat affine_map 
 
 syntax ident : affine_expr
 syntax "(" sepBy(affine_expr, ",") ")" : affine_tuple
-syntax affine_tuple "->" affine_tuple : basic_affine_map
-syntax "[" sepBy(basic_affine_map, ",") "]" : affine_map
-end affine_syntax
+syntax "affine_map<" affine_tuple "->" affine_tuple ">" : affine_map
 
 syntax "[affine_expr|" affine_expr "]" : term
 syntax "[affine_tuple|" affine_tuple "]" : term 
-syntax "[basic_affine_map|" basic_affine_map "]" : term  
 syntax "[affine_map|" affine_map "]" : term  
+-- syntax "[affine_map|" affine_map "]" : term  
 
 macro_rules 
 | `([affine_expr| $xraw:ident ]) => do 
   let xstr := xraw.getId.toString
-  `(affine_expr.var xstr)
+  `(AffineExpr.Var $(Lean.quote xstr))
 
 macro_rules
 | `([affine_tuple| ( $xs,* ) ]) => do
    let initList  <- `([])
    let argsList <- xs.getElems.foldlM
     (init := initList) 
-    (fun xs x => `($xs ++ [affine_expr| $x]))
+    (fun xs x => `($xs ++ [[affine_expr| $x]]))
    return argsList
    
   
 macro_rules
-| `([basic_affine_map| $xs:affine_tuple -> $ys:affine_tuple]) => do
+| `([affine_map| affine_map< $xs:affine_tuple -> $ys:affine_tuple >]) => do
   let xs' <- `([affine_tuple| $xs])
   let ys' <- `([affine_tuple| $ys])
   `( ($xs', $ys') )
   
 
-macro_rules
-| `([affine_map| [ $xs,* ] ]) => do
-   let initList  <- `([])
-   let ys <- xs.getElems.foldlM
-    (init := initList) 
-    (fun xs x => `($xs ++ [basic_affine_map| $x]))
-   return ys
 
--- #eval [affine_expr| x]
-
-
- 
+end affine_syntax
 
 namespace linalg
+open affine_syntax
 
 -- https://mlir.llvm.org/docs/Dialects/Linalg/#linalggeneric-mlirlinalggenericop
 declare_syntax_cat linalg_arglist 
@@ -82,12 +97,17 @@ syntax  "(" sepBy(linalg_arglist_ops, ",") ":"
   sepBy(linalg_arglist_tys, ",") ")"  : linalg_arglist
 
 -- | TODO: create an MLIR trait attribute in parser
-syntax "linalg.generic" "#" ident 
+syntax "linalg.generic" mlir_attribute_value
   "ins" linalg_arglist
   "outs" linalg_arglist
   mlir_region : mlir_op -- linalg op
 
-  
+#check [affine_map| affine_map<(x, y, z) -> (x, y)>]
+
+inductive iterator_type
+| parallel 
+| reduction
+
 end linalg
 
 
