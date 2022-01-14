@@ -1,3 +1,5 @@
+-- An implementation of the Hoopl algorithm for MLIR.
+-- see: https://github.com/bollu/mlir-hoopl-rete
 
 -- {}
 -- * x = 1

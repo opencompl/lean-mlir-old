@@ -2,6 +2,11 @@ import Std.Data.RBMap
 -- https://github.com/leanprover/lean4/blob/master/src/Std/Data/AssocList.lean#L10
 open Std
 
+-- Djikstra monads to define semantics.
+-- Plus convenient helpers for 'default' things.
+-- open question: how does this work with, like, unbounded computations like loop?
+-- do we restrict to a subset where we have termination bounds?
+-- do we use djikstra monads forever?
 
 instance [ToString α ] [ToString β] {compare: α -> α -> Ordering}: ToString (RBMap α β compare) where
   toString (x: RBMap α β compare) := 
@@ -79,7 +84,6 @@ def RBMap.set_filter {α: Type} (p: α → Bool)
         if p a then
         out := RBMap.insert out a ()
     return out
-
 
 
 -- inductive RunCombExpr : RBMap String Int compare -> Op -> RBMap String Int -> Prop where
