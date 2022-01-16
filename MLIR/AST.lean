@@ -68,6 +68,16 @@ inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
 end
 
+inductive AttrDefn where
+| mk: (name: String) -> (val: AttrVal) -> AttrDefn
+
+
+
+-- | TODO: this seems like a weird exception. Is this really true?
+inductive Module where
+| mk: (functions: List Op) 
+      -> (attrs: List AttrDefn) 
+      ->  Module
 
 partial instance :  Pretty MLIRTy where
   doc (ty: MLIRTy) :=
@@ -95,7 +105,11 @@ instance : Pretty Attr where
     match attr with
     | Attr.mk k v => k ++ " = " ++ (doc v)
 
-
+instance : Pretty AttrDefn where
+  doc (v: AttrDefn) := 
+  match v with
+  | AttrDefn.mk name val => "#" ++ name ++ " := " ++ (doc val)
+ 
 
 
 
@@ -180,5 +194,11 @@ instance : Inhabited Op where
   default := Op.mk "INHABITANT" [] [] [] [] (MLIRTy.tuple [])
 
 
+instance : Pretty Module where
+  doc (m: Module) :=
+    match m with
+    | Module.mk fs attrs =>
+      Doc.VGroup (attrs.map doc ++ fs.map doc)
+      
 
 end MLIR.AST

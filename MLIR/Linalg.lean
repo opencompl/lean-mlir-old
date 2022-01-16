@@ -38,7 +38,6 @@ open Std
 --   return
 -- }
 
- 
 
 namespace affine_syntax
 inductive AffineExpr
