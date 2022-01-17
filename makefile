@@ -3,10 +3,13 @@ all: build test
 
 
 build:
-	leanpkg build bin
+	lake build 
 
 debug:
-	leanpkg build bin 2>&1 | spc -e "red, error"  -e "grn,def" # for colored output
+	lake build 2>&1 | spc -e "red, error"  -e "grn,def" # for colored output
 
 test: build
 	cd examples && PATH=../build/bin:${PATH} lit -v .
+
+doc:
+	doc-gen4 / MLIR
