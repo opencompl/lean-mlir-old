@@ -104,12 +104,10 @@ jobs:
 
     - name: Check Lean
       run: lean --version
-    - name: Configure leanpkg
-      run: leanpkg configure
-    - name: Build package
+        - name: Build package
       run: |
-        leanpkg build
-        leanpkg build bin
+        lake build
+        # leanpkg build bin
     - name: Test examples
       run: |
         ls -1u
