@@ -11,6 +11,8 @@ open Std
 
 -- LINALG
 -- =====
+-- Pretty syntax:
+-- ==============
 -- #matmul_accesses = [
 --   affine_map<(m, n, k) -> (m, k)>,
 --   affine_map<(m, n, k) -> (k, n)>,
@@ -37,6 +39,30 @@ open Std
 --   }
 --   return
 -- }
+
+-- Generic syntax:
+-- ===============
+-- #map0 = affine_map<(d0, d1, d2) -> (d0, d2)>
+-- #map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+-- #map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+-- "module"() ( {
+--   "func"() ( {
+--   ^bb0(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?x?xf32>):  // no predecessors
+--     "linalg.generic"(%arg0, %arg1, %arg2) ( {
+--     ^bb0(%arg3: f32, %arg4: f32, %arg5: f32):  // no predecessors
+--       %0 = "std.mulf"(%arg3, %arg4) : (f32, f32) -> f32
+--       %1 = "std.addf"(%arg5, %0) : (f32, f32) -> f32
+--       "linalg.yield"(%1) : (f32) -> ()
+--     }) {  doc = "C(m, n) += A(m, k) * B(k, n)", 
+--           indexing_maps = [#map0, #map1, #map2],
+--           iterator_types = ["parallel", "parallel", "reduction"], 
+--           library_call = "linalg_matmul", operand_segment_sizes = dense<[2, 1]> : vector<2xi32>
+--        } : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+--     "std.return"() : () -> ()
+--   }) {sym_name = "main", type = (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()} : () -> ()
+--   "module_terminator"() : () -> ()
+-- }) : () -> ()
+
 
 namespace affine_syntax
 
@@ -89,19 +115,25 @@ syntax  "(" sepBy(linalg_arglist_ops, ",") ":"
   sepBy(linalg_arglist_tys, ",") ")"  : linalg_arglist
 
 -- | TODO: create an MLIR trait attribute in parser
-syntax "linalg.generic" mlir_attribute_value
-  "ins" linalg_arglist
-  "outs" linalg_arglist
-  mlir_region : mlir_op -- linalg op
+-- syntax "linalg.generic" mlir_attr
+--   "ins" linalg_arglist
+--   "outs" linalg_arglist
+--   mlir_region : mlir_op -- linalg op
 
+syntax "linalg.generic" : mlir_op
 
 -- | TODO: to define this, we need to decide how attributes are implemented.
--- macro_rules
--- | `([mlir_op| linalg.generic $attrib ins $ins outs $outs $rgn]) =>
+macro_rules
+| `([mlir_op| linalg.generic]) => do
+   `(Op.mk "linalg_generic" [] [] [] (AttrDict.mk []) (MLIRTy.int 32))
     
 
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
+
+#check [mlir_op|
+   linalg.generic
+]
 
 inductive iterator_type
 | parallel 
