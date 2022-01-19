@@ -58,17 +58,22 @@ inductive AttrVal : Type where
 | dense: Int -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
 
-inductive Attr : Type where
+-- https://mlir.llvm.org/docs/LangRef/#attributes
+inductive AttrEntry : Type where
   | mk: (key: String) 
       -> (value: AttrVal)
-      -> Attr
+      -> AttrEntry
+
+inductive AttrDict : Type := 
+| mk: List AttrEntry -> AttrDict
+
 
 inductive Op : Type where 
  | mk: (name: String) 
       -> (args: List SSAVal)
       -> (bbs: List BBName)
       -> (regions: List Region) 
-      -> (attrs: List Attr)
+      -> (attrs: AttrDict)
       -> (ty: MLIRTy)
       -> Op
 
@@ -128,10 +133,10 @@ instance : Pretty AttrVal where
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
 
 
-instance : Pretty Attr where
-  doc (attr: Attr) := 
-    match attr with
-    | Attr.mk k v => k ++ " = " ++ (doc v)
+instance : Pretty AttrEntry where
+  doc (a: AttrEntry) := 
+    match a with
+    | AttrEntry.mk k v => k ++ " = " ++ (doc v)
 
 instance : Pretty AttrDefn where
   doc (v: AttrDefn) := 
@@ -139,7 +144,19 @@ instance : Pretty AttrDefn where
   | AttrDefn.mk name val => "#" ++ name ++ " := " ++ (doc val)
  
 
+ instance : Pretty AttrDict where
+   doc v := match v with
+   | AttrDict.mk attrs => 
+        if List.isEmpty attrs
+        then Doc.Text ""
+        else "{" ++ intercalate_doc attrs  ", " ++ "}" 
 
+instance : Coe (List AttrEntry) AttrDict where 
+  coe (v: List AttrEntry) := AttrDict.mk v
+
+ instance : Coe AttrDict (List AttrEntry) where 
+  coe (v: AttrDict) := match v with | AttrDict.mk as => as
+ 
 
 instance : Pretty SSAVal where
    doc (val: SSAVal) := 
@@ -150,6 +167,8 @@ instance : Pretty SSAVal where
 
 instance : ToFormat SSAVal where
     format (x: SSAVal) := layout80col (doc x)
+
+
 
 
 
@@ -167,11 +186,8 @@ partial def op_to_doc (op: Op): Doc :=
             then Doc.Text ""
             else " (" ++ nest_vgroup (rgns.map rgn_to_doc) ++ ")"
         let doc_args := "(" ++ intercalate_doc args ", " ++ ")"
-        let doc_attrs :=
-          if List.isEmpty attrs
-          then Doc.Text ""
-          else "{" ++ intercalate_doc attrs  ", " ++ "}"
-        doc_name ++ doc_args ++  doc_bbs ++ doc_rgns ++ doc_attrs ++ " : " ++ doc ty
+        
+        doc_name ++ doc_args ++  doc_bbs ++ doc_rgns ++ doc attrs ++ " : " ++ doc ty
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
@@ -219,7 +235,7 @@ instance : ToFormat Op where
 
 
 instance : Inhabited Op where
-  default := Op.mk "INHABITANT" [] [] [] [] (MLIRTy.tuple [])
+  default := Op.mk "INHABITANT" [] [] [] (AttrDict.mk []) (MLIRTy.tuple [])
 
 
 instance : Pretty Module where

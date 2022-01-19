@@ -86,7 +86,7 @@ macro_rules
   | `([mlir_op| load $op [ $args,* ] ]) => do
         let initList <- `([[mlir_op_operand| $op]])
         let argsList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
-        `(Op.mk "load"  $argsList [] [] [] [mlir_type| ()])
+        `(Op.mk "load"  $argsList [] [] (AttrDict.mk []) [mlir_type| ()])
 
 
 def load0 := [mlir_op| load %foo[%ix1, %ix2] ]
@@ -105,7 +105,7 @@ macro_rules
         let argsList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
         let stxVal <- `([mlir_op_operand| $val])
         let argsList <- `($argsList ++ [$stxVal]) -- this is terrible, I should just.. build the list! instead of building the syntax to build the list
-        `(Op.mk "load"  $argsList [] [] [] [mlir_type| ()])
+        `(Op.mk "load"  $argsList [] [] (AttrDict.mk []) [mlir_type| ()])
 
 def store0 := [mlir_op| store %foo[%ix1, %ix2], %val ]
 #print store0

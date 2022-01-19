@@ -269,7 +269,7 @@ def codegen_ein_index (i: Int) (e: Ein): List (SSAVal × Op) × SSAVal × Int :=
    let arr := SSAVal.SSAVal $ get_ein_sym e
    let ixs : List String := get_ixs_inorder e
    let outname := SSAVal.SSAVal $ "einix" ++ toString i
-   let outop := Op.mk "load" ( [arr] ++ ixs.map (SSAVal.SSAVal ∘ toString)) [] [] [] [mlir_type| i32]
+   let outop := Op.mk "load" ( [arr] ++ ixs.map (SSAVal.SSAVal ∘ toString)) [] [] (AttrDict.mk []) [mlir_type| i32]
    ([(outname, outop)], outname, i+1)
 
 -- | assumption: once we see an upper/lower, we only have 
@@ -299,10 +299,10 @@ def codegen_ein_loop_body (e: Ein) : Region :=
 
   let lhs_prev_val := SSAVal.SSAVal "lhs_prev"
   let lhsval := SSAVal.SSAVal "lhs"
-  let lhs_load := Op.mk "load" ([lhsval] ++ unrepeated) [] [] [] [mlir_type| i32]
-  let lhs_add := Op.mk "add" [lhs_prev_val, rhsval] [] [] [] [mlir_type|i32]
+  let lhs_load := Op.mk "load" ([lhsval] ++ unrepeated) [] [] (AttrDict.mk []) [mlir_type| i32]
+  let lhs_add := Op.mk "add" [lhs_prev_val, rhsval] [] [] (AttrDict.mk []) [mlir_type|i32]
 
-  let lhs_store := Op.mk "store" ([lhsval] ++ unrepeated ++ [rhsval] ) [] [] [] [mlir_type| i32]
+  let lhs_store := Op.mk "store" ([lhsval] ++ unrepeated ++ [rhsval] ) [] [] (AttrDict.mk []) [mlir_type| i32]
   let body := body ++ [BasicBlockStmt.StmtAssign lhs_prev_val lhs_load, BasicBlockStmt.StmtAssign lhsval lhs_add, BasicBlockStmt.StmtOp lhs_store]
 
   Region.mk $ [BasicBlock.mk "entry" [] body]
@@ -320,7 +320,7 @@ partial def codegen_ein_loop_nest (e: Ein) : Op :=
     | [] => [mlir_op| "scf.execute_region" () (<[ body ]>) : ()]
     | ix::ixs => 
       let body : Op := go ixs
-      Op.mk "for" [SSAVal.SSAVal ix] [] [Region.mk [BasicBlock.mk "entry" [] [BasicBlockStmt.StmtOp body ]]] [] [mlir_type| ()]
+      Op.mk "for" [SSAVal.SSAVal ix] [] [Region.mk [BasicBlock.mk "entry" [] [BasicBlockStmt.StmtOp body ]]] (AttrDict.mk []) [mlir_type| ()]
   go $ List.eraseDups (repeated ++ unrepeated)
 
 

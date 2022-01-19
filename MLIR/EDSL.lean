@@ -250,12 +250,12 @@ syntax "mlir_attr%" mlir_attr : term
 
 macro_rules 
   | `(mlir_attr% $name:ident  = $v:mlir_attr_val) => 
-     `(Attr.mk $(Lean.quote (toString name.getId))  (mlir_attr_val% $v))
+     `(AttrEntry.mk $(Lean.quote (toString name.getId))  (mlir_attr_val% $v))
 
-def attr0Str : Attr := (mlir_attr% sym_name = "add")
+def attr0Str : AttrEntry := (mlir_attr% sym_name = "add")
 #print attr0Str
 
-def attr1Type : Attr := (mlir_attr% type = (i32, i32) -> i32)
+def attr1Type : AttrEntry := (mlir_attr% type = (i32, i32) -> i32)
 #print attr1Type
 
 -- MLIR OPS WITH REGIONS AND ATTRIBUTES AND BASIC BLOCK ARGS
@@ -286,7 +286,7 @@ macro_rules
                 $operandsList -- operands
                 $succList -- bbs
                 $rgnsList -- regions
-                $attrsList -- attrs
+                (AttrDict.mk $attrsList) -- attrs
                 [mlir_type| $ty]) -- type
 
 

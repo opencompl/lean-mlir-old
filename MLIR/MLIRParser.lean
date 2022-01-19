@@ -103,13 +103,13 @@ partial def pattrvalue : P AttrVal := do
  pnote "hunting for attribute value"
  por pattrvalue_int $ por (pmap AttrVal.str pstr) $ por (pmap AttrVal.type (ptype ())) pattrvalue_dense
 
-partial def pattr : P Attr := do
+partial def pattr : P AttrEntry := do
   eat_whitespace
   let name <- pident
   eat_whitespace
   pconsume '='
   let value <- pattrvalue
-  return (Attr.mk name value)
+  return (AttrEntry.mk name value)
 
   
 
