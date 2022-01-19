@@ -91,19 +91,23 @@ syntax ident: mlir_type
 
 syntax "[mlir_type|" mlir_type "]" : term
 
+set_option hygiene false in -- allow i to expand 
 macro_rules
   | `([mlir_type| $x:ident ]) => do
         let xstr := x.getId.toString
-        if xstr.front == 'i'
+        if xstr.front == 'i' || xstr.front == 'f'
         then do 
           let xstr' := xstr.drop 1
           match xstr'.toInt? with
           | some i => 
             let lit := Lean.Syntax.mkNumLit xstr'
-            `(MLIRTy.int $lit)
+            if xstr.front == 'i'
+            then `(MLIRTy.int $lit)
+            else `(MLIRTy.float $lit)
           | none => 
-              Macro.throwError $ "cannot convert suffix of i to int: " ++ xstr
-        else Macro.throwError "expected i<int>" -- `(MLIRTy.int 1337)
+              Macro.throwError $ "cannot convert suffix of i/f to int: " ++ xstr
+        else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
+
 
 def tyi32NoGap : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
 
@@ -205,6 +209,8 @@ syntax "[mlir_region|" mlir_region "]" : term
 syntax "<[" term "]>" : mlir_region
 syntax "{{" term "}}" : mlir_region
 
+-- | map a macro on a list
+
 macro_rules
 | `([mlir_region| { $[ $bbs ]* } ]) => do
    let initList <- `([])
@@ -259,12 +265,12 @@ def attr1Type : AttrEntry := [mlir_attr_entry| type = (i32, i32) -> i32]
 #print attr1Type
 
 
-declare_syntax_cat mlir_attr
-syntax "{" sepBy(mlir_attr_entry, ",") "}" : mlir_attr
-syntax "[mlir_attr|" mlir_attr "]" : term
+declare_syntax_cat mlir_attr_dict
+syntax "{" sepBy(mlir_attr_entry, ",") "}" : mlir_attr_dict
+syntax "[mlir_attr_dict|" mlir_attr_dict "]" : term
 
 macro_rules
-| `([mlir_attr| {  $attrEntries,* } ]) => do
+| `([mlir_attr_dict| {  $attrEntries,* } ]) => do
         let initList <- `([])
         let attrsList <-attrEntries.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr_entry| $x]) 
         `(AttrDict.mk $attrsList)

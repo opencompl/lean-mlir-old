@@ -104,15 +104,16 @@ end affine_syntax
 
 namespace linalg
 open affine_syntax
+open MLIR.EDSL
 
 -- https://mlir.llvm.org/docs/Dialects/Linalg/#linalggeneric-mlirlinalggenericop
 declare_syntax_cat linalg_arglist 
-declare_syntax_cat linalg_arglist_ops
-declare_syntax_cat linalg_arglist_tys
-syntax mlir_op_operand : linalg_arglist_ops
-syntax mlir_op_type : linalg_arglist_tys
-syntax  "(" sepBy(linalg_arglist_ops, ",") ":" 
-  sepBy(linalg_arglist_tys, ",") ")"  : linalg_arglist
+-- declare_syntax_cat linalg_arglist_ops
+-- declare_syntax_cat linalg_arglist_tys
+-- syntax mlir_op_operand : linalg_arglist_ops
+-- syntax mlir_op_type : linalg_arglist_tys
+syntax  "(" sepBy(mlir_op_operand, ",") ":" 
+  sepBy(mlir_op_operand, ",") ")"  : linalg_arglist
 
 -- | TODO: create an MLIR trait attribute in parser
 -- syntax "linalg.generic" mlir_attr
@@ -120,19 +121,27 @@ syntax  "(" sepBy(linalg_arglist_ops, ",") ":"
 --   "outs" linalg_arglist
 --   mlir_region : mlir_op -- linalg op
 
-syntax "linalg.generic" : mlir_op
+syntax "linalg.generic" mlir_attr_dict "ins" linalg_arglist "outs" linalg_arglist mlir_region: mlir_op
 
 -- | TODO: to define this, we need to decide how attributes are implemented.
+set_option hygiene false in -- need to disable hygiene for i32 expansion.
 macro_rules
-| `([mlir_op| linalg.generic]) => do
-   `(Op.mk "linalg_generic" [] [] [] (AttrDict.mk []) (MLIRTy.int 32))
+| `([mlir_op| linalg.generic $attrs ins ($invs,* : $intys,*) outs ($outvs,* : $outtys,*) $rgn]) => do
+   let initList <- `([])
+   let argsList <- (invs.getElems ++ outvs.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
+   `(Op.mk "linalg_generic" $argsList [] [[mlir_region| $rgn]] (AttrDict.mk []) (MLIRTy.int 32))
     
 
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
 #check [mlir_op|
-   linalg.generic
+   linalg.generic { } ins(%A, %B : ) outs (%C :) {
+     ^entry(%a: i32, %b: i32, %c: i32) :
+       %d = mulf %a, %b: f32
+       %e = addf %c, %d: f32
+       -- linalg.yield %e : f32
+   }
 ]
 
 inductive iterator_type
@@ -371,10 +380,10 @@ macro_rules
 
 def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({ 
    ^entry: 
-      addi %c0 %x
+      addi %c0 , %x
 --      -- | use einstein summation convention inside
 --      -- the `[mlir_op|` DSL as we build a `scf.while` op:
-      [ein| x_i_j x_j^k]
+      -- [ein| x_i_j x_j^k]
 }) : ()
 ]
 

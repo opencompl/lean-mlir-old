@@ -10,7 +10,9 @@ open Std
 -- https://mlir.llvm.org/docs/Dialects/Standard/        
 -- -- some delaborators: https://github.com/leanprover/lean4/blob/68867d02ac1550288427195fa09e46866bd409b8/src/Init/NotationExtra.lean
 
-syntax "addi" mlir_op_operand mlir_op_operand : mlir_op
+syntax "addi" mlir_op_operand "," mlir_op_operand : mlir_op
+syntax "addf" mlir_op_operand "," mlir_op_operand ":" mlir_type : mlir_op
+syntax "mulf" mlir_op_operand "," mlir_op_operand ":" mlir_type : mlir_op
 
 syntax "br" mlir_op_successor_arg : mlir_op
 syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor_arg : mlir_op
@@ -22,8 +24,20 @@ syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor
 -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Disabling.20Macro.20Hygine.3F/near/256933681
 set_option hygiene false in -- need to disable hygiene for i32 expansion.
 macro_rules
-  | `([mlir_op| addi $op1:mlir_op_operand $op2:mlir_op_operand]) => 
+  | `([mlir_op| addi $op1:mlir_op_operand , $op2:mlir_op_operand]) => 
         `( [mlir_op| "std.addi" (%op1, %op2) : (i32, i32) -> (i32) ] )
+
+set_option hygiene false in -- need to disable hygiene for type expansion
+macro_rules
+  | `([mlir_op| addf $op1:mlir_op_operand , $op2:mlir_op_operand : $ty:mlir_type]) => 
+        `( [mlir_op| "std.addf" (%op1, %op2) : ($ty, $ty) -> ($ty) ] )
+
+set_option hygiene false in -- need to disable hygiene for type expansion
+macro_rules
+  | `([mlir_op| mulf $op1:mlir_op_operand , $op2:mlir_op_operand : $ty:mlir_type]) => 
+        `( [mlir_op| "std.mulf" (%op1, %op2) : ($ty, $ty) -> ($ty) ] )
+
+
 macro_rules
   | `([mlir_op| br $op1:mlir_op_successor_arg]) => 
         `([mlir_op| "br" () [$op1] : () -> ()])
@@ -39,7 +53,7 @@ macro_rules
 def add0Raw := [mlir_op| "std.addi" (%op1, %op2) : (i32)]
 #print add0Raw
 
-def add0 : Op := [mlir_op| addi %c0 %c1]
+def add0 : Op := [mlir_op| addi %c0, %c1]
 #print add0
 
 def br0 : Op := [mlir_op| br ^entry]

@@ -45,6 +45,7 @@ mutual
 inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
 | int : Int -> MLIRTy
+| float: Int -> MLIRTy
 | tuple : List MLIRTy -> MLIRTy
 | vector: Int -> MLIRTy -> MLIRTy
 
@@ -116,6 +117,7 @@ partial instance :  Pretty MLIRTy where
     let rec  go (ty: MLIRTy) :=  
     match ty with
     | MLIRTy.int k => "i" ++ doc k
+    | MLIRTy.float k => "f" ++ doc k
     | MLIRTy.tuple ts => "(" ++ (intercalate_doc (ts.map go) (doc ", ") ) ++ ")"
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
     | MLIRTy.vector sz ty => "vector<" ++ toString sz ++ "x" ++ go ty ++ ">"
