@@ -7,6 +7,12 @@ open Lean.Meta
 open Std
 open Std.AssocList
 
+-- PDL: Pattern Description Language 
+-- |
+-- +-> parse it into MLIR data structure --(lean code that spits out a matcher)
+-- |
+-- +-> matcher
+
 inductive matcher where
 | built: matcher
 | kind?: (kind: String) -> matcher -> matcher
