@@ -129,27 +129,27 @@ macro_rules
 | `([mlir_op| linalg.generic $attrs ins ($invs,* : $intys,*) outs ($outvs,* : $outtys,*) $rgn]) => do
    let initList <- `([])
    let argsList <- (invs.getElems ++ outvs.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
-   `(Op.mk "linalg_generic" $argsList [] [[mlir_region| $rgn]] (AttrDict.mk []) (MLIRTy.int 32))
+   `(Op.mk "linalg_generic" $argsList [] [[mlir_region| $rgn]] [mlir_attr_dict| $attrs] (MLIRTy.int 31))
     
 
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
--- #check [mlir_op|
---    linalg.generic { 
---       indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
---         affine_map<(m, n, k) -> (k, n)>,
---         affine_map<(m, n, k) -> (m, n)>
---       ],                   
---       library_call = "linalg_matmul",
---       iterator_types = ["parallel", "parallel", "reduction"] 
---    } ins(%A, %B : ) outs (%C :) {
---      ^entry(%a: i32, %b: i32, %c: i32) :
---        %d = mulf %a, %b: f32
---        %e = addf %c, %d: f32
---        -- linalg.yield %e : f32
---    }
--- ]
+#check [mlir_op|
+   linalg.generic { 
+      -- indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
+      --   affine_map<(m, n, k) -> (k, n)>,
+      --   affine_map<(m, n, k) -> (m, n)>
+      -- ],                   
+      library_call = "linalg_matmul",
+      iterator_types = ["parallel", "parallel", "reduction"] 
+   } ins(%A, %B : ) outs (%C :) {
+     ^entry(%a: i32, %b: i32, %c: i32) :
+       %d = mulf %a, %b: f32
+       %e = addf %c, %d: f32
+       -- linalg.yield %e : f32
+   }
+]
 
 inductive iterator_type
 | parallel 
