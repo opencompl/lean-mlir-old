@@ -1,4 +1,4 @@
-.PHONY: all build test debug
+.PHONY: all build test debug doc
 all: build test
 
 
@@ -13,3 +13,4 @@ test: build
 
 doc:
 	doc-gen4 / MLIR
+	cd build/doc && python3 -m http.server 80
