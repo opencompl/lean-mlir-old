@@ -73,6 +73,12 @@ namespace linalg
 open affine_syntax
 open MLIR.EDSL
 
+syntax "linalg.yield" mlir_op_operand ":" mlir_type : mlir_op
+
+macro_rules
+| `([mlir_op| linalg.yield $arg : $ty]) =>
+    `([mlir_op| "linalg.yield" ($arg) : () -> ($ty)])
+
 -- https://mlir.llvm.org/docs/Dialects/Linalg/#linalggeneric-mlirlinalggenericop
 declare_syntax_cat linalg_arglist 
 -- declare_syntax_cat linalg_arglist_ops
@@ -104,17 +110,17 @@ macro_rules
 
 #check [mlir_op|
    linalg.generic { 
-      -- indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
-      --   affine_map<(m, n, k) -> (k, n)>,
-      --   affine_map<(m, n, k) -> (m, n)>
-      -- ],                   
+       indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
+         affine_map<(m, n, k) -> (k, n)>,
+         affine_map<(m, n, k) -> (m, n)>
+      ],                   
       library_call = "linalg_matmul",
       iterator_types = ["parallel", "parallel", "reduction"] 
    } ins(%A, %B : ) outs (%C :) {
      ^entry(%a: i32, %b: i32, %c: i32) :
        %d = mulf %a, %b: f32
        %e = addf %c, %d: f32
-       -- linalg.yield %e : f32
+       linalg.yield %e : f32
    }
 ]
 
