@@ -58,6 +58,7 @@ inductive AttrVal : Type where
 | type :MLIRTy -> AttrVal
 | dense: Int -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
+| list: List AttrVal -> AttrVal
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 inductive AttrEntry : Type where
@@ -125,15 +126,17 @@ partial instance :  Pretty MLIRTy where
 
 
 
-instance : Pretty AttrVal where
+partial instance : Pretty AttrVal where
  doc (v: AttrVal) := 
+  let rec go (v: AttrVal) :=
    match v with
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
    | AttrVal.dense i ty => "dense<" ++ doc i ++ ">" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
-
+   | AttrVal.list xs => "[" ++ intercalate_doc (xs.map go) "," ++ "]"
+  go v
 
 instance : Pretty AttrEntry where
   doc (a: AttrEntry) := 

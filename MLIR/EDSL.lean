@@ -230,12 +230,18 @@ declare_syntax_cat mlir_attr_val
 
 syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
+syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 
 syntax "[mlir_attr_val|" mlir_attr_val "]" : term
 
 macro_rules 
   | `([mlir_attr_val| $s:strLit]) => `(AttrVal.str $s)
+  | `([mlir_attr_val| [ $xs,* ] ]) => do 
+        let initList <- `([])
+        let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_val| $x]]) 
+        `(AttrVal.list $vals)
   | `([mlir_attr_val| $ty:mlir_type]) => `(AttrVal.type [mlir_type| $ty])
+
 
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
@@ -243,6 +249,9 @@ def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 
 def attrVal1Ty : AttrVal := [mlir_attr_val| (i32, i64) -> i32]
 #print attrVal1Ty
+
+def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
+#check attrVal2List
 
 -- MLIR ATTRIBUTE
 -- ===============

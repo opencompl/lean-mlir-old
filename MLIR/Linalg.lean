@@ -135,14 +135,21 @@ macro_rules
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
-#check [mlir_op|
-   linalg.generic { } ins(%A, %B : ) outs (%C :) {
-     ^entry(%a: i32, %b: i32, %c: i32) :
-       %d = mulf %a, %b: f32
-       %e = addf %c, %d: f32
-       -- linalg.yield %e : f32
-   }
-]
+-- #check [mlir_op|
+--    linalg.generic { 
+--       indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
+--         affine_map<(m, n, k) -> (k, n)>,
+--         affine_map<(m, n, k) -> (m, n)>
+--       ],                   
+--       library_call = "linalg_matmul",
+--       iterator_types = ["parallel", "parallel", "reduction"] 
+--    } ins(%A, %B : ) outs (%C :) {
+--      ^entry(%a: i32, %b: i32, %c: i32) :
+--        %d = mulf %a, %b: f32
+--        %e = addf %c, %d: f32
+--        -- linalg.yield %e : f32
+--    }
+-- ]
 
 inductive iterator_type
 | parallel 
