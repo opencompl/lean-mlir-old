@@ -225,44 +225,57 @@ declare_syntax_cat mlir_attr_val
 syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 
-syntax "mlir_attr_val%" mlir_attr_val : term
+syntax "[mlir_attr_val|" mlir_attr_val "]" : term
 
 macro_rules 
-  | `(mlir_attr_val% $s:strLit) => `(AttrVal.str $s)
-  | `(mlir_attr_val% $ty:mlir_type) => `(AttrVal.type [mlir_type| $ty])
+  | `([mlir_attr_val| $s:strLit]) => `(AttrVal.str $s)
+  | `([mlir_attr_val| $ty:mlir_type]) => `(AttrVal.type [mlir_type| $ty])
 
 
-def attrVal0Str : AttrVal := mlir_attr_val% "foo"
+def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 #print attrVal0Str
 
-def attrVal1Ty : AttrVal := mlir_attr_val% (i32, i64) -> i32
+def attrVal1Ty : AttrVal := [mlir_attr_val| (i32, i64) -> i32]
 #print attrVal1Ty
 
 -- MLIR ATTRIBUTE
 -- ===============
 
-declare_syntax_cat mlir_attr
 
-syntax ident "=" mlir_attr_val : mlir_attr
+declare_syntax_cat mlir_attr_entry
 
--- | TODO: change to [mlir_attr| .. ]
-syntax "mlir_attr%" mlir_attr : term
+syntax ident "=" mlir_attr_val : mlir_attr_entry
+
+syntax "[mlir_attr_entry|" mlir_attr_entry "]" : term
 
 macro_rules 
-  | `(mlir_attr% $name:ident  = $v:mlir_attr_val) => 
-     `(AttrEntry.mk $(Lean.quote (toString name.getId))  (mlir_attr_val% $v))
+  | `([mlir_attr_entry| $name:ident  = $v:mlir_attr_val]) => 
+     `(AttrEntry.mk $(Lean.quote (toString name.getId))  [mlir_attr_val| $v])
 
-def attr0Str : AttrEntry := (mlir_attr% sym_name = "add")
+def attr0Str : AttrEntry := [mlir_attr_entry| sym_name = "add"]
 #print attr0Str
 
-def attr1Type : AttrEntry := (mlir_attr% type = (i32, i32) -> i32)
+def attr1Type : AttrEntry := [mlir_attr_entry| type = (i32, i32) -> i32]
 #print attr1Type
+
+
+declare_syntax_cat mlir_attr
+syntax "{" sepBy(mlir_attr_entry, ",") "}" : mlir_attr
+syntax "[mlir_attr|" mlir_attr "]" : term
+
+macro_rules
+| `([mlir_attr| {  $attrEntries,* } ]) => do
+        let initList <- `([])
+        let attrsList <-attrEntries.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr_entry| $x]) 
+        `(AttrDict.mk $attrsList)
 
 -- MLIR OPS WITH REGIONS AND ATTRIBUTES AND BASIC BLOCK ARGS
 -- =========================================================
 
 
-syntax strLit "(" mlir_op_operand,* ")" ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr,* "}")? ":" mlir_type : mlir_op
+-- | TODO: Replace |{ mlir_attr_entry,*}| with |mlir_attr|.
+syntax strLit "(" mlir_op_operand,* ")" 
+  ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr_entry,* "}")? ":" mlir_type : mlir_op
 
 
 macro_rules 
@@ -278,7 +291,7 @@ macro_rules
                 | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
         let attrsList <- match attrs with 
                           | none => `([]) 
-                          | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_attr% $x])
+                          | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_entry| $x]])
         let rgnsList <- match rgns with 
                           | none => `([]) 
                           | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
