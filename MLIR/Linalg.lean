@@ -65,40 +65,7 @@ open Std
 
 
 namespace affine_syntax
-
-declare_syntax_cat affine_expr
-declare_syntax_cat affine_tuple
-declare_syntax_cat affine_map 
-
-syntax ident : affine_expr
-syntax "(" sepBy(affine_expr, ",") ")" : affine_tuple
-syntax "affine_map<" affine_tuple "->" affine_tuple ">" : affine_map
-
-syntax "[affine_expr|" affine_expr "]" : term
-syntax "[affine_tuple|" affine_tuple "]" : term 
-syntax "[affine_map|" affine_map "]" : term  
--- syntax "[affine_map|" affine_map "]" : term  
-
-macro_rules 
-| `([affine_expr| $xraw:ident ]) => do 
-  let xstr := xraw.getId.toString
-  `(AffineExpr.Var $(Lean.quote xstr))
-
-macro_rules
-| `([affine_tuple| ( $xs,* ) ]) => do
-   let initList  <- `([])
-   let argsList <- xs.getElems.foldlM
-    (init := initList) 
-    (fun xs x => `($xs ++ [[affine_expr| $x]]))
-   return argsList
-   
-  
-macro_rules
-| `([affine_map| affine_map< $xs:affine_tuple -> $ys:affine_tuple >]) => do
-  let xs' <- `([affine_tuple| $xs])
-  let ys' <- `([affine_tuple| $ys])
-  `( ($xs', $ys') )
-  
+ 
 
 end affine_syntax
 

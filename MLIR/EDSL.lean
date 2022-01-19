@@ -10,6 +10,45 @@ open Lean.Parser
 open MLIR.AST
 
 namespace MLIR.EDSL
+
+-- AFFINE SYTAX
+-- ============
+
+ 
+declare_syntax_cat affine_expr
+declare_syntax_cat affine_tuple
+declare_syntax_cat affine_map 
+
+syntax ident : affine_expr
+syntax "(" sepBy(affine_expr, ",") ")" : affine_tuple
+syntax "affine_map<" affine_tuple "->" affine_tuple ">" : affine_map
+
+syntax "[affine_expr|" affine_expr "]" : term
+syntax "[affine_tuple|" affine_tuple "]" : term 
+syntax "[affine_map|" affine_map "]" : term  
+-- syntax "[affine_map|" affine_map "]" : term  
+
+macro_rules 
+| `([affine_expr| $xraw:ident ]) => do 
+  let xstr := xraw.getId.toString
+  `(AffineExpr.Var $(Lean.quote xstr))
+
+macro_rules
+| `([affine_tuple| ( $xs,* ) ]) => do
+   let initList  <- `([])
+   let argsList <- xs.getElems.foldlM
+    (init := initList) 
+    (fun xs x => `($xs ++ [[affine_expr| $x]]))
+   `(AffineTuple.mk $argsList)
+   
+  
+macro_rules
+| `([affine_map| affine_map< $xs:affine_tuple -> $ys:affine_tuple >]) => do
+  let xs' <- `([affine_tuple| $xs])
+  let ys' <- `([affine_tuple| $ys])
+  `(AffineMap.mk $xs' $ys' )
+ 
+
 -- EDSL
 -- ====
 
@@ -230,6 +269,7 @@ declare_syntax_cat mlir_attr_val
 
 syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
+syntax affine_map : mlir_attr_val
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 
 syntax "[mlir_attr_val|" mlir_attr_val "]" : term
@@ -242,6 +282,10 @@ macro_rules
         `(AttrVal.list $vals)
   | `([mlir_attr_val| $ty:mlir_type]) => `(AttrVal.type [mlir_type| $ty])
 
+macro_rules
+  | `([mlir_attr_val| $a:affine_map]) =>
+      `(AttrVal.affine [affine_map| $a])
+
 
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
@@ -252,6 +296,9 @@ def attrVal1Ty : AttrVal := [mlir_attr_val| (i32, i64) -> i32]
 
 def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
 #check attrVal2List
+
+def attrVal3AffineMap : AttrVal := [mlir_attr_val| affine_map<(x, y) -> (y)>]
+#check attrVal3AffineMap
 
 -- MLIR ATTRIBUTE
 -- ===============
