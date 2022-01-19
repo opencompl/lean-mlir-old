@@ -5,6 +5,32 @@ open MLIR.Doc
 open Pretty -- open typeclass for `doc`
 
 namespace MLIR.AST
+
+-- Affine expressions [TODO: find some way to separate this out]
+-- ==================
+inductive AffineExpr
+| Var: String -> AffineExpr
+
+instance : Pretty AffineExpr where
+  doc e := match e with
+  | AffineExpr.Var v => doc v 
+
+inductive AffineTuple 
+| mk: List AffineExpr -> AffineTuple
+
+instance : Pretty AffineTuple where
+  doc t := match t with
+  | AffineTuple.mk es => "(" ++ intercalate_doc es "," ++ ")" 
+ 
+inductive AffineMap
+| mk: AffineTuple -> AffineTuple -> AffineMap
+
+ instance : Pretty AffineMap where
+  doc t := match t with
+  | AffineMap.mk xs ys => doc xs ++ " -> " ++ doc ys
+ 
+ 
+
 -- EMBEDDING
 -- ==========
 
@@ -30,6 +56,7 @@ inductive AttrVal : Type where
 | int : Int -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
 | dense: Int -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
+| affine: AffineMap -> AttrVal
 
 inductive Attr : Type where
   | mk: (key: String) 
@@ -98,6 +125,7 @@ instance : Pretty AttrVal where
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
    | AttrVal.dense i ty => "dense<" ++ doc i ++ ">" ++ ":" ++ doc ty
+   | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
 
 
 instance : Pretty Attr where

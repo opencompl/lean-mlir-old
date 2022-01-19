@@ -38,13 +38,7 @@ open Std
 --   return
 -- }
 
-
 namespace affine_syntax
-inductive AffineExpr
-| Var: String -> AffineExpr
-
-abbrev affine_tuple := List AffineExpr
-abbrev affine_map := affine_tuple × affine_tuple
 
 declare_syntax_cat affine_expr
 declare_syntax_cat affine_tuple
@@ -80,7 +74,6 @@ macro_rules
   `( ($xs', $ys') )
   
 
-
 end affine_syntax
 
 namespace linalg
@@ -100,6 +93,13 @@ syntax "linalg.generic" mlir_attribute_value
   "ins" linalg_arglist
   "outs" linalg_arglist
   mlir_region : mlir_op -- linalg op
+
+
+-- | TODO: to define this, we need to decide how attributes are implemented.
+-- macro_rules
+-- | `([mlir_op| linalg.generic $attrib ins $ins outs $outs $rgn]) =>
+    
+
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
@@ -258,7 +258,6 @@ def get_low_up_ixs(e: Ein): List String × List String :=
   | _ => ([], [])
 
 
-
 def get_ein_sym (e: Ein): String := 
 match e with
 | Ein.Sym s => s
@@ -332,6 +331,9 @@ partial def codegen_ein_loop_nest (e: Ein) : Op :=
 
 syntax "[ein|" ein_term "]": mlir_op
 
+def foo := [ein| x_i x^i]
+#check foo
+
 macro_rules
 | `([mlir_op| [ein| $x:ein_term ] ]) => `(codegen_ein_loop_nest [ein| $x])
 
@@ -340,7 +342,7 @@ def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({
       addi %c0 %x
 --      -- | use einstein summation convention inside
 --      -- the `[mlir_op|` DSL as we build a `scf.while` op:
-      [ein| x_i x^i]
+      [ein| x_i_j x_j^k]
 }) : ()
 ]
 
@@ -401,3 +403,6 @@ def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({
 end ns_einsum
 
 
+-- ultra high level way to defne rewrites: TableGen syntax -> PDL by MLIR
+-- mid level: write PDL, and feed to MLIR [painful, you're now writing IR by hand]
+-- low level: write C++ to define rewrites.
