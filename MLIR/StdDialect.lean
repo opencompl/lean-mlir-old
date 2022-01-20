@@ -142,4 +142,15 @@ macro_rules
 
 syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" "->" mlir_type mlir_region : mlir_op
 
+-- | TODO: finish this macro on a day that I have more coffee.
+macro_rules
+| `([mlir_op| func @ $name ( $operands,* )  -> $retty $rgn]) =>  do
+      let initList <- `([])
+      let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]]) 
+      -- let operandArgsList <- `(($operandsList).map Prod.fst)
+      `(Op.mk "func" [] [] [[mlir_region| $rgn ]] (AttrDict.mk []) [mlir_type| () -> ()])
+
+
+def func0 := [mlir_op| func @"foo" () -> i32 { }]
+#eval IO.eprintln $ Pretty.doc $ func0
 

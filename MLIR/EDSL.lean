@@ -78,10 +78,11 @@ macro_rules
   | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
   | `([mlir_op_operand| [escape| $t:term ] ]) => t
 
-def xx := ([mlir_op_operand| %x])
-def xxx := ([mlir_op_operand| %x])
-#print xx
-#print xxx
+def operand0 := [mlir_op_operand| %x]
+#print operand0
+
+def operand1 := [mlir_op_operand| %x]
+#print operand1
 
 
 -- EDSL OP-SUCCESSOR-ARGS
@@ -203,7 +204,7 @@ syntax mlir_op_operand ":" mlir_type : mlir_bb_operand
 syntax "[mlir_bb_operand|" mlir_bb_operand "]" : term
 
 macro_rules 
-| `([mlir_bb_operand| $name:mlir_op_operand : $ty:mlir_type] ) => 
+| `([mlir_bb_operand| $name:mlir_op_operand : $ty:mlir_type ]) => 
      `( ([mlir_op_operand| $name], [mlir_type|$ty]) ) 
 
 
@@ -234,8 +235,7 @@ macro_rules
 
 syntax "{" (ws mlir_bb ws)* "}": mlir_region
 syntax "[mlir_region|" mlir_region "]" : term
-syntax "<[" term "]>" : mlir_region
-syntax "{{" term "}}" : mlir_region
+syntax "[escape|" term "]" : mlir_region
 
 -- | map a macro on a list
 
@@ -246,8 +246,7 @@ macro_rules
    `(Region.mk $bbsList)
 
 macro_rules
-| `([mlir_region| <[ $t: term ]> ]) => t
-| `([mlir_region| {{ $t: term }} ]) => t
+| `([mlir_region| [escape| $t: term ] ]) => t
 
 
 
@@ -256,13 +255,14 @@ macro_rules
 
 declare_syntax_cat mlir_attr_val
 declare_syntax_cat mlir_attr_val_symbol
-
 syntax "@" str : mlir_attr_val_symbol
+
 
 syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
 syntax mlir_attr_val_symbol : mlir_attr_val
+
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
 
@@ -283,12 +283,9 @@ macro_rules
   | `([mlir_attr_val| $a:affine_map]) =>
       `(AttrVal.affine [affine_map| $a])
 
-
 macro_rules
 | `([mlir_attr_val| @ $x:strLit ]) =>
-  `(AttrVal.symbol $x)
-
-
+      `(AttrVal.symbol $x)
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 #print attrVal0Str
@@ -302,9 +299,10 @@ def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
 def attrVal3AffineMap : AttrVal := [mlir_attr_val| affine_map<(x, y) -> (y)>]
 #check attrVal3AffineMap
 
-
 def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
 #check attrVal4Symbol
+
+
 
 -- MLIR ATTRIBUTE
 -- ===============
@@ -383,7 +381,7 @@ def bbstmt2: BasicBlockStmt :=
   [mlir_bb_stmt| %z = "foo"(%x, %y) : (i32, i32) -> i32]
 #print bbstmt2
 
-def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32]
+def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32 ]
 #print bbop1
 
 def bb1NoArgs : BasicBlock := 
