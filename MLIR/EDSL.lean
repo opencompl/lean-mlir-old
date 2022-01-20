@@ -62,15 +62,6 @@ declare_syntax_cat mlir_op_successor_args
 declare_syntax_cat mlir_op_type
 declare_syntax_cat mlir_op_operand
 declare_syntax_cat mlir_type
-declare_syntax_cat mlir_attribute_value
-declare_syntax_cat mlir_attribute_entry
-
--- EDSL ATTRIBUTES
--- ===============
-
-syntax "#" ident "=" mlir_attribute_value : mlir_attribute_entry
-syntax "#" ident : mlir_attribute_value -- reference to a value
-syntax "[mlir_attribute_value|" mlir_attribute_value "]" : term
 
 -- syntax strLit mlir_op_args ":" mlir_op_type : mlir_op -- no region
 -- 
@@ -271,8 +262,12 @@ syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
+syntax "[escape|" term "]" : mlir_attr_val
 
 syntax "[mlir_attr_val|" mlir_attr_val "]" : term
+
+macro_rules
+| `([mlir_attr_val| [escape| $x:term ] ]) => `($x)
 
 macro_rules 
   | `([mlir_attr_val| $s:strLit]) => `(AttrVal.str $s)

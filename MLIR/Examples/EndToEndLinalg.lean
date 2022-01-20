@@ -6,7 +6,7 @@ import MLIR.StdDialect
 -- to generate linalg code.
 
 -- | define expressions via EDSL
-def matmul_ein := [ein| x_k_i x^i_l]
+def matmul_ein := [ein_factor| x_k_i x^i_l]
 
 -- | Mix into MLIR definitions.
 -- def matmul_linalg := [mlir_op|
