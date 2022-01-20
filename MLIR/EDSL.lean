@@ -200,10 +200,10 @@ macro_rules
 declare_syntax_cat mlir_bb_operand
 syntax mlir_op_operand ":" mlir_type : mlir_bb_operand
 
-syntax "mlir_bb_operand%" mlir_bb_operand : term
+syntax "[mlir_bb_operand|" mlir_bb_operand "]" : term
 
 macro_rules 
-| `(mlir_bb_operand% $name:mlir_op_operand : $ty:mlir_type ) => 
+| `([mlir_bb_operand| $name:mlir_op_operand : $ty:mlir_type] ) => 
      `( ([mlir_op_operand| $name], [mlir_type|$ty]) ) 
 
 
@@ -220,7 +220,7 @@ syntax "[mlir_bb|" mlir_bb "]": term
 macro_rules 
 | `([mlir_bb| ^ $name:ident ( $operands,* ) : $[ $stmts ]* ]) => do
    let initList <- `([])
-   let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [mlir_bb_operand% $x])
+   let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
    let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) $argsList $opsList)
 | `([mlir_bb| ^ $name:ident : $[ $stmts ]* ]) => do
@@ -255,10 +255,14 @@ macro_rules
 -- ====================
 
 declare_syntax_cat mlir_attr_val
+declare_syntax_cat mlir_attr_val_symbol
+
+syntax "@" str : mlir_attr_val_symbol
 
 syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
+syntax mlir_attr_val_symbol : mlir_attr_val
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
 
@@ -280,6 +284,11 @@ macro_rules
       `(AttrVal.affine [affine_map| $a])
 
 
+macro_rules
+| `([mlir_attr_val| @ $x:strLit ]) =>
+  `(AttrVal.symbol $x)
+
+
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 #print attrVal0Str
@@ -292,6 +301,10 @@ def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
 
 def attrVal3AffineMap : AttrVal := [mlir_attr_val| affine_map<(x, y) -> (y)>]
 #check attrVal3AffineMap
+
+
+def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
+#check attrVal4Symbol
 
 -- MLIR ATTRIBUTE
 -- ===============
@@ -370,7 +383,7 @@ def bbstmt2: BasicBlockStmt :=
   [mlir_bb_stmt| %z = "foo"(%x, %y) : (i32, i32) -> i32]
 #print bbstmt2
 
-def bbop1 : SSAVal × MLIRTy := mlir_bb_operand% %x : i32
+def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32]
 #print bbop1
 
 def bb1NoArgs : BasicBlock := 

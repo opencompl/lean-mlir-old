@@ -138,3 +138,8 @@ set_option hygiene false in -- need to disable hygiene for i<blah> expansion. Ot
 macro_rules
   | `([mlir_op| scf.for ( $flag ) : $retty  $body]) => 
         `([mlir_op| "scf.for" ($flag) ($body) : $retty])
+
+
+syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" "->" mlir_type mlir_region : mlir_op
+
+

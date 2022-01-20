@@ -53,6 +53,7 @@ inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
 
 inductive AttrVal : Type where
+| symbol: String -> AttrVal -- symbol ref attr
 | str : String -> AttrVal
 | int : Int -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
@@ -130,6 +131,7 @@ partial instance : Pretty AttrVal where
  doc (v: AttrVal) := 
   let rec go (v: AttrVal) :=
    match v with
+   | AttrVal.symbol s => "@" ++ doc_surround_dbl_quot s
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
