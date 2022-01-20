@@ -1,5 +1,8 @@
 import MLIR.Linalg
-import MLIR.StdDialect
+import MLIR.StdDialect 
+
+open MLIR.Doc
+
 
 
 -- End to end example of using the einstein summation convention frontend
@@ -9,11 +12,16 @@ import MLIR.StdDialect
 def matmul_ein := [ein_factor| x_k_i x^i_l]
 
 -- | Mix into MLIR definitions.
--- def matmul_linalg := [mlir_op|
---    func @main() {
---       %x = call_ein matmul_ein %a %b
---    }
--- ]
+-- | TODO: the types are wrong, we need memref<..> types. Will do later.
+-- | TODO: add support for "func" syntax.
+def matmul_linalg := [mlir_op|
+   "func" () ({ 
+     ^entry():
+      a^i_j b^j_k (%out)
+   }) : () -> ()
+]
+
+#eval IO.eprintln $ Pretty.doc $  matmul_linalg
 
 -- | pretty print as MLIR generic
 
