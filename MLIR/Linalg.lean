@@ -251,11 +251,11 @@ match e with
     (l ++ l', u ++ u')
 
 
-def EinLeaf.get_ein_sym (e: EinLeaf): String := 
+def EinLeaf.get_sym (e: EinLeaf): String := 
 match e with
 | EinLeaf.Sym s => s
-| EinLeaf.Upper e _ => get_ein_sym e
-| EinLeaf.Lower e _ => get_ein_sym e
+| EinLeaf.Upper e _ => get_sym e
+| EinLeaf.Lower e _ => get_sym e
 
 
 def EinFactor.left (e: EinFactor): EinLeaf :=
@@ -273,16 +273,29 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
   -- | generate loop for each repeated index.
   -- | generate array indexing for each unrepated index.
   let (repeated, _):= List.partition (fun ix => us.contains ix) ls
-  let unrepeated := (ls ++ us).filter (fun ix => not (repeated.contains ix))
+  let repeated := List.eraseDups  repeated
+  
   let iteration_vars := ls ++ us
+  let iteration_vars := List.eraseDups iteration_vars
+
+  let unrepeated := iteration_vars.filter (fun ix => not (repeated.contains ix))
+
   -- | full input space consists of each iteration variable
-  let input_tuple : AffineTuple := AffineTuple.mk ((us ++ ls).map (AffineExpr.Var))
+  let input_tuple : AffineTuple := AffineTuple.mk (iteration_vars.map (AffineExpr.Var))
   let output_tuple : AffineTuple := AffineTuple.mk (unrepeated.map (AffineExpr.Var))
   let leaf0_tuple := AffineTuple.mk $ (EinLeaf.get_ixs_inorder (EinFactor.left e)).map (AffineExpr.Var)
   let leaf1_tuple :=  AffineTuple.mk $ (EinLeaf.get_ixs_inorder (EinFactor.right e)).map (AffineExpr.Var)
-  let rgn := [mlir_region| {}]
+  let rgn := [mlir_region| {
+    ^entry(%a : f32, %b : f32, %c: f32):
+      %mul = mulf %a, %b : f32
+      %out = addf %c, %mul : f32
+      linalg.yield %out : f32
+  }]
+
   let indexing_maps := 
-    AttrVal.list [AttrVal.affine (AffineMap.mk input_tuple leaf0_tuple)
+    AttrVal.list [
+                   -- AttrVal.affine (AffineMap.mk input_tuple (AffineTuple.mk (repeated.map (AffineExpr.Var))))
+                   AttrVal.affine (AffineMap.mk input_tuple leaf0_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple leaf1_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple output_tuple)]
   let attrdict := [mlir_attr_dict| { 
@@ -290,8 +303,10 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
       library_call = "linalg_matmul",
       iterator_types = ["parallel", "parallel", "reduction"] 
       }] -- input iter1 , input access 2, output access
-  (Op.mk "linalg_generic" [out] [] [rgn] attrdict (MLIRTy.int 31))
-  -- [mlir_op| linalg.generic  %x, %x : f32 ]
+
+  let leaf0_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.left e)
+  let leaf1_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.right e)
+  (Op.mk "linalg_generic" [leaf0_arg, leaf1_arg, out] [] [rgn] attrdict (MLIRTy.int 31))
   
 
 syntax ein_factor "(" mlir_op_operand ")" : mlir_op
@@ -301,7 +316,7 @@ macro_rules
 
 def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({ 
    ^entry: 
-      x_i y^j (%out)
+      x_i^j y_j^k (%out)
 --      -- | use einstein summation convention inside
 --      -- the `[mlir_op|` DSL as we build a `scf.while` op:
 }) : ()
