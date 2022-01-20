@@ -298,6 +298,7 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
                    AttrVal.affine (AffineMap.mk input_tuple leaf0_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple leaf1_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple output_tuple)]
+  -- | TODO can we get type safety for "parallel", "parallel", "reduction" strings? 
   let attrdict := [mlir_attr_dict| { 
        indexing_maps = [escape| indexing_maps ],
       library_call = "linalg_matmul",
