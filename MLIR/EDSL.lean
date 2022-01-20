@@ -71,14 +71,12 @@ declare_syntax_cat mlir_type
 -- ==============
 
 syntax "%" ident : mlir_op_operand
-syntax "<[" term "]>" : mlir_op_operand
-syntax "{{" term "}}" : mlir_op_operand
+syntax "[escape|" term "]" : mlir_op_operand
 
 syntax "[mlir_op_operand| " mlir_op_operand "]" : term -- translate operands into term
 macro_rules
   | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
-  | `([mlir_op_operand| <[ $t:term ]> ]) => t
-  | `([mlir_op_operand| {{ $t:term }} ]) => t
+  | `([mlir_op_operand| [escape| $t:term ] ]) => t
 
 def xx := ([mlir_op_operand| %x])
 def xxx := ([mlir_op_operand| %x])

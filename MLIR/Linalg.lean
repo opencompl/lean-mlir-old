@@ -77,7 +77,7 @@ syntax "linalg.yield" mlir_op_operand ":" mlir_type : mlir_op
 
 macro_rules
 | `([mlir_op| linalg.yield $arg : $ty]) =>
-    `([mlir_op| "linalg.yield" ($arg) : () -> ($ty)])
+    `([mlir_op| "linalg.yield" ($arg) : ($ty) -> ()])
 
 -- https://mlir.llvm.org/docs/Dialects/Linalg/#linalggeneric-mlirlinalggenericop
 declare_syntax_cat linalg_arglist 
@@ -108,7 +108,7 @@ macro_rules
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
-#check [mlir_op|
+def linalgGeneric0 :=  [mlir_op|
    linalg.generic { 
        indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
          affine_map<(m, n, k) -> (k, n)>,
@@ -123,6 +123,8 @@ macro_rules
        linalg.yield %e : f32
    }
 ]
+
+#eval IO.eprintln $ Pretty.doc $ linalgGeneric0
 
 inductive iterator_type
 | parallel 

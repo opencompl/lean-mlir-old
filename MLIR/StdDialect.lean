@@ -25,17 +25,17 @@ syntax "cond_br" mlir_op_operand "," mlir_op_successor_arg "," mlir_op_successor
 set_option hygiene false in -- need to disable hygiene for i32 expansion.
 macro_rules
   | `([mlir_op| addi $op1:mlir_op_operand , $op2:mlir_op_operand]) => 
-        `( [mlir_op| "std.addi" (%op1, %op2) : (i32, i32) -> (i32) ] )
+        `( [mlir_op| "std.addi" ( $op1  , $op2) : (i32, i32) -> (i32) ] )
 
 set_option hygiene false in -- need to disable hygiene for type expansion
 macro_rules
   | `([mlir_op| addf $op1:mlir_op_operand , $op2:mlir_op_operand : $ty:mlir_type]) => 
-        `( [mlir_op| "std.addf" (%op1, %op2) : ($ty, $ty) -> ($ty) ] )
+        `( [mlir_op| "std.addf" ($op1, $op2) : ($ty, $ty) -> ($ty) ] )
 
 set_option hygiene false in -- need to disable hygiene for type expansion
 macro_rules
   | `([mlir_op| mulf $op1:mlir_op_operand , $op2:mlir_op_operand : $ty:mlir_type]) => 
-        `( [mlir_op| "std.mulf" (%op1, %op2) : ($ty, $ty) -> ($ty) ] )
+        `( [mlir_op| "std.mulf" ($op1, $op2) : ($ty, $ty) -> ($ty) ] )
 
 
 macro_rules
