@@ -118,21 +118,45 @@ match m with
 
 
 
-def opToPDL (m: MatchInfo) (name: String): BasicBlockStmt := 
-let children? :=  m.opArgs.find? name
+def opOperandsToPDL (args: RBMap Nat String compare) (parent: SSAVal): List BasicBlockStmt :=
+  let args := args.toList
+  args.map (fun ixname =>
+    let ix := ixname.fst
+    let name := ixname.snd
+    let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
+    let rhs := Op.mk "pdl.operand" [parent] [] [] attr [mlir_type| ()]
+    let lhs := (SSAVal.SSAVal name)
+    (BasicBlockStmt.StmtAssign lhs rhs))
+
+def opToPDL (m: MatchInfo) (name: String): List BasicBlockStmt := 
+let args? :=  m.opArgs.find? name
 let kind? := m.kinds.find? name 
 let lhs := SSAVal.SSAVal name
-let op := match (children?, kind?) with
-          | (some children, some kind) => (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
-          | (some children, none) =>  (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
-          | (none, some kind) =>  (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
-          | (none, none) =>  (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
- BasicBlockStmt.StmtAssign lhs op
+let (op, args) : Op × List BasicBlockStmt := 
+  match (args?, kind?) with
+          | (some args, some kind) => 
+              let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] ) 
+              let args := []
+              (op, args)
+              
+          | (some args, none) =>  
+              let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
+              let args := []
+              (op, args)
+          | (none, some kind) => 
+              let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] )
+              let args := []
+              (op, args)
+          | (none, none) =>  
+            let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
+            let args := []
+            (op, args)
+ [BasicBlockStmt.StmtAssign lhs op]
 
 
 def matchInfoToPDL (m: MatchInfo): Op :=
  let stmts := m.ops.reverse.map (opToPDL m)
- let rgn := Region.mk [BasicBlock.mk "entry" [] stmts]
+ let rgn := Region.mk [BasicBlock.mk "entry" [] stmts.join]
  [mlir_op| "pdl.pattern" () ([escape| rgn]) : () -> ()  ]
 
 
