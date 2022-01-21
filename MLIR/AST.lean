@@ -150,7 +150,7 @@ partial instance : Pretty AttrVal where
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
    | AttrVal.dense i ty => "dense<" ++ doc i ++ ">" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
-   | AttrVal.list xs => "[" ++ intercalate_doc (xs.map go) "," ++ "]"
+   | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map go) ", ") ++ "]"
   go v
 
 instance : Pretty AttrEntry where
@@ -169,7 +169,7 @@ instance : Pretty AttrDefn where
    | AttrDict.mk attrs => 
         if List.isEmpty attrs
         then Doc.Text ""
-        else "{" ++ intercalate_doc attrs  ", " ++ "}" 
+        else "{" ++ Doc.Nest (vintercalate_doc attrs ", ")  ++ "}" 
 
 instance : Coe (List AttrEntry) AttrDict where 
   coe (v: List AttrEntry) := AttrDict.mk v

@@ -107,7 +107,7 @@ macro_rules
         $argsList 
         []
         [[mlir_region| $rgn]]
-        [mlir_attr_dict| $attrs] (MLIRTy.fn (MLIRTy.tuple $tysList) (MLIRTy.tuple []))
+        [mlir_attr_dict| $attrs] (MLIRTy.fn (MLIRTy.tuple $tysList) (MLIRTy.tuple [])))
     
 
 

@@ -9,6 +9,10 @@ import Init.Data.String.Basic
 import Init.Data.Repr
 import Init.Data.ToString.Basic
 
+-- | TODO: Consider adopting flutter rendering model: 
+-- linear time, flexbox, one walk up and one walk down tree.
+-- https://www.youtube.com/watch?v=UUfXWzp0-DU
+
 namespace MLIR.Doc
 
 inductive Doc : Type where
@@ -69,6 +73,18 @@ partial def  intercalate_doc [Pretty d] (ds: List d) (i: Doc): Doc := match ds w
  | [] => Doc.Text ""
  | [d] => doc d
  | (d::ds) => (doc d) ++ intercalate_doc_rec_ ds i
+
+ 
+partial def vintercalate_doc_rec_ [Pretty d] (ds: List d) (i: String): List Doc :=
+  match ds with
+  | [] => [Doc.Text ""]
+  | (d::ds) => (i ++ (doc d)) :: vintercalate_doc_rec_ ds i
+
+partial def  vintercalate_doc [Pretty d] (ds: List d) (i: String): Doc := match ds with
+ | [] => Doc.Text ""
+ | [d] => doc d
+ | (d::ds) => Doc.VGroup $ (doc d)::vintercalate_doc_rec_ ds i
+             
 
 
 partial def layout 
