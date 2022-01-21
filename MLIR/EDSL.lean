@@ -55,6 +55,7 @@ macro_rules
 declare_syntax_cat mlir_bb
 declare_syntax_cat mlir_region
 declare_syntax_cat mlir_bb_stmt
+declare_syntax_cat mlir_bb_stmts
 declare_syntax_cat mlir_op_results
 declare_syntax_cat mlir_op
 declare_syntax_cat mlir_op_args
@@ -253,20 +254,36 @@ macro_rules
 -- ======================
 
 
-syntax "^" ident ":" (ws mlir_bb_stmt ws)* : mlir_bb
-syntax "^" ident "(" sepBy(mlir_bb_operand, ",") ")" ":" (ws mlir_bb_stmt ws)* : mlir_bb
+
+syntax "^" ident ":" mlir_bb_stmts : mlir_bb
+syntax "^" ident "(" sepBy(mlir_bb_operand, ",") ")" ":" mlir_bb_stmts : mlir_bb
+
+syntax (ws mlir_bb_stmt ws)* : mlir_bb_stmts
+
+syntax "[mlir_bb_stmts|" mlir_bb_stmts "]" : term
+macro_rules
+| `([mlir_bb_stmts| $[ $stmts ]*  ]) => do
+      let initList <- `([])
+      stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
+
+
+syntax "[escape|" term "]" : mlir_bb_stmts
+macro_rules 
+| `([mlir_bb_stmts| [escape| $t ] ]) => t
+
 
 syntax "[mlir_bb|" mlir_bb "]": term
 
+
 macro_rules 
-| `([mlir_bb| ^ $name:ident ( $operands,* ) : $[ $stmts ]* ]) => do
+| `([mlir_bb| ^ $name:ident ( $operands,* ) : $stmts ]) => do
    let initList <- `([])
    let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
-   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
+   let opsList <- `([mlir_bb_stmts| $stmts])
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) $argsList $opsList)
-| `([mlir_bb| ^ $name:ident : $[ $stmts ]* ]) => do
+| `([mlir_bb| ^ $name:ident : $stmts ]) => do
    let initList <- `([])
-   let opsList <- stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
+   let opsList <- `([mlir_bb_stmts| $stmts])
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) [] $opsList)
 
 

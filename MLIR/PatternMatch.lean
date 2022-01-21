@@ -2,11 +2,15 @@ import MLIR.AST
 import Lean.PrettyPrinter
 import Std.Data.AssocList
 import Lean.Meta
+import MLIR.EDSL
+import MLIR.Doc
+open MLIR.Doc
 open Lean.PrettyPrinter
 open Lean.Meta
 open Std
 open Std.AssocList
 open MLIR.AST
+open MLIR.EDSL
 
 -- PDL: Pattern Description Language 
 -- |
@@ -83,45 +87,63 @@ open Either
 
 
 -- | TODO; write this as a morphism from the torsor over MatchInfo into PDL.
-def matcherToPDL (m: matcher): MatchInfo × List Op :=
+def matcherToMatchInfo (m: matcher): MatchInfo :=
 match m with
 | (matcher.root m) => 
-              ({ focus := "root"
+              { focus := "root"
                 , kinds := RBMap.empty
                 , ops :=  ["root"]
                 , opArgs := AssocList.empty
-                }, [])
+                }
 | (matcher.focus! name m) =>
-    let (prev, ops) := matcherToPDL m
+    let prev := matcherToMatchInfo m
     if (prev.ops.contains name) 
-    then ({ prev with focus := name }, [])
+    then { prev with focus := name }
     else  -- | add new op
-          ({ prev with focus := name, ops := name::prev.ops }, [])
+          { prev with focus := name, ops := name::prev.ops }
 | (matcher.kind? kind m) => 
-    let (prev, ops) := matcherToPDL m
-    ({ prev with kinds := prev.kinds.insert (prev.focus) kind }, [])
+    let prev := matcherToMatchInfo m
+    { prev with kinds := prev.kinds.insert (prev.focus) kind }
           -- return Right ({ prev with kinds := prev.kinds.insert (prev.focus) "UNK_KIND" })
 | (matcher.arg? ix name m) =>
-    let (prev, ops) := matcherToPDL m
+    let prev := matcherToMatchInfo m
     let args := match prev.opArgs.find? prev.focus with
       | none => RBMap.fromList [(ix.toNat, name)] compare
       | some args => args.insert ix.toNat name
-    ({ prev with opArgs := prev.opArgs.insert prev.focus args }, [])
-| (matcher.erase! m) => 
-    let (prev, ops) := matcherToPDL m
-    let newFocus := "???"
-    let newOps := prev.ops.filter (fun op => op != prev.focus)
-    ({ prev with ops := newOps, focus := newFocus }, [])
-| (matcher.replaceOperand! oldrand newrand m) => 
-    let (prev, ops) := matcherToPDL m
-    match prev.replaceOpArg (prev.focus) oldrand newrand with
-    | some matchinfo => (matchinfo, [])
-    | none => (prev, [])
-| m =>  ({ focus := "unk"
+    { prev with opArgs := prev.opArgs.insert prev.focus args }
+| (matcher.built) =>  { focus := "built"
+                        , kinds := RBMap.empty
+                        , ops :=  ["built"]
+                        , opArgs := AssocList.empty
+                        }
+ | m =>  { focus := "unk"
                 , kinds := RBMap.empty
-                , ops :=  ["unk"]
+                , ops :=  []
                 , opArgs := AssocList.empty
-                } , [])
+                }
+
+
+
+
+def opToPDL (m: MatchInfo) (name: String): BasicBlockStmt := 
+let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
+let children? :=  m.opArgs.find? name
+let kind? := m.kinds.find? name 
+let lhs := SSAVal.SSAVal name
+match (children?, kind?) with
+| (some children, some kind) => BasicBlockStmt.StmtAssign lhs op
+| (some children, none) =>  BasicBlockStmt.StmtAssign lhs op
+| (none, some kind) =>  BasicBlockStmt.StmtAssign lhs op
+| (none, none) =>  BasicBlockStmt.StmtAssign lhs op
+
+def matchInfoToPDL (m: MatchInfo): Op :=
+ let stmts := m.ops.reverse.map (opToPDL m)
+ let rgn := Region.mk [BasicBlock.mk "entry" [] stmts]
+ [mlir_op| "pdl.pattern" () ([escape| rgn]) : () -> ()  ]
+
+
+                      
+
 
 -- | TODO: monadify this.
 partial def matcherToMatchInfoStx (m: Lean.Syntax) 
@@ -473,25 +495,30 @@ def begin' (m: matcher)
     | built'.root_built' _ prf => prf
 
 
-def proof_built' : Σ  (m: matcher), built' m := by {
+def matcher0tactic : Σ  (m: matcher), built' m := by {
   apply Sigma.mk;
   apply root';
-  apply kind?' "get";
-  apply arg?' 0 "x2";
-  apply arg?' 1 "k";
-  apply focus!' "x2";
-  apply kind?' "set";
-  apply arg?' 0 "x1";
-  apply arg?' 1 "k";
-  apply focus!' "root"; 
-  apply arg?' 3 "bar";
-  apply focus!' "x2";
-  apply arg?' 2 "v2";
+  -- apply kind?' "get";
+  -- apply arg?' 0 "x2";
+  -- apply arg?' 1 "k";
+  -- apply focus!' "x2";
+  -- apply kind?' "set";
+  -- apply arg?' 0 "x1";
+  -- apply arg?' 1 "k";
+  -- apply focus!' "root"; 
+  -- apply arg?' 3 "bar";
+  -- apply focus!' "x2";
+  -- apply arg?' 2 "v2";
 
   repeat constructor;
   -- apply Exists.intro;
 }
 
-def extract_matcher: matcher := proof_built'.fst
 
-#print extract_matcher 
+#print matcher0tactic
+
+def matcher0: matcher := matcher0tactic.fst
+#print matcher0 
+
+def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0
+#eval IO.eprintln $ Pretty.doc $  matcher0pdl

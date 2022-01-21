@@ -6,6 +6,7 @@ open MLIR.AST
 
 
 
+
 -- End to end example of using the einstein summation convention frontend
 -- to generate linalg code.
 
