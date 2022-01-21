@@ -252,4 +252,12 @@ instance : Pretty Module where
       Doc.VGroup (attrs.map doc ++ fs.map doc)
       
 
+-- | replace entry block arguments.
+def Region.set_entry_block_args (r: Region) (args: List (SSAVal × MLIRTy)) : Region :=
+match r with
+| (Region.mk bbs) =>
+  match bbs with
+  | (List.nil)  => Region.mk [BasicBlock.mk "entry" args []]
+  | (List.cons (BasicBlock.mk name _ stmts) bbs) => Region.mk (List.cons (BasicBlock.mk name args stmts) bbs)
+
 end MLIR.AST

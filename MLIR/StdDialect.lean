@@ -146,11 +146,15 @@ syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" "->" mlir
 macro_rules
 | `([mlir_op| func @ $name ( $operands,* )  -> $retty $rgn]) =>  do
       let initList <- `([])
-      let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]]) 
+      let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]]) 
+      -- let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.fst [mlir_bb_operand| $x]]) 
+      let typesList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.snd [mlir_bb_operand| $x]]) 
       -- let operandArgsList <- `(($operandsList).map Prod.fst)
-      `(Op.mk "func" [] [] [[mlir_region| $rgn ]] (AttrDict.mk []) [mlir_type| () -> ()])
+      let fnty <- `(MLIRTy.fn (MLIRTy.tuple $typesList) [mlir_type| $retty])
+      let rgn <- `(Region.set_entry_block_args [mlir_region| $rgn] $argsList)
+      `(Op.mk "func" []  [] [$rgn] (AttrDict.mk []) $fnty)
 
 
-def func0 := [mlir_op| func @"foo" () -> i32 { }]
+def func0 := [mlir_op| func @"foo" (%x : i32) -> i32 { }]
 #eval IO.eprintln $ Pretty.doc $ func0
 

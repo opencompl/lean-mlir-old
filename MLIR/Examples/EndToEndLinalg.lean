@@ -2,6 +2,7 @@ import MLIR.Linalg
 import MLIR.StdDialect 
 
 open MLIR.Doc
+open MLIR.AST
 
 
 
@@ -13,12 +14,11 @@ def matmul_ein := [ein_factor| x_k_i x^i_l]
 
 -- | Mix into MLIR definitions.
 -- | TODO: the types are wrong, we need memref<..> types. Will do later.
--- | TODO: add support for "func" syntax.
 def matmul_linalg := [mlir_op|
-   "func" () ({ 
+   func @"main"(%a: f32, %b: f32, %out: f32) -> () { 
      ^entry():
       a^i_j b^j_k (%out)
-   }) : () -> ()
+    }
 ]
 
 #eval IO.eprintln $ Pretty.doc $  matmul_linalg

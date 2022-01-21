@@ -138,7 +138,10 @@ macro_rules
         else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
 
 
-def tyi32NoGap : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
+def tyi32NoGap : MLIRTy := [mlir_type| i32]
+#eval tyi32NoGap
+def tyf32NoGap : MLIRTy := [mlir_type| f32]
+#eval tyf32NoGap
 
 
 macro_rules
