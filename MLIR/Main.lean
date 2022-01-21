@@ -4,6 +4,8 @@ import MLIR.Doc
 import MLIR.AST
 import MLIR.MLIRParser
 import MLIR.EDSL
+import MLIR.PatternMatch
+import MLIR.Linalg
 import Init.System.IO
 import MLIR.Examples.EndToEndLinalg
 
