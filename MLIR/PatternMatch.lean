@@ -128,20 +128,20 @@ def opOperandsToPDL (args: RBMap Nat String compare) (parent: SSAVal): List Basi
     let lhs := (SSAVal.SSAVal name)
     (BasicBlockStmt.StmtAssign lhs rhs))
 
-def opToPDL (m: MatchInfo) (name: String): List BasicBlockStmt := 
-let args? :=  m.opArgs.find? name
-let kind? := m.kinds.find? name 
-let lhs := SSAVal.SSAVal name
+def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt := 
+let args? :=  m.opArgs.find? parentName
+let kind? := m.kinds.find? parentName 
+let lhs := SSAVal.SSAVal parentName
 let (op, args) : Op × List BasicBlockStmt := 
   match (args?, kind?) with
           | (some args, some kind) => 
               let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] ) 
-              let args := []
+              let args := (opOperandsToPDL args (SSAVal.SSAVal parentName))
               (op, args)
               
           | (some args, none) =>  
               let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
-              let args := []
+              let args := (opOperandsToPDL args (SSAVal.SSAVal parentName))
               (op, args)
           | (none, some kind) => 
               let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] )
@@ -151,7 +151,7 @@ let (op, args) : Op × List BasicBlockStmt :=
             let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
             let args := []
             (op, args)
- [BasicBlockStmt.StmtAssign lhs op]
+ [BasicBlockStmt.StmtAssign lhs op] ++ args
 
 
 def matchInfoToPDL (m: MatchInfo): Op :=
