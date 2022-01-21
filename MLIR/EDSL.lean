@@ -173,6 +173,43 @@ def tyfn2 : MLIRTy := [mlir_type| (i21, i22) -> (i23, i24)]
 -- #print tyi32'
 
 
+declare_syntax_cat mlir_dimension
+
+syntax "?" : mlir_dimension
+syntax num : mlir_dimension
+
+syntax "[mlir_dimension|" mlir_dimension "]" : term
+macro_rules
+| `([mlir_dimension| ?]) => `(Dimension.Unknown)
+macro_rules
+| `([mlir_dimension| $x:numLit ]) => 
+    `(Dimension.Known $x)
+
+def dim0 := [mlir_dimension| 30]
+#print dim0
+
+def dim1 := [mlir_dimension| ?]
+#print dim1
+
+-- 
+-- 
+-- | TODO: fix bug that does not allow a trailing times.
+
+syntax "tensor" "<" sepBy1(mlir_dimension, "×") ":" mlir_type ">"  : mlir_type
+macro_rules
+| `([mlir_type| tensor < $[ $dims ]×* : $ty:mlir_type  >]) => do
+    let initList <- `([])
+    let dimsList <- dims.foldlM (init := initList) fun ds d => `($ds ++ [[mlir_dimension| $d]])
+    `(MLIRTy.tensor $dimsList [mlir_type| $ty])
+
+
+def tensorTy0 := [mlir_type| tensor<3×3:i32>]
+#print tensorTy0
+def tensorTy1 := [mlir_type| tensor<3×?:f32>]
+#print tensorTy1
+     
+      
+
 -- EDSL MLIR OP CALL, MLIR BB STMT
 -- ===============================
 

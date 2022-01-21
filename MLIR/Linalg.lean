@@ -102,7 +102,12 @@ macro_rules
 | `([mlir_op| linalg.generic $attrs ins ($invs,* : $intys,*) outs ($outvs,* : $outtys,*) $rgn]) => do
    let initList <- `([])
    let argsList <- (invs.getElems ++ outvs.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
-   `(Op.mk "linalg_generic" $argsList [] [[mlir_region| $rgn]] [mlir_attr_dict| $attrs] (MLIRTy.int 31))
+   let tysList <- (intys.getElems ++ outtys.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_type| $x]])
+   `(Op.mk "linalg_generic" 
+        $argsList 
+        []
+        [[mlir_region| $rgn]]
+        [mlir_attr_dict| $attrs] (MLIRTy.fn (MLIRTy.tuple $tysList) (MLIRTy.tuple []))
     
 
 

@@ -152,7 +152,7 @@ macro_rules
       -- let operandArgsList <- `(($operandsList).map Prod.fst)
       let fnty <- `(MLIRTy.fn (MLIRTy.tuple $typesList) [mlir_type| $retty])
       let rgn <- `(Region.set_entry_block_args [mlir_region| $rgn] $argsList)
-      `(Op.mk "func" []  [] [$rgn] (AttrDict.mk []) $fnty)
+      `(Op.mk "func" []  [] [$rgn] (AttrDict.mk [AttrEntry.mk "name" (AttrVal.symbol $name)]) $fnty)
 
 
 def func0 := [mlir_op| func @"foo" (%x : i32) -> i32 { }]

@@ -13,9 +13,8 @@ open MLIR.AST
 def matmul_ein := [ein_factor| x_k_i x^i_l]
 
 -- | Mix into MLIR definitions.
--- | TODO: the types are wrong, we need memref<..> types. Will do later.
 def matmul_linalg := [mlir_op|
-   func @"main"(%a: f32, %b: f32, %out: f32) -> () { 
+   func @"main"(%a: tensor<?×?:f32>, %b: tensor<?×?:f32>, %out: tensor<?×?:f32>) -> () {
      ^entry():
       a^i_j b^j_k (%out)
     }

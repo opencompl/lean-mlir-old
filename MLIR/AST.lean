@@ -41,6 +41,11 @@ instance : Pretty BBName where
   doc name := match name with 
               | BBName.mk s => "^" ++ doc s
 
+
+inductive Dimension
+| Known: Int -> Dimension
+| Unknown: Dimension
+
 mutual
 inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
@@ -48,6 +53,7 @@ inductive MLIRTy : Type where
 | float: Int -> MLIRTy
 | tuple : List MLIRTy -> MLIRTy
 | vector: Int -> MLIRTy -> MLIRTy
+| tensor: List Dimension -> MLIRTy -> MLIRTy
 
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
@@ -114,6 +120,12 @@ inductive Module where
       -> (attrs: List AttrDefn) 
       ->  Module
 
+instance : Pretty Dimension where
+  doc dim := 
+  match dim with
+  | Dimension.Unknown => "?"
+  | Dimension.Known i => doc i
+
 partial instance :  Pretty MLIRTy where
   doc (ty: MLIRTy) :=
     let rec  go (ty: MLIRTy) :=  
@@ -123,6 +135,7 @@ partial instance :  Pretty MLIRTy where
     | MLIRTy.tuple ts => "(" ++ (intercalate_doc (ts.map go) (doc ", ") ) ++ ")"
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
     | MLIRTy.vector sz ty => "vector<" ++ toString sz ++ "x" ++ go ty ++ ">"
+    | MLIRTy.tensor dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
     go ty
 
 
