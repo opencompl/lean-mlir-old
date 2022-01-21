@@ -6,6 +6,7 @@ open Lean.PrettyPrinter
 open Lean.Meta
 open Std
 open Std.AssocList
+open MLIR.AST
 
 -- PDL: Pattern Description Language 
 -- |
@@ -80,8 +81,50 @@ inductive Either {a: Type} {b: Type}: Type :=
 
 open Either
 
+
+-- | TODO; write this as a morphism from the torsor over MatchInfo into PDL.
+def matcherToPDL (m: matcher): MatchInfo × List Op :=
+match m with
+| (matcher.root m) => 
+              ({ focus := "root"
+                , kinds := RBMap.empty
+                , ops :=  ["root"]
+                , opArgs := AssocList.empty
+                }, [])
+| (matcher.focus! name m) =>
+    let (prev, ops) := matcherToPDL m
+    if (prev.ops.contains name) 
+    then ({ prev with focus := name }, [])
+    else  -- | add new op
+          ({ prev with focus := name, ops := name::prev.ops }, [])
+| (matcher.kind? kind m) => 
+    let (prev, ops) := matcherToPDL m
+    ({ prev with kinds := prev.kinds.insert (prev.focus) kind }, [])
+          -- return Right ({ prev with kinds := prev.kinds.insert (prev.focus) "UNK_KIND" })
+| (matcher.arg? ix name m) =>
+    let (prev, ops) := matcherToPDL m
+    let args := match prev.opArgs.find? prev.focus with
+      | none => RBMap.fromList [(ix.toNat, name)] compare
+      | some args => args.insert ix.toNat name
+    ({ prev with opArgs := prev.opArgs.insert prev.focus args }, [])
+| (matcher.erase! m) => 
+    let (prev, ops) := matcherToPDL m
+    let newFocus := "???"
+    let newOps := prev.ops.filter (fun op => op != prev.focus)
+    ({ prev with ops := newOps, focus := newFocus }, [])
+| (matcher.replaceOperand! oldrand newrand m) => 
+    let (prev, ops) := matcherToPDL m
+    match prev.replaceOpArg (prev.focus) oldrand newrand with
+    | some matchinfo => (matchinfo, [])
+    | none => (prev, [])
+| m =>  ({ focus := "unk"
+                , kinds := RBMap.empty
+                , ops :=  ["unk"]
+                , opArgs := AssocList.empty
+                } , [])
+
 -- | TODO: monadify this.
-partial def computeMatcher_ (m: Lean.Syntax) 
+partial def matcherToMatchInfoStx (m: Lean.Syntax) 
   : Lean.PrettyPrinter.UnexpandM  (@Either Lean.Syntax MatchInfo) :=
 match m with
 | `(matcher.root $m) => 
@@ -92,7 +135,7 @@ match m with
                 , opArgs := AssocList.empty
                 })
 | `(matcher.focus! $name $m) => do
-    let eprev <- computeMatcher_ m
+    let eprev <- matcherToMatchInfoStx m
     match eprev with
     | Left stx => return (Left stx)
     | Right prev => 
@@ -104,7 +147,7 @@ match m with
           return Right ({ prev with focus := n, ops := n::prev.ops })
       | _ =>  (Left m)
 | `(matcher.kind? $kind $m) => do
-    let eprev <- computeMatcher_ m
+    let eprev <- matcherToMatchInfoStx m
     match eprev with
     | Left stx => return (Left stx)
     | Right prev => 
@@ -115,7 +158,7 @@ match m with
           return Left m 
           -- return Right ({ prev with kinds := prev.kinds.insert (prev.focus) "UNK_KIND" })
 | `(matcher.arg? $ix $name $m) => do
-    let eprev <- computeMatcher_ m
+    let eprev <- matcherToMatchInfoStx m
     match eprev with
     | Left stx => Left stx
     | Right prev => 
@@ -127,7 +170,7 @@ match m with
         return Right { prev with opArgs := prev.opArgs.insert prev.focus args }
       | _ => Left m -- prev 
 | `(matcher.erase! $m) => do 
-    let eprev <- computeMatcher_ m
+    let eprev <- matcherToMatchInfoStx m
     match eprev with
     | Left stx => Left stx
     | Right prev => 
@@ -135,7 +178,7 @@ match m with
         let newOps := prev.ops.filter (fun op => op != prev.focus)
         return Right { prev with ops := newOps, focus := newFocus }
 | `(matcher.replaceOperand! $oldrand $newrand $m) => do 
-    let eprev <- computeMatcher_ m
+    let eprev <- matcherToMatchInfoStx m
     match eprev with
     | Left stx => Left stx
     | Right prev => 
@@ -178,7 +221,7 @@ partial def stx_vgroup_strings (ss: Array String)
   return out
   
 partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
-  let ematchinfo <- computeMatcher_ m
+  let ematchinfo <- matcherToMatchInfoStx m
   match ematchinfo with
   | Left err => err
   | Right matchinfo => 
