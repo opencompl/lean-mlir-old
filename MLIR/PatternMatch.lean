@@ -335,111 +335,6 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
 
 -- #print proof
 
-inductive built : matcher -> Prop where
-| built: built matcher.built
-| root_built: (m: matcher) 
-      -> (PRF: built m)
-      ->  built (matcher.root m)
-| kind?_built: 
-  (s: String)
-  -> (m: matcher)
-  -> (PRF: built m)
-  -> built (matcher.kind? s m)
-| arg?_built: 
-  (ix: Int)
-  -> (s: String)
-  -> (m: matcher)
-  -> (PRF: built m)
-  -> built (matcher.arg? ix s m)
-| focus!_built: (s: String)
-  -> (PRF: built m)
-  -> built (matcher.focus! s m)
-| erase!_built: (m: matcher)
-  -> (PRF: built m)
-  -> built (matcher.erase! m)
-
-def extractMatcher {m: matcher} (built: built m) : matcher := 
-  m
-
-
--- | unexpand the whole thing in a single shot.
--- | don't delaborate the matcher.kind piecemeal.
--- See "NOTE: piecemeal delaboration" for more information
-@[appUnexpander built]
-partial def unexpandMatcherbuiltProp : 
-Lean.PrettyPrinter.Unexpander :=  fun m => 
-match m with
-| `(built $arg) => do
-      unexpandMatch arg
-| unk => `("built_UNK" $unk)
-
-
--- def root (m: matcher) 
---   (PRF: built (matcher.root m)): built m :=
---   match PRF with
---   | built.root_built _ prf => prf
-
-def kind? (s: String)
-  (m: matcher)
-  (PRF: built (matcher.kind? s m)): built m :=
-  match PRF with
-  | built.kind?_built s m prf => prf
-
-def arg? (ix: Int) (s: String)
-  (m: matcher)
-  (PRF: built (matcher.arg? ix s m)): built m :=
-  match PRF with
-  | built.arg?_built ix s m prf => prf
-
-def focus! (s: String)
-  (m: matcher)
-  (PRF: built (matcher.focus! s m)): built m :=
-  match PRF with
-  | built.focus!_built s prf => prf
-
-def root (m: matcher)
-  (PRF: built (matcher.root m)): 
-  built m :=
-    match PRF with 
-    | built.root_built _ prf => prf
-
-def begin (m: matcher)
-  (PRF: built (matcher.focus! "root" (matcher.root m))): 
-  built m :=
-  match PRF with
-  | built.focus!_built _ prf => 
-    match prf with 
-    | built.root_built _ prf => prf
-
-def erase! (m: matcher)
-  (PRF: built (matcher.erase! m)): built m :=
-  match PRF with
-  | built.erase!_built m prf => prf
-
--- %x2 = set %x1 %k %v
--- %root = get %x2 %k
-def proof_built : exists m, built m := by {
-  apply Exists.intro;
-  apply root;
-  apply kind? "get";
-  apply arg? 0 "x2";
-  apply arg? 1 "k";
-  apply focus! "x2";
-  apply kind? "set";
-  apply arg? 0 "x1";
-  apply arg? 1 "k";
-  apply focus! "root"; 
-  apply arg? 3 "bar";
-  apply focus! "x2";
-  apply arg? 2 "v2";
-  apply erase!;
-  apply focus! "root";
-  
-
-  repeat constructor;
-}
-
-#print proof_built
 
 inductive built' : matcher -> Type where
 | built': built' matcher.built
@@ -490,15 +385,15 @@ def kind?' (s: String)
 
 def arg?' (ix: Int) (s: String)
   (m: matcher)
-  (PRF: built' (matcher.arg? ix s m)): built' m :=
+  (PRF: built' (matcher.arg? ix s m) × matcher): built' m × matcher :=
   match PRF with
-  | built'.arg?_built' ix s m prf => prf
+  | (built'.arg?_built' ix s m prf, n) => (prf, matcher.arg? ix s n)
 
 def focus!' (s: String)
   (m: matcher)
-  (PRF: built' (matcher.focus! s m)): built' m :=
+  (PRF: built' (matcher.focus! s m) ×  matcher): built' m × matcher :=
   match PRF with
-  | built'.focus!_built' s prf => prf
+  | (built'.focus!_built' s prf, n) => (prf, matcher.focus! s n)
 
 -- def root' (m: matcher)
 --   (PRF: built' (matcher.root m)): 
@@ -526,21 +421,17 @@ def matcher0tactic : Σ  (m: matcher), (built' m) × matcher := by {
   apply Sigma.mk;
   apply root';
   apply kind?' "get";
-  -- apply arg?' 0 "x2";
+  apply arg?' 0 "x2";
+  apply arg?' 1 "k";
+  apply focus!' "x2";
+  apply kind?' "set";
+  apply arg?' 0 "x1";
+  apply arg?' 1 "k";
+  apply focus!' "root"; 
+  apply arg?' 3 "bar";
+  apply focus!' "x2";
+  apply arg?' 2 "v2";
   repeat constructor;
-  -- repeat constructor;
-  -- apply arg?' 1 "k";
-  -- apply focus!' "x2";
-  -- apply kind?' "set";
-  -- apply arg?' 0 "x1";
-  -- apply arg?' 1 "k";
-  -- apply focus!' "root"; 
-  -- apply arg?' 3 "bar";
-  -- apply focus!' "x2";
-  -- apply arg?' 2 "v2";
-
-  -- repeat constructor;
-  -- apply Exists.intro;
 }
 
 
@@ -552,26 +443,3 @@ def matcher0: matcher :=matcher0tactic.snd.snd
 def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0tactic.snd.snd MatchInfo.empty
 #eval IO.eprintln $ Pretty.doc $  matcher0pdl
 
-
-#print matcher0tactic
-
-def matcher0: matcher := matcher0tactic.fst
-#print matcher0 
-
-def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0 MatchInfo.empty
-#eval IO.eprintln $ Pretty.doc $  matcher0pdl
-
-
-
-def matcher1 : matcher :=
-  let kend := matcher.built
-  let k4 := matcher.focus! "set" kend
-  let k3 := matcher.arg? 1 "z" k4
-  let k2 := matcher.arg? 0 "y" k3
-  let k1 := matcher.kind? "get" k2
-  let k0 := matcher.root k1
-  k0
-  
-
-def matcher1pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher1 MatchInfo.empty
-#eval IO.eprintln $ Pretty.doc $  matcher1pdl
