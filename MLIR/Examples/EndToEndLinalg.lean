@@ -17,7 +17,7 @@ def matmul_ein := [ein_factor| x_k_i x^i_l]
 def matmul_linalg := [mlir_op|
    func @"main"(%a: tensor<?×?:f32>, %b: tensor<?×?:f32>, %out: tensor<?×?:f32>) -> () {
      ^entry():
-      a^i_j b^j_k (%out)
+      a^i b_i (%out)
     }
 ]
 
