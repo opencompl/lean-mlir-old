@@ -476,15 +476,17 @@ match m with
 
 
 def root' (m: matcher) 
-  (PRF: built' (matcher.root m)): built' m :=
+  (PRF: built' (matcher.root m) × matcher): built' m × matcher :=
   match PRF with
-  | built'.root_built' _ prf => prf
+  -- | TODO: try using n
+  | (built'.root_built' m' prf, n) => (prf, (matcher.root n))
 
 def kind?' (s: String)
   (m: matcher)
-  (PRF: built' (matcher.kind? s m)): built' m :=
+  (PRF: built' (matcher.kind? s m) × matcher): built' m × matcher :=
+  -- | TODO: try using n
   match PRF with
-  | built'.kind?_built' s m prf => prf
+  | (built'.kind?_built' s m prf, n) => (prf, matcher.kind? s n)
 
 def arg?' (ix: Int) (s: String)
   (m: matcher)
@@ -513,33 +515,42 @@ def begin' (m: matcher)
     | built'.root_built' _ prf => prf
 
 
-def matcher0tactic : Σ  (m: matcher), built' m := by {
+def root'' (m: matcher) 
+  (PRF: built' (matcher.root m)): matcher :=
+  match PRF with
+  | built'.root_built' _ prf => m
+
+
+
+def matcher0tactic : Σ  (m: matcher), (built' m) × matcher := by {
   apply Sigma.mk;
   apply root';
   apply kind?' "get";
-  apply arg?' 0 "x2";
-  apply arg?' 1 "k";
-  apply focus!' "x2";
-  apply kind?' "set";
-  apply arg?' 0 "x1";
-  apply arg?' 1 "k";
-  apply focus!' "root"; 
-  apply arg?' 3 "bar";
-  apply focus!' "x2";
-  apply arg?' 2 "v2";
-
+  -- apply arg?' 0 "x2";
   repeat constructor;
+  -- repeat constructor;
+  -- apply arg?' 1 "k";
+  -- apply focus!' "x2";
+  -- apply kind?' "set";
+  -- apply arg?' 0 "x1";
+  -- apply arg?' 1 "k";
+  -- apply focus!' "root"; 
+  -- apply arg?' 3 "bar";
+  -- apply focus!' "x2";
+  -- apply arg?' 2 "v2";
+
+  -- repeat constructor;
   -- apply Exists.intro;
 }
 
 
-def f : built' (matcher0tactic.fst) := matcher0tactic.snd
-#print f
 
-def g : MatchInfo :=
-match f with
-| (built'.built') =>    { focus := "built'" , kinds := RBMap.empty , ops :=  ["built'"] , opArgs := AssocList.empty } 
-#print g
+def matcher0: matcher :=matcher0tactic.snd.snd
+#print matcher0
+
+
+def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0tactic.snd.snd MatchInfo.empty
+#eval IO.eprintln $ Pretty.doc $  matcher0pdl
 
 
 #print matcher0tactic
