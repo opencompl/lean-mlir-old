@@ -4,6 +4,8 @@ import Std.Data.AssocList
 import Lean.Meta
 import MLIR.EDSL
 import MLIR.Doc
+import MLIR.PDL
+
 open MLIR.Doc
 open Lean.PrettyPrinter
 open Lean.Meta
@@ -17,13 +19,18 @@ open MLIR.EDSL
 -- +-> parse it into MLIR data structure --(lean code that spits out a matcher)
 -- |
 -- +-> matcher
-
+-- | TODO: for proof automation, it's important that
+-- built is the first constructor. Write custom tactics to avoid this.
 inductive matcher where
 | built: matcher
 | kind?: (kind: String) -> matcher -> matcher
 | arg?: (ix: Int) -> (name: String) -> matcher -> matcher
 | focus!: (name: String) -> matcher -> matcher
 | root: matcher -> matcher
+
+
+
+
 -- ^ replace operand of focused op with new op. 
 
 -- abbrev Set (α : Type) (compare: α -> α -> Ordering) := RBMap α Unit compare
@@ -414,6 +421,62 @@ def focus!' (s: String)
 
 
 
+structure RewriteInfo where
+  matchInfo: MatchInfo
+  -- | name -> (kind, args)
+  -- ops: RBMap String (String × (RBMap Nat String compare)) compare
+  replacements: RBMap String String compare
+
+def RewriteInfo.empty : RewriteInfo := 
+  { matchInfo := MatchInfo.empty, replacements := RBMap.empty }
+
+
+inductive rewriter where
+-- | create: (name: String) -> (kind: String) -> (args: List String) -> rewriter -> rewriter
+| built: rewriter
+| replace: (op: String) -> (val: String) -> rewriter -> rewriter
+| root: matcher -> rewriter -> rewriter
+
+inductive rewriter_built : rewriter -> Type where
+| built: rewriter_built rewriter.built
+| root: (m: matcher)
+      -> (r: rewriter) 
+      -> (PRF: rewriter_built r)
+      ->  rewriter_built (rewriter.root m r)
+| replace: (op: String)
+   -> (val: String) 
+   -> (r: rewriter)
+   -> (PRF: rewriter_built r)
+   ->  rewriter_built (rewriter.replace op val r)
+--   -> (kind: String)
+--   -> (args: List String)
+--   -> (r: rewriter)
+--   -> (PRF: rewriter_built  r)
+--   -> rewriter_built (rewriter.create name kind args r)
+
+
+-- | functions for backward chaining
+def rewriter_root (m: matcher) (r: rewriter)
+  (PRF: rewriter_built (rewriter.root m r) × rewriter): rewriter_built r × rewriter :=
+  match PRF with
+  | (rewriter_built.root m _ prf, s) => (prf, (rewriter.root m s))
+
+def rewriter_replace (op: String) (val: String) (r: rewriter)
+  (PRF: rewriter_built (rewriter.replace op val r) × rewriter): rewriter_built r × rewriter := 
+  match PRF with
+  | (rewriter_built.replace op val _ prf, s) => (prf, rewriter.replace op val s)
+
+def rewriter_built' (r: rewriter) (PRF: rewriter_built r):
+   rewriter_built rewriter.built × rewriter := 
+   (rewriter_built.built, rewriter.built)
+
+
+-- def rewriter_create (name: String) (kind: String) (args: List String)
+--   (r: rewriter)
+--   (PRF: rewriter_built (rewriter.create name kind args r) × rewriter): rewriter_built r × rewriter :=
+--   match PRF with
+--   | (rewriter_built.create name kind args r prf, s) => (prf, rewriter.create name kind args s)
+
 
 def matcher0tactic : Σ  (m: matcher), (built' m) × matcher := by {
   apply Sigma.mk;
@@ -428,6 +491,8 @@ def matcher0tactic : Σ  (m: matcher), (built' m) × matcher := by {
 }
 
 
+-- === MATCHER DEMO ==
+
 
 def matcher0: matcher := matcher0tactic.snd.snd
 #print matcher0
@@ -436,5 +501,47 @@ def matcher0: matcher := matcher0tactic.snd.snd
 def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0tactic.snd.snd MatchInfo.empty
 #eval IO.eprintln $ Pretty.doc $ matcher0pdl
 
+-- === REWRITER ==
+
+--  | create a rewriter that starts from matcher0,
+-- and builds a rewrite interactively
+def rewriter0tactic : Σ  (r: rewriter), (rewriter_built r) × rewriter := by {
+  apply Sigma.mk;
+  apply rewriter_root matcher0;
+  apply rewriter_replace "val" "v";
+  repeat constructor;
+} 
+
+
+
+def rewriter0: rewriter := rewriter0tactic.snd.snd
+#print rewriter0
+
+-- | TODO; write this as a morphism from the torsor over MatchInfo into PDL.
+def rewriterToRewriteInfo (ast: rewriter) (state: RewriteInfo): RewriteInfo := 
+  match ast with
+  | rewriter.root matcher ast =>
+    let matchInfo := matcherToMatchInfo matcher MatchInfo.empty
+    rewriterToRewriteInfo ast { state with matchInfo := matchInfo }
+  | rewriter.built => state
+  | rewriter.replace root v ast =>
+      let state := { state with replacements := state.replacements.insert root v }
+      rewriterToRewriteInfo ast state
+
+def rewriteInfoToPDL (state: RewriteInfo): Op := 
+   let ops := state.replacements.toList.map (fun rootAndReplacement =>
+    let root := SSAVal.SSAVal rootAndReplacement.fst
+    let replacement := SSAVal.SSAVal rootAndReplacement.snd
+    let op : Op := [mlir_op| pdl.replace [escape| root] with ([escape| replacement] : ) ]
+    BasicBlockStmt.StmtOp op
+   )
+   let rgn := Region.mk [BasicBlock.mk "entry" [] ops]
+   [mlir_op| "pdl.rewrite" () ([escape| rgn]) : () -> ()  ]
+
+
+    
+
+def rewriter0pdl: Op := rewriteInfoToPDL $ rewriterToRewriteInfo rewriter0 RewriteInfo.empty
+#eval IO.eprintln $ Pretty.doc $ rewriter0pdl
 
 -- lean4-toggle-info-buffer C-c C-i
