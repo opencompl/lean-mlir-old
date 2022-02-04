@@ -35,7 +35,7 @@ As a research project, we explore:
 # Build instructions
 
 ```
-$ leanpkg build bin
+$ lake build
 $ ./build/bin/MLIR <path-to-generic-mlir-file.mlir>
 ```
 

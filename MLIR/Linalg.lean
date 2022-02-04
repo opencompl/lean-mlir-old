@@ -324,7 +324,7 @@ macro_rules
 
 def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({ 
    ^entry: 
-      x_i^j y_j^k (%out)
+      x_i x^ik (%y)
 --      -- | use einstein summation convention inside
 --      -- the `[mlir_op|` DSL as we build a `scf.while` op:
 }) : ()

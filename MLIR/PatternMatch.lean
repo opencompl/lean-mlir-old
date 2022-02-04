@@ -24,11 +24,6 @@ inductive matcher where
 | arg?: (ix: Int) -> (name: String) -> matcher -> matcher
 | focus!: (name: String) -> matcher -> matcher
 | root: matcher -> matcher
-| erase!: matcher -> matcher
--- ^ erase the currently focused op.
-| replaceOp!: (new: String) ->  matcher -> matcher 
--- ^ replace focused op with new op.
-| replaceOperand!:  (old: String) -> (new: String) ->  matcher -> matcher 
 -- ^ replace operand of focused op with new op. 
 
 -- abbrev Set (α : Type) (compare: α -> α -> Ordering) := RBMap α Unit compare
@@ -62,10 +57,10 @@ structure MatchInfo where
   focus: String
   kinds: RBMap String String compare
   ops: List String -- list to maintain order of introduction. Earliest first
-  opArgs: AssocList String (RBMap Nat String compare)
+  opArgs: RBMap String (RBMap Nat String compare) compare
 
 def MatchInfo.empty : MatchInfo := 
-  { focus := "", kinds := RBMap.empty, ops := [], opArgs := AssocList.empty }
+  { focus := "", kinds := RBMap.empty, ops := [], opArgs := RBMap.empty }
 
 def MatchInfo.replaceOpArg (m: MatchInfo)
   (op: String) -- name of operation
@@ -93,40 +88,50 @@ open Either
 def matcherToMatchInfo (m: matcher) (prev: MatchInfo): MatchInfo :=
 match m with
 | (matcher.root m) => 
-    let cur := matcherToMatchInfo m { focus := "root" , kinds := prev.kinds , ops :=   prev.ops ++ ["root"], opArgs := prev.opArgs }
+    let cur := matcherToMatchInfo m { focus := "root" , kinds := prev.kinds, ops :=   prev.ops ++ ["root"], opArgs := prev.opArgs }
     matcherToMatchInfo m cur
 | (matcher.focus! name m) =>
     let cur := 
       if (prev.ops.contains name) 
       then { prev with focus := name }
-      else  -- | add new op
-            { prev with focus := name, ops := name::prev.ops }
+      else { prev with focus := name, ops := name::prev.ops }
     matcherToMatchInfo m cur
 | (matcher.kind? kind m) => 
-    let cur := { prev with kinds := prev.kinds.insert (prev.focus) kind }
+    let cur := { prev with kinds := prev.kinds.insert (prev.focus) (kind) }
     matcherToMatchInfo m cur
-          -- return Right ({ prev with kinds := prev.kinds.insert (prev.focus) "UNK_KIND" })
 | (matcher.arg? ix name m) =>
     let args := match prev.opArgs.find? prev.focus with
       | none => RBMap.fromList [(ix.toNat, name)] compare
-      | some args => args.insert ix.toNat name
+      | some args => args.insert ix.toNat (name)
     let cur := { prev with opArgs := prev.opArgs.insert prev.focus args }
     matcherToMatchInfo m cur
  | (matcher.built) =>  prev
- | m =>  prev
 
 
-
-
-def opOperandsToPDL (args: RBMap Nat String compare) (parent: SSAVal): List BasicBlockStmt :=
-  let args := args.toList
-  args.map (fun ixname =>
-    let ix := ixname.fst
-    let name := ixname.snd
+-- | an op operand that is not defined by an operation needs a pdl.operand
+def freePDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
     let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
     let rhs := Op.mk "pdl.operand" [parent] [] [] attr [mlir_type| ()]
-    let lhs := (SSAVal.SSAVal name)
-    (BasicBlockStmt.StmtAssign lhs rhs))
+    let lhs := match parent with 
+      | SSAVal.SSAVal parentName => (SSAVal.SSAVal $ parentName ++ "_operand_" ++ operandName)
+    [BasicBlockStmt.StmtAssign lhs rhs]
+
+def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
+    let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
+    let rhs := Op.mk "pdl.result" [(SSAVal.SSAVal operandName)] [] [] attr [mlir_type| ()]
+    let lhs := SSAVal.SSAVal $ operandName ++ "_result"
+    [BasicBlockStmt.StmtAssign lhs rhs]
+
+
+def opOperandsToPDL (ops: List String) (args: RBMap Nat String compare) (parent: SSAVal): List BasicBlockStmt :=
+  let args := args.toList
+  args.bind (fun ixname =>
+    let ix := ixname.fst
+    let name := ixname.snd
+    if ops.contains name
+    then boundPDLOpOperand ixname.snd ixname.fst parent
+    else freePDLOpOperand ixname.snd ixname.fst parent)
+
 
 def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt := 
 let args? :=  m.opArgs.find? parentName
@@ -135,13 +140,22 @@ let lhs := SSAVal.SSAVal parentName
 let (op, args) : Op × List BasicBlockStmt := 
   match (args?, kind?) with
           | (some args, some kind) => 
-              let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] ) 
-              let args := (opOperandsToPDL args (SSAVal.SSAVal parentName))
+              let args :=  (opOperandsToPDL m.ops args (SSAVal.SSAVal parentName))
+              let argSSAVals := args.bind 
+                (fun arg => match arg with
+                     | BasicBlockStmt.StmtAssign lhs _ => [lhs]
+                     | BasicBlockStmt.StmtOp _ => [])
+              let op := (Op.mk "pdl.operation" argSSAVals  [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] ) 
+
               (op, args)
               
           | (some args, none) =>  
               let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
-              let args := (opOperandsToPDL args (SSAVal.SSAVal parentName))
+              let args := (opOperandsToPDL m.ops args (SSAVal.SSAVal parentName))
+              let argSSAVals := args.bind 
+                (fun arg => match arg with
+                     | BasicBlockStmt.StmtAssign lhs _ => [lhs]
+                     | BasicBlockStmt.StmtOp _ => [])
               (op, args)
           | (none, some kind) => 
               let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] )
@@ -151,11 +165,12 @@ let (op, args) : Op × List BasicBlockStmt :=
             let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
             let args := []
             (op, args)
- [BasicBlockStmt.StmtAssign lhs op] ++ args
+ args ++ [BasicBlockStmt.StmtAssign lhs op]
 
 
 def matchInfoToPDL (m: MatchInfo): Op :=
- let stmts := m.ops.reverse.map (opToPDL m)
+ -- let stmts := m.ops.reverse.map (opToPDL m)
+ let stmts := m.ops.map (opToPDL m)
  let rgn := Region.mk [BasicBlock.mk "entry" [] stmts.join]
  [mlir_op| "pdl.pattern" () ([escape| rgn]) : () -> ()  ]
 
@@ -172,7 +187,7 @@ match m with
               ({ focus := "root"
                 , kinds := RBMap.empty
                 , ops :=  ["root"]
-                , opArgs := AssocList.empty
+                , opArgs := RBMap.empty
                 })
 | `(matcher.focus! $name $m) => do
     let eprev <- matcherToMatchInfoStx m
@@ -395,51 +410,31 @@ def focus!' (s: String)
   match PRF with
   | (built'.focus!_built' s prf, n) => (prf, matcher.focus! s n)
 
--- def root' (m: matcher)
---   (PRF: built' (matcher.root m)): 
---   built' m :=
---     match PRF with 
---     | built'.root_built _ prf => prf
-
-def begin' (m: matcher)
-  (PRF: built' (matcher.focus! "root" (matcher.root m))): 
-  built' m :=
-  match PRF with
-  | built'.focus!_built' _ prf => 
-    match prf with 
-    | built'.root_built' _ prf => prf
 
 
-def root'' (m: matcher) 
-  (PRF: built' (matcher.root m)): matcher :=
-  match PRF with
-  | built'.root_built' _ prf => m
 
 
 
 def matcher0tactic : Σ  (m: matcher), (built' m) × matcher := by {
   apply Sigma.mk;
   apply root';
-  apply kind?' "get";
-  apply arg?' 0 "x2";
-  apply arg?' 1 "k";
-  apply focus!' "x2";
-  apply kind?' "set";
-  apply arg?' 0 "x1";
-  apply arg?' 1 "k";
-  apply focus!' "root"; 
-  apply arg?' 3 "bar";
-  apply focus!' "x2";
-  apply arg?' 2 "v2";
+  apply focus!' "zero";
+  apply kind?' "asm.zero";
+  apply focus!' "root";
+  apply kind?' "asm.add";
+  apply arg?' 0 "zero";
+  apply arg?' 1 "v";
   repeat constructor;
 }
 
 
 
-def matcher0: matcher :=matcher0tactic.snd.snd
+def matcher0: matcher := matcher0tactic.snd.snd
 #print matcher0
 
 
 def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0tactic.snd.snd MatchInfo.empty
-#eval IO.eprintln $ Pretty.doc $  matcher0pdl
+#eval IO.eprintln $ Pretty.doc $ matcher0pdl
 
+
+-- lean4-toggle-info-buffer C-c C-i
