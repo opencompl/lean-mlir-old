@@ -530,13 +530,19 @@ def rewriterToRewriteInfo (ast: rewriter) (state: RewriteInfo): RewriteInfo :=
 
 def rewriteInfoToPDL (state: RewriteInfo): Op := 
    let ops := state.replacements.toList.map (fun rootAndReplacement =>
-    let root := SSAVal.SSAVal rootAndReplacement.fst
-    let replacement := SSAVal.SSAVal rootAndReplacement.snd
-    let op : Op := [mlir_op| pdl.replace [escape| root] with ([escape| replacement] : ) ]
-    BasicBlockStmt.StmtOp op
+      let root := SSAVal.SSAVal rootAndReplacement.fst
+      let replacement := SSAVal.SSAVal rootAndReplacement.snd
+      let op : Op := [mlir_op| pdl.replace [escape| root] with ([escape| replacement] : ) ]
+      BasicBlockStmt.StmtOp op
    )
    let rgn := Region.mk [BasicBlock.mk "entry" [] ops]
-   [mlir_op| "pdl.rewrite" () ([escape| rgn]) : () -> ()  ]
+   let root := SSAVal.SSAVal state.matchInfo.ops.reverse.head! -- jank!
+   let rewrite := [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : () -> ()  ]
+   rewrite
+
+   
+
+
 
 
     
@@ -544,4 +550,11 @@ def rewriteInfoToPDL (state: RewriteInfo): Op :=
 def rewriter0pdl: Op := rewriteInfoToPDL $ rewriterToRewriteInfo rewriter0 RewriteInfo.empty
 #eval IO.eprintln $ Pretty.doc $ rewriter0pdl
 
--- lean4-toggle-info-buffer C-c C-i
+def full0pdl : Op := [mlir_op|
+   "module"() ({
+      ^entry:
+         [escape| [BasicBlockStmt.StmtOp matcher0pdl,
+                   BasicBlockStmt.StmtOp rewriter0pdl]]
+   }) : () -> ()]
+
+#eval IO.eprintln $ Pretty.doc $ full0pdl

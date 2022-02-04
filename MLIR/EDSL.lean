@@ -225,6 +225,7 @@ syntax "{{" term "}}" : mlir_bb_stmt
 
 syntax "[mlir_bb_stmt|" mlir_bb_stmt "]" : term
 
+syntax "[escape|" term "]" : mlir_bb_stmt
 
 macro_rules
   | `([mlir_bb_stmt| $call:mlir_op ]) =>
@@ -233,6 +234,8 @@ macro_rules
        `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) ([mlir_op| $call]))
   | `([mlir_bb_stmt| {{ $t }} ]) => t
 
+macro_rules
+| `([mlir_bb_stmt| [escape| $t ]]) => t
 
 
 
