@@ -543,10 +543,6 @@ def rewriteInfoToPDL (state: RewriteInfo): Op :=
    
 
 
-
-
-    
-
 def rewriter0pdl: Op := rewriteInfoToPDL $ rewriterToRewriteInfo rewriter0 RewriteInfo.empty
 #eval IO.eprintln $ Pretty.doc $ rewriter0pdl
 
@@ -556,5 +552,4 @@ def full0pdl : Op := [mlir_op|
          [escape| [BasicBlockStmt.StmtOp matcher0pdl,
                    BasicBlockStmt.StmtOp rewriter0pdl]]
    }) : () -> ()]
-
 #eval IO.eprintln $ Pretty.doc $ full0pdl
