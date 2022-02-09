@@ -2,7 +2,6 @@ import MLIR.AST
 
 -- https://mlir.llvm.org/docs/Dialects/EmitC/
 -- https://www.lysator.liu.se/c/ANSI-C-grammar-y.html
--- https://github.com/tydeu/lean4-alloy/blob/master/Alloy/C/Syntax.lean
 
 declare_syntax_cat primary_expression
 declare_syntax_cat postfix_expression
@@ -97,7 +96,7 @@ syntax "++" unary_expression : unary_expression
 syntax "--" unary_expression : unary_expression
 syntax unary_operator cast_expression : unary_expression
 syntax "sizeof" unary_expression : unary_expression
-syntax "sizeof" ( type_name ")" : unary_expression
+syntax "sizeof" "(" type_name ")" : unary_expression
 
 -- unary operator
 syntax "&" : unary_operator
@@ -175,7 +174,7 @@ syntax "/=" : assignment_operator
 syntax "%=" : assignment_operator
 syntax "+=" : assignment_operator
 syntax "-=" : assignment_operator
-synax "<<=" : assignment_operator
+syntax "<<=" : assignment_operator
 syntax ">>=" : assignment_operator
 syntax "&=" : assignment_operator
 syntax "^=" : assignment_operator
@@ -183,34 +182,31 @@ syntax "|=" : assignment_operator
 
 -- expression
 syntax assignment_expression : expression
-syntax expression ',' assignment_expression : exrpression
+syntax expression "," assignment_expression : expression
 
 -- constant_expression
 syntax conditional_expression : constant_expression
 
 -- syntax declaration
-syntax declaration_specifiers ';' : declaration
-syntax declaration_specifiers init_declarator_list ';' : declaration
-	;
+syntax declaration_specifiers ";" : declaration
+syntax declaration_specifiers init_declarator_list ";" : declaration
 
 -- declaration_specifiers
-	syntax storage_class_specifier : declaration_specifiers
+syntax storage_class_specifier : declaration_specifiers
 syntax storage_class_specifier declaration_specifiers : declaration_specifiers
 syntax type_specifier: declaration_specifiers
 syntax type_specifier declaration_specifiers: declaration_specifiers
 syntax type_qualifier: declaration_specifiers
 syntax type_qualifier declaration_specifiers: declaration_specifiers
-	;
+
 
 -- init_declarator_list
-	syntax init_declarator : init_declarator_list
-syntax init_declarator_list ',' init_declarator : init_declarator_list
-	;
+syntax init_declarator : init_declarator_list
+syntax init_declarator_list "," init_declarator : init_declarator_list
 
 -- init_declarator
-	syntax declarator : init_declarator
-syntax declarator '=' initializer : init_declarator
-	;
+syntax declarator : init_declarator
+syntax declarator "=" initializer : init_declarator
 
 -- storage_class_specifier
 syntax "typedef" : storage_class_specifier
@@ -227,7 +223,7 @@ syntax "int": type_specifier
 syntax "long": type_specifier
 syntax "float": type_specifier
 syntax "double": type_specifier
-syntax "signed"
+syntax "signed" : type_specifier
 syntax "unsigned": type_specifier
 syntax struct_or_union_specifier: type_specifier
 syntax enum_specifier: type_specifier
@@ -235,7 +231,7 @@ syntax "typename" : type_specifier
 
 
 -- struct_or_union_specifier
-syntax syntax struct_or_union IDENTIFIER "{" struct_declaration_list "}" : struct_or_union_specifier
+syntax struct_or_union ident "{" struct_declaration_list "}" : struct_or_union_specifier
 syntax struct_or_union "{" struct_declaration_list "}" : struct_or_union_specifier
 syntax struct_or_union ident : struct_or_union_specifier
 
@@ -244,20 +240,20 @@ syntax "struct" : struct_or_union
 syntax "union" : struct_or_union
 
 -- struct_declaration_list
-syntax syntax struct_declaration : struct_declaration_list
+syntax struct_declaration : struct_declaration_list
 syntax struct_declaration_list struct_declaration : struct_declaration_list
 
 -- struct_declaration
-syntax syntax specifier_qualifier_list struct_declarator_list ";" : syntax_declaration
+syntax specifier_qualifier_list struct_declarator_list ";" : struct_declaration
 
 -- specifier_qualifier_list
-	syntax type_specifier specifier_qualifier_list : specifier_qualifier_list
-	syntax type_specifier : specifier_qualifier_list
-	syntax type_qualifier specifier_qualifier_list : specifier_qualifier_list
-	syntax type_qualifier : specifier_qualifier_list
+syntax type_specifier specifier_qualifier_list : specifier_qualifier_list
+syntax type_specifier : specifier_qualifier_list
+syntax type_qualifier specifier_qualifier_list : specifier_qualifier_list
+syntax type_qualifier : specifier_qualifier_list
 
 -- struct_declarator_list
-syntax struct_declarator : struct_declarator_list	
+syntax struct_declarator : struct_declarator_list
 syntax struct_declarator_list "," struct_declarator : struct_declarator_list
 
 -- struct_declarator
@@ -266,12 +262,12 @@ syntax ":" constant_expression : struct_declarator
 syntax declarator ":" constant_expression : struct_declarator
 
 -- enum_specifier
-syntax ENUM "{" enumerator_list "}"
-syntax ENUM IDENTIFIER "{" enumerator_list "}"
-syntax ENUM IDENTIFIER
+syntax "enum" "{" enumerator_list "}"  : enum_specifier
+syntax "enum" ident "{" enumerator_list "}" : enum_specifier
+syntax "enum" ident : enum_specifier
 
 -- enumerator_list
-syntax syntax enumerator : enumerator_list
+syntax enumerator : enumerator_list
 syntax enumerator_list "," enumerator : enumerator_list
 
 
@@ -281,22 +277,20 @@ syntax ident "=" constant_expression : enumerator
 
 -- type_qualifier
 syntax "const" : type_qualifier
-syntax VOLATILE :type_qualifier
+syntax "volatile" :type_qualifier
 
-declarator
-	syntax pointer direct_declarator
-syntax direct_declarator
-	;
+-- declarator
+syntax pointer direct_declarator :declarator 
+syntax direct_declarator : declarator
 
-direct_declarator
-	syntax IDENTIFIER
-syntax "(" declarator ")"
-syntax direct_declarator "[" constant_expression "]"
-syntax direct_declarator "[" "]"
-syntax direct_declarator "(" parameter_type_list ")"
-syntax direct_declarator "(" identifier_list ")"
-syntax direct_declarator "(" ")"
-	;
+-- direct_declarator
+syntax ident : direct_declarator
+syntax "(" declarator ")" : direct_declarator
+syntax direct_declarator "[" constant_expression "]" : direct_declarator
+syntax direct_declarator "[" "]": direct_declarator
+syntax direct_declarator "(" parameter_type_list ")": direct_declarator
+syntax direct_declarator "(" identifier_list ")": direct_declarator
+syntax direct_declarator "(" ")": direct_declarator
 
 -- pointer
 syntax "*" : pointer
@@ -331,13 +325,13 @@ syntax specifier_qualifier_list : type_name
 syntax specifier_qualifier_list abstract_declarator : type_name
 
 
-abstract_declarator
+-- abstract_declarator
 syntax pointer : abstract_declarator
 syntax direct_abstract_declarator : abstract_declarator
 syntax pointer direct_abstract_declarator : abstract_declarator
 
 
-syntax direct_abstract_declarator
+-- direct_abstract_declarator
 syntax "(" abstract_declarator ")" : direct_abstract_declarator
 syntax "[" "]" : direct_abstract_declarator
 syntax "[" constant_expression "]" : direct_abstract_declarator
@@ -395,10 +389,9 @@ syntax "switch" "(" expression ")" statement : selection_statement
 
 -- iteration_statement
 syntax "while" "(" expression ")" statement : iteration_statement
-syntax "do" statement while"(" expression ")" ";" : iteration_statement
+syntax "do" statement "while" "(" expression ")" ";" : iteration_statement
 syntax "for" "(" expression_statement expression_statement ")" statement : iteration_statement
 syntax "for" "(" expression_statement expression_statement expression ")" statement : iteration_statement
-	;
 
 -- jump_statement
 syntax "goto" ident ";" : jump_statement 
