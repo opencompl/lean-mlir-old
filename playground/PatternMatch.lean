@@ -260,17 +260,16 @@ match m with
 | unk => `("built_UNK" $unk)
 
 
-
 inductive refl : (a: Type k) -> a -> a -> Type (k+1) where
 | root: (v: a) -> refl a v  v
-| layer: (f: a -> a) -> (r: refl a (f v) w) -> refl a v (f v)
+| layer: (f: a -> a) -> (r: refl a (f w) v) -> refl a w (f v)
 
 
 
 -- @[appUnexpander refl]
 -- partial def unexpandRefl : Lean.PrettyPrinter.Unexpander :=  fun m => 
 -- match m with
--- | `(refl $ty $arg) => do unexpandMatch arg
+-- | `(refl $ty $arg1 $arg2) => do unexpandMatch arg1
 -- | unk => `("refl_UNK" $unk)
 
 
@@ -278,8 +277,33 @@ inductive refl : (a: Type k) -> a -> a -> Type (k+1) where
 -- def proof_built_m : matcher := extractMatcher (proof_built)
 -- #print proof_built_m
 
-def apply_to_refl {a: Type} (f: a -> a) (v w: a)  (ra: refl a (f v) w): refl a v (f v) :=
+def apply_to_refl {a: Type} (f: a -> a) (v w: a)  (ra: refl a (f w) v): refl a w (f v) :=
   refl.layer f ra
+
+
+  
+inductive typeval: (t: Type) -> t ->  Type 2 where
+| val2type: (x: t) -> typeval t x 
+
+def v0 : Σ (x: matcher), typeval matcher x :=  by {
+  apply Sigma.mk;
+  apply (matcher.focus! "bar");
+
+def matcher_by_refl : Σ  (m : matcher), Σ (n: matcher), (refl matcher m n) := by {
+ apply Sigma.mk;
+ apply Sigma.mk;
+ apply apply_to_refl matcher.root;
+ apply apply_to_refl (matcher.focus! "foo");
+ apply apply_to_refl (matcher.kind? "bar");
+ repeat constructor;
+ }
+
+
+def m0 : matcher := matcher_by_refl.fst
+def m1 : matcher := matcher_by_refl.snd.fst
+#eval IO.eprintln m0
+#eval IO.eprintln m1
+#print m0
 
 
 def root' (m: matcher) 
@@ -310,21 +334,6 @@ def focus!' (s: String)
 
 
 
-def matcher_by_refl : Σ  (m : matcher), Σ (n: matcher), (refl matcher m n) := by {
- apply Sigma.mk;
- apply Sigma.mk;
- apply apply_to_refl matcher.root;
- apply apply_to_refl (matcher.focus! "foo");
- apply apply_to_refl (matcher.kind? "bar");
- repeat constructor;
- }
-
-
-def m0 : matcher := matcher_by_refl.fst
-def m1 : matcher := matcher_by_refl.snd.fst
-#eval IO.eprintln m0
-#eval IO.eprintln m1
-#print m0
 
 
 
