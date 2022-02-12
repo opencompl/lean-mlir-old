@@ -30,7 +30,6 @@ inductive matcher where
 
 
 
-
 -- ^ replace operand of focused op with new op. 
 
 -- abbrev Set (α : Type) (compare: α -> α -> Ordering) := RBMap α Unit compare

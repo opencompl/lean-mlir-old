@@ -26,6 +26,7 @@ def matmul_linalg := [mlir_op|
 -- | pretty print as MLIR generic
 
 
+
 -- | rewrite A + A^T = 0 when A is known anti-symmetric
 -- | create a rewrite which rewrite %x + %x^T = 0 for known pattern.
 -- | This shows compositionality of our rewrite system.

@@ -15,6 +15,8 @@ import MLIR.PatternMatch
 import MLIR.Examples
 import MLIR.PDL
 import MLIR.Examples.EndToEndLinalg
+import MLIR.Examples.EndToEndLz
+import MLIR.Examples.EndToEndDiff
 
 open MLIR.MLIRParser
 open MLIR.P
@@ -31,7 +33,9 @@ open System
 def main (xs: List String): IO Unit := do
   if xs.length == 0
   then 
-    main_end_to_end_linalg
+    -- main_end_to_end_linalg
+    main_end_to_end_lz
+    main_end_to_end_diff
   else
     -- let path : System.FilePath :=  xs.head!
     let path :=  xs.head!
