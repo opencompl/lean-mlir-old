@@ -54,6 +54,7 @@ inductive MLIRTy : Type where
 | tuple : List MLIRTy -> MLIRTy
 | vector: Int -> MLIRTy -> MLIRTy
 | tensor: List Dimension -> MLIRTy -> MLIRTy
+| user: String -> MLIRTy -- user defined type
 
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
@@ -77,6 +78,7 @@ inductive AttrDict : Type :=
 | mk: List AttrEntry -> AttrDict
 
 
+-- | TODO: make this `record` when mutual records are allowed?
 inductive Op : Type where 
  | mk: (name: String) 
       -> (args: List SSAVal)
@@ -85,6 +87,8 @@ inductive Op : Type where
       -> (attrs: AttrDict)
       -> (ty: MLIRTy)
       -> Op
+
+
 
 inductive Path : Type where 
  | PathComponent: (regionix : Int) 
@@ -109,6 +113,13 @@ inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
 end
 
+
+def Op.args: Op -> List SSAVal
+| Op.mk name args bbs regions attrs ty => args
+
+def Op.regions: Op -> List Region
+| Op.mk name args bbs regions attrs ty => regions
+
 inductive AttrDefn where
 | mk: (name: String) -> (val: AttrVal) -> AttrDefn
 
@@ -130,6 +141,7 @@ partial instance :  Pretty MLIRTy where
   doc (ty: MLIRTy) :=
     let rec  go (ty: MLIRTy) :=  
     match ty with
+    | MLIRTy.user k => "!" ++ k
     | MLIRTy.int k => "i" ++ doc k
     | MLIRTy.float k => "f" ++ doc k
     | MLIRTy.tuple ts => "(" ++ (intercalate_doc (ts.map go) (doc ", ") ) ++ ")"

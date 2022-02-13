@@ -121,6 +121,7 @@ syntax ident: mlir_type
 
 syntax "[mlir_type|" mlir_type "]" : term
 
+
 set_option hygiene false in -- allow i to expand 
 macro_rules
   | `([mlir_type| $x:ident ]) => do
@@ -139,11 +140,16 @@ macro_rules
         else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
 
 
+syntax "[mlir_type|" "!" str "]" : term
+macro_rules
+| `([mlir_type| ! $x ]) => `(MLIRTy.user $x)
+
 def tyi32NoGap : MLIRTy := [mlir_type| i32]
 #eval tyi32NoGap
 def tyf32NoGap : MLIRTy := [mlir_type| f32]
 #eval tyf32NoGap
-
+def tyUser : MLIRTy := [mlir_type| !"lz.int"]
+#eval tyUser
 
 macro_rules
 | `([mlir_type| {{ $t }} ]) => t -- antiquot type
