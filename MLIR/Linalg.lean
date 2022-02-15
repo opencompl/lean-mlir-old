@@ -113,6 +113,7 @@ macro_rules
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
+
 def linalgGeneric0 :=  [mlir_op|
    linalg.generic { 
        indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
@@ -131,9 +132,6 @@ def linalgGeneric0 :=  [mlir_op|
 
 #eval IO.eprintln $ Pretty.doc $ linalgGeneric0
 
-inductive iterator_type
-| parallel 
-| reduction
 
 end linalg
 
@@ -274,12 +272,14 @@ def EinFactor.left (e: EinFactor): EinLeaf :=
   | EinFactor.Mul l r => r
 
 
-inductive IteratorTypes := 
-| parallel 
-| reduction
+-- | safe way to construct iterator types.
+inductive iterator_types := 
+| parallel | reduction
 
 macro_rules
-|(`([mlir_attr_val| IteratorTypes.parallel])) => AttrVal.str "parallel"
+| `([mlir_attr_val| iterator_types.parallel]) => `(AttrVal.str "parallel")
+| `([mlir_attr_val| iterator_types.reduction]) => `(AttrVal.str "reduction")
+  
 
 partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op := 
   let (ls, us) := EinFactor.get_low_up_ixs e
@@ -311,11 +311,12 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
                    AttrVal.affine (AffineMap.mk input_tuple leaf0_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple leaf1_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple output_tuple)]
-  -- | TODO can we get type safety for "parallel", "parallel", "reduction" strings? 
   let attrdict := [mlir_attr_dict| { 
        indexing_maps = [escape| indexing_maps ],
       library_call = "linalg_matmul",
-      iterator_types = ["parallel", "parallel", "reduction"] 
+      iterator_types = [iterator_types.parallel,
+                        iterator_types.parallel,
+                        iterator_types.reduction] 
       }] -- input iter1 , input access 2, output access
 
   let leaf0_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.left e)
