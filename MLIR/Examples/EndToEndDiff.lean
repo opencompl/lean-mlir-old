@@ -1,5 +1,6 @@
 import MLIR.AST
 import MLIR.EDSL
+import MLIR.PDL
 
 open MLIR.AST
 
@@ -21,35 +22,49 @@ inductive OpValid: OpVerifier -> Op -> Prop where
 | True: ∀ (o: Op), OpValid OpVerifier.T o
 
 
-def opValid (o: Op): OpVerifier  -> Bool
+def OpVerifier.run (v: OpVerifier) (o: Op): Bool :=
+match v with
 | OpVerifier.T => true
 | OpVerifier.MinArgs n => (Op.args o).length >= n
 | OpVerifier.MaxArgs n => (Op.args o).length <=  n
 | OpVerifier.ExactArgs n => (Op.args o).length == n
-| OpVerifier.And v v' => opValid o v && opValid o v'
+| OpVerifier.And v v' => v.run o && v'.run o
 | OpVerifier.MinRegions n => (Op.regions o).length >= n
 
 
 -- | reflection principle for opValid
 -- | TODO: need someone who has done proofs in lean.
-theorem opValid_implies_OpValid: ∀ (v: OpVerifier) (o: Op)(VALID: opValid o v = True), OpValid v o := 
+theorem opValid_implies_OpValid: ∀ (v: OpVerifier) (o: Op)(VALID: v.run o = True), OpValid v o := 
    sorry
 
-
 @[simp]
-class Verifier (Ops : Type) where
+class DialectOps (Ops : Type) where
+  enumerate : List Ops
   verifier : Ops -> OpVerifier
 
+mutual
+
+def Region.recursivelyVerify (r: Region) (DO: Type) [Coe DO String] [DialectOps DO]: Bool := 
+
+
+def Op.recursivelyVerify (op: Op) (DO: Type) [Coe DO String] [DialectOps DO]: Bool :=
+  let opKinds : List DO := DialectOps.enumerate 
+  let valid := match opKinds.find? (fun k => coe k == op.name) with
+               | some k =>  (DialectOps.verifier k).run op
+               | none => true
+  op.regions.all (fun r => r.recursivelyVerify DO)
+
+end
 
 -- | proof carrying typed operations
-structure OpT (Ops: Type) [Coe Ops String] [Verifier Ops]: Type where
+structure OpT (Ops: Type) [Coe Ops String] [DialectOps Ops]: Type where
     (kind: Ops)
     (args: List SSAVal)
     (bbs: List BBName)
     (regions: List Region) 
     (attrs: AttrDict)
     (ty: MLIRTy)
-    (VALID: OpValid (Verifier.verifier kind) (Op.mk kind args bbs regions attrs ty))
+    (VALID: OpValid (DialectOps.verifier kind) (Op.mk kind args bbs regions attrs ty))
 
 
 syntax ident  "(" mlir_op_operand,* ")" 
@@ -94,7 +109,8 @@ instance : Coe DiffOps String where
   | DiffOps.d => "d"
 
 @[simp]
-instance : Verifier DiffOps where
+instance : DialectOps DiffOps where
+  enumerate := [DiffOps.var, DiffOps.add, DiffOps.mul, DiffOps.d]
   verifier : DiffOps -> OpVerifier
   | DiffOps.var => OpVerifier.ExactArgs 0
   | DiffOps.add => OpVerifier.ExactArgs 2
@@ -103,11 +119,11 @@ instance : Verifier DiffOps where
 
 
 -- | diff operation, with num. args checked.
-def diff0 : OpT DiffOps := 
+def addOpT : OpT DiffOps := 
    let VALID : _ := by {  constructor; simp; }
    [mlir_op| DiffOps.add (%x, %y) : i32] VALID
 
-#check diff0
+#check addOpT
 
 
 
@@ -124,7 +140,7 @@ inductive RewriterT (Ops: Type) where
 
 
 -- | d(x, add(p, q)) = add(d(x, p), d(x, q))
-def DiffOpsPushAdd0: RewriterT DiffOps  := 
+def DiffOpsPushAddRewriter: RewriterT DiffOps  := 
   RewriterT.op DiffOps.var [] $ λ x => 
   RewriterT.op DiffOps.var [] $ λ p => 
   RewriterT.op DiffOps.var [] $ λ q => 

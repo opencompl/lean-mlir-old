@@ -88,16 +88,6 @@ inductive Op : Type where
       -> (ty: MLIRTy)
       -> Op
 
-
-
-inductive Path : Type where 
- | PathComponent: (regionix : Int) 
-    -> (bbix: Int) 
-    -> (opix: Int)
-    -> (rec: Path)
-    -> Path
- | Path
-
 inductive BasicBlockStmt : Type where
 | StmtAssign : SSAVal -> Op -> BasicBlockStmt
 | StmtOp : Op -> BasicBlockStmt
@@ -106,19 +96,41 @@ inductive BasicBlockStmt : Type where
 inductive BasicBlock: Type where
 | mk: (name: String) -> (args: List (SSAVal × MLIRTy)) -> (ops: List BasicBlockStmt) -> BasicBlock
 
-
-
-
 inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
+
 end
+
+
+
+def Op.name: Op -> String
+| Op.mk name args bbs regions attrs ty => name
 
 
 def Op.args: Op -> List SSAVal
 | Op.mk name args bbs regions attrs ty => args
 
+def Op.bbs: Op -> List BBName
+| Op.mk name args bbs regions attrs ty => bbs
+
+
 def Op.regions: Op -> List Region
 | Op.mk name args bbs regions attrs ty => regions
+
+def Op.attrs: Op ->  AttrDict
+| Op.mk name args bbs regions attrs ty => attrs
+
+def Op.ty: Op ->  MLIRTy
+| Op.mk name args bbs regions attrs ty => ty
+
+def Region.bbs (r: Region): List BasicBlock :=
+  match r with
+  | (Region.mk bbs) => bbs
+
+def Region.bbs (r: Region): List BasicBlock :=
+  match r with
+  | (Region.mk bbs) => bbs
+
 
 inductive AttrDefn where
 | mk: (name: String) -> (val: AttrVal) -> AttrDefn
@@ -194,7 +206,6 @@ instance : Pretty SSAVal where
    doc (val: SSAVal) := 
      match val with
      | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
-
 
 
 instance : ToFormat SSAVal where

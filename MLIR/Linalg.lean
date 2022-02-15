@@ -274,6 +274,13 @@ def EinFactor.left (e: EinFactor): EinLeaf :=
   | EinFactor.Mul l r => r
 
 
+inductive IteratorTypes := 
+| parallel 
+| reduction
+
+macro_rules
+|(`([mlir_attr_val| IteratorTypes.parallel])) => AttrVal.str "parallel"
+
 partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op := 
   let (ls, us) := EinFactor.get_low_up_ixs e
   -- | partition indexes into repeated and unrepeated indexes.
@@ -301,7 +308,6 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
 
   let indexing_maps := 
     AttrVal.list [
-                   -- AttrVal.affine (AffineMap.mk input_tuple (AffineTuple.mk (repeated.map (AffineExpr.Var))))
                    AttrVal.affine (AffineMap.mk input_tuple leaf0_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple leaf1_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple output_tuple)]
