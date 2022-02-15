@@ -43,13 +43,13 @@ match v with
 -- https://leanprover.github.io/lean4/doc/tactics.html
 
 -- TODO: figure out which library theorem does this
-theorem and_true__lhs_true (a b : Bool) : (a && b) = true -> a = true := by {
+theorem and_true__lhs_true (a b : Bool) : (a && b) = true → a = true := by {
   induction a;
   simp;
   simp;
 }
 -- TODO: figure out which library theorem does this
-theorem and_true__rhs_true (a b : Bool) : (a && b) = true -> b = true := by {
+theorem and_true__rhs_true (a b : Bool) : (a && b) = true → b = true := by {
   induction a;
   simp;
   simp;
@@ -77,6 +77,20 @@ theorem opValid_implies_OpValid:
     | T => exact (OpValid.True _);
 }
 
+theorem OpValid_implies_opValid:
+  ∀ (o : Op) (v: OpVerifier), OpValid v o → (v.run o = True) :=  by {
+    intros o v h;
+    induction h with
+    | MinArgs o n prf => exact (decide_eq_true prf);
+    | MaxArgs o n prf => exact (decide_eq_true prf);
+    | ExactArgs o n prf => exact (decide_eq_true prf);
+    | MinRegions o n prf => exact (decide_eq_true prf);
+    | True => simp;
+    | And op lhs rhs _ _ hlhs hrhs => simp; rewrite [hlhs, hrhs]; simp;
+}
+
+theorem reflect_OpValid_opValid (o : Op) (v: OpVerifier) :
+  OpValid v o ↔ (v.run o = True) := ⟨OpValid_implies_opValid o v, opValid_implies_OpValid o v⟩
 
 @[simp]
 class DialectOps (Ops : Type) where
