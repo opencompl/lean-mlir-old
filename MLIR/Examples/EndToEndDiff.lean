@@ -14,14 +14,20 @@ inductive OpVerifier where
 
 
 inductive OpValid: OpVerifier -> Op -> Prop where
-| MinArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length >= n),  OpValid (OpVerifier.MinArgs n) o
-| MaxArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length <= n),  OpValid (OpVerifier.MaxArgs n) o
-| ExactArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length == n),  OpValid (OpVerifier.ExactArgs n) o
+| MinArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length >= n),
+    OpValid (OpVerifier.MinArgs n) o
+| MaxArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length <= n),
+    OpValid (OpVerifier.MaxArgs n) o
+| ExactArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length = n),
+    OpValid (OpVerifier.ExactArgs n) o
 | And: ∀ (op: Op) (l: OpVerifier) (r: OpVerifier)
     (PRFL: OpValid l op) (PRFR: OpValid r op), OpValid (OpVerifier.And l r) op
+| MinRegions: ∀ (o: Op) (n: Nat) (PRF: (Op.regions o).length >= n),
+    OpValid (OpVerifier.MinRegions n) o
 | True: ∀ (o: Op), OpValid OpVerifier.T o
 
 
+@[simp]
 def OpVerifier.run (v: OpVerifier) (o: Op): Bool :=
 match v with
 | OpVerifier.T => true
@@ -34,8 +40,43 @@ match v with
 
 -- | reflection principle for opValid
 -- | TODO: need someone who has done proofs in lean.
-theorem opValid_implies_OpValid: ∀ (v: OpVerifier) (o: Op)(VALID: v.run o = True), OpValid v o := 
-   sorry
+-- https://leanprover.github.io/lean4/doc/tactics.html
+
+-- TODO: figure out which library theorem does this
+theorem and_true__lhs_true (a b : Bool) : (a && b) = true -> a = true := by {
+  induction a;
+  simp;
+  simp;
+}
+-- TODO: figure out which library theorem does this
+theorem and_true__rhs_true (a b : Bool) : (a && b) = true -> b = true := by {
+  induction a;
+  simp;
+  simp;
+  intro h;
+  exact h;
+}
+
+theorem opValid_implies_OpValid:
+  ∀ (o : Op) (v: OpVerifier), (v.run o = True) → OpValid v o :=  by {
+    intros o v h;
+    induction v with
+    | MinArgs n => exact (OpValid.MinArgs o n (of_decide_eq_true h));
+    | MaxArgs n => exact (OpValid.MaxArgs o n (of_decide_eq_true h));
+    | ExactArgs n => exact (OpValid.ExactArgs o n (of_decide_eq_true h));
+    | And lhs rhs lhsValid rhsValid =>
+      simp at h;
+      apply OpValid.And; {
+        apply lhsValid;
+        apply (and_true__lhs_true _ _ h);
+      } {
+        apply rhsValid;
+        apply (and_true__rhs_true _ _ h);
+      }
+    | MinRegions n => exact (OpValid.MinRegions _ _ (of_decide_eq_true h));
+    | T => exact (OpValid.True _);
+}
+
 
 @[simp]
 class DialectOps (Ops : Type) where
