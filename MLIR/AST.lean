@@ -127,9 +127,6 @@ def Region.bbs (r: Region): List BasicBlock :=
   match r with
   | (Region.mk bbs) => bbs
 
-def Region.bbs (r: Region): List BasicBlock :=
-  match r with
-  | (Region.mk bbs) => bbs
 
 
 inductive AttrDefn where
