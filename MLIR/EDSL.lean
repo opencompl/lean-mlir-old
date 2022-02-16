@@ -445,34 +445,6 @@ macro_rules
                 [mlir_type| $ty]) -- type
 
 
-syntax ident "(" mlir_op_operand,* ")" 
-  ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr_entry,* "}")? ":" mlir_type : mlir_op
-
-macro_rules 
-  | `([mlir_op| $x:ident 
-        ( $operands,* )
-        $[ [ $succ,* ] ]?
-        $[ ( $rgns,* ) ]?
-        $[ { $attrs,* } ]? : $ty:mlir_type ]) => do
-        let initList <- `([])
-        let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
-        let succList <- match succ with
-                | none => `([])
-                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
-        let attrsList <- match attrs with 
-                          | none => `([]) 
-                          | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_entry| $x]])
-        let rgnsList <- match rgns with 
-                          | none => `([]) 
-                          | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
-        `({ kind := $x -- name
-            , args := $operandsList -- operands
-            , bbs := $succList -- bbs
-            , regions := $rgnsList -- regions
-            , attrs := (AttrDict.mk $attrsList) -- attrs
-            , ty := [mlir_type| $ty]
-            , VALID := opValid_implies_OpValid _ _ rfl })
-
 
 
 def bbstmt1 : BasicBlockStmt := 
