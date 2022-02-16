@@ -103,6 +103,7 @@ inductive Region: Type where
 end
 
 
+
 def Op.name: Op -> String
 | Op.mk name args bbs regions attrs ty => name
 
@@ -191,12 +192,29 @@ instance : Pretty AttrDefn where
         then Doc.Text ""
         else "{" ++ Doc.Nest (vintercalate_doc attrs ", ")  ++ "}" 
 
+instance : Coe (String × AttrVal) AttrEntry where 
+  coe (v: String × AttrVal) := AttrEntry.mk v.fst v.snd
+
+instance : Coe  AttrEntry (String × AttrVal) where 
+  coe (v: AttrEntry) := 
+  match v with
+  | AttrEntry.mk key val => (key, val)
+
 instance : Coe (List AttrEntry) AttrDict where 
   coe (v: List AttrEntry) := AttrDict.mk v
 
  instance : Coe AttrDict (List AttrEntry) where 
   coe (v: AttrDict) := match v with | AttrDict.mk as => as
- 
+
+
+instance : Coe (BasicBlock) Region where 
+  coe (bb: BasicBlock) := Region.mk [bb]
+
+instance : Coe (List BasicBlock) Region where 
+  coe (bbs: List BasicBlock) := Region.mk bbs
+
+instance : Coe  Region (List BasicBlock) where 
+  coe (rgn: Region) := match rgn with | Region.mk bbs => bbs
 
 instance : Pretty SSAVal where
    doc (val: SSAVal) := 
@@ -241,9 +259,7 @@ partial def bb_to_doc(bb: BasicBlock): Doc :=
         | (ssaval, ty) => doc ssaval ++ ":" ++ doc ty
      let bbargs := 
         if args.isEmpty then Doc.Text ""
-        else "(" ++ 
-             (intercalate_doc (args.map doc_arg) ", ") ++ 
-             ")"
+        else "(" ++ (intercalate_doc (args.map doc_arg) ", ") ++ ")"
      let bbname := "^" ++ name ++ bbargs ++ ":"
      let bbbody := Doc.Nest (Doc.VGroup (stmts.map bb_stmt_to_doc))
      Doc.VGroup [bbname, bbbody]
@@ -256,6 +272,52 @@ end
 
 def MLIRTy.unit : MLIRTy := MLIRTy.tuple []
 def AttrDict.empty : AttrDict := AttrDict.mk []
+
+def Op.empty (name: String) : Op := 
+  Op.mk name [] [] [] AttrDict.empty (MLIRTy.fn MLIRTy.unit MLIRTy.unit)
+-- | TODO: needs to happen in a monad to ensure that ty has the right type!
+def Op.addArg (o: Op) (a: SSAVal) (t: MLIRTy): Op := 
+  match o with
+  | Op.mk name args bbs regions attrs ty => 
+    let ty' := match ty with
+               | MLIRTy.fn (MLIRTy.tuple ins) outs => 
+                           MLIRTy.fn (MLIRTy.tuple $ ins ++ [t]) outs
+               | _ => MLIRTy.fn (MLIRTy.tuple [t]) (MLIRTy.unit)
+    Op.mk name (args ++ [a]) bbs regions attrs ty'
+       
+def Op.addResult (o: Op) (t: MLIRTy): Op :=
+ match o with
+ | Op.mk name args bbs regions attrs ty => 
+    let ty' := match ty with
+               | MLIRTy.fn ins (MLIRTy.tuple outs) => 
+                           MLIRTy.fn ins (MLIRTy.tuple $ outs ++ [t])
+               | _ => MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple [t])
+    Op.mk name args bbs regions attrs ty'
+
+
+-- | Note: AttrEntry can be given as String × AttrVal
+def AttrDict.add (attrs: AttrDict) (entry: AttrEntry): AttrDict :=
+    coe $ (entry :: coe attrs)
+
+-- | Note: AttrEntry can be given as String × AttrVal
+def Op.addAttr (o: Op) (k: String) (entry: AttrEntry): Op :=
+ match o with
+ | Op.mk name args bbs regions attrs ty => 
+    Op.mk name args bbs regions (attrs.add entry) ty
+
+def BasicBlock.empty (name: String): BasicBlock := BasicBlock.mk name [] []
+def BasicBlock.appendStmt (bb: BasicBlock) (stmt: BasicBlockStmt): BasicBlock := 
+  match bb with
+  | BasicBlock.mk name args bbs => BasicBlock.mk name args (bbs ++ [stmt])
+
+def BasicBlock.appendStmts (bb: BasicBlock) (stmts: List BasicBlockStmt): BasicBlock := 
+  match bb with
+  | BasicBlock.mk name args bbs => BasicBlock.mk name args (bbs ++ stmts)
+
+def Region.empty: Region := Region.mk [] 
+
+def Region.appendBasicBlock (r: Region) (bb: BasicBlock) : Region := 
+  coe (coe r ++ [bb])
 
 instance : Pretty Op where
   doc := op_to_doc
@@ -292,14 +354,28 @@ instance : Coe Op BasicBlockStmt where
 def Region.fromBlock (bb: BasicBlock): Region := Region.mk [bb]
 def BasicBlock.fromOps (os: List Op) (name: String := "entry") := 
   BasicBlock.mk name [] (os.map BasicBlockStmt.StmtOp)
+
+def BasicBlock.setArgs (bb: BasicBlock) (args: List (SSAVal × MLIRTy)) : Region :=
+match bb with
+  | (BasicBlock.mk name _ stmts) => (BasicBlock.mk name args stmts)
+
 def Region.fromOps (os: List Op): Region := Region.mk [BasicBlock.fromOps os]
 
--- | replace entry block arguments.
-def Region.set_entry_block_args (r: Region) (args: List (SSAVal × MLIRTy)) : Region :=
+-- | Ensure that region has an entry block.
+def Region.ensureEntryBlock (r: Region): Region := 
 match r with
 | (Region.mk bbs) =>
   match bbs with
-  | (List.nil)  => Region.mk [BasicBlock.mk "entry" args []]
-  | (List.cons (BasicBlock.mk name _ stmts) bbs) => Region.mk (List.cons (BasicBlock.mk name args stmts) bbs)
+  | []  => BasicBlock.empty "entry"
+  | _ => r
+
+
+-- | replace entry block arguments.
+def Region.setEntryBlockArgs (r: Region) (args: List (SSAVal × MLIRTy)) : Region :=
+match r with
+| (Region.mk bbs) =>
+  match bbs with
+  | []  => r
+  | ((BasicBlock.mk name _ stmts) :: bbs) => Region.mk $ (BasicBlock.mk name args stmts) :: bbs
 
 end MLIR.AST

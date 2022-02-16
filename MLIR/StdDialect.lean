@@ -139,22 +139,3 @@ macro_rules
   | `([mlir_op| scf.for ( $flag ) : $retty  $body]) => 
         `([mlir_op| "scf.for" ($flag) ($body) : $retty])
 
-
-syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" "->" mlir_type mlir_region : mlir_op
-
--- | TODO: finish this macro on a day that I have more coffee.
-macro_rules
-| `([mlir_op| func @ $name ( $operands,* )  -> $retty $rgn]) =>  do
-      let initList <- `([])
-      let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]]) 
-      -- let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.fst [mlir_bb_operand| $x]]) 
-      let typesList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.snd [mlir_bb_operand| $x]]) 
-      -- let operandArgsList <- `(($operandsList).map Prod.fst)
-      let fnty <- `(MLIRTy.fn (MLIRTy.tuple $typesList) [mlir_type| $retty])
-      let rgn <- `(Region.set_entry_block_args [mlir_region| $rgn] $argsList)
-      `(Op.mk "func" []  [] [$rgn] (AttrDict.mk [AttrEntry.mk "name" (AttrVal.symbol $name)]) $fnty)
-
-
-def func0 := [mlir_op| func @"foo" (%x : i32) -> i32 { }]
-#eval IO.eprintln $ Pretty.doc $ func0
-

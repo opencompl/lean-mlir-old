@@ -33,7 +33,6 @@ inductive matcher where
 | root: matcher -> matcher
 
 
-
 -- ^ replace operand of focused op with new op. 
 
 -- abbrev Set (α : Type) (compare: α -> α -> Ordering) := RBMap α Unit compare
@@ -120,15 +119,20 @@ match m with
 
 -- | an op operand that is not defined by an operation needs a pdl.operand
 def freePDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
-    let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
-    let rhs := Op.mk "pdl.operand" [parent] [] [] attr [mlir_type| ()]
+    -- | TODO: cleanup, somehow auomatically generate the correct type?
+  -- (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
+    let attr := [mlir_attr_dict| { "index" = 42 } ] -- [escape| AttrVal.int ix (MLIRTy.int 32) ] }]
+    let rhs := Op.empty "pdl.operand"
+    let rhs := rhs.addArg parent [mlir_type| !"pdl.value"]  -- [parent] [] [] attr [mlir_type| ()]
+    let rhs := rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := match parent with 
       | SSAVal.SSAVal parentName => (SSAVal.SSAVal $ parentName ++ "_operand_" ++ operandName)
     [BasicBlockStmt.StmtAssign lhs rhs]
 
 def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
     let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
-    let rhs := Op.mk "pdl.result" [(SSAVal.SSAVal operandName)] [] [] attr [mlir_type| ()]
+    let rhs := Op.empty "pdl.result"
+    let rhs :=rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := SSAVal.SSAVal $ operandName ++ "_result"
     [BasicBlockStmt.StmtAssign lhs rhs]
 
@@ -155,12 +159,13 @@ let (op, args) : Op × List BasicBlockStmt :=
                 (fun arg => match arg with
                      | BasicBlockStmt.StmtAssign lhs _ => [lhs]
                      | BasicBlockStmt.StmtOp _ => [])
-              let op := (Op.mk "pdl.operation" argSSAVals  [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] ) 
-
+              let op := Op.empty "pdl.operation"
+              let op := argSSAVals.foldl (fun o a => o.addArg a [mlir_type| !"pdl.value"]) op
+              let op := op.addResult [mlir_type| !"pdl.value"] 
               (op, args)
               
           | (some args, none) =>  
-              let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
+              let op := Op.empty "pdl.operation"
               let args := (opOperandsToPDL m.ops args (SSAVal.SSAVal parentName))
               let argSSAVals := args.bind 
                 (fun arg => match arg with
@@ -168,11 +173,13 @@ let (op, args) : Op × List BasicBlockStmt :=
                      | BasicBlockStmt.StmtOp _ => [])
               (op, args)
           | (none, some kind) => 
-              let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk [AttrEntry.mk "kind" (AttrVal.str kind)]) [mlir_type| () ] )
+              let op := Op.empty "pdl.operand"
+              let op := op.addResult [mlir_type| !"pdl.value"] 
               let args := []
               (op, args)
           | (none, none) =>  
-            let op := (Op.mk "pdl.operation" [] [] [] (AttrDict.mk []) [mlir_type| () ] )
+            let op := Op.empty "pdl.operand"
+            let op := op.addResult [mlir_type| !"pdl.value"] 
             let args := []
             (op, args)
  args ++ [BasicBlockStmt.StmtAssign lhs op]
@@ -535,12 +542,14 @@ def rewriteInfoToPDL (state: RewriteInfo): Op :=
    let ops := state.replacements.toList.map (fun rootAndReplacement =>
       let root := SSAVal.SSAVal rootAndReplacement.fst
       let replacement := SSAVal.SSAVal rootAndReplacement.snd
-      let op : Op := [mlir_op| pdl.replace [escape| root] with ([escape| replacement] : ) ]
+      let op : Op := Op.empty "pdl.replace"
+      let op := op.addArg root [mlir_type| !"pdl.value"]
+      let op := op.addArg replacement [mlir_type| !"pdl.value"]
       BasicBlockStmt.StmtOp op
    )
    let rgn := Region.mk [BasicBlock.mk "entry" [] ops]
    let root := SSAVal.SSAVal state.matchInfo.ops.reverse.head! -- jank!
-   let rewrite := [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : () -> ()  ]
+   let rewrite := [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : ( !"pdl.value" ) -> ()  ]
    rewrite
 
    
@@ -556,13 +565,16 @@ def full0pdl : Op := [mlir_op|
 #eval IO.eprintln $ Pretty.doc $ full0pdl
 
 -- | returns success/failure and the new op
-def runPattern (pat: Op) (mod: Op): IO (Option Op) := do
+def runPattern (rewrite: Op) (code: Op): IO (Option Op) := do
   let filepath := "temp.mlir"
-  let combinedModule := [mlir_op| module {
-    [escape| pat]
-    [escape| mod]
+  let combinedModule := 
+  [mlir_op| module {
+    [escape| rewrite]
+    [escape| code]
   }]
-  IO.FS.writeFile filepath (Pretty.doc combinedModule)
+  let outstr := "// RUN: mlir-opt %s  -allow-unregistered-dialect -test-pdl-bytecode-pass \n" ++ 
+      (Pretty.doc combinedModule)
+  IO.FS.writeFile filepath outstr
   let new_mod_str <- IO.Process.run { cmd := "mlir-opt", args := #["-allow-unregistered-dialect", "-test-pdl-bytecode-pass", filepath] }
   let notes := []
   let (loc, notes, _, res) <-  (pop ()).runP locbegin notes new_mod_str
@@ -578,4 +590,12 @@ def runPattern (pat: Op) (mod: Op): IO (Option Op) := do
       IO.eprintln "***Debug Error:***"
       IO.eprintln (note_add_file_content new_mod_str err)
       return Option.none
+
+-- auto evaluation
+def code0 : Op := [mlir_op| module {
+  func @"main"() {
+    %x = "asm.int" () { "val" = 32 } : () -> (i32)
+  }
+}]
+#eval runPattern rewriter0pdl code0 >>= IO.println
 

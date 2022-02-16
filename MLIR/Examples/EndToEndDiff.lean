@@ -9,9 +9,13 @@ inductive OpVerifier where
 | MinArgs: Nat -> OpVerifier
 | MaxArgs: Nat -> OpVerifier
 | ExactArgs: Nat -> OpVerifier
-| And: OpVerifier -> OpVerifier -> OpVerifier
-| MinRegions: Nat -> OpVerifier
+-- | And: OpVerifier -> OpVerifier -> OpVerifier
+-- | MinRegions: Nat -> OpVerifier
 | T: OpVerifier
+
+inductive InteractM (α: Type)
+| ok: (val: α) ->  InteractM α
+| error: (val: α) -> (err: String) -> InteractM α
 
 
 inductive OpValid: OpVerifier -> Op -> Prop where
@@ -21,28 +25,36 @@ inductive OpValid: OpVerifier -> Op -> Prop where
     OpValid (OpVerifier.MaxArgs n) o
 | ExactArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length = n),
     OpValid (OpVerifier.ExactArgs n) o
-| And: ∀ (op: Op) (l: OpVerifier) (r: OpVerifier)
-    (PRFL: OpValid l op) (PRFR: OpValid r op), OpValid (OpVerifier.And l r) op
-| MinRegions: ∀ (o: Op) (n: Nat) (PRF: (Op.regions o).length >= n),
-    OpValid (OpVerifier.MinRegions n) o
+-- | And: ∀ (op: Op) (l: OpVerifier) (r: OpVerifier)
+--     (PRFL: OpValid l op) (PRFR: OpValid r op), OpValid (OpVerifier.And l r) op
+-- | MinRegions: ∀ (o: Op) (n: Nat) (PRF: (Op.regions o).length >= n),
+--    OpValid (OpVerifier.MinRegions n) o
 | True: ∀ (o: Op), OpValid OpVerifier.T o
 
 
-@[simp]
-def OpVerifier.run (v: OpVerifier) (o: Op): Bool :=
+@[simp, reducible]
+def OpVerifier.run (v: OpVerifier) (o: Op): InteractM Op :=
 match v with
-| OpVerifier.T => true
-| OpVerifier.MinArgs n => (Op.args o).length >= n
-| OpVerifier.MaxArgs n => (Op.args o).length <=  n
-| OpVerifier.ExactArgs n => (Op.args o).length == n
-| OpVerifier.And v v' => v.run o && v'.run o
-| OpVerifier.MinRegions n => (Op.regions o).length >= n
+| OpVerifier.T => InteractM.ok o
+| OpVerifier.MinArgs n => 
+  if (Op.args o).length >= n
+  then InteractM.ok  o
+  else InteractM.error o ("expected >= " ++ toString n ++ "args")
+| OpVerifier.MaxArgs n => 
+   if (Op.args o).length <= n
+   then InteractM.ok o
+   else InteractM.error o ("expected <=" ++ toString n ++ "args") 
+| OpVerifier.ExactArgs n => 
+   if (Op.args o).length = n
+   then InteractM.ok o
+   else InteractM.error o ("expected ==" ++ toString n ++ "args")
+-- | OpVerifier.MinRegions n => (Op.regions o).length >= n
 
 
+/-
 -- | reflection principle for opValid
 -- | TODO: need someone who has done proofs in lean.
 -- https://leanprover.github.io/lean4/doc/tactics.html
-
 -- TODO: figure out which library theorem does this
 theorem and_true__lhs_true (a b : Bool) : (a && b) = true → a = true := by {
   induction a;
@@ -89,14 +101,25 @@ theorem OpValid_implies_opValid:
     | True => simp;
     | And op lhs rhs _ _ hlhs hrhs => simp; rewrite [hlhs, hrhs]; simp;
 }
+-/
+
+theorem opValid_implies_OpValid:
+  ∀ (o : Op) (v: OpVerifier), (v.run o = InteractM.ok o) → OpValid v o :=  sorry
+
+theorem OpValid_implies_opValid:
+  ∀ (o : Op) (v: OpVerifier), OpValid v o → (v.run o = InteractM.ok o) :=  sorry
 
 theorem reflect_OpValid_opValid (o : Op) (v: OpVerifier) :
-  OpValid v o ↔ (v.run o = True) := ⟨OpValid_implies_opValid o v, opValid_implies_OpValid o v⟩
+  OpValid v o ↔ (v.run o = InteractM.ok o) := 
+   ⟨OpValid_implies_opValid o v, opValid_implies_OpValid o v⟩
+
+
 
 @[simp]
 class DialectOps (Ops : Type) where
   enumerate : List Ops
   verifier : Ops -> OpVerifier
+
 
 
 -- def Region.recursivelyVerify (r: Region) (DO: Type) [Coe DO String] [DialectOps DO]: Bool := 
@@ -126,8 +149,6 @@ structure OpT (Ops: Type) [Coe Ops String] [DialectOps Ops]: Type where
 inductive DiffOps where
 | var | add | mul | d
 
-
-
 instance : Coe DiffOps String where
   coe: DiffOps -> String
   | DiffOps.var => "var"
@@ -135,7 +156,7 @@ instance : Coe DiffOps String where
   | DiffOps.mul => "mul"
   | DiffOps.d => "d"
 
-@[simp]
+@[simp,reducible]
 instance : DialectOps DiffOps where
   enumerate := [DiffOps.var, DiffOps.add, DiffOps.mul, DiffOps.d]
   verifier : DiffOps -> OpVerifier
@@ -144,12 +165,10 @@ instance : DialectOps DiffOps where
   | _ => OpVerifier.T
 
 
-
 -- | diff operation, with num. args checked.
-def varOpTRaw : OpT DiffOps := 
-   { kind := DiffOps.var, args := [], bbs := [], regions := [], attrs := AttrDict.empty, ty := MLIRTy.unit
-     , VALID := opValid_implies_OpValid _ _ rfl }
-#check varOpTRaw
+def varOpTRaw : InteractM Op :=
+    (DialectOps.verifier DiffOps.var).run [mlir_op| "var"(%x) : i32]
+-- #reduce varOpTRaw
  
 
  syntax ident "(" mlir_op_operand,* ")" 
@@ -180,7 +199,6 @@ macro_rules
             , ty := [mlir_type| $ty]
             , VALID := opValid_implies_OpValid _ _ rfl })
 
--- | TODO: we are unable to lookup theorem 'opValid_implies_OpValid✝' in elaboration.
 def varOpTPretty : OpT DiffOps := 
   [mlir_op| DiffOps.var () : i32]
 #check varOpTPretty

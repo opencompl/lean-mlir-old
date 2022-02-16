@@ -25,14 +25,9 @@ syntax "pdl.results" (term)? "of" mlir_op ("->" mlir_type)? : mlir_op
 syntax "pdl.type" (":" mlir_type) : mlir_op
 syntax "pdl.types" (":" "[" sepBy(mlir_type, ",") "]")? : mlir_op
 
-syntax "!pdl.value" : mlir_type
 
 set_option hygiene false in -- need to disable hygiene for i32 expansion.
 macro_rules
   | `([mlir_op| pdl.replace $op with ($args,* : $tys,*)]) =>
         `( [mlir_op| "pdl.replace" ($op, $args,* ) : () -> ()])
 
-
-macro_rules
-  | `([mlir_type| !pdl.value]) =>
-        `(MLIRTy.int 42) -- TODO: create generic types

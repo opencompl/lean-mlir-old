@@ -53,6 +53,7 @@ macro_rules
 -- ====
 
 declare_syntax_cat mlir_bb
+declare_syntax_cat mlir_entry_bb
 declare_syntax_cat mlir_region
 declare_syntax_cat mlir_bb_stmt
 declare_syntax_cat mlir_bb_stmts
@@ -114,6 +115,7 @@ syntax "(" mlir_type ")" : mlir_type
 syntax "(" mlir_type "," mlir_type ")" : mlir_type
 syntax mlir_type "->" mlir_type : mlir_type
 syntax "{{" term "}}" : mlir_type
+syntax "!" str : mlir_type
 syntax ident: mlir_type
 
 -- | TODO: fix this rule, it interfers with way too much other stuff!
@@ -139,17 +141,15 @@ macro_rules
               Macro.throwError $ "cannot convert suffix of i/f to int: " ++ xstr
         else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
 
-
-syntax "[mlir_type|" "!" str "]" : term
 macro_rules
 | `([mlir_type| ! $x ]) => `(MLIRTy.user $x)
+def tyUser : MLIRTy := [mlir_type| !"lz.int"]
+#eval tyUser
 
 def tyi32NoGap : MLIRTy := [mlir_type| i32]
 #eval tyi32NoGap
 def tyf32NoGap : MLIRTy := [mlir_type| f32]
 #eval tyf32NoGap
-def tyUser : MLIRTy := [mlir_type| !"lz.int"]
-#eval tyUser
 
 macro_rules
 | `([mlir_type| {{ $t }} ]) => t -- antiquot type
@@ -297,18 +297,37 @@ macro_rules
    `(BasicBlock.mk $(Lean.quote (toString name.getId)) [] $opsList)
 
 
+-- ENTRY BB
+-- ========
+
+
+syntax mlir_bb : mlir_entry_bb
+syntax mlir_bb_stmts : mlir_entry_bb
+syntax "[mlir_entry_bb|" mlir_entry_bb "]" : term
+
+
+macro_rules 
+| `([mlir_entry_bb| $stmts:mlir_bb_stmts ]) => do
+   let opsList <- `([mlir_bb_stmts| $stmts])
+   `(BasicBlock.mk "entry" [] $opsList)
+
+macro_rules 
+| `([mlir_entry_bb| $bb:mlir_bb ]) => `([mlir_bb| $bb])
+
 -- EDSL MLIR REGIONS
 -- =================
 
-syntax "{" (ws mlir_bb ws)* "}": mlir_region
+syntax "{" (ws mlir_entry_bb ws)? (ws mlir_bb ws)* "}": mlir_region
 syntax "[mlir_region|" mlir_region "]" : term
 syntax "[escape|" term "]" : mlir_region
 
 -- | map a macro on a list
 
 macro_rules
-| `([mlir_region| { $[ $bbs ]* } ]) => do
-   let initList <- `([])
+| `([mlir_region| { $[ $entrybb ]? $[ $bbs ]* } ]) => do
+   let initList <- match entrybb with 
+                  | some entry => `([[mlir_entry_bb| $entry]])
+                  | none => `([])
    let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb|$x]])
    `(Region.mk $bbsList)
 
@@ -329,6 +348,7 @@ syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
 syntax mlir_attr_val_symbol : mlir_attr_val
+syntax num : mlir_attr_val
 
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
@@ -337,6 +357,9 @@ syntax "[mlir_attr_val|" mlir_attr_val "]" : term
 
 macro_rules
 | `([mlir_attr_val| [escape| $x:term ] ]) => `($x)
+
+macro_rules
+| `([mlir_attr_val|  $x:numLit ]) => `(AttrVal.int $x (MLIRTy.int 64))
 
 macro_rules 
   | `([mlir_attr_val| $s:strLit]) => `(AttrVal.str $s)
@@ -355,19 +378,22 @@ macro_rules
       `(AttrVal.symbol $x)
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
-#print attrVal0Str
+#reduce attrVal0Str
 
 def attrVal1Ty : AttrVal := [mlir_attr_val| (i32, i64) -> i32]
-#print attrVal1Ty
+#reduce attrVal1Ty
 
 def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
-#check attrVal2List
+#reduce attrVal2List
 
 def attrVal3AffineMap : AttrVal := [mlir_attr_val| affine_map<(x, y) -> (y)>]
-#check attrVal3AffineMap
+#reduce attrVal3AffineMap
 
 def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
-#check attrVal4Symbol
+#reduce attrVal4Symbol
+
+def attrVal5int: AttrVal := [mlir_attr_val| 42 ]
+#reduce attrVal5int
 
 
 
@@ -378,12 +404,15 @@ def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
 declare_syntax_cat mlir_attr_entry
 
 syntax ident "=" mlir_attr_val : mlir_attr_entry
+syntax strLit "=" mlir_attr_val : mlir_attr_entry
 
 syntax "[mlir_attr_entry|" mlir_attr_entry "]" : term
 
 macro_rules 
   | `([mlir_attr_entry| $name:ident  = $v:mlir_attr_val]) => 
      `(AttrEntry.mk $(Lean.quote (toString name.getId))  [mlir_attr_val| $v])
+  | `([mlir_attr_entry| $name:strLit  = $v:mlir_attr_val]) => 
+     `(AttrEntry.mk $name [mlir_attr_val| $v])
 
 def attr0Str : AttrEntry := [mlir_attr_entry| sym_name = "add"]
 #print attr0Str
@@ -506,6 +535,13 @@ def rgn2 : Region :=
   }]
 #print rgn2
 
+-- | test what happens if we try to use an entry block with no explicit bb name
+def rgn3 : Region := 
+  [mlir_region|  { 
+      "std.return"(%x0) : (i42) -> ()
+  }]
+#print rgn1
+
 
 -- | test simple ops [no regions]
 def opcall1 : Op := [mlir_op| "foo" (%x, %y) : (i32, i32) -> i32 ]
@@ -554,9 +590,30 @@ def opcall2 : Op := [mlir_op| "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32]
 -- | Builtins
 -- =========
 
-syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" "{"
-  mlir_bb_stmts
-"}" : mlir_op
+syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" mlir_region : mlir_op
+
+-- | note that this only supports single BB region.
+-- | TODO: add support for multi BB region.
+macro_rules 
+| `([mlir_op| func @$name ( $args,* )  $rgn ]) => do
+     let initList <- `([])
+     let argsList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
+     let typesList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.snd [mlir_bb_operand| $x]])
+     -- let bb <- `(BasicBlock.empty "entry")
+     -- let bb <-`(($bb).appendStmts [mlir_bb_stmts| $stmts])
+     -- let bb <-`(($bb).setArgs $argsList)
+     -- let rgn <- `(coe $bb)
+     let rgn <- `([mlir_region| $rgn])
+     let rgn <- `(($rgn).ensureEntryBlock.setEntryBlockArgs $argsList)
+     let argTys <- `(($argsList).map Prod.snd)
+     let ty <-  `(MLIRTy.fn (MLIRTy.tuple $typesList) MLIRTy.unit)
+     `(Op.mk "func" [] [] [$rgn] AttrDict.empty $ty)
+
+
+def func1 : Op := [mlir_op| func @"main"() {
+  ^entry:
+    %x = "asm.int" () { "val" = 32 } : () -> (i32)
+}]
 
 syntax "module" "{" mlir_op* "}" : mlir_op
 
@@ -565,7 +622,7 @@ macro_rules
      let initList <- `([])
      let ops <- ops.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op| $x] ])
      let rgn <- `(Region.fromOps $ops)
-     `(Op.mk "module" [] [] [$rgn] AttrDict.empty MLIRTy.unit)
+     `(Op.mk "module" [] [] [$rgn] AttrDict.empty [mlir_type| () -> ()])
 
 def mod1 : Op := [mlir_op| module { }]
 #print mod1
