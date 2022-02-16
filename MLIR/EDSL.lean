@@ -225,6 +225,7 @@ def tensorTy1 := [mlir_type| tensor<3×?:f32>]
 syntax "[mlir_op|" mlir_op "]" : term
 
 
+
 syntax mlir_op: mlir_bb_stmt
 syntax mlir_op_operand "=" mlir_op : mlir_bb_stmt
 syntax "{{" term "}}" : mlir_bb_stmt
@@ -241,7 +242,7 @@ macro_rules
   | `([mlir_bb_stmt| {{ $t }} ]) => t
 
 macro_rules
-| `([mlir_bb_stmt| [escape| $t ]]) => t
+| `([mlir_bb_stmt| [escape| $t ]]) => `(coe $t)
 
 
 
@@ -415,6 +416,10 @@ syntax strLit "(" mlir_op_operand,* ")"
   ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr_entry,* "}")? ":" mlir_type : mlir_op
 
 
+syntax "[escape|" term "]" : mlir_op
+macro_rules 
+  | `([mlir_op| [escape| $x ] ]) => x
+
 macro_rules 
   | `([mlir_op| $name:strLit 
         ( $operands,* )
@@ -438,6 +443,36 @@ macro_rules
                 $rgnsList -- regions
                 (AttrDict.mk $attrsList) -- attrs
                 [mlir_type| $ty]) -- type
+
+
+syntax ident "(" mlir_op_operand,* ")" 
+  ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr_entry,* "}")? ":" mlir_type : mlir_op
+
+macro_rules 
+  | `([mlir_op| $x:ident 
+        ( $operands,* )
+        $[ [ $succ,* ] ]?
+        $[ ( $rgns,* ) ]?
+        $[ { $attrs,* } ]? : $ty:mlir_type ]) => do
+        let initList <- `([])
+        let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
+        let succList <- match succ with
+                | none => `([])
+                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
+        let attrsList <- match attrs with 
+                          | none => `([]) 
+                          | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_entry| $x]])
+        let rgnsList <- match rgns with 
+                          | none => `([]) 
+                          | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
+        `({ kind := $x -- name
+            , args := $operandsList -- operands
+            , bbs := $succList -- bbs
+            , regions := $rgnsList -- regions
+            , attrs := (AttrDict.mk $attrsList) -- attrs
+            , ty := [mlir_type| $ty]
+            , VALID := opValid_implies_OpValid _ _ rfl })
+
 
 
 def bbstmt1 : BasicBlockStmt := 
@@ -542,5 +577,30 @@ def opRgnAttr0 : Op := [mlir_op|
 -- | test simple ops [no regions, but with bb args]
 def opcall2 : Op := [mlir_op| "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32]
 #print opcall2
+
+
+-- | Builtins
+-- =========
+
+syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" "{"
+  mlir_bb_stmts
+"}" : mlir_op
+
+syntax "module" "{" mlir_op* "}" : mlir_op
+
+macro_rules 
+| `([mlir_op| module { $ops* } ]) => do
+     let initList <- `([])
+     let ops <- ops.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op| $x] ])
+     let rgn <- `(Region.fromOps $ops)
+     `(Op.mk "module" [] [] [$rgn] AttrDict.empty MLIRTy.unit)
+
+def mod1 : Op := [mlir_op| module { }]
+#print mod1
+
+-- def mod2 : Op := [mlir_op| module { 
+--   func @foo() {
+--   }
+-- }]
 
 end MLIR.EDSL

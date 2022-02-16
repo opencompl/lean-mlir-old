@@ -252,6 +252,10 @@ inductive built' : matcher -> Type where
   -> built' (matcher.focus! s m)
 
 
+@[appUnexpander matcher]
+partial def unexpandMatcherp : Lean.PrettyPrinter.Unexpander :=  fun m =>  unexpandMatch m
+
+
 
 @[appUnexpander built']
 partial def unexpandMatcherbuilt'Prop : Lean.PrettyPrinter.Unexpander :=  fun m => 
@@ -266,11 +270,12 @@ inductive refl : (a: Type k) -> a -> a -> Type (k+1) where
 
 
 
--- @[appUnexpander refl]
--- partial def unexpandRefl : Lean.PrettyPrinter.Unexpander :=  fun m => 
--- match m with
--- | `(refl $ty $arg1 $arg2) => do unexpandMatch arg1
--- | unk => `("refl_UNK" $unk)
+ @[appUnexpander refl]
+ partial def unexpandRefl : Lean.PrettyPrinter.Unexpander :=  fun m => 
+ match m with
+ | `(refl $ty $arg1 $arg2) => do unexpandMatch arg1
+ | unk => `("refl_UNK" $unk)
+
 
 
 -- | does not work, because exists is existential. need sigma type
@@ -285,9 +290,6 @@ def apply_to_refl {a: Type} (f: a -> a) (v w: a)  (ra: refl a (f w) v): refl a w
 inductive typeval: (t: Type) -> t ->  Type 2 where
 | val2type: (x: t) -> typeval t x 
 
-def v0 : Σ (x: matcher), typeval matcher x :=  by {
-  apply Sigma.mk;
-  apply (matcher.focus! "bar");
 
 def matcher_by_refl : Σ  (m : matcher), Σ (n: matcher), (refl matcher m n) := by {
  apply Sigma.mk;

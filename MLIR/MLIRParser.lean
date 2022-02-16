@@ -171,5 +171,7 @@ partial def pblock (u: Unit) : P BasicBlock := do
 
 end   -- end the mutual block
 
+theorem parse_of_print_id: 
+  ∀ (o: Op), ((pop ()).runP locbegin [] (Pretty.doc o)).snd.snd.snd = Result.ok o := sorry
 
 end MLIR.MLIRParser

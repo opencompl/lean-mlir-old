@@ -5,6 +5,8 @@ import Lean.Meta
 import MLIR.EDSL
 import MLIR.Doc
 import MLIR.PDL
+import MLIR.P
+import MLIR.MLIRParser
 
 open MLIR.Doc
 open Lean.PrettyPrinter
@@ -13,6 +15,8 @@ open Std
 open Std.AssocList
 open MLIR.AST
 open MLIR.EDSL
+open MLIR.P
+open MLIR.MLIRParser
 
 -- PDL: Pattern Description Language 
 -- |
@@ -541,14 +545,37 @@ def rewriteInfoToPDL (state: RewriteInfo): Op :=
 
    
 
-
 def rewriter0pdl: Op := rewriteInfoToPDL $ rewriterToRewriteInfo rewriter0 RewriteInfo.empty
 #eval IO.eprintln $ Pretty.doc $ rewriter0pdl
 
 def full0pdl : Op := [mlir_op|
-   "module"() ({
-      ^entry:
-         [escape| [BasicBlockStmt.StmtOp matcher0pdl,
-                   BasicBlockStmt.StmtOp rewriter0pdl]]
-   }) : () -> ()]
+   module  {
+         [escape| matcher0pdl]
+         [escape| rewriter0pdl]
+   }]
 #eval IO.eprintln $ Pretty.doc $ full0pdl
+
+-- | returns success/failure and the new op
+def runPattern (pat: Op) (mod: Op): IO (Option Op) := do
+  let filepath := "temp.mlir"
+  let combinedModule := [mlir_op| module {
+    [escape| pat]
+    [escape| mod]
+  }]
+  IO.FS.writeFile filepath (Pretty.doc combinedModule)
+  let new_mod_str <- IO.Process.run { cmd := "mlir-opt", args := #["-allow-unregistered-dialect", "-test-pdl-bytecode-pass", filepath] }
+  let notes := []
+  let (loc, notes, _, res) <-  (pop ()).runP locbegin notes new_mod_str
+  IO.eprintln (vgroup $ notes.map (note_add_file_content new_mod_str))
+  match res with
+   | Result.ok op => do
+    return op
+   | Result.err err => do
+      IO.eprintln "***Parse Error:***"
+      IO.eprintln (note_add_file_content new_mod_str err)
+      return Option.none
+   | Result.debugfail err =>  do
+      IO.eprintln "***Debug Error:***"
+      IO.eprintln (note_add_file_content new_mod_str err)
+      return Option.none
+

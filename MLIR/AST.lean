@@ -79,6 +79,7 @@ inductive AttrDict : Type :=
 
 
 -- | TODO: make this `record` when mutual records are allowed?
+-- | TODO: make these arguments optional?
 inductive Op : Type where 
  | mk: (name: String) 
       -> (args: List SSAVal)
@@ -100,7 +101,6 @@ inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
 
 end
-
 
 
 def Op.name: Op -> String
@@ -126,7 +126,6 @@ def Op.ty: Op ->  MLIRTy
 def Region.bbs (r: Region): List BasicBlock :=
   match r with
   | (Region.mk bbs) => bbs
-
 
 
 inductive AttrDefn where
@@ -255,6 +254,9 @@ partial def rgn_to_doc(rgn: Region): Doc :=
  
 end
 
+def MLIRTy.unit : MLIRTy := MLIRTy.tuple []
+def AttrDict.empty : AttrDict := AttrDict.mk []
+
 instance : Pretty Op where
   doc := op_to_doc
 
@@ -284,6 +286,13 @@ instance : Pretty Module where
     | Module.mk fs attrs =>
       Doc.VGroup (attrs.map doc ++ fs.map doc)
       
+instance : Coe Op BasicBlockStmt where
+   coe := BasicBlockStmt.StmtOp
+
+def Region.fromBlock (bb: BasicBlock): Region := Region.mk [bb]
+def BasicBlock.fromOps (os: List Op) (name: String := "entry") := 
+  BasicBlock.mk name [] (os.map BasicBlockStmt.StmtOp)
+def Region.fromOps (os: List Op): Region := Region.mk [BasicBlock.fromOps os]
 
 -- | replace entry block arguments.
 def Region.set_entry_block_args (r: Region) (args: List (SSAVal × MLIRTy)) : Region :=

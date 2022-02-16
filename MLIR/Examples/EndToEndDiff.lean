@@ -3,6 +3,7 @@ import MLIR.EDSL
 import MLIR.PDL
 
 open MLIR.AST
+open MLIR.EDSL
 
 inductive OpVerifier where
 | MinArgs: Nat -> OpVerifier
@@ -97,19 +98,18 @@ class DialectOps (Ops : Type) where
   enumerate : List Ops
   verifier : Ops -> OpVerifier
 
-mutual
 
-def Region.recursivelyVerify (r: Region) (DO: Type) [Coe DO String] [DialectOps DO]: Bool := 
+-- def Region.recursivelyVerify (r: Region) (DO: Type) [Coe DO String] [DialectOps DO]: Bool := 
 
 
-def Op.recursivelyVerify (op: Op) (DO: Type) [Coe DO String] [DialectOps DO]: Bool :=
-  let opKinds : List DO := DialectOps.enumerate 
-  let valid := match opKinds.find? (fun k => coe k == op.name) with
-               | some k =>  (DialectOps.verifier k).run op
-               | none => true
-  op.regions.all (fun r => r.recursivelyVerify DO)
-
-end
+-- def Op.recursivelyVerify (op: Op) (DO: Type) [Coe DO String] [DialectOps DO]: Bool :=
+--   let opKinds : List DO := DialectOps.enumerate 
+--   let valid := match opKinds.find? (fun k => coe k == op.name) with
+--                | some k =>  (DialectOps.verifier k).run op
+--                | none => true
+--   op.regions.all (fun r => r.recursivelyVerify DO)
+-- 
+-- end
 
 -- | proof carrying typed operations
 structure OpT (Ops: Type) [Coe Ops String] [DialectOps Ops]: Type where
@@ -120,34 +120,6 @@ structure OpT (Ops: Type) [Coe Ops String] [DialectOps Ops]: Type where
     (attrs: AttrDict)
     (ty: MLIRTy)
     (VALID: OpValid (DialectOps.verifier kind) (Op.mk kind args bbs regions attrs ty))
-
-
-syntax ident  "(" mlir_op_operand,* ")" 
-  ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr_entry,* "}")? ":" mlir_type : mlir_op
-
-macro_rules
-  | `([mlir_op|  $opty:ident
-        ( $operands,* )
-        $[ [ $succ,* ] ]?
-        $[ ( $rgns,* ) ]?
-        $[ { $attrs,* } ]? : $ty:mlir_type ]) => do
-        let initList <- `([])
-        let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
-        let succList <- match succ with
-                | none => `([])
-                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
-        let attrsList <- match attrs with 
-                          | none => `([]) 
-                          | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_entry| $x]])
-        let rgnsList <- match rgns with 
-                          | none => `([]) 
-                          | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
-        `(OpT.mk $opty
-                $operandsList -- operands
-                $succList -- bbs
-                $rgnsList -- regions
-                (AttrDict.mk $attrsList) -- attrs
-                [mlir_type| $ty]) -- type
 
 
 
@@ -174,11 +146,15 @@ instance : DialectOps DiffOps where
 
 
 -- | diff operation, with num. args checked.
-def addOpT : OpT DiffOps := 
-   let VALID : _ := by {  constructor; simp; }
-   [mlir_op| DiffOps.add (%x, %y) : i32] VALID
-
-#check addOpT
+def varOpTRaw : OpT DiffOps := 
+   { kind := DiffOps.var, args := [], bbs := [], regions := [], attrs := AttrDict.empty, ty := MLIRTy.unit
+     , VALID := opValid_implies_OpValid _ _ rfl }
+#check varOpTRaw
+ 
+-- | TODO: we are unable to lookup theorem 'opValid_implies_OpValid✝' in elaboration.
+def varOpTPretty : OpT DiffOps := 
+  [mlir_op| DiffOps.var () : i32]
+#check varOpTPretty
 
 
 
