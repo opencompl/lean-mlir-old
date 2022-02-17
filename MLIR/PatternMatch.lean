@@ -126,7 +126,7 @@ def freePDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List Basi
     let rhs := rhs.addArg parent [mlir_type| !"pdl.value"]  -- [parent] [] [] attr [mlir_type| ()]
     let rhs := rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := match parent with 
-      | SSAVal.SSAVal parentName => (SSAVal.SSAVal $ parentName ++ "_operand_" ++ operandName)
+      | SSAVal.SSAVal parentName => (SSAVal.SSAVal $ operandName)
     [BasicBlockStmt.StmtAssign lhs rhs]
 
 def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
@@ -173,23 +173,23 @@ let (op, args) : Op × List BasicBlockStmt :=
                      | BasicBlockStmt.StmtOp _ => [])
               (op, args)
           | (none, some kind) => 
-              let op := Op.empty "pdl.operand"
+              let op := Op.empty "pdl.operation"
               let op := op.addResult [mlir_type| !"pdl.value"] 
               let args := []
               (op, args)
           | (none, none) =>  
-            let op := Op.empty "pdl.operand"
+            let op := Op.empty "pdl.operation"
             let op := op.addResult [mlir_type| !"pdl.value"] 
             let args := []
             (op, args)
  args ++ [BasicBlockStmt.StmtAssign lhs op]
 
 
-def matchInfoToPDL (m: MatchInfo): Op :=
+def MatchInfo.toPDL (m: MatchInfo): Op :=
  -- let stmts := m.ops.reverse.map (opToPDL m)
  let stmts := m.ops.map (opToPDL m)
  let rgn := Region.mk [BasicBlock.mk "entry" [] stmts.join]
- [mlir_op| "pdl.pattern" () ([escape| rgn]) : () -> ()  ]
+ [mlir_op| "pdl.pattern" () ([escape| rgn]) { "benefit" = 1 : i16 } : () -> ()  ]
 
 
                       
@@ -508,7 +508,7 @@ def matcher0: matcher := matcher0tactic.snd.snd
 #print matcher0
 
 
-def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0tactic.snd.snd MatchInfo.empty
+def matcher0pdl: Op := (matcherToMatchInfo matcher0tactic.snd.snd MatchInfo.empty).toPDL
 #eval IO.eprintln $ Pretty.doc $ matcher0pdl
 
 -- === REWRITER ==
@@ -518,14 +518,14 @@ def matcher0pdl: Op := matchInfoToPDL $ matcherToMatchInfo matcher0tactic.snd.sn
 def rewriter0tactic : Σ  (r: rewriter), (rewriter_built r) × rewriter := by {
   apply Sigma.mk;
   apply rewriter_root matcher0;
-  apply rewriter_replace "val" "v";
+  apply rewriter_replace "root" "v";
   repeat constructor;
 } 
 
 
 
 def rewriter0: rewriter := rewriter0tactic.snd.snd
-#print rewriter0
+#reduce rewriter0
 
 -- | TODO; write this as a morphism from the torsor over MatchInfo into PDL.
 def rewriterToRewriteInfo (ast: rewriter) (state: RewriteInfo): RewriteInfo := 
@@ -538,7 +538,7 @@ def rewriterToRewriteInfo (ast: rewriter) (state: RewriteInfo): RewriteInfo :=
       let state := { state with replacements := state.replacements.insert root v }
       rewriterToRewriteInfo ast state
 
-def rewriteInfoToPDL (state: RewriteInfo): Op := 
+def RewriteInfo.toPDL (state: RewriteInfo): Op := 
    let ops := state.replacements.toList.map (fun rootAndReplacement =>
       let root := SSAVal.SSAVal rootAndReplacement.fst
       let replacement := SSAVal.SSAVal rootAndReplacement.snd
@@ -547,19 +547,25 @@ def rewriteInfoToPDL (state: RewriteInfo): Op :=
       let op := op.addArg replacement [mlir_type| !"pdl.value"]
       BasicBlockStmt.StmtOp op
    )
-   let rgn := Region.mk [BasicBlock.mk "entry" [] ops]
    let root := SSAVal.SSAVal state.matchInfo.ops.reverse.head! -- jank!
-   let rewrite := [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : ( !"pdl.value" ) -> ()  ]
-   rewrite
+   let rewrite := Op.empty "pdl.rewrite"
+   let rewrite := rewrite.addArg root [mlir_type| !"pdl.value"]
+   let rewrite := rewrite.appendRegion $ (BasicBlock.empty "entry").appendStmts ops
 
+   -- [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : ( !"pdl.value" ) -> ()  ]
+   -- apend rewrite to matchop
+   let matchop := state.matchInfo.toPDL
+   let matchBB := matchop.singletonRegion.singletonBlock
+   let matchBB := matchBB.appendStmt rewrite
+   let matchop := matchop.mutateSingletonRegion (fun _ => matchBB)
+   matchop
    
 
-def rewriter0pdl: Op := rewriteInfoToPDL $ rewriterToRewriteInfo rewriter0 RewriteInfo.empty
+def rewriter0pdl: Op := (rewriterToRewriteInfo rewriter0 RewriteInfo.empty).toPDL
 #eval IO.eprintln $ Pretty.doc $ rewriter0pdl
 
 def full0pdl : Op := [mlir_op|
    module  {
-         [escape| matcher0pdl]
          [escape| rewriter0pdl]
    }]
 #eval IO.eprintln $ Pretty.doc $ full0pdl

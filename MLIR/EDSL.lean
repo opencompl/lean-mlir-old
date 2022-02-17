@@ -348,7 +348,8 @@ syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
 syntax mlir_attr_val_symbol : mlir_attr_val
-syntax num : mlir_attr_val
+syntax num (":" mlir_type)? : mlir_attr_val
+
 
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
@@ -360,6 +361,11 @@ macro_rules
 
 macro_rules
 | `([mlir_attr_val|  $x:numLit ]) => `(AttrVal.int $x (MLIRTy.int 64))
+| `([mlir_attr_val| $x:numLit : $t:mlir_type]) => `(AttrVal.int $x [mlir_type| $t])
+-- | TODO: how to get mlir_type?
+-- macro_rules
+
+
 
 macro_rules 
   | `([mlir_attr_val| $s:strLit]) => `(AttrVal.str $s)
@@ -599,10 +605,6 @@ macro_rules
      let initList <- `([])
      let argsList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
      let typesList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.snd [mlir_bb_operand| $x]])
-     -- let bb <- `(BasicBlock.empty "entry")
-     -- let bb <-`(($bb).appendStmts [mlir_bb_stmts| $stmts])
-     -- let bb <-`(($bb).setArgs $argsList)
-     -- let rgn <- `(coe $bb)
      let rgn <- `([mlir_region| $rgn])
      let rgn <- `(($rgn).ensureEntryBlock.setEntryBlockArgs $argsList)
      let argTys <- `(($argsList).map Prod.snd)
@@ -621,15 +623,12 @@ macro_rules
 | `([mlir_op| module { $ops* } ]) => do
      let initList <- `([])
      let ops <- ops.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op| $x] ])
+     let ops <- `($ops ++ [Op.empty "module_terminator"])
      let rgn <- `(Region.fromOps $ops)
      `(Op.mk "module" [] [] [$rgn] AttrDict.empty [mlir_type| () -> ()])
 
 def mod1 : Op := [mlir_op| module { }]
 #print mod1
 
--- def mod2 : Op := [mlir_op| module { 
---   func @foo() {
---   }
--- }]
 
 end MLIR.EDSL

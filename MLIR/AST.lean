@@ -294,6 +294,10 @@ def Op.addResult (o: Op) (t: MLIRTy): Op :=
                | _ => MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple [t])
     Op.mk name args bbs regions attrs ty'
 
+def Op.appendRegion (o: Op) (r: Region): Op :=
+  match o with
+  | Op.mk name args bbs regions attrs ty =>
+      Op.mk name args bbs (regions ++ [r]) attrs ty
 
 -- | Note: AttrEntry can be given as String × AttrVal
 def AttrDict.add (attrs: AttrDict) (entry: AttrEntry): AttrDict :=
@@ -339,8 +343,13 @@ instance : ToFormat Op where
 
 
 instance : Inhabited Op where
-  default := Op.mk "INHABITANT" [] [] [] (AttrDict.mk []) (MLIRTy.tuple [])
+  default := Op.empty "INHABITANT" 
 
+instance : Inhabited BasicBlock where
+  default := BasicBlock.empty "INHABITANT"
+
+instance : Inhabited Region where
+  default := Region.empty
 
 instance : Pretty Module where
   doc (m: Module) :=
@@ -360,6 +369,38 @@ match bb with
   | (BasicBlock.mk name _ stmts) => (BasicBlock.mk name args stmts)
 
 def Region.fromOps (os: List Op): Region := Region.mk [BasicBlock.fromOps os]
+
+-- | return the only region in the block
+def Op.singletonRegion (o: Op): Region := 
+  match o.regions with
+  | (r :: []) => r
+  | _ => panic! "expected op with single region: " ++ (doc o)
+
+
+
+
+-- | TODO: defunctionalize the lens?
+@[reducible, simp]
+abbrev lens' s a := ∀ {f: Type -> Type}, 
+   [Functor f] -> [Inhabited (f s)] -> (a -> f a) -> (s -> f s)
+
+def Op.lensSingletonRegion: lens' Op Region := 
+ fun lens o =>
+   match o with
+   | Op.mk name args bbs [r] attrs ty => 
+       Functor.map (fun r' => Op.mk name args bbs [r'] attrs ty) (lens r)
+   | _ => panic! "expected op with single region: " ++ (doc o)
+
+
+def Op.mutateSingletonRegion (o: Op) (f: Region -> Region): Op :=
+ match o with
+ | Op.mk name args bbs [r] attrs ty => Op.mk name args bbs [f r] attrs ty
+ | _ => panic! "expected op with single region: " ++ (doc o)
+
+def Region.singletonBlock (r: Region): BasicBlock := 
+  match r.bbs with
+  | (bb :: []) => bb
+  | _ => panic! "expected region with single bb: " ++ (doc r)
 
 -- | Ensure that region has an entry block.
 def Region.ensureEntryBlock (r: Region): Region := 
