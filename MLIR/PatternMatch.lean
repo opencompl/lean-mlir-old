@@ -603,5 +603,5 @@ def code0 : Op := [mlir_op| module {
     %x = "asm.int" () { "val" = 32 } : () -> (i32)
   }
 }]
-#eval runPattern rewriter0pdl code0 >>= IO.println
+-- #eval runPattern rewriter0pdl code0 >>= IO.println
 
