@@ -54,7 +54,15 @@ partial def ptype_vector : P MLIRTy := do
   let ty <- ptype ()
   pconsume '>'
   return MLIRTy.vector [sz] ty
-  
+
+-- !<ident>.<ident>  
+partial def puser (u: Unit): P MLIRTy := do
+    pconsume '!'
+    let dialect <- pident
+    pconsume '.'
+    let ty <- pident
+    return MLIRTy.user (dialect ++ "." ++ ty)
+
 partial def ptype (u: Unit) : P MLIRTy := do
   eat_whitespace
   let dom <- (match (<- ppeek) with
@@ -65,6 +73,8 @@ partial def ptype (u: Unit) : P MLIRTy := do
                  pconsume 'i'
                  let num <- pnumber
                  return MLIRTy.int num
+             | some '!' => do
+                  puser ()
              | other => do
                 perror ("uknown type starting with |" ++ toString other ++ "|."))
   eat_whitespace
@@ -111,9 +121,17 @@ partial def pattrvalue_dense (u: Unit): P AttrVal := do
   return AttrVal.dense v ty   
 
 
+partial def pattrvalue_list (u: Unit): P AttrVal := do 
+  let ts <- pintercalated '[' (pattrvalue ()) ','  ']'
+  return AttrVal.list ts
+
 partial def pattrvalue (u: Unit): P AttrVal := do
  pnote "hunting for attribute value"
- por pattrvalue_int $ por (pmap AttrVal.str pstr) $ por (pmap AttrVal.type (ptype ()))  (pattrvalue_dense ())
+ por pattrvalue_int $ 
+ por (pmap AttrVal.str pstr) $ 
+ por (pmap AttrVal.type (ptype ())) $
+ por (pattrvalue_list ()) $
+ (pattrvalue_dense ())
 
 partial def pattr : P AttrEntry := do
   eat_whitespace
