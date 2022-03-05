@@ -162,7 +162,8 @@ def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt :=
   let op := Op.empty "pdl.operation"
   let op := argSSAVals.foldl (fun o a => o.addArg a [mlir_type| !"pdl.value"]) op
   let op := op.addResult [mlir_type| !"pdl.value"] 
-  let op := op.addAttr "operand_segment_sizes" [mlir_attr| dense<[1, 0, 1]> : vector<3 : i32> ] 
+  let op := op.addAttr "operand_segment_sizes" (AttrVal.dense_vector [args.length, 0, 0]) 
+  let op := op.addAttr "attributeNames" (AttrVal.list [])
   args ++ [BasicBlockStmt.StmtAssign lhs op]
 
 def MatchInfo.toPDL (m: MatchInfo): Op :=
