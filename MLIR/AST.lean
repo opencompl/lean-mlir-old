@@ -59,12 +59,16 @@ inductive MLIRTy : Type where
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
 
+inductive TensorElem := 
+| int: Int -> TensorElem
+| nested: List TensorElem -> TensorElem
+
 inductive AttrVal : Type where
 | symbol: String -> AttrVal -- symbol ref attr
 | str : String -> AttrVal
 | int : Int -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
-| dense: AttrVal -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
+| dense: TensorElem -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
 | list: List AttrVal -> AttrVal
 
@@ -160,6 +164,13 @@ partial instance :  Pretty MLIRTy where
     go ty
 
 
+partial instance : Pretty TensorElem where
+  doc (t: TensorElem) := 
+    let rec go (t: TensorElem) := 
+      match t with
+       | TensorElem.int i => doc i
+       | TensorElem.nested ts => "[" ++ intercalate_doc (ts.map go) "," ++ "]" 
+    go t
 
 partial instance : Pretty AttrVal where
  doc (v: AttrVal) := 
@@ -169,7 +180,7 @@ partial instance : Pretty AttrVal where
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
-   | AttrVal.dense a ty => "dense<" ++ go a ++ "]>" ++ ":" ++ doc ty
+   | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map go) ", ") ++ "]"
   go v
@@ -191,6 +202,12 @@ instance : Pretty AttrDefn where
         if List.isEmpty attrs
         then Doc.Text ""
         else "{" ++ Doc.Nest (vintercalate_doc attrs ", ")  ++ "}" 
+
+instance : Coe Int TensorElem where 
+  coe (i: Int) := TensorElem.int i
+
+instance : Coe  (List Int) TensorElem where 
+  coe (xs: List Int) := TensorElem.nested (xs.map TensorElem.int) 
 
 instance : Coe (String × AttrVal) AttrEntry where 
   coe (v: String × AttrVal) := AttrEntry.mk v.fst v.snd

@@ -93,10 +93,18 @@ partial def pattrvalue_int : P AttrVal := do
   let ty <- ptype ()
   return AttrVal.int num ty
 
+partial def ptensorelem (u: Unit): P TensorElem := do
+  if (<- ppeek? '[') then
+    let ts <- pintercalated '[' (ptensorelem ()) ','  ']'
+    return TensorElem.nested ts
+  else 
+    let n <- pnumber
+    return TensorElem.int n
+
 partial def pattrvalue_dense (u: Unit): P AttrVal := do
   pident? "dense"
   pconsume '<'
-  let v <- pattrvalue ()
+  let v <- ptensorelem ()
   pconsume '>'
   pconsume ':'
   let ty <- ptype_vector
