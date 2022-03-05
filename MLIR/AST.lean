@@ -52,7 +52,7 @@ inductive MLIRTy : Type where
 | int : Int -> MLIRTy
 | float: Int -> MLIRTy
 | tuple : List MLIRTy -> MLIRTy
-| vector: Int -> MLIRTy -> MLIRTy
+| vector: List Dimension -> MLIRTy -> MLIRTy
 | tensor: List Dimension -> MLIRTy -> MLIRTy
 | user: String -> MLIRTy -- user defined type
 
@@ -64,7 +64,7 @@ inductive AttrVal : Type where
 | str : String -> AttrVal
 | int : Int -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
-| dense: Int -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
+| dense: AttrVal -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
 | list: List AttrVal -> AttrVal
 
@@ -155,7 +155,7 @@ partial instance :  Pretty MLIRTy where
     | MLIRTy.float k => "f" ++ doc k
     | MLIRTy.tuple ts => "(" ++ (intercalate_doc (ts.map go) (doc ", ") ) ++ ")"
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
-    | MLIRTy.vector sz ty => "vector<" ++ toString sz ++ "x" ++ go ty ++ ">"
+    | MLIRTy.vector dims ty => "vector<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
     | MLIRTy.tensor dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
     go ty
 
@@ -169,7 +169,7 @@ partial instance : Pretty AttrVal where
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
-   | AttrVal.dense i ty => "dense<" ++ doc i ++ ">" ++ ":" ++ doc ty
+   | AttrVal.dense a ty => "dense<" ++ go a ++ "]>" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map go) ", ") ++ "]"
   go v
@@ -304,10 +304,10 @@ def AttrDict.add (attrs: AttrDict) (entry: AttrEntry): AttrDict :=
     coe $ (entry :: coe attrs)
 
 -- | Note: AttrEntry can be given as String × AttrVal
-def Op.addAttr (o: Op) (k: String) (entry: AttrEntry): Op :=
+def Op.addAttr (o: Op) (k: String) (v: AttrVal): Op :=
  match o with
  | Op.mk name args bbs regions attrs ty => 
-    Op.mk name args bbs regions (attrs.add entry) ty
+    Op.mk name args bbs regions (attrs.add (k, v)) ty
 
 def BasicBlock.empty (name: String): BasicBlock := BasicBlock.mk name [] []
 def BasicBlock.appendStmt (bb: BasicBlock) (stmt: BasicBlockStmt): BasicBlock := 

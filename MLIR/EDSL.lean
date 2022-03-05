@@ -19,6 +19,7 @@ declare_syntax_cat affine_expr
 declare_syntax_cat affine_tuple
 declare_syntax_cat affine_map 
 
+
 syntax ident : affine_expr
 syntax "(" sepBy(affine_expr, ",") ")" : affine_tuple
 syntax "affine_map<" affine_tuple "->" affine_tuple ">" : affine_map
@@ -198,8 +199,19 @@ def dim0 := [mlir_dimension| 30]
 def dim1 := [mlir_dimension| ?]
 #print dim1
 
--- 
--- 
+
+-- TODO: where is vector type syntax defined?
+-- | TODO: fix bug that does not allow a trailing times.
+-- The grammar should be: 
+-- syntax "vector" "<" sepBy1(mlir_dimension, "×") "×" mlir_type ">"  : mlir_type
+syntax "vector" "<" sepBy1(mlir_dimension, "×") ":" mlir_type ">"  : mlir_type
+macro_rules
+| `([mlir_type| vector < $[ $dims ]×* : $ty:mlir_type  >]) => do
+    let initList <- `([])
+    let dimsList <- dims.foldlM (init := initList) fun ds d => `($ds ++ [[mlir_dimension| $d]])
+    `(MLIRTy.vector $dimsList [mlir_type| $ty])
+
+
 -- | TODO: fix bug that does not allow a trailing times.
 
 syntax "tensor" "<" sepBy1(mlir_dimension, "×") ":" mlir_type ">"  : mlir_type
@@ -339,6 +351,7 @@ macro_rules
 -- MLIR ATTRIBUTE VALUE
 -- ====================
 
+-- | TODO: consider renaming this to mlir_attr
 declare_syntax_cat mlir_attr_val
 declare_syntax_cat mlir_attr_val_symbol
 syntax "@" str : mlir_attr_val_symbol
@@ -354,7 +367,13 @@ syntax num (":" mlir_type)? : mlir_attr_val
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
 
+syntax "dense<" mlir_attr_val  ">" ":" mlir_type : mlir_attr_val
+
 syntax "[mlir_attr_val|" mlir_attr_val "]" : term
+
+syntax "[mlir_attr|" mlir_attr_val "]" : term
+macro_rules
+| `([mlir_attr|  $x ]) => `([mlir_attr_val| $x ])
 
 macro_rules
 | `([mlir_attr_val| [escape| $x:term ] ]) => `($x)
@@ -374,6 +393,11 @@ macro_rules
         let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_val| $x]]) 
         `(AttrVal.list $vals)
   | `([mlir_attr_val| $ty:mlir_type]) => `(AttrVal.type [mlir_type| $ty])
+
+
+macro_rules
+| `([mlir_attr_val| dense< $v:mlir_attr_val > : $t:mlir_type]) => 
+    `(AttrVal.dense [mlir_attr_val| $v] [mlir_type| $t])
 
 macro_rules
   | `([mlir_attr_val| $a:affine_map]) =>

@@ -148,51 +148,28 @@ def opOperandsToPDL (ops: List String) (args: RBMap Nat String compare) (parent:
 
 
 def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt := 
-let args? :=  m.opArgs.find? parentName
-let kind? := m.kinds.find? parentName 
-let lhs := SSAVal.SSAVal parentName
-let (op, args) : Op × List BasicBlockStmt := 
-  match (args?, kind?) with
-          | (some args, some kind) => 
-              let args :=  (opOperandsToPDL m.ops args (SSAVal.SSAVal parentName))
-              let argSSAVals := args.bind 
-                (fun arg => match arg with
-                     | BasicBlockStmt.StmtAssign lhs _ => [lhs]
-                     | BasicBlockStmt.StmtOp _ => [])
-              let op := Op.empty "pdl.operation"
-              let op := argSSAVals.foldl (fun o a => o.addArg a [mlir_type| !"pdl.value"]) op
-              let op := op.addResult [mlir_type| !"pdl.value"] 
-              (op, args)
-              
-          | (some args, none) =>  
-              let op := Op.empty "pdl.operation"
-              let args := (opOperandsToPDL m.ops args (SSAVal.SSAVal parentName))
-              let argSSAVals := args.bind 
-                (fun arg => match arg with
-                     | BasicBlockStmt.StmtAssign lhs _ => [lhs]
-                     | BasicBlockStmt.StmtOp _ => [])
-              (op, args)
-          | (none, some kind) => 
-              let op := Op.empty "pdl.operation"
-              let op := op.addResult [mlir_type| !"pdl.value"] 
-              let args := []
-              (op, args)
-          | (none, none) =>  
-            let op := Op.empty "pdl.operation"
-            let op := op.addResult [mlir_type| !"pdl.value"] 
-            let args := []
-            (op, args)
- args ++ [BasicBlockStmt.StmtAssign lhs op]
-
+  let args? :=  m.opArgs.find? parentName
+  let kind? := m.kinds.find? parentName -- where is this supposed to be used?
+  let lhs := SSAVal.SSAVal parentName
+  let args : List BasicBlockStmt :=
+    match args? with
+    | some args => (opOperandsToPDL m.ops args (SSAVal.SSAVal parentName))
+    | none => []
+  let argSSAVals := args.bind 
+    (fun arg => match arg with
+          | BasicBlockStmt.StmtAssign lhs _ => [lhs]
+          | BasicBlockStmt.StmtOp _ => [])
+  let op := Op.empty "pdl.operation"
+  let op := argSSAVals.foldl (fun o a => o.addArg a [mlir_type| !"pdl.value"]) op
+  let op := op.addResult [mlir_type| !"pdl.value"] 
+  let op := op.addAttr "operand_segment_sizes" [mlir_attr| dense<[1, 0, 1]> : vector<3 : i32> ] 
+  args ++ [BasicBlockStmt.StmtAssign lhs op]
 
 def MatchInfo.toPDL (m: MatchInfo): Op :=
  -- let stmts := m.ops.reverse.map (opToPDL m)
  let stmts := m.ops.map (opToPDL m)
  let rgn := Region.mk [BasicBlock.mk "entry" [] stmts.join]
  [mlir_op| "pdl.pattern" () ([escape| rgn]) { "benefit" = 1 : i16 } : () -> ()  ]
-
-
-                      
 
 
 -- | TODO: monadify this.
@@ -603,5 +580,7 @@ def code0 : Op := [mlir_op| module {
     %x = "asm.int" () { "val" = 32 } : () -> (i32)
   }
 }]
--- #eval runPattern rewriter0pdl code0 >>= IO.println
 
+#eval runPattern rewriter0pdl code0 >>= IO.println
+
+  

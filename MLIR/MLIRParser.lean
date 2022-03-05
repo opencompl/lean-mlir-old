@@ -39,15 +39,21 @@ partial def pregion (u: Unit) : P Region :=  do
   return (Region.mk (b::bs))
 
 
+partial def pdim : P Dimension := do
+  if (<- ppeek? '?')
+  then return Dimension.Unknown
+  else do 
+    let sz <- pnumber
+    return Dimension.Known sz
 
 partial def ptype_vector : P MLIRTy := do
   pident? "vector"
   pconsume '<'
-  let sz <- pnumber
+  let sz <- pdim
   pconsume 'x'
   let ty <- ptype ()
   pconsume '>'
-  return MLIRTy.vector sz ty
+  return MLIRTy.vector [sz] ty
   
 partial def ptype (u: Unit) : P MLIRTy := do
   eat_whitespace
@@ -87,28 +93,26 @@ partial def pattrvalue_int : P AttrVal := do
   let ty <- ptype ()
   return AttrVal.int num ty
 
-partial def pattrvalue_dense : P AttrVal := do
+partial def pattrvalue_dense (u: Unit): P AttrVal := do
   pident? "dense"
   pconsume '<'
-  let v <- pnumber
+  let v <- pattrvalue ()
   pconsume '>'
   pconsume ':'
   let ty <- ptype_vector
-  return AttrVal.dense v ty
-   
-  
-  
- 
-partial def pattrvalue : P AttrVal := do
+  return AttrVal.dense v ty   
+
+
+partial def pattrvalue (u: Unit): P AttrVal := do
  pnote "hunting for attribute value"
- por pattrvalue_int $ por (pmap AttrVal.str pstr) $ por (pmap AttrVal.type (ptype ())) pattrvalue_dense
+ por pattrvalue_int $ por (pmap AttrVal.str pstr) $ por (pmap AttrVal.type (ptype ()))  (pattrvalue_dense ())
 
 partial def pattr : P AttrEntry := do
   eat_whitespace
   let name <- pident
   eat_whitespace
   pconsume '='
-  let value <- pattrvalue
+  let value <- pattrvalue ()
   return (AttrEntry.mk name value)
 
   
