@@ -117,22 +117,32 @@ match m with
  | (matcher.built) =>  prev
 
 
+-- | %ty = pdl.type 
+-- | // right operand of add.
+-- | %add_right_rand = pdl.operand : %ty
+-- 
+-- //       %0 = "pdl.type"() : () -> !pdl.type
+-- //       %1 = "pdl.operand"(%0) : (!pdl.type) -> !pdl.value
+-- 
 -- | an op operand that is not defined by an operation needs a pdl.operand
 def freePDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
     -- | TODO: cleanup, somehow auomatically generate the correct type?
   -- (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
     let attr := [mlir_attr_dict| { "index" = 42 } ] -- [escape| AttrVal.int ix (MLIRTy.int 32) ] }]
     let rhs := Op.empty "pdl.operand"
-    let rhs := rhs.addArg parent [mlir_type| !"pdl.operation"]  -- [parent] [] [] attr [mlir_type| ()]
-    let rhs := rhs.addResult [mlir_type| !"pdl.operation"]
+    -- let rhs := rhs.addArg parent [mlir_type| !"pdl.operation"]  -- [parent] [] [] attr [mlir_type| ()]
+    let rhs := rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := match parent with 
       | SSAVal.SSAVal parentName => (SSAVal.SSAVal $ operandName)
     [BasicBlockStmt.StmtAssign lhs rhs]
 
 def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
-    let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
+    -- let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
     let rhs := Op.empty "pdl.result"
-    let rhs :=rhs.addResult [mlir_type| !"pdl.operation"]
+    let rhs := rhs.addAttr "index" (AttrVal.int ix (MLIRTy.int 32))
+    -- let rhs := rhs.addArg parent [mlir_type| !"pdl.operation"] -- lol what? the parent info is broken
+    let rhs := rhs.addArg (SSAVal.SSAVal $ operandName) [mlir_type| !"pdl.operation"]
+    let rhs := rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := SSAVal.SSAVal $ operandName ++ "_result"
     [BasicBlockStmt.StmtAssign lhs rhs]
 
@@ -160,7 +170,10 @@ def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt :=
           | BasicBlockStmt.StmtAssign lhs _ => [lhs]
           | BasicBlockStmt.StmtOp _ => [])
   let op := Op.empty "pdl.operation"
-  let op := argSSAVals.foldl (fun o a => o.addArg a [mlir_type| !"pdl.operation"]) op
+  let op := match kind? with 
+    | some kind => op.addAttr "name" kind
+    | none => op
+  let op := argSSAVals.foldl (fun o a => o.addArg a [mlir_type| !"pdl.value"]) op
   let op := op.addResult [mlir_type| !"pdl.operation"] 
   let op := op.addAttr "operand_segment_sizes" (AttrVal.dense_vector [args.length, 0, 0]) 
   let op := op.addAttr "attributeNames" (AttrVal.list [])
@@ -522,13 +535,15 @@ def RewriteInfo.toPDL (state: RewriteInfo): Op :=
       let replacement := SSAVal.SSAVal rootAndReplacement.snd
       let op : Op := Op.empty "pdl.replace"
       let op := op.addArg root [mlir_type| !"pdl.operation"]
-      let op := op.addArg replacement [mlir_type| !"pdl.operation"]
+      let op := op.addArg replacement [mlir_type| !"pdl.value"]
       BasicBlockStmt.StmtOp op
    )
    let root := SSAVal.SSAVal state.matchInfo.ops.reverse.head! -- jank!
    let rewrite := Op.empty "pdl.rewrite"
    let rewrite := rewrite.addArg root [mlir_type| !"pdl.operation"]
-   let rewrite := rewrite.appendRegion $ (BasicBlock.empty "entry").appendStmts ops
+   let bb := (BasicBlock.empty "entry").appendStmts ops
+   let bb := bb.appendStmt (Op.empty "pdl.rewrite_end")
+   let rewrite := rewrite.appendRegion bb
 
    -- [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : ( !"pdl.value" ) -> ()  ]
    -- apend rewrite to matchop

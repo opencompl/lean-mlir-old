@@ -37,3 +37,29 @@ module @ir attributes { test.mlp_split } {
   }
 }
 
+// "module"() ( {
+//   "module"() ( {
+//     "pdl.pattern"() ( {
+//       %0 = "pdl.type"() : () -> !pdl.type
+//       %1 = "pdl.operand"(%0) : (!pdl.type) -> !pdl.value
+//       %2 = "pdl.operation"(%0) {attributeNames = [], name = "asm.zero", operand_segment_sizes = dense<[0, 0, 1]> : vector<3xi32>} : (!pdl.type) -> !pdl.operation
+//       %3 = "pdl.result"(%2) {index = 0 : i32} : (!pdl.operation) -> !pdl.value
+//       %4 = "pdl.operation"(%3, %1, %0) {attributeNames = [], name = "asm.add", operand_segment_sizes = dense<[2, 0, 1]> : vector<3xi32>} : (!pdl.value, !pdl.value, !pdl.type) -> !pdl.operation
+//       "pdl.rewrite"(%4) ( {
+//         "pdl.replace"(%4, %1) {operand_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : (!pdl.operation, !pdl.value) -> ()
+//         "pdl.rewrite_end"() : () -> ()
+//       }) : (!pdl.operation) -> ()
+//     }) {benefit = 1 : i16} : () -> ()
+//     "module_terminator"() : () -> ()
+//   }) {sym_name = "patterns"} : () -> ()
+//   "module"() ( {
+//     "func"() ( {
+//     ^bb0(%arg0: i32):  // no predecessors
+//       %0 = "asm.zero"() : () -> i32
+//       %1 = "asm.add"(%0, %arg0) : (i32, i32) -> i32
+//       "std.return"(%1) : (i32) -> ()
+//     }) {sym_name = "main", type = (i32) -> i32} : () -> ()
+//     "module_terminator"() : () -> ()
+//   }) {sym_name = "ir", test.mlp_split} : () -> ()
+//   "module_terminator"() : () -> ()
+// }) : () -> ()

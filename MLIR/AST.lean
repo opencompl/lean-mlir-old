@@ -209,6 +209,13 @@ instance : Coe Int TensorElem where
 instance : Coe  (List Int) TensorElem where 
   coe (xs: List Int) := TensorElem.nested (xs.map TensorElem.int) 
 
+instance : Coe String AttrVal where 
+  coe (s: String) := AttrVal.str s
+
+instance : Coe Int AttrVal where 
+  coe (i: Int) := AttrVal.int i (MLIRTy.int 64)
+
+
 def AttrVal.dense_vector (xs: List Int) (ity: MLIRTy := MLIRTy.int 32): AttrVal :=
   let vshape := [Dimension.Known (xs.length)]
   let vty := MLIRTy.vector vshape ity 
