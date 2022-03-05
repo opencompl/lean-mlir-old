@@ -648,7 +648,10 @@ macro_rules
      let rgn <- `(($rgn).ensureEntryBlock.setEntryBlockArgs $argsList)
      let argTys <- `(($argsList).map Prod.snd)
      let ty <-  `(MLIRTy.fn (MLIRTy.tuple $typesList) MLIRTy.unit)
-     `(Op.mk "func" [] [] [$rgn] AttrDict.empty $ty)
+     let attrs <- `(AttrDict.empty.addType "type" $ty)
+     let attrs <- `(($attrs).addString "sym_name" $name)
+
+     `(Op.mk "func" [] [] [$rgn] $attrs $ty)
 
 
 def func1 : Op := [mlir_op| func @"main"() {

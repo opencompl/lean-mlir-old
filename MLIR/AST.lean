@@ -215,6 +215,9 @@ instance : Coe String AttrVal where
 instance : Coe Int AttrVal where 
   coe (i: Int) := AttrVal.int i (MLIRTy.int 64)
 
+instance : Coe MLIRTy AttrVal where 
+  coe (t: MLIRTy) := AttrVal.type t
+
 
 def AttrVal.dense_vector (xs: List Int) (ity: MLIRTy := MLIRTy.int 32): AttrVal :=
   let vshape := [Dimension.Known (xs.length)]
@@ -224,10 +227,14 @@ def AttrVal.dense_vector (xs: List Int) (ity: MLIRTy := MLIRTy.int 32): AttrVal 
 instance : Coe (String × AttrVal) AttrEntry where 
   coe (v: String × AttrVal) := AttrEntry.mk v.fst v.snd
 
+instance : Coe (String × MLIRTy) AttrEntry where 
+  coe (v: String × MLIRTy) := AttrEntry.mk v.fst (AttrVal.type v.snd)
+
 instance : Coe  AttrEntry (String × AttrVal) where 
   coe (v: AttrEntry) := 
   match v with
   | AttrEntry.mk key val => (key, val)
+
 
 instance : Coe (List AttrEntry) AttrDict where 
   coe (v: List AttrEntry) := AttrDict.mk v
@@ -331,6 +338,13 @@ def Op.appendRegion (o: Op) (r: Region): Op :=
 -- | Note: AttrEntry can be given as String × AttrVal
 def AttrDict.add (attrs: AttrDict) (entry: AttrEntry): AttrDict :=
     coe $ (entry :: coe attrs)
+
+def AttrDict.addString (attrs: AttrDict) (k: String) (v: String): AttrDict :=
+    coe $ ((AttrEntry.mk k (coe v)) :: coe attrs)
+
+def AttrDict.addType (attrs: AttrDict) (k: String) (v: MLIRTy): AttrDict :=
+    coe $ ((AttrEntry.mk k (coe v)) :: coe attrs)
+
 
 -- | Note: AttrEntry can be given as String × AttrVal
 def Op.addAttr (o: Op) (k: String) (v: AttrVal): Op :=

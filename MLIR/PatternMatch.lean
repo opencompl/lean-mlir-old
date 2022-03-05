@@ -536,6 +536,7 @@ def RewriteInfo.toPDL (state: RewriteInfo): Op :=
       let op : Op := Op.empty "pdl.replace"
       let op := op.addArg root [mlir_type| !"pdl.operation"]
       let op := op.addArg replacement [mlir_type| !"pdl.value"]
+      let op := op.addAttr "operand_segment_sizes" (AttrVal.dense_vector [1, 0, 1])
       BasicBlockStmt.StmtOp op
    )
    let root := SSAVal.SSAVal state.matchInfo.ops.reverse.head! -- jank!
@@ -574,7 +575,11 @@ def runPattern (rewrite: Op) (code: Op): IO (Option Op) := do
   let outstr := "// RUN: mlir-opt %s  -allow-unregistered-dialect -test-pdl-bytecode-pass \n" ++ 
       (Pretty.doc combinedModule)
   IO.FS.writeFile filepath outstr
-  let new_mod_str <- IO.Process.run { cmd := "mlir-opt", args := #["-allow-unregistered-dialect", "-test-pdl-bytecode-pass", filepath] }
+  let args := #["-allow-unregistered-dialect"
+               , "-test-pdl-bytecode-pass"
+               , "--mlir-print-op-generic"
+               , filepath]
+  let new_mod_str <- IO.Process.run { cmd := "mlir-opt", args := args }
   let notes := []
   let (loc, notes, _, res) <-  (pop ()).runP locbegin notes new_mod_str
   IO.eprintln (vgroup $ notes.map (note_add_file_content new_mod_str))
@@ -596,6 +601,7 @@ def code0 : Op := [mlir_op| module {
     %x = "asm.int" () { "val" = 32 } : () -> (i32)
   }
 }]
+
 
 #eval runPattern rewriter0pdl code0 >>= IO.println
 
