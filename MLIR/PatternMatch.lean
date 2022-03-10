@@ -300,7 +300,7 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
       | some kind => s := s ++  kind ++ "["
       | none => s := s ++ "??? ["
       
-      HACK
+      -- HACK
       match matchinfo.opArgs.find? opName with
       | none => s := s -- TODO: what the fuck? why do I need this over () 
       | some args =>

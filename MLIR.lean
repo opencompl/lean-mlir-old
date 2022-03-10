@@ -46,7 +46,7 @@ def main (xs: List String): IO Unit := do
     -- IO.eprintln MLIR.EDSL.opRgnAttr0
     IO.eprintln "PARSING\n=======\n"
     let ns := []
-    let (loc, ns, _, res) <-  (pop ()).runP locbegin ns contents
+    let (loc, ns, _, res) := (pop ()).runP locbegin ns contents
     IO.eprintln (vgroup $ ns.map (note_add_file_content contents))
     match res with
      | Result.ok op => do
