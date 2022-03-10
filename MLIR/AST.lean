@@ -73,6 +73,7 @@ inductive AttrVal : Type where
 | list: List AttrVal -> AttrVal
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
+-- | TODO: add support for mutually inductive records / structures
 inductive AttrEntry : Type where
   | mk: (key: String) 
       -> (value: AttrVal)
@@ -128,6 +129,7 @@ def Op.attrs: Op ->  AttrDict
 def Op.ty: Op ->  MLIRTy
 | Op.mk name args bbs regions attrs ty => ty
 
+ 
 def Region.bbs (r: Region): List BasicBlock :=
   match r with
   | (Region.mk bbs) => bbs
@@ -306,6 +308,15 @@ partial def rgn_to_doc(rgn: Region): Doc :=
  
 end
 
+def AttrEntry.key (a: AttrEntry): String :=
+match a with 
+| AttrEntry.mk k v => k
+
+def AttrEntry.value (a: AttrEntry): AttrVal :=
+match a with 
+| AttrEntry.mk k v => v
+
+
 def MLIRTy.unit : MLIRTy := MLIRTy.tuple []
 def AttrDict.empty : AttrDict := AttrDict.mk []
 
@@ -335,15 +346,23 @@ def Op.appendRegion (o: Op) (r: Region): Op :=
   | Op.mk name args bbs regions attrs ty =>
       Op.mk name args bbs (regions ++ [r]) attrs ty
 
+
 -- | Note: AttrEntry can be given as String × AttrVal
 def AttrDict.add (attrs: AttrDict) (entry: AttrEntry): AttrDict :=
-    coe $ (entry :: coe attrs)
+    Coe.coe $ (entry :: Coe.coe attrs)
+
+def AttrDict.find (attrs: AttrDict) (name: String): Option AttrVal :=
+  match attrs with
+  | AttrDict.mk entries => 
+      match entries.find? (fun entry => entry.key == name) with
+      | some v => v.value
+      | none => none
 
 def AttrDict.addString (attrs: AttrDict) (k: String) (v: String): AttrDict :=
-    coe $ ((AttrEntry.mk k (coe v)) :: coe attrs)
+    Coe.coe $ ((AttrEntry.mk k (Coe.coe v)) :: Coe.coe attrs)
 
 def AttrDict.addType (attrs: AttrDict) (k: String) (v: MLIRTy): AttrDict :=
-    coe $ ((AttrEntry.mk k (coe v)) :: coe attrs)
+    Coe.coe $ ((AttrEntry.mk k (Coe.coe v)) :: Coe.coe attrs)
 
 
 -- | Note: AttrEntry can be given as String × AttrVal
@@ -364,7 +383,7 @@ def BasicBlock.appendStmts (bb: BasicBlock) (stmts: List BasicBlockStmt): BasicB
 def Region.empty: Region := Region.mk [] 
 
 def Region.appendBasicBlock (r: Region) (bb: BasicBlock) : Region := 
-  coe (coe r ++ [bb])
+  Coe.coe (Coe.coe r ++ [bb])
 
 instance : Pretty Op where
   doc := op_to_doc
@@ -419,26 +438,128 @@ def Op.singletonRegion (o: Op): Region :=
   | (r :: []) => r
   | _ => panic! "expected op with single region: " ++ (doc o)
 
-
-
-
--- | TODO: defunctionalize the lens?
-@[reducible, simp]
-abbrev lens' s a := ∀ {f: Type -> Type}, 
-   [Functor f] -> [Inhabited (f s)] -> (a -> f a) -> (s -> f s)
-
-def Op.lensSingletonRegion: lens' Op Region := 
- fun lens o =>
-   match o with
-   | Op.mk name args bbs [r] attrs ty => 
-       Functor.map (fun r' => Op.mk name args bbs [r'] attrs ty) (lens r)
-   | _ => panic! "expected op with single region: " ++ (doc o)
-
-
 def Op.mutateSingletonRegion (o: Op) (f: Region -> Region): Op :=
  match o with
  | Op.mk name args bbs [r] attrs ty => Op.mk name args bbs [f r] attrs ty
  | _ => panic! "expected op with single region: " ++ (doc o)
+
+
+
+
+mutual
+inductive OpLens: Type _ -> Type _ where
+| region: Nat -> RegionLens (o: Type _) -> OpLens o
+| id: OpLens (ULift Op)
+
+inductive RegionLens: Type _ -> Type _ where
+| block: Nat -> BasicBlockLens (o: Type u) -> RegionLens o
+| id: RegionLens (ULift Region)
+
+inductive BasicBlockLens: Type _ -> Type _ where
+| op: Nat -> OpLens (o: Type u) -> BasicBlockLens o
+| id: BasicBlockLens (ULift BasicBlock)
+end 
+
+
+-- | defunctionalized lens where `s` is lensed by `l t` to produce a `t`
+class Lensed (s: Type _) (l: Type _ -> Type _) where
+  lensId: l (ULift s) -- create the identity lens for this source
+  -- view: s -> l t -> t -- view using the lens at the target
+  update: [Applicative f] -> l t -> (t -> f t) -> (s -> f s)
+
+
+-- | ignore the x
+structure PointedConst (t: Type) (v: t) (x: Type) where
+  (val: t) 
+
+
+instance : Coe (PointedConst t v x) (PointedConst t v y) where 
+  coe a := { val := a.val }
+
+instance: Functor (PointedConst t v) where 
+  map f p := p
+
+instance: Pure (PointedConst t v) where 
+  pure x := PointedConst.mk v
+
+instance: SeqLeft (PointedConst t v) where 
+  seqLeft pc _ := pc
+
+instance: SeqRight (PointedConst t v) where 
+  seqRight pc _ := pc
+
+instance: Seq (PointedConst t v) where 
+  seq f pc := pc ()
+
+instance : Applicative (PointedConst t v) where 
+  map      := fun x y => Seq.seq (pure x) fun _ => y
+  seqLeft  := fun a b => Seq.seq (Functor.map (Function.const _) a) b
+  seqRight := fun a b => Seq.seq (Functor.map (Function.const _ id) a) b
+
+
+def Lensed.get [Lensed s l] (lens: l t) (sval: s) (default_t: t): t := 
+  (Lensed.update lens (fun t => @PointedConst.mk _ default_t _ t) sval).val
+
+def Lensed.set [Lensed s l] (lens: l t) (sval: s) (tnew: t): s := 
+  Lensed.update (f := Id) lens (fun t => tnew) sval
+
+def Lensed.map [Lensed s l] (lens: l t) (sval: s) (tfun: t -> t): s := 
+  Lensed.update (f := Id) lens tfun sval 
+
+def Lensed.mapM [Lensed s l]  [Monad m] (lens: l t) (sval: s) (tfun: t -> m t): m s := 
+  Lensed.update lens tfun sval 
+
+-- | TODO: for now, when lens fails, we just return.
+mutual
+def oplens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: OpLens t) (transform: t -> f t) (src: Op) : f Op := 
+    match lens with
+    | OpLens.id => Functor.map ULift.down $ transform (ULift.up src)
+    | OpLens.region ix rlens => 
+      match src with 
+      | Op.mk name args bbs  regions attrs ty => 
+      match regions.get? ix with
+      | none => Pure.pure src 
+      | some r =>  Functor.map (fun r => Op.mk name args bbs (regions.set ix r) attrs ty)
+                               (regionlens_update rlens transform r) 
+  
+def regionlens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: RegionLens t) (transform: t -> f t) (src: Region) : f Region := 
+    match lens with
+    | RegionLens.id => Functor.map ULift.down $ transform (ULift.up src)
+    | RegionLens.block ix bblens =>
+      match src with 
+      | Region.mk bbs => 
+        match bbs.get? ix with
+        | none => Pure.pure src 
+        | some bb =>  Functor.map (fun bb => Region.mk (bbs.set ix bb)) (blocklens_update bblens transform bb) 
+
+
+def blocklens_update {f: Type -> Type} {t: Type}[Applicative f] (lens: BasicBlockLens t) (transform: t -> f t) (src: BasicBlock) : f BasicBlock := 
+    match lens with
+    | BasicBlockLens.id => Functor.map ULift.down $ transform (ULift.up src)
+    | BasicBlockLens.op ix oplens => 
+      match src with 
+      | BasicBlock.mk name args ops => 
+        match ops.get? ix with
+        | none => Pure.pure src 
+        | some stmt => 
+            let stmt := match stmt with 
+            | BasicBlockStmt.StmtAssign lhs op => (BasicBlockStmt.StmtAssign lhs) <$> (oplens_update oplens transform op)  
+            | BasicBlockStmt.StmtOp op => BasicBlockStmt.StmtOp <$> (oplens_update oplens transform op)
+            (fun stmt => BasicBlock.mk name args (ops.set ix stmt)) <$> stmt
+
+end
+
+instance : Lensed Op OpLens where
+  lensId := OpLens.id
+  update := oplens_update
+
+instance : Lensed Region RegionLens where
+  lensId := RegionLens.id
+  update := regionlens_update
+
+instance : Lensed BasicBlock BasicBlockLens where
+  lensId := BasicBlockLens.id
+  update := blocklens_update
 
 def Region.singletonBlock (r: Region): BasicBlock := 
   match r.bbs with

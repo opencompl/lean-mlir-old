@@ -79,7 +79,7 @@ syntax "[escape|" term "]" : mlir_op_operand
 syntax "[mlir_op_operand| " mlir_op_operand "]" : term -- translate operands into term
 macro_rules
   | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
-  | `([mlir_op_operand| [escape| $t:term ] ]) => t
+  | `([mlir_op_operand| [escape| $t:term ] ]) => return t
 
 def operand0 := [mlir_op_operand| %x]
 #print operand0
@@ -153,7 +153,7 @@ def tyf32NoGap : MLIRTy := [mlir_type| f32]
 #eval tyf32NoGap
 
 macro_rules
-| `([mlir_type| {{ $t }} ]) => t -- antiquot type
+| `([mlir_type| {{ $t }} ]) => return t -- antiquot type
 
 macro_rules
   | `([mlir_type| ( ) ]) => `(MLIRTy.tuple [])
@@ -251,7 +251,7 @@ macro_rules
        `(BasicBlockStmt.StmtOp ([mlir_op| $call]))
   | `([mlir_bb_stmt| $res:mlir_op_operand = $call:mlir_op]) => 
        `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) ([mlir_op| $call]))
-  | `([mlir_bb_stmt| {{ $t }} ]) => t
+  | `([mlir_bb_stmt| {{ $t }} ]) => return t
 
 macro_rules
 | `([mlir_bb_stmt| [escape| $t ]]) => `(coe $t)
@@ -291,7 +291,7 @@ macro_rules
 
 syntax "[escape|" term "]" : mlir_bb_stmts
 macro_rules 
-| `([mlir_bb_stmts| [escape| $t ] ]) => t
+| `([mlir_bb_stmts| [escape| $t ] ]) => return t
 
 
 syntax "[mlir_bb|" mlir_bb "]": term
@@ -344,7 +344,7 @@ macro_rules
    `(Region.mk $bbsList)
 
 macro_rules
-| `([mlir_region| [escape| $t: term ] ]) => t
+| `([mlir_region| [escape| $t: term ] ]) => return t
 
 
 -- TENSOR LITERAL
@@ -492,7 +492,7 @@ syntax strLit "(" mlir_op_operand,* ")"
 
 syntax "[escape|" term "]" : mlir_op
 macro_rules 
-  | `([mlir_op| [escape| $x ] ]) => x
+  | `([mlir_op| [escape| $x ] ]) => return x
 
 macro_rules 
   | `([mlir_op| $name:strLit 

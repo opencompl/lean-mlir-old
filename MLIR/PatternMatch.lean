@@ -208,7 +208,7 @@ match m with
         then return Right ({ prev with focus := n })
         else  -- | add new op
           return Right ({ prev with focus := n, ops := n::prev.ops })
-      | _ =>  (Left m)
+      | _ =>  return (Left m)
 | `(matcher.kind? $kind $m) => do
     let eprev <- matcherToMatchInfoStx m
     match eprev with
@@ -223,7 +223,7 @@ match m with
 | `(matcher.arg? $ix $name $m) => do
     let eprev <- matcherToMatchInfoStx m
     match eprev with
-    | Left stx => Left stx
+    | Left stx => return (Left stx)
     | Right prev => 
       match (ix.isNatLit?, name.isStrLit?) with
       | (some ix, some name) => 
@@ -231,11 +231,11 @@ match m with
           | none => RBMap.fromList [(ix, name)] compare
           | some args => args.insert ix name
         return Right { prev with opArgs := prev.opArgs.insert prev.focus args }
-      | _ => Left m -- prev 
+      | _ => return (Left m) -- prev 
 | `(matcher.erase! $m) => do 
     let eprev <- matcherToMatchInfoStx m
     match eprev with
-    | Left stx => Left stx
+    | Left stx => return (Left stx)
     | Right prev => 
         let newFocus := "???"
         let newOps := prev.ops.filter (fun op => op != prev.focus)
@@ -243,7 +243,7 @@ match m with
 | `(matcher.replaceOperand! $oldrand $newrand $m) => do 
     let eprev <- matcherToMatchInfoStx m
     match eprev with
-    | Left stx => Left stx
+    | Left stx => return (Left stx)
     | Right prev => 
         match (oldrand.isStrLit?, newrand.isStrLit?) with
         | (some oldrand, some newrand) => 
@@ -286,7 +286,7 @@ partial def stx_vgroup_strings (ss: Array String)
 partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
   let ematchinfo <- matcherToMatchInfoStx m
   match ematchinfo with
-  | Left err => err
+  | Left err => return err
   | Right matchinfo => 
     let mut prettyOps : Array String := #[]
     for opName in matchinfo.ops do
@@ -300,13 +300,14 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
       | some kind => s := s ++  kind ++ "["
       | none => s := s ++ "??? ["
       
+      HACK
       match matchinfo.opArgs.find? opName with
-      | none => ()
+      | none => s := s -- TODO: what the fuck? why do I need this over () 
       | some args =>
         for (argix, argname) in args do 
           s := s ++ "(arg" ++ toString argix ++ "=%" ++ argname ++ ")" ++ " "
       s := s ++ "]"
-      prettyOps := prettyOps.push s
+    --   prettyOps := prettyOps.push s
     -- `($(Lean.quote prettyOps))
     let mut outstr : String := "-----\n"
     for s in prettyOps do
@@ -581,7 +582,7 @@ def runPattern (rewrite: Op) (code: Op): IO (Option Op) := do
                , filepath]
   let new_mod_str <- IO.Process.run { cmd := "mlir-opt", args := args }
   let notes := []
-  let (loc, notes, _, res) <-  (pop ()).runP locbegin notes new_mod_str
+  let (loc, notes, _, res) := (pop ()).runP locbegin notes new_mod_str
   IO.eprintln (vgroup $ notes.map (note_add_file_content new_mod_str))
   match res with
    | Result.ok op => do
@@ -605,4 +606,19 @@ def code0 : Op := [mlir_op| module {
 
 #eval runPattern rewriter0pdl code0 >>= IO.println
 
-  
+unsafe def unsafePerformIOImpl [Inhabited a] (io: IO a): a :=
+  match unsafeIO io with
+  | Except.ok a    =>  a
+  | Except.error e => panic! "expected io computation to never fail"
+
+@[implementedBy unsafePerformIOImpl]
+def unsafePerformIO [Inhabited a] (io: IO a): a := Inhabited.default
+
+-- | returns the rewritten module.
+def unsafeRunRewriterAndExtractModule (rewrite: Op) (code: Op): Option Op :=
+  let out : Option Op := unsafePerformIO (runPattern rewrite code)
+  match out with
+  | none => none
+  | some out =>  panic! "TODO: use lens to extract out module"
+    
+-- def code1 := runRewriter rewriter0pdl code0
