@@ -102,12 +102,12 @@ jobs:
     #   if: steps.cache-llvm.outputs.cache-hit != 'true'
     #   run: utils/build-llvm.sh
 
-    - name: Check lean-mlir-frontend
+    - name: Check lean version
       run: lean --version
-        - name: Build package
+    
+    - name: Build lean-mlir-frontend
       run: |
         lake build
-        # leanpkg build bin
     # - name: Test examples
     #   run: |
     #     ls -1u
