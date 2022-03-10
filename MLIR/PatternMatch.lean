@@ -604,7 +604,7 @@ def code0 : Op := [mlir_op| module {
 }]
 
 
-#eval runPattern rewriter0pdl code0 >>= IO.println
+--#eval runPattern rewriter0pdl code0 >>= IO.println
 
 unsafe def unsafePerformIOImpl [Inhabited a] (io: IO a): a :=
   match unsafeIO io with
