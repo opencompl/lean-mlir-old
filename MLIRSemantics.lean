@@ -4,7 +4,7 @@ def to1 (E F: Type → Type) :=
   ∀ T, E T → F T
 def sum1 (E F: Type → Type) :=
   fun T => E T ⊕ F T
-inductive void1: Type -> Type
+inductive Void1: Type -> Type
 
 infixr:40 " ~> " => to1
 
@@ -28,51 +28,51 @@ example (E F: Type → Type): Member E (sum1 F (sum1 F E)) := inferInstance
 
 /- Examples of interactions -/
 
-inductive stateE {S: Type}: Type → Type where
-  | Read: Unit → stateE S
-  | Write: S → stateE Unit
+inductive StateE {S: Type}: Type → Type where
+  | Read: Unit → StateE S
+  | Write: S → StateE Unit
 
-inductive writeE {W: Type}: Type → Type where
-  | Tell: W → writeE Unit
+inductive WriteE {W: Type}: Type → Type where
+  | Tell: W → WriteE Unit
 
 
 /- The monadic domain; essentially finite Interaction Trees -/
 
-inductive fitree (E: Type → Type) (R: Type) where
-  | Ret (r: R): fitree E R
-  | Vis {T: Type} (e: E T) (k: T → fitree E R): fitree E R
+inductive Fitree (E: Type → Type) (R: Type) where
+  | Ret (r: R): Fitree E R
+  | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
-def fitree.ret {E R}: R → fitree E R :=
-  fitree.Ret
+def Fitree.ret {E R}: R → Fitree E R :=
+  Fitree.Ret
 
-def fitree.trigger {E F: Type → Type} {T} [Member E F] (e: E T): fitree F T :=
-  fitree.Vis (Member.inject _ e) fitree.ret
+def Fitree.trigger {E F: Type → Type} {T} [Member E F] (e: E T): Fitree F T :=
+  Fitree.Vis (Member.inject _ e) Fitree.ret
 
-def fitree.bind {E R T} (t: fitree E T) (k: T → fitree E R) :=
+def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with
   | Ret r => k r
   | Vis e k' => Vis e (λ r => bind (k' r) k)
 
-instance {E}: Monad (fitree E) where
-  pure := fitree.ret
-  bind := fitree.bind
+instance {E}: Monad (Fitree E) where
+  pure := Fitree.ret
+  bind := Fitree.bind
 
 
 -- Interpretation into the monad of finite ITrees
 def interp {M} [Monad M] {E} (h: forall ⦃T⦄, E T → M T):
-    forall ⦃R⦄, fitree E R → M R :=
+    forall ⦃R⦄, Fitree E R → M R :=
   λ _ t =>
     match t with
-    | fitree.Ret r => pure r
-    | fitree.Vis e k => bind (h e) (λ t => interp h (k t))
+    | Fitree.Ret r => pure r
+    | Fitree.Vis e k => bind (h e) (λ t => interp h (k t))
 
 -- Interpretation into the state monad
 def interp_state {M S} [Monad M] {E} (h: forall ⦃T⦄, E T → StateT S M T):
-    forall ⦃R⦄, fitree E R → StateT S M R :=
+    forall ⦃R⦄, Fitree E R → StateT S M R :=
   interp h
 
 -- Since we only use finite ITrees, we can actually run them when they're
 -- fully interpreted (which leaves only the Ret constructor)
-def fitree.run {R}: fitree void1 R → R
+def Fitree.run {R}: Fitree Void1 R → R
   | Ret r => r
   | Vis e k => nomatch e
