@@ -557,7 +557,7 @@ def bb3MultipleArgs : BasicBlock :=
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
   ]
-#print bb3MultipleArgs
+#reduce bb3MultipleArgs
 
 
 def rgn0 : Region := ([mlir_region|  { }])

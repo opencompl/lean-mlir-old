@@ -13,6 +13,8 @@ inductive OpVerifier where
 -- | MinRegions: Nat -> OpVerifier
 | T: OpVerifier
 
+
+
 inductive InteractM (α: Type)
 | ok: (val: α) ->  InteractM α
 | error: (val: α) -> (err: String) -> InteractM α
@@ -232,11 +234,16 @@ def DiffOpsPushAddRewriter: RewriterT DiffOps  :=
   RewriterT.done
   
 
+-- | pattern match on the left
+-- | TODO: is there some convenient way to avoid the final id lens?
+def lensPushAddLHS : List (OpLens (ULift SSAVal)) := 
+  [OpLens.arg 0 (ValLens.id), 
+   OpLens.arg 1 (ValLens.op "add" (OpLens.arg 0 ValLens.id)),
+   OpLens.arg 1 (ValLens.op "add" (OpLens.arg 1 ValLens.id))]
+
 inductive interactive: (a: Type k) -> a -> a -> Type (k+1) where
 | root: (v: a) -> interactive a v  v
 | layer: (f: a -> a) -> (r: interactive a (f w) v) -> interactive a w (f v)
-
-
 /-
 -- | a proxy to show the value v
 inductive Proxy {t: Type} (v: t) where
@@ -280,8 +287,6 @@ def DiffOpsPushAddIndexed: Σ r, RewriterTBuilderIndexed DiffOps DiffVerifier r 
 }
 -/
                                  
-
-
 def main_end_to_end_diff: IO Unit := do
   IO.eprintln "DIFF TEST\n=======\n"
   -- IO.eprintln matmul_ein

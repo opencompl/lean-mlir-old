@@ -174,7 +174,7 @@ macro_rules
       ixs.foldlM (fun e ixcur => `(EinLeaf.Lower $e $(Lean.quote ixcur))) fst
   | _ => `(Ein.Sym "will never reach ein_leaf")
   
-def leaf0 : EinLeaf := [ein_leaf| x ]
+def leaf0 : EinLeaf := [ein_leaf| x]
 #print leaf0
 
 def leafd : EinLeaf := [ein_leaf| x ]
@@ -273,13 +273,13 @@ def EinFactor.left (e: EinFactor): EinLeaf :=
 
 
 -- | safe way to construct iterator types.
-inductive iterator_types := 
-| parallel | reduction
+    inductive iterator_types := 
+    | parallel | reduction
 
-macro_rules
-| `([mlir_attr_val| iterator_types.parallel]) => `(AttrVal.str "parallel")
-| `([mlir_attr_val| iterator_types.reduction]) => `(AttrVal.str "reduction")
-  
+    macro_rules
+    | `([mlir_attr_val| iterator_types.parallel]) => `(AttrVal.str "parallel")
+    | `([mlir_attr_val| iterator_types.reduction]) => `(AttrVal.str "reduction")
+      
 
 partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op := 
   let (ls, us) := EinFactor.get_low_up_ixs e
