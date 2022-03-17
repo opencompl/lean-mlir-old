@@ -46,7 +46,6 @@ inductive Dimension
 | Known: Int -> Dimension
 | Unknown: Dimension
 
-mutual
 inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
 | int : Int -> MLIRTy
@@ -83,6 +82,7 @@ inductive AttrDict : Type :=
 | mk: List AttrEntry -> AttrDict
 
 
+mutual
 -- | TODO: make this `record` when mutual records are allowed?
 -- | TODO: make these arguments optional?
 inductive Op : Type where 
