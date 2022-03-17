@@ -1,4 +1,6 @@
 import MLIR.EDSL
+import MLIRSemantics.Toy.Toy
+import MLIRSemantics.Verifier
 open MLIR.AST
 
 def funcDoubleTranspose: Op := [mlir_op|
@@ -20,74 +22,6 @@ def funcDoubleTranspose: Op := [mlir_op|
    There are a number of verifications/constraints that we'd like to enforce
    through typing and/or hypotheses, in whichever way is the most convenient
    for the dialect developer. -/
-
--- One of these ways is to simply compute the data when needed, and use the
--- validity proof to back the typing. The type of the operation is not enriched
--- but that also avoids clutter for rare properties.
---
--- In this scheme, the verifier is a function returning the relevant
--- information as an option, returning none if the verification fails. Think
--- for instance a (Vector 2) of arguments, which carries the information that
--- there are exactly 2 arguments, or a list of (SSAVal × MLIRTy), which
--- indicates that the operation type matches the number of arguments.
---
--- The proof of verification says that the verifier returns some value, which
--- is sufficient to later call the function and prove away the case where none
--- is returned. When reading code from disk, the proof of verification can be
--- obtained simply by running the verifier.
-
-def Verifier (α: Type): Type := Op → Option α
-
-def Verifier.ok {α} (v: Verifier α) (o: Op) := Option.isSome (v o)
-
-def Verifier.get {α} {v: Verifier α} {o: Op}: Verifier.ok v o → α :=
-  λ (H: Option.isSome (v o)) =>
-    match v o, H with
-    | some val, _ => val
-    | none, H => nomatch H
-
-instance {α} (o: Option α): Decidable (Option.isSome o) :=
-  match o with
-  | some value => isTrue rfl
-  | none => isFalse (λ H => by simp [Option.isSome] at H)
-
-/- === Consistency between arity by argument count and operation type ===
-
-   Assuming custom syntax is expanded, the number of arguments and the
-   functional type of the operation must match. Equality can be structurally
-   enforced by weaving the lists together, morally changing
-
-     "op"(%arg, %arg, %arg): (!type, !type, !type) -> !ret
-
-   into the woven form
-
-     "op"(%arg:!type, %arg:!type, %arg!type): !ret
-
-   The number of arguments can also be specified at the same time. -/
-
-def zip_args_types (args: List SSAVal) (ty: MLIRTy) :=
-  match args, ty with
-  | [], MLIRTy.tuple [] =>
-      some []
-  | a::args, MLIRTy.tuple (t::tys) =>
-      Option.map ((a,t) :: .) (zip_args_types args (MLIRTy.tuple tys))
-  | [a], t =>
-      some [(a,t)]
-  | _, _ =>
-      none
-
--- This is the verifier function
-def vArgTypeArity: Verifier (List (SSAVal × MLIRTy)) :=
-  λ op =>
-    match op with
-    | Op.mk _ args _ _ _ (MLIRTy.fn ty _) => zip_args_types args ty
-    | _ => none
-
--- Here is an example of how a function can use the proof of validity to ignore
--- operations with non-matching argument/type arity:
-def arg_count (o: Op) (H: Verifier.ok vArgTypeArity o): Nat :=
-  let args := Verifier.get H;
-  args.length
 
 -- And how arbitrary code can be checked with the decidable if.
 def opArity_valid1: Op := [mlir_op|
@@ -113,23 +47,34 @@ def count_all_args ops :=
   | [] => []
   | op::ops =>
       if H: Verifier.ok vArgTypeArity op
-      then (arg_count op H) :: count_all_args ops
+      then (Verifier.get H).length :: count_all_args ops
       else count_all_args ops
 
 -- #eval (count_all_args generic_ops)
 -- [1, 2, 0]
 
-/- === Number of SSA values, basic blocks, and regions as arguments ===
+-- Abusing dependent typing on the generic format
 
-   TODO: This time we actually enrich the operation type since it saves the
-   need to query; you can just do
+/- def argtype: (x: String) → Type
+  | "toy.whatever" => Nat
+  | "toy.constant" => (Nat × Nat)
+  | "toy.transpose" => (n: Nat) × (m: Nat) × Tensor Nat [n,m]
+  | _ => Unit
 
-     match op with
-     | Op.mk _ [arg1,arg2,arg3] _ _ _ _ => ...
-     -- no other subcase
+def rettype: (x: String) → argtype x → Type
+  | "toy.whatever", _ => Nat
+  | "toy.constant", _ => Nat
+  | "toy.transpose", ⟨n, m, _⟩ => Tensor Nat [m,n]
+  | _, _ => Unit
 
-  -/
-
+def semantics: (x: String) → (a: argtype x) → rettype x a
+  | "toy.whatever", n => n
+  | "toy.constant", (p,q) => p + q
+  | "toy.transpose", ⟨n, m, t⟩ =>
+      -- Here t has type [Tensor Nat [n,m]] (not even something definitionally
+      -- equal, really exactly that)
+      transpose t
+  | _, _ => /- fails here -/ () -/
 
 /- === Other ideas for constraints === -/
 

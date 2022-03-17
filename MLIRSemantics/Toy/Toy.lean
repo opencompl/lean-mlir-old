@@ -1,7 +1,5 @@
 /- A toy dialect with basic tensor computations. -/
 
-import MLIRSemantics
-
 def Vector (α: Type) (n: Nat) :=
   Fin n → α
 
