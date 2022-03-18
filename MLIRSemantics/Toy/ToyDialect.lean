@@ -24,8 +24,9 @@ def ToyOp.semantics: Op → Fitree (psum SSAEnvE ToyOp) Unit
       return ()
   | Op.mk "toy.transpose" [t_name] [] [] _ (MLIRTy.fn
         (MLIRTy.tensor [Dimension.Known (n:Nat), Dimension.Known (m:Nat)] _) _) => do
-      let t ← Fitree.trigger (@SSAEnvE.Get (Tensor Int [n,m]) t_name);
-      let t' ← Fitree.trigger (ToyOp.Transpose Int n m t);
+      /- TODO: Still need to model MLIR tensors -/
+--      let t ← Fitree.trigger (@SSAEnvE.Get (Tensor Int [n,m]) _ t_name);
+--      let t' ← Fitree.trigger (ToyOp.Transpose Int n m t);
       return ()
   | _ =>
       return ()
