@@ -74,7 +74,8 @@ def complex1 := [mlir_op|
 declare_syntax_cat complex
 syntax complex "*" complex : complex
 syntax num "+" num "i"  : complex
-syntax "e^" "(" complex ")" : complex
+syntax "e^"  complex : complex
+syntax "(" complex ")" : complex
 syntax "[complex|" complex "]" : term
 syntax term : mlir_op_operand
 
@@ -124,13 +125,6 @@ def appendOp_ (op: Op): GenM Unit :=
      ((), x,  stmts ++ [stmt])
 }
 
-macro_rules
-| `([complex| $x:complex * $y:complex]) => 
-    `(do
-        let k <- [complex| $x]
-        let l <- [complex| $y]
-        appendOp [mlir_op| [escape| k] c* [escape| l]]
-     )
 
 macro_rules
 | `([complex| $x:numLit + $y:numLit i]) => 
@@ -140,11 +134,25 @@ macro_rules
         appendOp [mlir_op| [escape| k] + [escape| l] i]
      )
 
+macro_rules
+| `([complex| ($x:complex)]) => `([complex| $x])
+
+
+
 set_option maxRecDepth 100
 def complex2 := runGenM [complex| 42 + 42 i]
-#print complex2
-
 #eval IO.eprintln $ Pretty.doc $ complex2
+
+macro_rules
+| `([complex| $x:complex * $y:complex]) => 
+    `(do
+        let k <- [complex| $x]
+        let l <- [complex| $y]
+        appendOp [mlir_op| [escape| k] c* [escape| l]]
+     )
+
+def complex3 := runGenM [complex| (1 + 2 i) * (3 + 4 i)]
+#eval IO.eprintln $ Pretty.doc $ complex3
 
 
 -- def complex2 := [complex| e^((42 + 42 i) * (42 + 42 i))]
