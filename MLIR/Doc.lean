@@ -126,6 +126,10 @@ declare_syntax_cat docstx
 syntax str : docLeaf 
 syntax ident : docLeaf
 
+-- | conditionals
+-- | can I make this syntax only work within docLeaf??
+syntax "(ifdoc" term "then" docstx "else" docstx ")": docLeaf
+
 syntax "[docLeaf|" docLeaf "]" : term -- translator
 syntax docLeaf : docstx
 syntax "(" term ")" : docLeaf -- escape
@@ -170,6 +174,19 @@ macro_rules
 def testDocConcat : Doc := let x := "foo"; [doc| "^" x ":" ]
 #reduce testDocConcat
 
+-- | escape
+macro_rules 
+| `([docLeaf| [escape| $x ] ]) => return x
+
+-- | escape
+macro_rules 
+| `([docLeaf| ( $x ) ]) => return x
+
+-- | if
+macro_rules
+| `([docLeaf| (ifdoc  $x:term then  $t:docstx else $e: docstx ) ]) =>  
+    `(if $x then [doc| $t] else [doc| $e])
+
 
 -- | vertical
 macro_rules
@@ -207,13 +224,6 @@ def testDocVSpreadNest0 : Doc :=
     [doc| (nest xs);*]
 #reduce testDocVSpreadNest0
 
--- | escape
-macro_rules 
-| `([docLeaf| [escape| $x ] ]) => return x
-
--- | escape
-macro_rules 
-| `([docLeaf| ( $x ) ]) => return x
 
 def testDocEscape0 : Doc := [docLeaf| [escape| Doc.Text "foo"] ]
 #reduce testDocEscape0

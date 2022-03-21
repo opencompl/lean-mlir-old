@@ -100,7 +100,9 @@ inductive BasicBlockStmt : Type where
 
 
 inductive BasicBlock: Type where
-| mk: (name: String) -> (args: List (SSAVal × MLIRTy)) -> (ops: List BasicBlockStmt) -> BasicBlock
+| mk: (name: String)
+      -> (args: List (SSAVal × MLIRTy))
+      -> (ops: List BasicBlockStmt) -> BasicBlock
 
 inductive Region: Type where
 | mk: (bbs: List BasicBlock) -> Region
@@ -129,7 +131,6 @@ def Op.attrs: Op ->  AttrDict
 def Op.ty: Op ->  MLIRTy
 | Op.mk name args bbs regions attrs ty => ty
 
- 
 def Region.bbs (r: Region): List BasicBlock :=
   match r with
   | (Region.mk bbs) => bbs
@@ -280,6 +281,18 @@ partial instance : Pretty Region where
 partial def op_to_doc (op: Op): Doc := 
     match op with
     | (Op.mk name args bbs rgns attrs ty) => 
+        /- v3: macros + if stuff-/
+        [doc|
+          "\"" name "\""
+          "(" (args),* ")"
+          (ifdoc bbs.isEmpty then "" else  "[" (bbs),* "]")
+          (ifdoc rgns.isEmpty then "" else  "(" (nest rgns.map rgn_to_doc);* ")")
+          attrs
+          ":"
+          ty
+        ]
+
+        /- v2: macros, but no if stuff
         [doc|
           "\"" name "\""
           "(" (args),* ")"
@@ -289,8 +302,10 @@ partial def op_to_doc (op: Op): Doc :=
           ":"
           ty
         ]
+        -/
         
-        /- let doc_name := doc_surround_dbl_quot name 
+        /- v1: no macros
+        let doc_name := doc_surround_dbl_quot name 
         let doc_bbs := if bbs.isEmpty
                        then doc ""
                        else "[" ++ intercalate_doc bbs ", " ++ "]"
@@ -322,16 +337,18 @@ partial def bb_to_doc(bb: BasicBlock): Doc :=
   | (BasicBlock.mk name args stmts) => 
     [doc|
       {
-        (if args.isEmpty
-         then [doc| "^" name ":"]
-         else [doc| "^" name "(" (args.map $ fun (v, t) => [doc| v ":" t]),* ")" ":"]);
+        (ifdoc args.isEmpty
+         then  "^" name ":"
+         else  "^" name "(" (args.map $ fun (v, t) => [doc| v ":" t]),* ")" ":");
         (nest stmts.map bb_stmt_to_doc);* ;
       }
     ]
 
 partial def rgn_to_doc(rgn: Region): Doc :=
   match rgn with
-  | (Region.mk bbs) => [doc| { "{"; (nest (bbs.map bb_to_doc);* ); "}"; }] 
+  | (Region.mk bbs) => [doc| { "{"; (nest (bbs.map bb_to_doc);* ); "}"; }]
+
+
 end
 
 def AttrEntry.key (a: AttrEntry): String :=
@@ -468,8 +485,6 @@ def Op.mutateSingletonRegion (o: Op) (f: Region -> Region): Op :=
  match o with
  | Op.mk name args bbs [r] attrs ty => Op.mk name args bbs [f r] attrs ty
  | _ => panic! "expected op with single region: " ++ (doc o)
-
-
 
 
 mutual
