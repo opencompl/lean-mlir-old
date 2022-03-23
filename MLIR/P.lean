@@ -253,6 +253,13 @@ def pident? (s: String) : P Unit := do
    else perror $ "expected |" ++ s ++ "| but found |" ++ i ++ "|"
 
 
+def pnat : P Nat := do
+  eat_whitespace
+  let name <- ptakewhile (fun c => c.isDigit)
+  match name.toNat? with
+   | some num => return num
+   | none => perror $ "expected natural, found |" ++ name ++ "|."
+
 def pnumber : P Int := do
   eat_whitespace
   let name <- ptakewhile (fun c => c.isDigit)

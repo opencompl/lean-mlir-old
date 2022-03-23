@@ -44,6 +44,9 @@ instance : Pretty Doc where
 instance : Pretty String where
   doc := Doc.Text
 
+instance : Pretty Nat where
+  doc := Doc.Text ∘ toString
+
 instance : Pretty Int where
   doc := Doc.Text ∘ toString
 

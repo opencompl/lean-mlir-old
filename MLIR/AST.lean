@@ -50,7 +50,7 @@ instance : Pretty BBName where
 deriving instance DecidableEq for BBName
 
 inductive Dimension
-| Known: Int -> Dimension
+| Known: Nat -> Dimension
 | Unknown: Dimension
 
 deriving instance DecidableEq for Dimension

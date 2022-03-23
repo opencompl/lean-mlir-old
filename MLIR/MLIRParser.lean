@@ -43,7 +43,7 @@ partial def pdim : P Dimension := do
   if (<- ppeek? '?')
   then return Dimension.Unknown
   else do 
-    let sz <- pnumber
+    let sz <- pnat
     return Dimension.Known sz
 
 partial def ptype_vector : P MLIRTy := do
