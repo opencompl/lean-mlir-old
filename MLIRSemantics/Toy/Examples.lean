@@ -1,7 +1,20 @@
 import MLIR.EDSL
 import MLIRSemantics.Toy.Toy
 import MLIRSemantics.Verifier
+import MLIRSemantics.SSAEnv
 open MLIR.AST
+
+-- SSAEnv tests
+
+private def example_env (l: SSAScope) (s: SSAEnv): SSAEnv :=
+  (⟨"%0", MLIRTy.int 32, 42⟩ :: ⟨"%1", MLIRTy.int 32, 7⟩ :: l) ::
+  (⟨"%3", MLIRTy.int 32, 12⟩ :: ⟨"%r", MLIRTy.float 32, -1.7e3⟩ :: []) ::
+  s
+
+example: ∀ l s, SSAEnv.get "%1" (MLIRTy.int 32) (example_env l s) = some 7 :=
+  by simp
+
+-- Verifier tests
 
 def funcDoubleTranspose: Op := [mlir_op|
   "func"() ({
