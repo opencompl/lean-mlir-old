@@ -10,8 +10,12 @@ import (
 	"strings"
 )
 
+const ROOTDIR := "/home/siddu_druid/phd/lean-mlir/playground/"
+const MLIR_GLOB_PATH := "/home/siddu_druid/phd/llvm-project/mlir/test/*/*.mlir"
+
 func mk_testfile_contents(mlir_contents string, print_path string) string {
 	out := fmt.Sprintf(`
+open IO
 import MLIR.AST
 
 -- | write an op into the path
@@ -21,7 +25,7 @@ def o: Op := [mlir_op|
 -- | main program
 def main : IO Unit :=
     let str :=  Doc.doc o
-    Fs.writeFile %s str
+    FS.writeFile %s str
 `, mlir_contents, print_path)
 	return out
 }
@@ -37,7 +41,6 @@ func fileNameWithoutExtTrimSuffix(fileName string) string {
 }
 
 func main() {
-	MLIR_GLOB_PATH := "/home/siddu_druid/phd/llvm-project/mlir/test/*/*.mlir"
 	log.Output(0, fmt.Sprintf("globbing from %s", MLIR_GLOB_PATH))
 
 	testfiles, err := filepath.Glob(MLIR_GLOB_PATH)
@@ -77,7 +80,7 @@ func main() {
 		check(err)
 
 		// ---- Run lean
-		leanCmd := exec.Command("lean", leanFilePath)
+		leanCmd := exec.Command("lean", leanFilePath, "--root")
 		log.Output(0, fmt.Sprintf("Running | %s |.", leanCmd.String()))
 		leanCmdOut, err := leanCmd.CombinedOutput()
 		if err != nil {
