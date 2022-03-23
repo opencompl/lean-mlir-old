@@ -15,6 +15,8 @@ instance : Pretty AffineExpr where
   doc e := match e with
   | AffineExpr.Var v => doc v 
 
+deriving instance DecidableEq for AffineExpr
+
 inductive AffineTuple 
 | mk: List AffineExpr -> AffineTuple
 
@@ -22,6 +24,8 @@ instance : Pretty AffineTuple where
   doc t := match t with
   | AffineTuple.mk es => [doc| "(" (es),*  ")"] 
  
+deriving instance DecidableEq for AffineTuple
+
 inductive AffineMap
 | mk: AffineTuple -> AffineTuple -> AffineMap
 
@@ -29,6 +33,8 @@ inductive AffineMap
   doc t := match t with
   | AffineMap.mk xs ys => doc xs ++ " -> " ++ doc ys
  
+deriving instance DecidableEq for AffineMap
+
  
 
 -- EMBEDDING
@@ -41,12 +47,14 @@ instance : Pretty BBName where
   doc name := match name with 
               | BBName.mk s => [doc| "^" s]
 
+deriving instance DecidableEq for BBName
 
 inductive Dimension
 | Known: Int -> Dimension
 | Unknown: Dimension
 
-mutual
+deriving instance DecidableEq for Dimension
+
 inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
 | int : Int -> MLIRTy
@@ -58,6 +66,8 @@ inductive MLIRTy : Type where
 
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
+
+deriving instance DecidableEq for SSAVal
 
 inductive TensorElem := 
 | int: Int -> TensorElem
@@ -83,6 +93,7 @@ inductive AttrDict : Type :=
 | mk: List AttrEntry -> AttrDict
 
 
+mutual
 -- | TODO: make this `record` when mutual records are allowed?
 -- | TODO: make these arguments optional?
 inductive Op : Type where 
@@ -147,6 +158,35 @@ inductive Module where
       -> (attrs: List AttrDefn) 
       ->  Module
 
+
+def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
+  match t1, t2 with
+  | MLIRTy.fn a1 b1, MLIRTy.fn a2 b2 =>
+      beq a1 a2 && beq b1 b2
+  | MLIRTy.int n1, MLIRTy.int n2 =>
+      n1 == n2
+  | MLIRTy.float n1, MLIRTy.float n2 =>
+      n1 == n2
+  | MLIRTy.tuple [], MLIRTy.tuple [] =>
+      true
+  | MLIRTy.tuple (t1::l1), MLIRTy.tuple (t2::l2) =>
+      beq t1 t2 && beq (MLIRTy.tuple l1) (MLIRTy.tuple l2)
+  | MLIRTy.vector l1 t1, MLIRTy.vector l2 t2 =>
+      l1 == l2 && beq t1 t2
+  | MLIRTy.tensor l1 t1, MLIRTy.tensor l2 t2 =>
+      l1 == l2 && beq t1 t2
+  | MLIRTy.user n1, MLIRTy.user n2 =>
+      n1 == n2
+  | _, _ =>
+      false
+
+def MLIRTy.decEq (t1 t2: MLIRTy): Decidable (Eq t1 t2) :=
+  if MLIRTy.beq t1 t2 then isTrue sorry else isFalse sorry
+
+instance: DecidableEq MLIRTy :=
+  MLIRTy.decEq
+
+
 instance : Pretty Dimension where
   doc dim := 
   match dim with
@@ -205,6 +245,9 @@ instance : Pretty AttrDefn where
         if List.isEmpty attrs
         then Doc.Text ""
         else "{" ++ Doc.Nest (vintercalate_doc attrs ", ")  ++ "}" 
+
+instance: Coe String SSAVal where
+  coe (s: String) := SSAVal.SSAVal s
 
 instance : Coe Int TensorElem where 
   coe (i: Int) := TensorElem.int i
