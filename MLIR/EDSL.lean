@@ -211,6 +211,7 @@ declare_syntax_cat mlir_dimension_list
 -- syntax ident : mlir_dimension_list
 -- syntax num ident : mlir_dimension_list
 syntax mlir_dimension ident: mlir_dimension_list
+syntax mlir_type: mlir_dimension_list
 
 def string_to_dimension (s: String): MacroM Dimension := do
   if s == "?"
@@ -299,8 +300,15 @@ macro_rules
     let n <- `([mlir_dimension| $n])
     let (dims, ty) <- parseTensorDimensionList n rest 
     `(MLIRTy.memref $dims $ty)
+| `([mlir_type| memref <  $ty:mlir_type >]) => do
+    `(MLIRTy.memref [1] [mlir_type| $ty])
 
-      
+def memrefTy0 := [mlir_type| memref<3x3xi32>]
+#print memrefTy0
+
+def memrefTy1 := [mlir_type| memref<i32>]
+#print memrefTy1
+
 
 -- EDSL MLIR OP CALL, MLIR BB STMT
 -- ===============================
