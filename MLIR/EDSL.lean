@@ -200,31 +200,74 @@ def dim1 := [mlir_dimension| ?]
 #print dim1
 
 
+-- | 1 x 2 x 3 x ..
+declare_syntax_cat mlir_dimension_list
+syntax ident : mlir_dimension_list
+syntax num ident : mlir_dimension_list
+syntax "[mlir_dimension_list|" mlir_dimension_list "]" : term
+
+def string_to_dimension (s: String): MacroM Dimension := do
+  if s == "?"
+  then return Dimension.Unknown
+  else if s.isNat
+  then return Dimension.Known s.toNat!
+  else Macro.throwError ("unknown dimension: | " ++ s ++ "  |")
+
+instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| toString n⟩
+
+def quoteMDimension (d: Dimension): MacroM Syntax :=
+  match d with
+  | Dimension.Known n => do 
+    `(Dimension.Known $(quote n))
+  | Dimension.Unknown => `(Dimension.Unknown)
+
+def quoteMList (q: α → MacroM Syntax) (k: List α): MacroM Syntax :=
+  match k with 
+  | [] => `([])
+  | (k::ks) => do
+      let sk <- q k
+      let sks <- quoteMList q ks
+      `([$sk] ++ $sks)
+
+-- | TODO: assert that the string we get is of the form x3x4x?x2...
+-- that is, interleaved x and other stuff.
+macro_rules
+| `([mlir_dimension_list| $k ]) => do 
+      let xstr := k.getId.toString
+      -- | grab the rest of the list, since the first portion will be empty,
+      -- as splitting "x3x4" at "x" gives the list of strings ["", "3", "4"]
+      let xparts := (xstr.splitOn "x").tail!
+      let dims <- xparts.mapM string_to_dimension
+      quoteMList quoteMDimension dims
+
+
+macro_rules
+| `([mlir_dimension_list| $k:numLit  $dims:ident]) => do 
+      `([Dimension.Known $k] ++ [mlir_dimension_list| $dims])
+  
+
+def dimlist0 := [mlir_dimension_list| 1x2x3x4x?x4 ]
+#reduce dimlist0
+
 -- TODO: where is vector type syntax defined?
 -- | TODO: fix bug that does not allow a trailing times.
--- The grammar should be: 
--- syntax "vector" "<" sepBy1(mlir_dimension, "×") "×" mlir_type ">"  : mlir_type
-syntax "vector" "<" sepBy1(mlir_dimension, "×") ":" mlir_type ">"  : mlir_type
+syntax "vector" "<" mlir_dimension_list ":" mlir_type ">"  : mlir_type
 macro_rules
-| `([mlir_type| vector < $[ $dims ]×* : $ty:mlir_type  >]) => do
-    let initList <- `([])
-    let dimsList <- dims.foldlM (init := initList) fun ds d => `($ds ++ [[mlir_dimension| $d]])
-    `(MLIRTy.vector $dimsList [mlir_type| $ty])
+| `([mlir_type| vector < $dims:mlir_dimension_list : $ty:mlir_type  >]) => do
+    `(MLIRTy.vector [mlir_dimension_list| $dims] [mlir_type| $ty])
 
 
 -- | TODO: fix bug that does not allow a trailing times.
 
-syntax "tensor" "<" sepBy1(mlir_dimension, "×") ":" mlir_type ">"  : mlir_type
+syntax "tensor" "<"  mlir_dimension_list  ":" mlir_type ">"  : mlir_type
 macro_rules
-| `([mlir_type| tensor < $[ $dims ]×* : $ty:mlir_type  >]) => do
-    let initList <- `([])
-    let dimsList <- dims.foldlM (init := initList) fun ds d => `($ds ++ [[mlir_dimension| $d]])
-    `(MLIRTy.tensor $dimsList [mlir_type| $ty])
+| `([mlir_type| tensor <  $dims:mlir_dimension_list  : $ty:mlir_type  >]) => do
+    `(MLIRTy.tensor [mlir_dimension_list| $dims ] [mlir_type| $ty])
 
 
-def tensorTy0 := [mlir_type| tensor<3×3:i32>]
+def tensorTy0 := [mlir_type| tensor<3x3:i32>]
 #print tensorTy0
-def tensorTy1 := [mlir_type| tensor<3×?:f32>]
+def tensorTy1 := [mlir_type| tensor<3x?:f32>]
 #print tensorTy1
      
       
