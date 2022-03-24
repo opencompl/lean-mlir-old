@@ -17,12 +17,13 @@ import MLIR.AST
 import MLIR.EDSL
 
 open  MLIR.EDSL
+open MLIR.AST
 open MLIR.Doc
 open IO
 
 -- | write an op into the path
 def o: Op := [mlir_op|
-    %s
+%s
 ] 
 -- | main program
 def main : IO Unit :=

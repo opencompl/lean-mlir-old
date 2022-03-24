@@ -73,12 +73,15 @@ declare_syntax_cat mlir_type
 -- EDSL OPERANDS
 -- ==============
 
+syntax "%" numLit : mlir_op_operand
+
 syntax "%" ident : mlir_op_operand
 syntax "[escape|" term "]" : mlir_op_operand
 
 syntax "[mlir_op_operand| " mlir_op_operand "]" : term -- translate operands into term
 macro_rules
   | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
+  | `([mlir_op_operand| % $n:numLit]) => `(SSAVal.SSAVal (toString $n))
   | `([mlir_op_operand| [escape| $t:term ] ]) => return t
 
 def operand0 := [mlir_op_operand| %x]
@@ -86,6 +89,9 @@ def operand0 := [mlir_op_operand| %x]
 
 def operand1 := [mlir_op_operand| %x]
 #print operand1
+
+def operand2 := [mlir_op_operand| %0]
+#print operand2
 
 
 -- EDSL OP-SUCCESSOR-ARGS
