@@ -44,7 +44,7 @@ func fileNameWithoutExtTrimSuffix(fileName string) string {
 
 func main() {
 	// ROOTDIR := "/home/siddu_druid/phd/lean-mlir/playground/"
-	MLIR_GLOB_PATH := "/home/siddu_druid/phd/llvm-project/mlir/test/*/*.mlir"
+	MLIR_GLOB_PATH := "/home/siddu_druid/work/llvm-project/mlir/test/*/*.mlir"
 	log.Output(0, fmt.Sprintf("globbing from %s", MLIR_GLOB_PATH))
 
 	testfiles, err := filepath.Glob(MLIR_GLOB_PATH)
