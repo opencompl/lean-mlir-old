@@ -62,6 +62,7 @@ inductive MLIRTy : Type where
 | tuple : List MLIRTy -> MLIRTy
 | vector: List Dimension -> MLIRTy -> MLIRTy
 | tensor: List Dimension -> MLIRTy -> MLIRTy
+| memref: List Dimension -> MLIRTy -> MLIRTy
 | user: String -> MLIRTy -- user defined type
 
 inductive SSAVal : Type where
@@ -203,6 +204,7 @@ partial instance :  Pretty MLIRTy where
     | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
     | MLIRTy.vector dims ty => "vector<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.memref dims ty => "memref<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
     | MLIRTy.tensor dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
     go ty
 

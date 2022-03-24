@@ -202,9 +202,9 @@ def dim1 := [mlir_dimension| ?]
 
 -- | 1 x 2 x 3 x ..
 declare_syntax_cat mlir_dimension_list
-syntax ident : mlir_dimension_list
-syntax num ident : mlir_dimension_list
-syntax "[mlir_dimension_list|" mlir_dimension_list "]" : term
+-- syntax ident : mlir_dimension_list
+-- syntax num ident : mlir_dimension_list
+syntax num ident: mlir_dimension_list
 
 def string_to_dimension (s: String): MacroM Dimension := do
   if s == "?"
@@ -231,44 +231,54 @@ def quoteMList (q: α → MacroM Syntax) (k: List α): MacroM Syntax :=
 
 -- | TODO: assert that the string we get is of the form x3x4x?x2...
 -- that is, interleaved x and other stuff.
-macro_rules
-| `([mlir_dimension_list| $k ]) => do 
-      let xstr := k.getId.toString
-      -- | grab the rest of the list, since the first portion will be empty,
-      -- as splitting "x3x4" at "x" gives the list of strings ["", "3", "4"]
-      let xparts := (xstr.splitOn "x").tail!
-      let dims <- xparts.mapM string_to_dimension
-      quoteMList quoteMDimension dims
-
-
-macro_rules
-| `([mlir_dimension_list| $k:numLit  $dims:ident]) => do 
-      `([Dimension.Known $k] ++ [mlir_dimension_list| $dims])
-  
-
-def dimlist0 := [mlir_dimension_list| 1x2x3x4x?x4 ]
-#reduce dimlist0
+def parseTensorDimensionList (k: Syntax) (dims: Syntax): MacroM (Syntax × Syntax) := do
+        let xstr := dims.getId.toString
+        let xparts := (xstr.splitOn "x").tail!
+        let ty := xparts.getLast!
+        let xparts := xparts.dropLast
+        let tyIdent := Lean.mkIdent ty
+        let tyStx <- `([mlir_type| $(quote tyIdent)])
+        let dims <- xparts.mapM string_to_dimension
+        let dimsStx <- quoteMList quoteMDimension dims
+        return (dimsStx, tyStx)
+  -- | err => Macro.throwError $  ("unknown dimension list: |" ++ err.reprint.getD "???" ++ "| )")
 
 -- TODO: where is vector type syntax defined?
 -- | TODO: fix bug that does not allow a trailing times.
-syntax "vector" "<" mlir_dimension_list ":" mlir_type ">"  : mlir_type
+syntax "vector" "<" mlir_dimension_list ">"  : mlir_type
+set_option hygiene false in -- allow i to expand 
 macro_rules
-| `([mlir_type| vector < $dims:mlir_dimension_list : $ty:mlir_type  >]) => do
-    `(MLIRTy.vector [mlir_dimension_list| $dims] [mlir_type| $ty])
+-- | `([mlir_type| vector < $dims:mlir_dimension_list  >]) => do
+| `([mlir_type| vector < $n:numLit $rest:ident  >]) => do
+    let (dims, ty) <- parseTensorDimensionList n rest 
+    `(MLIRTy.vector $dims $ty)
+
+set_option hygiene false in -- allow i to expand 
+def vectorTy0 := [mlir_type| vector<3x3xi32>]
+#print vectorTy0
+
+
+-- | TODO: is this actually necessary?
+syntax  "<" mlir_dimension_list  ">"  : mlir_type
+macro_rules
+| `([mlir_type| vector < $dims:mlir_dimension_list  >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims
+    `(MLIRTy.vector $dims $ty)
 
 
 -- | TODO: fix bug that does not allow a trailing times.
 
-syntax "tensor" "<"  mlir_dimension_list  ":" mlir_type ">"  : mlir_type
+syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
 macro_rules
-| `([mlir_type| tensor <  $dims:mlir_dimension_list  : $ty:mlir_type  >]) => do
-    `(MLIRTy.tensor [mlir_dimension_list| $dims ] [mlir_type| $ty])
+| `([mlir_type| tensor <  $dims:mlir_dimension_list>]) => do
+    let (dims, ty) <- parseTensorDimensionList dims
+    `(MLIRTy.vector $dims $ty)
 
 
-def tensorTy0 := [mlir_type| tensor<3x3:i32>]
+def tensorTy0 := [mlir_type| tensor<3x3xi32>]
 #print tensorTy0
-def tensorTy1 := [mlir_type| tensor<3x?:f32>]
-#print tensorTy1
+-- def tensorTy1 := [mlir_type| tensor<3x?xf32 >]
+-- #print tensorTy1
      
       
 
