@@ -1,7 +1,7 @@
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1):
-    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
     "cf.br"()[^bb3] : () -> ()
   ^bb2:  // pred: ^bb0
@@ -18,7 +18,7 @@
     "cf.br"(%arg0)[^bb1] : (i32) -> ()
   ^bb1(%0: i32):  // 2 preds: ^bb0, ^bb2
     %1 = "arith.cmpi"(%0, %arg1) {predicate = 2 : i64} : (i32, i32) -> i1
-    "cf.cond_br"(%1)[^bb2, ^bb3] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%1)[^bb2, ^bb3] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb2:  // pred: ^bb1
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     %3 = "arith.addi"(%0, %2) : (i32, i32) -> i32
@@ -67,7 +67,7 @@
     "cf.br"(%arg0)[^bb1] : (i32) -> ()
   ^bb1(%0: i32):  // 2 preds: ^bb0, ^bb2
     %1 = "arith.cmpi"(%0, %arg1) {predicate = 2 : i64} : (i32, i32) -> i1
-    "cf.cond_br"(%1)[^bb2, ^bb3] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%1)[^bb2, ^bb3] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb2:  // pred: ^bb1
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     %3 = "arith.addi"(%0, %2) : (i32, i32) -> i32

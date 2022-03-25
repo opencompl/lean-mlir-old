@@ -167,13 +167,13 @@
   "func.func"() ({
   }) {function_type = (memref<100x100xi8, #map43>) -> (), sym_name = "f50", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1xi8, #map44>) -> (), sym_name = "f51", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × i8, #map44>) -> (), sym_name = "f51", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1xi8, #map45>) -> (), sym_name = "f52", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × i8, #map45>) -> (), sym_name = "f52", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1xi8, #map46>) -> (), sym_name = "f53", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × i8, #map46>) -> (), sym_name = "f53", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<10xi32, #map47>) -> (), sym_name = "f54", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<10 × i32, #map47>) -> (), sym_name = "f54", sym_visibility = "private"} : () -> ()
   "foo.op"() {map = #map48} : () -> ()
   "func.func"() ({
   }) {function_type = (memref<1x1xi8, #map49>) -> (), sym_name = "f56", sym_visibility = "private"} : () -> ()

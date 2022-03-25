@@ -21,7 +21,7 @@
     ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: index, %arg4: index):
       %17 = "magic.op"(%arg0, %arg1, %arg2, %arg3, %arg4) : (index, index, index, index, index) -> index
       "scf.yield"() : () -> ()
-    }) {operand_segment_sizes = dense<[5, 5, 5, 0]> : vector<4xi32>} : (index, index, index, index, index, index, index, index, index, index, index, index, index, index, index) -> ()
+    }) {operand_segment_sizes = dense<[5, 5, 5, 0]> : vector<4 × i32>} : (index, index, index, index, index, index, index, index, index, index, index, index, index, index, index) -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "parallel_many_dims"} : () -> ()
 }) : () -> ()

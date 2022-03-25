@@ -6,7 +6,7 @@
     %1 = "arith.constant"() {value = 2 : index} : () -> index
     %2 = "memref.dim"(%arg0, %0) : (memref<1x?x?x14xf32, #map>, index) -> index
     %3 = "memref.dim"(%arg0, %1) : (memref<1x?x?x14xf32, #map>, index) -> index
-    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<1x?x?x14xf32, #map>
+    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<1x?x?x14xf32, #map>
     "test.op_norm"(%arg0, %4) : (memref<1x?x?x14xf32, #map>, memref<1x?x?x14xf32, #map>) -> ()
     "memref.dealloc"(%4) : (memref<1x?x?x14xf32, #map>) -> ()
     "func.return"() : () -> ()
@@ -26,7 +26,7 @@
     %5 = "memref.dim"(%arg0, %1) : (memref<?x?x?x?xf32, #map>, index) -> index
     %6 = "memref.dim"(%arg0, %2) : (memref<?x?x?x?xf32, #map>, index) -> index
     %7 = "memref.dim"(%arg0, %3) : (memref<?x?x?x?xf32, #map>, index) -> index
-    %8 = "memref.alloc"(%4, %5, %6, %7) {operand_segment_sizes = dense<[4, 0]> : vector<2xi32>} : (index, index, index, index) -> memref<?x?x?x?xf32, #map>
+    %8 = "memref.alloc"(%4, %5, %6, %7) {operand_segment_sizes = dense<[4, 0]> : vector<2 × i32>} : (index, index, index, index) -> memref<?x?x?x?xf32, #map>
     "test.op_norm"(%arg0, %8) : (memref<?x?x?x?xf32, #map>, memref<?x?x?x?xf32, #map>) -> ()
     "memref.dealloc"(%8) : (memref<?x?x?x?xf32, #map>) -> ()
     "func.return"() : () -> ()
@@ -42,7 +42,7 @@
     %1 = "arith.constant"() {value = 2 : index} : () -> index
     %2 = "memref.dim"(%arg0, %0) : (memref<1x?x?x14xf32, #map>, index) -> index
     %3 = "memref.dim"(%arg0, %1) : (memref<1x?x?x14xf32, #map>, index) -> index
-    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<1x?x?x14xf32, #map>
+    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<1x?x?x14xf32, #map>
     "test.op_norm"(%arg0, %4) : (memref<1x?x?x14xf32, #map>, memref<1x?x?x14xf32, #map>) -> ()
     "memref.dealloc"(%4) : (memref<1x?x?x14xf32, #map>) -> ()
     "func.return"() : () -> ()
@@ -58,7 +58,7 @@
     %1 = "arith.constant"() {value = 2 : index} : () -> index
     %2 = "memref.dim"(%arg0, %0) : (memref<1x?x?x14xf32, #map>, index) -> index
     %3 = "memref.dim"(%arg0, %1) : (memref<1x?x?x14xf32, #map>, index) -> index
-    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<1x?x?x14xf32, #map>
+    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<1x?x?x14xf32, #map>
     "test.op_norm"(%arg0, %4) : (memref<1x?x?x14xf32, #map>, memref<1x?x?x14xf32, #map>) -> ()
     "memref.dealloc"(%4) : (memref<1x?x?x14xf32, #map>) -> ()
     "func.return"() : () -> ()
@@ -74,7 +74,7 @@
     %1 = "arith.constant"() {value = 2 : index} : () -> index
     %2 = "memref.dim"(%arg0, %0) : (memref<1x?x?x14xf32, #map>, index) -> index
     %3 = "memref.dim"(%arg0, %1) : (memref<1x?x?x14xf32, #map>, index) -> index
-    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<1x?x?x14xf32, #map>
+    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<1x?x?x14xf32, #map>
     "test.op_norm"(%arg0, %4) : (memref<1x?x?x14xf32, #map>, memref<1x?x?x14xf32, #map>) -> ()
     "memref.dealloc"(%4) : (memref<1x?x?x14xf32, #map>) -> ()
     "func.return"() : () -> ()
@@ -90,7 +90,7 @@
     %1 = "arith.constant"() {value = 2 : index} : () -> index
     %2 = "memref.dim"(%arg0, %0) : (memref<1x?x?x14xf32, #map>, index) -> index
     %3 = "memref.dim"(%arg0, %1) : (memref<1x?x?x14xf32, #map>, index) -> index
-    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<1x?x?x14xf32, #map>
+    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<1x?x?x14xf32, #map>
     "test.op_norm"(%arg0, %4) : (memref<1x?x?x14xf32, #map>, memref<1x?x?x14xf32, #map>) -> ()
     "memref.dealloc"(%4) : (memref<1x?x?x14xf32, #map>) -> ()
     "func.return"() : () -> ()
@@ -106,7 +106,7 @@
     %1 = "arith.constant"() {value = 2 : index} : () -> index
     %2 = "memref.dim"(%arg0, %0) : (memref<1x?x?x14xf32, #map>, index) -> index
     %3 = "memref.dim"(%arg0, %1) : (memref<1x?x?x14xf32, #map>, index) -> index
-    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<1x?x?x14xf32, #map>
+    %4 = "memref.alloc"(%2, %3) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<1x?x?x14xf32, #map>
     "test.op_norm"(%arg0, %4) : (memref<1x?x?x14xf32, #map>, memref<1x?x?x14xf32, #map>) -> ()
     "memref.dealloc"(%4) : (memref<1x?x?x14xf32, #map>) -> ()
     "func.return"() : () -> ()

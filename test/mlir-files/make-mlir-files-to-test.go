@@ -68,30 +68,67 @@ func main() {
 	for _, testFilePath := range testfiles {
 		testFileDir, testFileNameWithExtension := filepath.Split(testFilePath)
 		testFileNameWithoutExtension := fileNameWithoutExtTrimSuffix(testFileNameWithExtension)
+		outPath := makeOutPath(MLIR_ROOT_PATH, testFileDir, testFileNameWithoutExtension)
 
 		// --- mlir opt canonicalization ---
-		canonCmd := exec.Command("mlir-opt", testFilePath, "--mlir-print-op-generic", "--allow-unregistered-dialect", "--split-input-file")
-		check(err)
-		outPath := makeOutPath(MLIR_ROOT_PATH, testFileDir, testFileNameWithoutExtension)
-		canonStdout, err := os.Create(outPath)
-		check(err)
+		{
+			canonCmd := exec.Command("mlir-opt", testFilePath, "--mlir-print-op-generic", "--allow-unregistered-dialect", "--split-input-file")
+			check(err)
+			canonStdout, err := os.Create(outPath)
+			check(err)
 
-		canonCmd.Stdout = canonStdout // write output into canon out file.
-		var canonStderr bytes.Buffer
-		canonCmd.Stderr = &canonStderr
-		check(err)
-		log.Output(0, fmt.Sprintf("Running | %s |.", canonCmd.String()))
-		err = canonCmd.Run()
-		if err == nil {
+			canonCmd.Stdout = canonStdout // write output into canon out file.
+			var canonStderr bytes.Buffer
+			canonCmd.Stderr = &canonStderr
+			check(err)
+			log.Output(0, fmt.Sprintf("Running | %s |.", canonCmd.String()))
+			err = canonCmd.Run()
+			if err != nil {
+				failureFiles = append(failureFiles, testFilePath)
+				numFailures++
+				log.Output(0, fmt.Sprintf("Error | %s |.", canonStderr.String()))
+				canonStdout.Close()
+				os.Remove(outPath)
+				continue
+			}
 			numSuccesses++
 			canonStdout.Close()
-		} else {
-			failureFiles = append(failureFiles, testFilePath)
-			numFailures++
-			log.Output(0, fmt.Sprintf("Error | %s |.", canonStderr.String()))
-			canonStdout.Close()
-			os.Remove(outPath)
-		}
+		} // end run canonicalizataion block
+
+		{
+			// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+			// [^blah]: negated capture group for blah
+			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
+			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
+			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g`, outPath)
+
+			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
+			var sedStderr bytes.Buffer
+			sedCommand.Stderr = &sedStderr
+			err = sedCommand.Run()
+			if err != nil {
+				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
+			}
+			check(err)
+		} // end sed run block
+
+		{
+			// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+			// [^blah]: negated capture group for blah
+			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
+			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
+			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)([^x>]*)>/<\1 × \2 × \3>/g`, outPath)
+
+			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
+			var sedStderr bytes.Buffer
+			sedCommand.Stderr = &sedStderr
+			err = sedCommand.Run()
+			if err != nil {
+				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
+			}
+			check(err)
+		} // end sed run block
+
 	}
 
 	log.Output(0, fmt.Sprintf("total: %d | success: %d  | failure: %d", numSuccesses+numFailures, numSuccesses, numFailures))

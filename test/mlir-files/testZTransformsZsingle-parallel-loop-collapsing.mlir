@@ -10,7 +10,7 @@
     ^bb0(%arg0: index, %arg1: index):
       %6 = "magic.op"(%arg0, %arg1) : (index, index) -> index
       "scf.yield"() : () -> ()
-    }) {operand_segment_sizes = dense<[2, 2, 2, 0]> : vector<4xi32>} : (index, index, index, index, index, index) -> ()
+    }) {operand_segment_sizes = dense<[2, 2, 2, 0]> : vector<4 × i32>} : (index, index, index, index, index, index) -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "collapse_to_single"} : () -> ()
 }) : () -> ()

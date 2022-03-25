@@ -38,31 +38,31 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
-    %2 = "arith.addf"(%0, %1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
-    "func.return"(%2) : (tensor<4xf32>) -> ()
-  }) {function_type = () -> tensor<4xf32>, sym_name = "addf_splat_tensor"} : () -> ()
+    %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %2 = "arith.addf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
+    "func.return"(%2) : (tensor<4 × f32>) -> ()
+  }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_splat_tensor"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
-    %1 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
-    %2 = "arith.addf"(%0, %1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
-    "func.return"(%2) : (tensor<4xf32>) -> ()
-  }) {function_type = () -> tensor<4xf32>, sym_name = "addf_dense_tensor"} : () -> ()
+    %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %2 = "arith.addf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
+    "func.return"(%2) : (tensor<4 × f32>) -> ()
+  }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_dense_tensor"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
-    %2 = "arith.addf"(%0, %1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
-    "func.return"(%2) : (tensor<4xf32>) -> ()
-  }) {function_type = () -> tensor<4xf32>, sym_name = "addf_dense_and_splat_tensors"} : () -> ()
+    %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %2 = "arith.addf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
+    "func.return"(%2) : (tensor<4 × f32>) -> ()
+  }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_dense_and_splat_tensors"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -104,39 +104,39 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<2xi32>):
-    %0 = "arith.constant"() {value = dense<-1> : tensor<2xi32>} : () -> tensor<2xi32>
-    %1 = "arith.constant"() {value = dense<31> : tensor<2xi32>} : () -> tensor<2xi32>
-    %2 = "arith.constant"() {value = dense<[31, -1]> : tensor<2xi32>} : () -> tensor<2xi32>
-    %3 = "arith.andi"(%arg0, %0) : (tensor<2xi32>, tensor<2xi32>) -> tensor<2xi32>
-    %4 = "arith.andi"(%3, %1) : (tensor<2xi32>, tensor<2xi32>) -> tensor<2xi32>
-    %5 = "arith.andi"(%4, %2) : (tensor<2xi32>, tensor<2xi32>) -> tensor<2xi32>
-    "func.return"(%5) : (tensor<2xi32>) -> ()
-  }) {function_type = (tensor<2xi32>) -> tensor<2xi32>, sym_name = "tensor_and"} : () -> ()
+  ^bb0(%arg0: tensor<2 × i32>):
+    %0 = "arith.constant"() {value = dense<-1> : tensor<2 × i32>} : () -> tensor<2 × i32>
+    %1 = "arith.constant"() {value = dense<31> : tensor<2 × i32>} : () -> tensor<2 × i32>
+    %2 = "arith.constant"() {value = dense<[31, -1]> : tensor<2 × i32>} : () -> tensor<2 × i32>
+    %3 = "arith.andi"(%arg0, %0) : (tensor<2 × i32>, tensor<2 × i32>) -> tensor<2 × i32>
+    %4 = "arith.andi"(%3, %1) : (tensor<2 × i32>, tensor<2 × i32>) -> tensor<2 × i32>
+    %5 = "arith.andi"(%4, %2) : (tensor<2 × i32>, tensor<2 × i32>) -> tensor<2 × i32>
+    "func.return"(%5) : (tensor<2 × i32>) -> ()
+  }) {function_type = (tensor<2 × i32>) -> tensor<2 × i32>, sym_name = "tensor_and"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: vector<2xi32>):
-    %0 = "arith.constant"() {value = dense<-1> : vector<2xi32>} : () -> vector<2xi32>
-    %1 = "arith.constant"() {value = dense<31> : vector<2xi32>} : () -> vector<2xi32>
-    %2 = "arith.constant"() {value = dense<[31, -1]> : vector<2xi32>} : () -> vector<2xi32>
-    %3 = "arith.andi"(%arg0, %0) : (vector<2xi32>, vector<2xi32>) -> vector<2xi32>
-    %4 = "arith.andi"(%3, %1) : (vector<2xi32>, vector<2xi32>) -> vector<2xi32>
-    %5 = "arith.andi"(%4, %2) : (vector<2xi32>, vector<2xi32>) -> vector<2xi32>
-    "func.return"(%5) : (vector<2xi32>) -> ()
-  }) {function_type = (vector<2xi32>) -> vector<2xi32>, sym_name = "vector_and"} : () -> ()
+  ^bb0(%arg0: vector<2 × i32>):
+    %0 = "arith.constant"() {value = dense<-1> : vector<2 × i32>} : () -> vector<2 × i32>
+    %1 = "arith.constant"() {value = dense<31> : vector<2 × i32>} : () -> vector<2 × i32>
+    %2 = "arith.constant"() {value = dense<[31, -1]> : vector<2 × i32>} : () -> vector<2 × i32>
+    %3 = "arith.andi"(%arg0, %0) : (vector<2 × i32>, vector<2 × i32>) -> vector<2 × i32>
+    %4 = "arith.andi"(%3, %1) : (vector<2 × i32>, vector<2 × i32>) -> vector<2 × i32>
+    %5 = "arith.andi"(%4, %2) : (vector<2 × i32>, vector<2 × i32>) -> vector<2 × i32>
+    "func.return"(%5) : (vector<2 × i32>) -> ()
+  }) {function_type = (vector<2 × i32>) -> vector<2 × i32>, sym_name = "vector_and"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<1> : vector<8xi32>} : () -> vector<8xi32>
-    %1 = "arith.constant"() {value = dense<5> : vector<8xi32>} : () -> vector<8xi32>
-    %2 = "arith.addi"(%0, %1) : (vector<8xi32>, vector<8xi32>) -> vector<8xi32>
-    "func.return"(%2) : (vector<8xi32>) -> ()
-  }) {function_type = () -> vector<8xi32>, sym_name = "addi_splat_vector"} : () -> ()
+    %0 = "arith.constant"() {value = dense<1> : vector<8 × i32>} : () -> vector<8 × i32>
+    %1 = "arith.constant"() {value = dense<5> : vector<8 × i32>} : () -> vector<8 × i32>
+    %2 = "arith.addi"(%0, %1) : (vector<8 × i32>, vector<8 × i32>) -> vector<8 × i32>
+    "func.return"(%2) : (vector<8 × i32>) -> ()
+  }) {function_type = () -> vector<8 × i32>, sym_name = "addi_splat_vector"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -152,11 +152,11 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4.500000e+00> : vector<4xf32>} : () -> vector<4xf32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : vector<4xf32>} : () -> vector<4xf32>
-    %2 = "arith.subf"(%0, %1) : (vector<4xf32>, vector<4xf32>) -> vector<4xf32>
-    "func.return"(%2) : (vector<4xf32>) -> ()
-  }) {function_type = () -> vector<4xf32>, sym_name = "subf_splat_vector"} : () -> ()
+    %0 = "arith.constant"() {value = dense<4.500000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.500000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
+    %2 = "arith.subf"(%0, %1) : (vector<4 × f32>, vector<4 × f32>) -> vector<4 × f32>
+    "func.return"(%2) : (vector<4 × f32>) -> ()
+  }) {function_type = () -> vector<4 × f32>, sym_name = "subf_splat_vector"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -175,11 +175,11 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4> : tensor<4xi32>} : () -> tensor<4xi32>
-    %1 = "arith.constant"() {value = dense<1> : tensor<4xi32>} : () -> tensor<4xi32>
-    %2 = "arith.subi"(%0, %1) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    "func.return"(%2) : (tensor<4xi32>) -> ()
-  }) {function_type = () -> tensor<4xi32>, sym_name = "subi_splat_tensor"} : () -> ()
+    %0 = "arith.constant"() {value = dense<4> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %1 = "arith.constant"() {value = dense<1> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %2 = "arith.subi"(%0, %1) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    "func.return"(%2) : (tensor<4 × i32>) -> ()
+  }) {function_type = () -> tensor<4 × i32>, sym_name = "subi_splat_tensor"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -212,11 +212,11 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
-    %2 = "arith.mulf"(%0, %1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
-    "func.return"(%2) : (tensor<4xf32>) -> ()
-  }) {function_type = () -> tensor<4xf32>, sym_name = "mulf_splat_tensor"} : () -> ()
+    %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %2 = "arith.mulf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
+    "func.return"(%2) : (tensor<4 × f32>) -> ()
+  }) {function_type = () -> tensor<4 × f32>, sym_name = "mulf_splat_tensor"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -236,15 +236,15 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<0> : tensor<4xi32>} : () -> tensor<4xi32>
-    %1 = "arith.constant"() {value = dense<6> : tensor<4xi32>} : () -> tensor<4xi32>
-    %2 = "arith.constant"() {value = dense<2> : tensor<4xi32>} : () -> tensor<4xi32>
-    %3 = "arith.divsi"(%1, %2) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    %4 = "arith.constant"() {value = dense<-2> : tensor<4xi32>} : () -> tensor<4xi32>
-    %5 = "arith.divsi"(%1, %4) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    %6 = "arith.divsi"(%1, %0) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    "func.return"(%3, %5, %6) : (tensor<4xi32>, tensor<4xi32>, tensor<4xi32>) -> ()
-  }) {function_type = () -> (tensor<4xi32>, tensor<4xi32>, tensor<4xi32>), sym_name = "divi_signed_splat_tensor"} : () -> ()
+    %0 = "arith.constant"() {value = dense<0> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %1 = "arith.constant"() {value = dense<6> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %2 = "arith.constant"() {value = dense<2> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %3 = "arith.divsi"(%1, %2) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    %4 = "arith.constant"() {value = dense<-2> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %5 = "arith.divsi"(%1, %4) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    %6 = "arith.divsi"(%1, %0) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    "func.return"(%3, %5, %6) : (tensor<4 × i32>, tensor<4 × i32>, tensor<4 × i32>) -> ()
+  }) {function_type = () -> (tensor<4 × i32>, tensor<4 × i32>, tensor<4 × i32>), sym_name = "divi_signed_splat_tensor"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -264,15 +264,15 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<0> : tensor<4xi32>} : () -> tensor<4xi32>
-    %1 = "arith.constant"() {value = dense<6> : tensor<4xi32>} : () -> tensor<4xi32>
-    %2 = "arith.constant"() {value = dense<2> : tensor<4xi32>} : () -> tensor<4xi32>
-    %3 = "arith.divui"(%1, %2) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    %4 = "arith.constant"() {value = dense<-2> : tensor<4xi32>} : () -> tensor<4xi32>
-    %5 = "arith.divui"(%1, %4) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    %6 = "arith.divui"(%1, %0) : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi32>
-    "func.return"(%3, %5, %6) : (tensor<4xi32>, tensor<4xi32>, tensor<4xi32>) -> ()
-  }) {function_type = () -> (tensor<4xi32>, tensor<4xi32>, tensor<4xi32>), sym_name = "divi_unsigned_splat_tensor"} : () -> ()
+    %0 = "arith.constant"() {value = dense<0> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %1 = "arith.constant"() {value = dense<6> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %2 = "arith.constant"() {value = dense<2> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %3 = "arith.divui"(%1, %2) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    %4 = "arith.constant"() {value = dense<-2> : tensor<4 × i32>} : () -> tensor<4 × i32>
+    %5 = "arith.divui"(%1, %4) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    %6 = "arith.divui"(%1, %0) : (tensor<4 × i32>, tensor<4 × i32>) -> tensor<4 × i32>
+    "func.return"(%3, %5, %6) : (tensor<4 × i32>, tensor<4 × i32>, tensor<4 × i32>) -> ()
+  }) {function_type = () -> (tensor<4 × i32>, tensor<4 × i32>, tensor<4 × i32>), sym_name = "divi_unsigned_splat_tensor"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -372,11 +372,11 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4> : vector<4xi32>} : () -> vector<4xi32>
-    %1 = "arith.constant"() {value = dense<2> : vector<4xi32>} : () -> vector<4xi32>
-    %2 = "arith.muli"(%0, %1) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%2) : (vector<4xi32>) -> ()
-  }) {function_type = () -> vector<4xi32>, sym_name = "muli_splat_vector"} : () -> ()
+    %0 = "arith.constant"() {value = dense<4> : vector<4 × i32>} : () -> vector<4 × i32>
+    %1 = "arith.constant"() {value = dense<2> : vector<4 × i32>} : () -> vector<4 × i32>
+    %2 = "arith.muli"(%0, %1) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%2) : (vector<4 × i32>) -> ()
+  }) {function_type = () -> vector<4 × i32>, sym_name = "muli_splat_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<8x4xf32>):
     %0 = "arith.constant"() {value = 1 : index} : () -> index
@@ -512,7 +512,7 @@
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<f32>):
-    %0 = "memref.subview"(%arg0) {operand_segment_sizes = dense<[1, 0, 0, 0]> : vector<4xi32>, static_offsets = [], static_sizes = [], static_strides = []} : (memref<f32>) -> memref<f32>
+    %0 = "memref.subview"(%arg0) {operand_segment_sizes = dense<[1, 0, 0, 0]> : vector<4 × i32>, static_offsets = [], static_sizes = [], static_strides = []} : (memref<f32>) -> memref<f32>
     "func.return"(%0) : (memref<f32>) -> ()
   }) {function_type = (memref<f32>) -> memref<f32>, sym_name = "subview_scalar_fold"} : () -> ()
 }) : () -> ()

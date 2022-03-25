@@ -19,7 +19,7 @@
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1, %arg1: i32, %arg2: i32):
-    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
     "cf.br"()[^bb3] : () -> ()
   ^bb2:  // pred: ^bb0
@@ -38,7 +38,7 @@
     "cf.br"(%0, %arg0)[^bb1] : (i32, i32) -> ()
   ^bb1(%1: i32, %2: i32):  // 2 preds: ^bb0, ^bb2
     %3 = "arith.cmpi"(%1, %arg1) {predicate = 2 : i64} : (i32, i32) -> i1
-    "cf.cond_br"(%3, %2, %2)[^bb2, ^bb3] {operand_segment_sizes = dense<1> : vector<3xi32>} : (i1, i32, i32) -> ()
+    "cf.cond_br"(%3, %2, %2)[^bb2, ^bb3] {operand_segment_sizes = dense<1> : vector<3 × i32>} : (i1, i32, i32) -> ()
   ^bb2(%4: i32):  // pred: ^bb1
     %5 = "arith.constant"() {value = 1 : i32} : () -> i32
     %6 = "arith.addi"(%4, %5) : (i32, i32) -> i32
@@ -61,7 +61,7 @@
     %4 = "arith.muli"(%0, %2) : (i32, i32) -> i32
     %5 = "arith.muli"(%4, %3) : (i32, i32) -> i32
     %6 = "arith.addi"(%5, %1) : (i32, i32) -> i32
-    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
     %7 = "arith.constant"() {value = 4 : i32} : () -> i32
     %8 = "arith.muli"(%5, %7) : (i32, i32) -> i32

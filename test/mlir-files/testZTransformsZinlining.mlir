@@ -11,7 +11,7 @@
   }) {function_type = (i32) -> i32, sym_name = "inline_with_arg"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: i1):
-    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
     "func.return"(%0) : (i32) -> ()
@@ -114,13 +114,13 @@
     "func.return"(%0) : (i32) -> ()
   }) {function_type = () -> i32, sym_name = "no_inline_invalid_call"} : () -> ()
   "func.func"() ({
-    %0 = "gpu.alloc"() {operand_segment_sizes = dense<0> : vector<3xi32>} : () -> memref<1024xf32>
-    "func.return"(%0) : (memref<1024xf32>) -> ()
-  }) {function_type = () -> memref<1024xf32>, sym_name = "gpu_alloc"} : () -> ()
+    %0 = "gpu.alloc"() {operand_segment_sizes = dense<0> : vector<3 × i32>} : () -> memref<1024 × f32>
+    "func.return"(%0) : (memref<1024 × f32>) -> ()
+  }) {function_type = () -> memref<1024 × f32>, sym_name = "gpu_alloc"} : () -> ()
   "func.func"() ({
-    %0 = "func.call"() {callee = @gpu_alloc} : () -> memref<1024xf32>
-    "func.return"(%0) : (memref<1024xf32>) -> ()
-  }) {function_type = () -> memref<1024xf32>, sym_name = "inline_gpu_ops"} : () -> ()
+    %0 = "func.call"() {callee = @gpu_alloc} : () -> memref<1024 × f32>
+    "func.return"(%0) : (memref<1024 × f32>) -> ()
+  }) {function_type = () -> memref<1024 × f32>, sym_name = "inline_gpu_ops"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: i32):
     "cf.br"(%arg0)[^bb1] : (i32) -> ()

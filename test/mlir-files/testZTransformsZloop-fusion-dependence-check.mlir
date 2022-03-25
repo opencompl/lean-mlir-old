@@ -8,26 +8,26 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %3 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %4 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%3, %1, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %4 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%3, %1, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%3, %0, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
-      %4 = "affine.load"(%2, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      "affine.store"(%3, %0, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
+      %4 = "affine.load"(%2, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %4 = "affine.load"(%1, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%3, %2, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %4 = "affine.load"(%1, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%3, %2, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
@@ -40,26 +40,26 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %3 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %4 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%3, %1, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %4 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%3, %1, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %4 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      %5 = "affine.load"(%2, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      %4 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      %5 = "affine.load"(%2, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %4 = "affine.load"(%1, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%3, %2, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %4 = "affine.load"(%1, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%3, %2, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
@@ -72,27 +72,27 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %3 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %3 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %4 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %5 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%4, %1, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %5 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%4, %1, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%4, %3, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
-      %5 = "affine.load"(%2, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      "affine.store"(%4, %3, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
+      %5 = "affine.load"(%2, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %5 = "affine.load"(%1, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%4, %2, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %5 = "affine.load"(%1, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%4, %2, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
@@ -105,19 +105,19 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "op0"(%3) : (f32) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
-    "affine.store"(%2, %0, %1) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+    "affine.store"(%2, %0, %1) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "op1"(%3) : (f32) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
@@ -131,19 +131,19 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
-    %3 = "affine.load"(%0, %1) {map = #map0} : (memref<10xf32>, index) -> f32
+    %3 = "affine.load"(%0, %1) {map = #map0} : (memref<10 × f32>, index) -> f32
     "op0"(%3) : (f32) -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
@@ -156,22 +156,22 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %2 = "arith.constant"() {value = 0 : index} : () -> index
     %3 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %6 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
-      "affine.store"(%6, %1, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      %6 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
+      "affine.store"(%6, %1, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
-    %4 = "affine.load"(%1, %2) {map = #map0} : (memref<10xf32>, index) -> f32
+    %4 = "affine.load"(%1, %2) {map = #map0} : (memref<10 × f32>, index) -> f32
     "op0"(%4) : (f32) -> ()
     %5 = "arith.constant"() {value = 2 : index} : () -> index
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%3, %0, %5) {map = #map0} : (f32, memref<10xf32>, index) -> ()
+      "affine.store"(%3, %0, %5) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
@@ -184,24 +184,24 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × f32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
-      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
+      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "affine.for"() ({
     ^bb0(%arg0: index):
-      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10xf32>, index) -> ()
-      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10xf32>, index) -> f32
+      "affine.store"(%2, %0, %arg0) {map = #map0} : (f32, memref<10 × f32>, index) -> ()
+      %3 = "affine.load"(%0, %arg0) {map = #map0} : (memref<10 × f32>, index) -> f32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
@@ -214,7 +214,7 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10x10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10x10xf32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
@@ -242,7 +242,7 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10x10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10x10xf32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
@@ -274,7 +274,7 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10x10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10x10xf32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
@@ -302,7 +302,7 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10x10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10x10xf32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
@@ -334,8 +334,8 @@
 #map2 = affine_map<() -> (10)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10x10xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<10x10xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10x10xf32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10x10xf32>
     %2 = "arith.constant"() {value = 0 : index} : () -> index
     %3 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({

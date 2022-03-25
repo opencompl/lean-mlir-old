@@ -14,10 +14,10 @@
     "func.return"(%0) : (i32) -> ()
   }) {function_type = (i32) -> i32, sym_name = "test_subi_zero"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.subi"(%arg0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%0) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "test_subi_zero_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.subi"(%arg0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%0) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "test_subi_zero_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.subi"(%arg0, %arg0) : (tensor<4x5xi32>, tensor<4x5xi32>) -> tensor<4x5xi32>
@@ -45,9 +45,9 @@
   "func.func"() ({
   ^bb0(%arg0: index):
     %0 = "arith.constant"() {value = 4 : index} : () -> index
-    %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (index) -> memref<?xf32>
-    %2 = "memref.load"(%1, %arg0) : (memref<?xf32>, index) -> f32
-    "memref.dealloc"(%1) : (memref<?xf32>) -> ()
+    %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × f32>
+    %2 = "memref.load"(%1, %arg0) : (memref<? × f32>, index) -> f32
+    "memref.dealloc"(%1) : (memref<? × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (index) -> (), sym_name = "load_dce"} : () -> ()
   "func.func"() ({
@@ -63,11 +63,11 @@
     "func.return"(%1) : (index) -> ()
   }) {function_type = (index) -> index, sym_name = "addi_zero_index"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.constant"() {value = dense<0> : vector<4xi32>} : () -> vector<4xi32>
-    %1 = "arith.addi"(%0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%1) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "addi_zero_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.constant"() {value = dense<0> : vector<4 × i32>} : () -> vector<4 × i32>
+    %1 = "arith.addi"(%0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%1) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "addi_zero_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.constant"() {value = dense<0> : tensor<4x5xi32>} : () -> tensor<4x5xi32>
@@ -87,11 +87,11 @@
     "func.return"(%1) : (index) -> ()
   }) {function_type = (index) -> index, sym_name = "muli_zero_index"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.constant"() {value = dense<0> : vector<4xi32>} : () -> vector<4xi32>
-    %1 = "arith.muli"(%0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%1) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "muli_zero_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.constant"() {value = dense<0> : vector<4 × i32>} : () -> vector<4 × i32>
+    %1 = "arith.muli"(%0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%1) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "muli_zero_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.constant"() {value = dense<0> : tensor<4x5xi32>} : () -> tensor<4x5xi32>
@@ -111,11 +111,11 @@
     "func.return"(%1) : (index) -> ()
   }) {function_type = (index) -> index, sym_name = "muli_one_index"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.constant"() {value = dense<1> : vector<4xi32>} : () -> vector<4xi32>
-    %1 = "arith.muli"(%0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%1) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "muli_one_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.constant"() {value = dense<1> : vector<4 × i32>} : () -> vector<4 × i32>
+    %1 = "arith.muli"(%0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%1) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "muli_one_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.constant"() {value = dense<1> : tensor<4x5xi32>} : () -> tensor<4x5xi32>
@@ -128,10 +128,10 @@
     "func.return"(%0) : (i32) -> ()
   }) {function_type = (i32) -> i32, sym_name = "and_self"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.andi"(%arg0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%0) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "and_self_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.andi"(%arg0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%0) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "and_self_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.andi"(%arg0, %arg0) : (tensor<4x5xi32>, tensor<4x5xi32>) -> tensor<4x5xi32>
@@ -150,11 +150,11 @@
     "func.return"(%1) : (index) -> ()
   }) {function_type = (index) -> index, sym_name = "and_zero_index"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.constant"() {value = dense<0> : vector<4xi32>} : () -> vector<4xi32>
-    %1 = "arith.andi"(%arg0, %0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%1) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "and_zero_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.constant"() {value = dense<0> : vector<4 × i32>} : () -> vector<4 × i32>
+    %1 = "arith.andi"(%arg0, %0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%1) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "and_zero_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.constant"() {value = dense<0> : tensor<4x5xi32>} : () -> tensor<4x5xi32>
@@ -167,10 +167,10 @@
     "func.return"(%0) : (i32) -> ()
   }) {function_type = (i32) -> i32, sym_name = "or_self"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.ori"(%arg0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%0) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "or_self_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.ori"(%arg0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%0) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "or_self_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.ori"(%arg0, %arg0) : (tensor<4x5xi32>, tensor<4x5xi32>) -> tensor<4x5xi32>
@@ -189,11 +189,11 @@
     "func.return"(%1) : (index) -> ()
   }) {function_type = (index) -> index, sym_name = "or_zero_index"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.constant"() {value = dense<0> : vector<4xi32>} : () -> vector<4xi32>
-    %1 = "arith.ori"(%arg0, %0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%1) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "or_zero_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.constant"() {value = dense<0> : vector<4 × i32>} : () -> vector<4 × i32>
+    %1 = "arith.ori"(%arg0, %0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%1) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "or_zero_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.constant"() {value = dense<0> : tensor<4x5xi32>} : () -> tensor<4x5xi32>
@@ -214,26 +214,26 @@
     "func.return"(%0) : (i32) -> ()
   }) {function_type = (i32) -> i32, sym_name = "xor_self"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi32>):
-    %0 = "arith.xori"(%arg0, %arg0) : (vector<4xi32>, vector<4xi32>) -> vector<4xi32>
-    "func.return"(%0) : (vector<4xi32>) -> ()
-  }) {function_type = (vector<4xi32>) -> vector<4xi32>, sym_name = "xor_self_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i32>):
+    %0 = "arith.xori"(%arg0, %arg0) : (vector<4 × i32>, vector<4 × i32>) -> vector<4 × i32>
+    "func.return"(%0) : (vector<4 × i32>) -> ()
+  }) {function_type = (vector<4 × i32>) -> vector<4 × i32>, sym_name = "xor_self_vector"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<4x5xi32>):
     %0 = "arith.xori"(%arg0, %arg0) : (tensor<4x5xi32>, tensor<4x5xi32>) -> tensor<4x5xi32>
     "func.return"(%0) : (tensor<4x5xi32>) -> ()
   }) {function_type = (tensor<4x5xi32>) -> tensor<4x5xi32>, sym_name = "xor_self_tensor"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: memref<4xf32>, %arg1: f32):
-    %0 = "memref.cast"(%arg0) : (memref<4xf32>) -> memref<?xf32>
+  ^bb0(%arg0: memref<4 × f32>, %arg1: f32):
+    %0 = "memref.cast"(%arg0) : (memref<4 × f32>) -> memref<? × f32>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
-    %2 = "memref.dim"(%0, %1) : (memref<?xf32>, index) -> index
-    %3 = "affine.load"(%0, %2) {map = #map0} : (memref<?xf32>, index) -> f32
-    "memref.store"(%arg1, %0, %1) : (f32, memref<?xf32>, index) -> ()
-    %4 = "memref.load"(%0, %1) : (memref<?xf32>, index) -> f32
-    "memref.dealloc"(%0) : (memref<?xf32>) -> ()
+    %2 = "memref.dim"(%0, %1) : (memref<? × f32>, index) -> index
+    %3 = "affine.load"(%0, %2) {map = #map0} : (memref<? × f32>, index) -> f32
+    "memref.store"(%arg1, %0, %1) : (f32, memref<? × f32>, index) -> ()
+    %4 = "memref.load"(%0, %1) : (memref<? × f32>, index) -> f32
+    "memref.dealloc"(%0) : (memref<? × f32>) -> ()
     "func.return"(%3, %4) : (f32, f32) -> ()
-  }) {function_type = (memref<4xf32>, f32) -> (f32, f32), sym_name = "memref_cast_folding"} : () -> ()
+  }) {function_type = (memref<4 × f32>, f32) -> (f32, f32), sym_name = "memref_cast_folding"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: memref<42x42xf64>):
     %0 = "memref.cast"(%arg0) : (memref<42x42xf64>) -> memref<?x42xf64>
@@ -250,40 +250,40 @@
   }) {function_type = (memref<42x42xf64>) -> (), sym_name = "fold_memref_cast_chain"} : () -> ()
   "func.func"() ({
     %0 = "arith.constant"() {value = 4 : index} : () -> index
-    %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (index) -> memref<?xf32>
+    %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × f32>
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "dead_alloc_fold"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<4xf32>
-    "memref.dealloc"(%0) : (memref<4xf32>) -> ()
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × f32>
+    "memref.dealloc"(%0) : (memref<4 × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "dead_dealloc_fold"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: i1):
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<4xf32>
-    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × f32>
+    "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
-    "memref.dealloc"(%0) : (memref<4xf32>) -> ()
+    "memref.dealloc"(%0) : (memref<4 × f32>) -> ()
     "func.return"() : () -> ()
   ^bb2:  // pred: ^bb0
-    "memref.dealloc"(%0) : (memref<4xf32>) -> ()
+    "memref.dealloc"(%0) : (memref<4 × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (i1) -> (), sym_name = "dead_dealloc_fold_multi_use"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: f32):
     %0 = "arith.constant"() {value = 0 : index} : () -> index
     %1 = "arith.constant"() {value = 4 : index} : () -> index
-    %2 = "memref.alloc"(%1) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (index) -> memref<?xf32>
-    "memref.store"(%arg0, %2, %0) : (f32, memref<?xf32>, index) -> ()
-    "memref.dealloc"(%2) : (memref<?xf32>) -> ()
+    %2 = "memref.alloc"(%1) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × f32>
+    "memref.store"(%arg0, %2, %0) : (f32, memref<? × f32>, index) -> ()
+    "memref.dealloc"(%2) : (memref<? × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (f32) -> (), sym_name = "write_only_alloc_fold"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: f32):
     %0 = "arith.constant"() {value = 0 : index} : () -> index
     %1 = "arith.constant"() {value = 4 : index} : () -> index
-    %2 = "memref.alloca"(%1) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (index) -> memref<?xf32>
-    "memref.store"(%arg0, %2, %0) : (f32, memref<?xf32>, index) -> ()
+    %2 = "memref.alloca"(%1) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × f32>
+    "memref.store"(%arg0, %2, %0) : (f32, memref<? × f32>, index) -> ()
     "func.return"() : () -> ()
   }) {function_type = (f32) -> (), sym_name = "write_only_alloca_fold"} : () -> ()
   "func.func"() ({
@@ -302,11 +302,11 @@
     %1 = "arith.constant"() {value = 9 : index} : () -> index
     %2 = "arith.constant"() {value = 1024 : index} : () -> index
     %3 = "arith.constant"() {value = 512 : index} : () -> index
-    %4 = "memref.alloc"(%arg0, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
-    %5 = "memref.alloc"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2xi32>} : (index, index, index) -> memref<4x?x8x?x?xf32>
-    %6 = "memref.alloc"(%3, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xi32>
-    %7 = "memref.alloc"(%1, %1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
-    %8 = "memref.alloca"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2xi32>} : (index, index, index) -> memref<4x?x8x?x?xf32>
+    %4 = "memref.alloc"(%arg0, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
+    %5 = "memref.alloc"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<4x?x8x?x?xf32>
+    %6 = "memref.alloc"(%3, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xi32>
+    %7 = "memref.alloc"(%1, %1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
+    %8 = "memref.alloca"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<4x?x8x?x?xf32>
     "affine.for"(%arg0) ({
     ^bb0(%arg2: index):
       "affine.for"() ({
@@ -320,22 +320,22 @@
     "func.return"(%5, %6, %7, %8) : (memref<4x?x8x?x?xf32>, memref<?x?xi32>, memref<?x?xf32>, memref<4x?x8x?x?xf32>) -> ()
   }) {function_type = (index, index) -> (memref<4x?x8x?x?xf32>, memref<?x?xi32>, memref<?x?xf32>, memref<4x?x8x?x?xf32>), sym_name = "dyn_shape_fold"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<?xi8>, %arg4: index, %arg5: index, %arg6: index):
+  ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<? × i8>, %arg4: index, %arg5: index, %arg6: index):
     %0 = "arith.constant"() {value = 0 : index} : () -> index
     %1 = "arith.constant"() {value = 1 : index} : () -> index
     %2 = "arith.constant"() {value = 2 : index} : () -> index
-    %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
-    %4 = "memref.alloc"(%arg1, %arg2) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x8x?xf32>
+    %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
+    %4 = "memref.alloc"(%arg1, %arg2) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x8x?xf32>
     %5 = "memref.dim"(%4, %2) : (memref<?x8x?xf32>, index) -> index
     "affine.for"(%5) ({
     ^bb0(%arg7: index):
-      %12 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (index) -> memref<?xi8>
-      %13 = "memref.dim"(%12, %0) : (memref<?xi8>, index) -> index
+      %12 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × i8>
+      %13 = "memref.dim"(%12, %0) : (memref<? × i8>, index) -> index
       "affine.for"(%13) ({
       ^bb0(%arg8: index):
         %14 = "memref.dim"(%3, %0) : (memref<?x?xf32>, index) -> index
-        %15 = "memref.view"(%12, %0, %arg8, %14) : (memref<?xi8>, index, index, index) -> memref<?x?xf32>
-        %16 = "memref.subview"(%3, %0, %0, %14, %arg8, %1, %1) {operand_segment_sizes = dense<[1, 2, 2, 2]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [-1, -1], static_strides = [-9223372036854775808, -9223372036854775808]} : (memref<?x?xf32>, index, index, index, index, index, index) -> memref<?x?xf32, #map4>
+        %15 = "memref.view"(%12, %0, %arg8, %14) : (memref<? × i8>, index, index, index) -> memref<?x?xf32>
+        %16 = "memref.subview"(%3, %0, %0, %14, %arg8, %1, %1) {operand_segment_sizes = dense<[1, 2, 2, 2]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [-1, -1], static_strides = [-9223372036854775808, -9223372036854775808]} : (memref<?x?xf32>, index, index, index, index, index, index) -> memref<?x?xf32, #map4>
         %17 = "memref.dim"(%15, %1) : (memref<?x?xf32>, index) -> index
         %18 = "memref.dim"(%16, %0) : (memref<?x?xf32, #map4>, index) -> index
         "affine.for"(%17, %18) ({
@@ -343,7 +343,7 @@
           "foo"() : () -> ()
           "affine.yield"() : () -> ()
         }) {lower_bound = #map3, step = 1 : index, upper_bound = #map3} : (index, index) -> ()
-        %19 = "memref.subview"(%3, %arg8) {operand_segment_sizes = dense<[1, 0, 1, 0]> : vector<4xi32>, static_offsets = [0, 0], static_sizes = [17, -1], static_strides = [1, 1]} : (memref<?x?xf32>, index) -> memref<17x?xf32, #map5>
+        %19 = "memref.subview"(%3, %arg8) {operand_segment_sizes = dense<[1, 0, 1, 0]> : vector<4 × i32>, static_offsets = [0, 0], static_sizes = [17, -1], static_strides = [1, 1]} : (memref<?x?xf32>, index) -> memref<17x?xf32, #map5>
         %20 = "memref.dim"(%15, %1) : (memref<?x?xf32>, index) -> index
         %21 = "memref.dim"(%19, %1) : (memref<17x?xf32, #map5>, index) -> index
         "scf.for"(%20, %21, %1) ({
@@ -355,9 +355,9 @@
       }) {lower_bound = #map1, step = 1 : index, upper_bound = #map3} : (index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map3} : (index) -> ()
-    %6 = "memref.view"(%arg3, %0, %arg4, %arg6) : (memref<?xi8>, index, index, index) -> memref<?x?xf32>
-    %7 = "memref.view"(%arg3, %0, %arg6, %arg5) : (memref<?xi8>, index, index, index) -> memref<?x?xf32>
-    %8 = "memref.view"(%arg3, %0, %arg4, %arg5) : (memref<?xi8>, index, index, index) -> memref<?x?xf32>
+    %6 = "memref.view"(%arg3, %0, %arg4, %arg6) : (memref<? × i8>, index, index, index) -> memref<?x?xf32>
+    %7 = "memref.view"(%arg3, %0, %arg6, %arg5) : (memref<? × i8>, index, index, index) -> memref<?x?xf32>
+    %8 = "memref.view"(%arg3, %0, %arg4, %arg5) : (memref<? × i8>, index, index, index) -> memref<?x?xf32>
     %9 = "memref.dim"(%6, %0) : (memref<?x?xf32>, index) -> index
     %10 = "memref.dim"(%6, %1) : (memref<?x?xf32>, index) -> index
     %11 = "memref.dim"(%8, %1) : (memref<?x?xf32>, index) -> index
@@ -374,27 +374,27 @@
       "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
     "func.return"() : () -> ()
-  }) {function_type = (index, index, index, memref<?xi8>, index, index, index) -> (), sym_name = "dim_op_fold"} : () -> ()
+  }) {function_type = (index, index, index, memref<? × i8>, index, index, index) -> (), sym_name = "dim_op_fold"} : () -> ()
   "func.func"() ({
     %0 = "arith.constant"() {value = 42 : index} : () -> index
     %1 = "arith.constant"() {value = 42 : index} : () -> index
     "func.return"(%0, %1) : (index, index) -> ()
   }) {function_type = () -> (index, index), sym_name = "merge_constants"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: memref<8xi32>):
+  ^bb0(%arg0: memref<8 × i32>):
     "affine.for"() ({
     ^bb0(%arg1: index):
       %0 = "arith.constant"() {value = 42 : i32} : () -> i32
-      "memref.store"(%0, %arg0, %arg1) : (i32, memref<8xi32>, index) -> ()
+      "memref.store"(%0, %arg0, %arg1) : (i32, memref<8 × i32>, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map6} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<8xi32>) -> (), sym_name = "hoist_constant"} : () -> ()
+  }) {function_type = (memref<8 × i32>) -> (), sym_name = "hoist_constant"} : () -> ()
   "func.func"() ({
     %0 = "arith.constant"() {value = 512 : index} : () -> index
     %1 = "affine.apply"(%0) {map = #map7} : (index) -> index
     %2 = "affine.apply"(%0) {map = #map8} : (index) -> index
-    %3 = "memref.alloc"(%1, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+    %3 = "memref.alloc"(%1, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
     "func.return"(%3) : (memref<?x?xf32>) -> ()
   }) {function_type = () -> memref<?x?xf32>, sym_name = "const_fold_propagate"} : () -> ()
   "func.func"() ({
@@ -473,31 +473,31 @@
     "func.return"(%11, %23) : (index, index) -> ()
   }) {function_type = () -> (index, index), sym_name = "lowered_affine_ceildiv"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: memref<?xi32>):
-    %0 = "memref.cast"(%arg0) : (memref<?xi32>) -> memref<?xi32>
-    %1 = "memref.cast"(%0) : (memref<?xi32>) -> memref<2xi32>
-    %2 = "memref.cast"(%1) : (memref<2xi32>) -> memref<2xi32>
-    "func.return"(%2) : (memref<2xi32>) -> ()
-  }) {function_type = (memref<?xi32>) -> memref<2xi32>, sym_name = "cast_values"} : () -> ()
+  ^bb0(%arg0: memref<? × i32>):
+    %0 = "memref.cast"(%arg0) : (memref<? × i32>) -> memref<? × i32>
+    %1 = "memref.cast"(%0) : (memref<? × i32>) -> memref<2 × i32>
+    %2 = "memref.cast"(%1) : (memref<2 × i32>) -> memref<2 × i32>
+    "func.return"(%2) : (memref<2 × i32>) -> ()
+  }) {function_type = (memref<? × i32>) -> memref<2 × i32>, sym_name = "cast_values"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index):
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2048xi8>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2048 × i8>
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 7 : index} : () -> index
     %3 = "arith.constant"() {value = 11 : index} : () -> index
     %4 = "arith.constant"() {value = 15 : index} : () -> index
-    %5 = "memref.view"(%0, %4, %2, %3) : (memref<2048xi8>, index, index, index) -> memref<?x?xf32>
+    %5 = "memref.view"(%0, %4, %2, %3) : (memref<2048 × i8>, index, index, index) -> memref<?x?xf32>
     %6 = "memref.load"(%5, %1, %1) : (memref<?x?xf32>, index, index) -> f32
-    %7 = "memref.view"(%0, %4, %arg0, %arg0, %2) : (memref<2048xi8>, index, index, index, index) -> memref<?x?x?xf32>
+    %7 = "memref.view"(%0, %4, %arg0, %arg0, %2) : (memref<2048 × i8>, index, index, index, index) -> memref<?x?x?xf32>
     %8 = "memref.load"(%7, %1, %1, %1) : (memref<?x?x?xf32>, index, index, index) -> f32
-    %9 = "memref.view"(%0, %4, %2) : (memref<2048xi8>, index, index) -> memref<?x4xf32>
+    %9 = "memref.view"(%0, %4, %2) : (memref<2048 × i8>, index, index) -> memref<?x4xf32>
     %10 = "memref.load"(%9, %1, %1) : (memref<?x4xf32>, index, index) -> f32
-    %11 = "memref.cast"(%0) : (memref<2048xi8>) -> memref<?xi8>
-    %12 = "memref.view"(%11, %4, %4, %2) : (memref<?xi8>, index, index, index) -> memref<?x?xf32>
+    %11 = "memref.cast"(%0) : (memref<2048 × i8>) -> memref<? × i8>
+    %12 = "memref.view"(%11, %4, %4, %2) : (memref<? × i8>, index, index, index) -> memref<?x?xf32>
     %13 = "memref.load"(%12, %1, %1) : (memref<?x?xf32>, index, index) -> f32
     "func.return"(%6, %8, %10, %13) : (f32, f32, f32, f32) -> ()
   }) {function_type = (index) -> (f32, f32, f32, f32), sym_name = "view"} : () -> ()
@@ -520,36 +520,36 @@
     %3 = "arith.constant"() {value = 7 : index} : () -> index
     %4 = "arith.constant"() {value = 11 : index} : () -> index
     %5 = "arith.constant"() {value = 15 : index} : () -> index
-    %6 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<8x16x4xf32, #map0>
-    %7 = "memref.subview"(%6, %0, %0, %0, %3, %4, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %6 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<8x16x4xf32, #map0>
+    %7 = "memref.subview"(%6, %0, %0, %0, %3, %4, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     %8 = "memref.load"(%7, %0, %0, %0) : (memref<?x?x?xf32, #map1>, index, index, index) -> f32
-    %9 = "memref.subview"(%6, %0, %arg0, %0, %3, %4, %5, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %9 = "memref.subview"(%6, %0, %arg0, %0, %3, %4, %5, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %9, %0, %0, %0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %10 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (index) -> memref<?x16x4xf32, #map0>
-    %11 = "memref.subview"(%10, %0, %0, %0, %3, %4, %5, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %10 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<?x16x4xf32, #map0>
+    %11 = "memref.subview"(%10, %0, %0, %0, %3, %4, %5, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %11, %0, %0, %0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %12 = "memref.subview"(%6, %1, %2, %3, %3, %4, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %12 = "memref.subview"(%6, %1, %2, %3, %3, %4, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %12, %0, %0, %0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %13 = "memref.subview"(%6, %0, %0, %0, %3, %4, %2, %2, %3, %4) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %13 = "memref.subview"(%6, %0, %0, %0, %3, %4, %2, %2, %3, %4) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %13, %0, %0, %0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %14 = "memref.subview"(%6, %arg0, %arg0, %arg0, %3, %4, %2, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %14 = "memref.subview"(%6, %arg0, %arg0, %arg0, %3, %4, %2, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %14, %arg1, %arg1, %arg1) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %15 = "memref.subview"(%6, %arg0, %arg0, %arg0, %arg1, %arg1, %arg1, %2, %3, %4) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %15 = "memref.subview"(%6, %arg0, %arg0, %arg0, %arg1, %arg1, %arg1, %2, %3, %4) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %15, %arg0, %arg0, %arg0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %16 = "memref.subview"(%6, %1, %2, %3, %arg1, %arg1, %arg1, %arg0, %arg0, %arg0) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %16 = "memref.subview"(%6, %1, %2, %3, %arg1, %arg1, %arg1, %arg0, %arg0, %arg0) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<8x16x4xf32, #map0>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %16, %arg1, %arg1, %arg1) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %17 = "memref.alloc"(%arg0, %arg0, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2xi32>} : (index, index, index) -> memref<?x?x?xf32>
-    %18 = "memref.subview"(%17, %arg0, %arg0, %arg0, %3, %4, %2, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %17 = "memref.alloc"(%arg0, %arg0, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<?x?x?xf32>
+    %18 = "memref.subview"(%17, %arg0, %arg0, %arg0, %3, %4, %2, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %18, %arg1, %arg1, %arg1) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %19 = "memref.subview"(%17, %arg0, %arg0, %arg0, %arg1, %arg1, %arg1, %2, %2, %2) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %19 = "memref.subview"(%17, %arg0, %arg0, %arg0, %arg1, %arg1, %arg1, %2, %2, %2) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %19, %arg0, %arg0, %arg0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %20 = "memref.subview"(%17, %1, %1, %1, %arg0, %arg0, %arg0, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
+    %20 = "memref.subview"(%17, %1, %1, %1, %arg0, %arg0, %arg0, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (memref<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> memref<?x?x?xf32, #map1>
     "memref.store"(%8, %20, %arg0, %arg0, %arg0) : (f32, memref<?x?x?xf32, #map1>, index, index, index) -> ()
-    %21 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<12x4xf32>
+    %21 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<12x4xf32>
     %22 = "arith.constant"() {value = 4 : index} : () -> index
-    %23 = "memref.subview"(%21, %arg1, %arg1, %2, %22) {operand_segment_sizes = dense<[1, 2, 2, 0]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [-1, -1], static_strides = [1, 1]} : (memref<12x4xf32>, index, index, index, index) -> memref<?x?xf32, #map2>
+    %23 = "memref.subview"(%21, %arg1, %arg1, %2, %22) {operand_segment_sizes = dense<[1, 2, 2, 0]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [-1, -1], static_strides = [1, 1]} : (memref<12x4xf32>, index, index, index, index) -> memref<?x?xf32, #map2>
     "memref.store"(%8, %23, %arg1, %arg1) : (f32, memref<?x?xf32, #map2>, index, index) -> ()
-    %24 = "memref.subview"(%21, %2, %22) {operand_segment_sizes = dense<[1, 2, 0, 0]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [12, 4], static_strides = [1, 1]} : (memref<12x4xf32>, index, index) -> memref<12x4xf32, #map2>
+    %24 = "memref.subview"(%21, %2, %22) {operand_segment_sizes = dense<[1, 2, 0, 0]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [12, 4], static_strides = [1, 1]} : (memref<12x4xf32>, index, index) -> memref<12x4xf32, #map2>
     "memref.store"(%8, %24, %arg1, %arg1) : (f32, memref<12x4xf32, #map2>, index, index) -> ()
     %25 = "memref.dim"(%11, %0) : (memref<?x?x?xf32, #map1>, index) -> index
     %26 = "memref.dim"(%11, %1) : (memref<?x?x?xf32, #map1>, index) -> index
@@ -569,14 +569,14 @@
     "func.return"(%1, %3) : (i16, index) -> ()
   }) {function_type = () -> (i16, index), sym_name = "index_cast_fold"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: memref<100xi32>):
+  ^bb0(%arg0: memref<100 × i32>):
     "affine.for"() ({
     ^bb0(%arg1: index):
-      %0 = "affine.load"(%arg0, %arg1) {map = #map3} : (memref<100xi32>, index) -> i32
+      %0 = "affine.load"(%arg0, %arg1) {map = #map3} : (memref<100 × i32>, index) -> i32
       "affine.if"(%arg1) ({
         "affine.for"() ({
         ^bb0(%arg2: index):
-          %2 = "affine.load"(%arg0, %arg2) {map = #map3} : (memref<100xi32>, index) -> i32
+          %2 = "affine.load"(%arg0, %arg2) {map = #map3} : (memref<100 × i32>, index) -> i32
           "prevent.dce"(%2) : (i32) -> ()
           "affine.yield"() : () -> ()
         }) {lower_bound = #map4, step = 1 : index, upper_bound = #map5} : () -> ()
@@ -584,11 +584,11 @@
       }, {
         "affine.yield"() : () -> ()
       }) {condition = #set} : (index) -> ()
-      %1 = "affine.load"(%arg0, %arg1) {map = #map3} : (memref<100xi32>, index) -> i32
+      %1 = "affine.load"(%arg0, %arg1) {map = #map3} : (memref<100 × i32>, index) -> i32
       "affine.yield"() : () -> ()
     }) {lower_bound = #map4, step = 1 : index, upper_bound = #map5} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<100xi32>) -> (), sym_name = "remove_dead_else"} : () -> ()
+  }) {function_type = (memref<100 × i32>) -> (), sym_name = "remove_dead_else"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -673,7 +673,7 @@
   "func.func"() ({
   ^bb0(%arg0: memref<4x5xf32>, %arg1: index):
     %0 = "memref.cast"(%arg0) : (memref<4x5xf32>) -> memref<?x?xf32>
-    %1 = "memref.subview"(%0, %arg1, %arg1, %arg1, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 2, 2, 2]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [-1, -1], static_strides = [-9223372036854775808, -9223372036854775808]} : (memref<?x?xf32>, index, index, index, index, index, index) -> memref<?x?xf32, #map>
+    %1 = "memref.subview"(%0, %arg1, %arg1, %arg1, %arg1, %arg1, %arg1) {operand_segment_sizes = dense<[1, 2, 2, 2]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808], static_sizes = [-1, -1], static_strides = [-9223372036854775808, -9223372036854775808]} : (memref<?x?xf32>, index, index, index, index, index, index) -> memref<?x?xf32, #map>
     "func.return"(%1) : (memref<?x?xf32, #map>) -> ()
   }) {function_type = (memref<4x5xf32>, index) -> memref<?x?xf32, #map>, sym_name = "memref_cast_folding_subview"} : () -> ()
 }) : () -> ()
@@ -684,7 +684,7 @@
   "func.func"() ({
   ^bb0(%arg0: memref<16x16xf32>, %arg1: index, %arg2: index):
     %0 = "memref.cast"(%arg0) : (memref<16x16xf32>) -> memref<?x?xf32>
-    %1 = "memref.subview"(%0) {operand_segment_sizes = dense<[1, 0, 0, 0]> : vector<4xi32>, static_offsets = [0, 0], static_sizes = [3, 4], static_strides = [1, 1]} : (memref<?x?xf32>) -> memref<3x4xf32, #map>
+    %1 = "memref.subview"(%0) {operand_segment_sizes = dense<[1, 0, 0, 0]> : vector<4 × i32>, static_offsets = [0, 0], static_sizes = [3, 4], static_strides = [1, 1]} : (memref<?x?xf32>) -> memref<3x4xf32, #map>
     "func.return"(%1) : (memref<3x4xf32, #map>) -> ()
   }) {function_type = (memref<16x16xf32>, index, index) -> memref<3x4xf32, #map>, sym_name = "memref_cast_folding_subview_static"} : () -> ()
 }) : () -> ()
@@ -698,8 +698,8 @@
     %2 = "arith.constant"() {value = 2 : index} : () -> index
     %3 = "arith.constant"() {value = 7 : index} : () -> index
     %4 = "arith.constant"() {value = 11 : index} : () -> index
-    %5 = "tensor.extract_slice"(%arg0, %0, %0, %0, %3, %4, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (tensor<8x16x4xf32>, index, index, index, index, index, index, index, index, index) -> tensor<?x?x?xf32>
-    %6 = "tensor.extract_slice"(%5, %0, %0, %0, %2, %arg1, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4xi32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (tensor<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> tensor<?x?x?xf32>
+    %5 = "tensor.extract_slice"(%arg0, %0, %0, %0, %3, %4, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (tensor<8x16x4xf32>, index, index, index, index, index, index, index, index, index) -> tensor<?x?x?xf32>
+    %6 = "tensor.extract_slice"(%5, %0, %0, %0, %2, %arg1, %2, %1, %1, %1) {operand_segment_sizes = dense<[1, 3, 3, 3]> : vector<4 × i32>, static_offsets = [-9223372036854775808, -9223372036854775808, -9223372036854775808], static_sizes = [-1, -1, -1], static_strides = [-9223372036854775808, -9223372036854775808, -9223372036854775808]} : (tensor<?x?x?xf32>, index, index, index, index, index, index, index, index, index) -> tensor<?x?x?xf32>
     "func.return"(%6) : (tensor<?x?x?xf32>) -> ()
   }) {function_type = (tensor<8x16x4xf32>, index, index) -> tensor<?x?x?xf32>, sym_name = "slice"} : () -> ()
 }) : () -> ()
@@ -717,11 +717,11 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi1>):
-    %0 = "arith.extui"(%arg0) : (vector<4xi1>) -> vector<4xi8>
-    %1 = "arith.trunci"(%0) : (vector<4xi8>) -> vector<4xi1>
-    "func.return"(%1) : (vector<4xi1>) -> ()
-  }) {function_type = (vector<4xi1>) -> vector<4xi1>, sym_name = "fold_trunci_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i1>):
+    %0 = "arith.extui"(%arg0) : (vector<4 × i1>) -> vector<4 × i8>
+    %1 = "arith.trunci"(%0) : (vector<4 × i8>) -> vector<4 × i1>
+    "func.return"(%1) : (vector<4 × i1>) -> ()
+  }) {function_type = (vector<4 × i1>) -> vector<4 × i1>, sym_name = "fold_trunci_vector"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -737,11 +737,11 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: vector<4xi1>):
-    %0 = "arith.extui"(%arg0) : (vector<4xi1>) -> vector<4xi8>
-    %1 = "arith.trunci"(%0) : (vector<4xi8>) -> vector<4xi2>
-    "func.return"(%1) : (vector<4xi2>) -> ()
-  }) {function_type = (vector<4xi1>) -> vector<4xi2>, sym_name = "do_not_fold_trunci_vector"} : () -> ()
+  ^bb0(%arg0: vector<4 × i1>):
+    %0 = "arith.extui"(%arg0) : (vector<4 × i1>) -> vector<4 × i8>
+    %1 = "arith.trunci"(%0) : (vector<4 × i8>) -> vector<4 × i2>
+    "func.return"(%1) : (vector<4 × i2>) -> ()
+  }) {function_type = (vector<4 × i1>) -> vector<4 × i2>, sym_name = "do_not_fold_trunci_vector"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -753,35 +753,35 @@
     "func.return"(%1) : (i1) -> ()
   }) {function_type = (i1) -> i1, sym_name = "fold_trunci_sexti"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<5xf32>
-    %1 = "bufferization.clone"(%0) : (memref<5xf32>) -> memref<5xf32>
-    "memref.dealloc"(%1) : (memref<5xf32>) -> ()
-    "func.return"(%0) : (memref<5xf32>) -> ()
-  }) {function_type = () -> memref<5xf32>, sym_name = "simple_clone_elimination"} : () -> ()
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<5 × f32>
+    %1 = "bufferization.clone"(%0) : (memref<5 × f32>) -> memref<5 × f32>
+    "memref.dealloc"(%1) : (memref<5 × f32>) -> ()
+    "func.return"(%0) : (memref<5 × f32>) -> ()
+  }) {function_type = () -> memref<5 × f32>, sym_name = "simple_clone_elimination"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2xf32>, %arg4: memref<2xf32>):
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2xf32>
-    "memref.dealloc"(%0) : (memref<2xf32>) -> ()
-    %1 = "bufferization.clone"(%arg3) : (memref<2xf32>) -> memref<2xf32>
+  ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
+    "memref.dealloc"(%0) : (memref<2 × f32>) -> ()
+    %1 = "bufferization.clone"(%arg3) : (memref<2 × f32>) -> memref<2 × f32>
     %2 = "scf.for"(%arg0, %arg1, %arg2, %1) ({
-    ^bb0(%arg5: index, %arg6: memref<2xf32>):
+    ^bb0(%arg5: index, %arg6: memref<2 × f32>):
       %3 = "arith.cmpi"(%arg5, %arg1) {predicate = 0 : i64} : (index, index) -> i1
-      "memref.dealloc"(%arg6) : (memref<2xf32>) -> ()
-      %4 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2xf32>
-      %5 = "bufferization.clone"(%4) : (memref<2xf32>) -> memref<2xf32>
-      "memref.dealloc"(%4) : (memref<2xf32>) -> ()
-      %6 = "bufferization.clone"(%5) : (memref<2xf32>) -> memref<2xf32>
-      "memref.dealloc"(%5) : (memref<2xf32>) -> ()
-      "scf.yield"(%6) : (memref<2xf32>) -> ()
-    }) : (index, index, index, memref<2xf32>) -> memref<2xf32>
-    "memref.copy"(%2, %arg4) : (memref<2xf32>, memref<2xf32>) -> ()
-    "memref.dealloc"(%2) : (memref<2xf32>) -> ()
+      "memref.dealloc"(%arg6) : (memref<2 × f32>) -> ()
+      %4 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
+      %5 = "bufferization.clone"(%4) : (memref<2 × f32>) -> memref<2 × f32>
+      "memref.dealloc"(%4) : (memref<2 × f32>) -> ()
+      %6 = "bufferization.clone"(%5) : (memref<2 × f32>) -> memref<2 × f32>
+      "memref.dealloc"(%5) : (memref<2 × f32>) -> ()
+      "scf.yield"(%6) : (memref<2 × f32>) -> ()
+    }) : (index, index, index, memref<2 × f32>) -> memref<2 × f32>
+    "memref.copy"(%2, %arg4) : (memref<2 × f32>, memref<2 × f32>) -> ()
+    "memref.dealloc"(%2) : (memref<2 × f32>) -> ()
     "func.return"() : () -> ()
-  }) {function_type = (index, index, index, memref<2xf32>, memref<2xf32>) -> (), sym_name = "clone_loop_alloc"} : () -> ()
+  }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "clone_loop_alloc"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -790,13 +790,13 @@
   ^bb0(%arg0: index, %arg1: index, %arg2: index):
     %0 = "arith.cmpi"(%arg0, %arg1) {predicate = 0 : i64} : (index, index) -> i1
     %1 = "arith.cmpi"(%arg0, %arg1) {predicate = 0 : i64} : (index, index) -> i1
-    %2 = "memref.alloc"(%arg0, %arg0) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+    %2 = "memref.alloc"(%arg0, %arg0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
     %3 = "scf.if"(%1) ({
       %4 = "scf.if"(%0) ({
         %6 = "bufferization.clone"(%2) : (memref<?x?xf32>) -> memref<?x?xf32>
         "scf.yield"(%6) : (memref<?x?xf32>) -> ()
       }, {
-        %6 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+        %6 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
         %7 = "bufferization.clone"(%6) : (memref<?x?xf32>) -> memref<?x?xf32>
         "memref.dealloc"(%6) : (memref<?x?xf32>) -> ()
         "scf.yield"(%7) : (memref<?x?xf32>) -> ()
@@ -805,7 +805,7 @@
       "memref.dealloc"(%4) : (memref<?x?xf32>) -> ()
       "scf.yield"(%5) : (memref<?x?xf32>) -> ()
     }, {
-      %4 = "memref.alloc"(%arg1, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+      %4 = "memref.alloc"(%arg1, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
       %5 = "bufferization.clone"(%4) : (memref<?x?xf32>) -> memref<?x?xf32>
       "memref.dealloc"(%4) : (memref<?x?xf32>) -> ()
       "scf.yield"(%5) : (memref<?x?xf32>) -> ()

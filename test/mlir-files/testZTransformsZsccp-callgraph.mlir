@@ -117,7 +117,7 @@
   ^bb0(%arg0: i32):
     %0 = "arith.constant"() {value = 20 : i32} : () -> i32
     %1 = "arith.cmpi"(%arg0, %0) {predicate = 6 : i64} : (i32, i32) -> i1
-    "cf.cond_br"(%1)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%1)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     "func.return"(%2) : (i32) -> ()
@@ -131,7 +131,7 @@
   "func.func"() ({
   ^bb0(%arg0: i32):
     %0 = "func.call"() {callee = @complex_cond} : () -> i1
-    "cf.cond_br"(%0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3xi32>} : (i1) -> ()
+    "cf.cond_br"(%0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
   ^bb1:  // pred: ^bb0
     "func.return"(%arg0) : (i32) -> ()
   ^bb2:  // pred: ^bb0

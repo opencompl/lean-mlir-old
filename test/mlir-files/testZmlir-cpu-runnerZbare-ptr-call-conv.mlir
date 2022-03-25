@@ -1,6 +1,6 @@
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<2xf32>, %arg1: memref<2xf32>):
+  ^bb0(%arg0: memref<2 × f32>, %arg1: memref<2 × f32>):
     %0 = "arith.constant"() {value = 2 : index} : () -> index
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 1 : index} : () -> index
@@ -8,20 +8,20 @@
     %4 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
     "scf.for"(%1, %0, %2) ({
     ^bb0(%arg2: index):
-      %5 = "memref.load"(%arg0, %arg2) : (memref<2xf32>, index) -> f32
+      %5 = "memref.load"(%arg0, %arg2) : (memref<2 × f32>, index) -> f32
       %6 = "arith.addf"(%5, %3) : (f32, f32) -> f32
-      "memref.store"(%6, %arg0, %arg2) : (f32, memref<2xf32>, index) -> ()
-      %7 = "memref.load"(%arg1, %arg2) : (memref<2xf32>, index) -> f32
+      "memref.store"(%6, %arg0, %arg2) : (f32, memref<2 × f32>, index) -> ()
+      %7 = "memref.load"(%arg1, %arg2) : (memref<2 × f32>, index) -> f32
       %8 = "arith.addf"(%6, %4) : (f32, f32) -> f32
-      "memref.store"(%8, %arg1, %arg2) : (f32, memref<2xf32>, index) -> ()
+      "memref.store"(%8, %arg1, %arg2) : (f32, memref<2 × f32>, index) -> ()
       "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<2xf32>, memref<2xf32>) -> (), sym_name = "simple_add1_add2_test"} : () -> ()
+  }) {function_type = (memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "simple_add1_add2_test"} : () -> ()
   "llvm.func"() ({
-  }) {function_type = !llvm.func<ptr<i8> (i64)>, linkage = #llvm.linkage<external>, sym_name = "malloc"} : () -> ()
+  }) {function_type = !llvm.func<ptr<i8> (i64)>, linkage = #llvm.linkage<e × ternal>, sym_name = "malloc"} : () -> ()
   "llvm.func"() ({
-  }) {function_type = !llvm.func<void (ptr<i8>)>, linkage = #llvm.linkage<external>, sym_name = "free"} : () -> ()
+  }) {function_type = !llvm.func<void (ptr<i8>)>, linkage = #llvm.linkage<e × ternal>, sym_name = "free"} : () -> ()
   "func.func"() ({
   }) {function_type = (f32) -> (), sym_name = "printF32", sym_visibility = "private"} : () -> ()
   "func.func"() ({
@@ -34,29 +34,29 @@
     %2 = "arith.constant"() {value = 1 : index} : () -> index
     %3 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
     %4 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
-    %5 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2xf32>
-    %6 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2xf32>
+    %5 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
+    %6 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
     "scf.for"(%1, %0, %2) ({
     ^bb0(%arg0: index):
-      "memref.store"(%3, %5, %arg0) : (f32, memref<2xf32>, index) -> ()
-      "memref.store"(%3, %6, %arg0) : (f32, memref<2xf32>, index) -> ()
+      "memref.store"(%3, %5, %arg0) : (f32, memref<2 × f32>, index) -> ()
+      "memref.store"(%3, %6, %arg0) : (f32, memref<2 × f32>, index) -> ()
       "scf.yield"() : () -> ()
     }) : (index, index, index) -> ()
-    "func.call"(%5, %6) {callee = @simple_add1_add2_test} : (memref<2xf32>, memref<2xf32>) -> ()
-    %7 = "memref.load"(%5, %1) : (memref<2xf32>, index) -> f32
+    "func.call"(%5, %6) {callee = @simple_add1_add2_test} : (memref<2 × f32>, memref<2 × f32>) -> ()
+    %7 = "memref.load"(%5, %1) : (memref<2 × f32>, index) -> f32
     "func.call"(%7) {callee = @printF32} : (f32) -> ()
     "func.call"() {callee = @printComma} : () -> ()
-    %8 = "memref.load"(%5, %2) : (memref<2xf32>, index) -> f32
+    %8 = "memref.load"(%5, %2) : (memref<2 × f32>, index) -> f32
     "func.call"(%8) {callee = @printF32} : (f32) -> ()
     "func.call"() {callee = @printNewline} : () -> ()
-    %9 = "memref.load"(%6, %1) : (memref<2xf32>, index) -> f32
+    %9 = "memref.load"(%6, %1) : (memref<2 × f32>, index) -> f32
     "func.call"(%9) {callee = @printF32} : (f32) -> ()
     "func.call"() {callee = @printComma} : () -> ()
-    %10 = "memref.load"(%6, %2) : (memref<2xf32>, index) -> f32
+    %10 = "memref.load"(%6, %2) : (memref<2 × f32>, index) -> f32
     "func.call"(%10) {callee = @printF32} : (f32) -> ()
     "func.call"() {callee = @printNewline} : () -> ()
-    "memref.dealloc"(%5) : (memref<2xf32>) -> ()
-    "memref.dealloc"(%6) : (memref<2xf32>) -> ()
+    "memref.dealloc"(%5) : (memref<2 × f32>) -> ()
+    "memref.dealloc"(%6) : (memref<2 × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "main"} : () -> ()
 }) : () -> ()

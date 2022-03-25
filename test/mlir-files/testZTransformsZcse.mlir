@@ -34,11 +34,11 @@
     "func.return"(%0, %1) : (i32, i32) -> ()
   }) {function_type = () -> (i32, i32), sym_name = "different_ops"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: tensor<*xf32>):
-    %0 = "tensor.cast"(%arg0) : (tensor<*xf32>) -> tensor<?x?xf32>
-    %1 = "tensor.cast"(%arg0) : (tensor<*xf32>) -> tensor<4x?xf32>
+  ^bb0(%arg0: tensor<* × f32>):
+    %0 = "tensor.cast"(%arg0) : (tensor<* × f32>) -> tensor<?x?xf32>
+    %1 = "tensor.cast"(%arg0) : (tensor<* × f32>) -> tensor<4x?xf32>
     "func.return"(%0, %1) : (tensor<?x?xf32>, tensor<4x?xf32>) -> ()
-  }) {function_type = (tensor<*xf32>) -> (tensor<?x?xf32>, tensor<4x?xf32>), sym_name = "different_results"} : () -> ()
+  }) {function_type = (tensor<* × f32>) -> (tensor<?x?xf32>, tensor<4x?xf32>), sym_name = "different_results"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
     %0 = "arith.cmpi"(%arg0, %arg1) {predicate = 2 : i64} : (index, index) -> i1
@@ -47,8 +47,8 @@
     "func.return"(%0, %1, %2) : (i1, i1, i1) -> ()
   }) {function_type = (index, index) -> (i1, i1, i1), sym_name = "different_attributes"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2x1xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> memref<2x1xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2x1xf32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2x1xf32>
     "func.return"(%0, %1) : (memref<2x1xf32>, memref<2x1xf32>) -> ()
   }) {function_type = () -> (memref<2x1xf32>, memref<2x1xf32>), sym_name = "side_effect"} : () -> ()
   "func.func"() ({
@@ -64,7 +64,7 @@
   "func.func"() ({
     %0 = "arith.constant"() {value = 1 : i32} : () -> i32
     %1 = "arith.constant"() {value = true} : () -> i1
-    "cf.cond_br"(%1, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : (i1, i32) -> ()
+    "cf.cond_br"(%1, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, i32) -> ()
   ^bb1:  // pred: ^bb0
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     "cf.br"(%2)[^bb2] : (i32) -> ()
@@ -84,7 +84,7 @@
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
     %1 = "arith.constant"() {value = true} : () -> i1
-    "cf.cond_br"(%1, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : (i1, i32) -> ()
+    "cf.cond_br"(%1, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, i32) -> ()
   ^bb1:  // pred: ^bb0
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     "cf.br"(%2)[^bb2] : (i32) -> ()
@@ -97,7 +97,7 @@
     %0 = "foo.region"() ({
       %1 = "arith.constant"() {value = 0 : i32} : () -> i32
       %2 = "arith.constant"() {value = true} : () -> i1
-      "cf.cond_br"(%2, %1)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : (i1, i32) -> ()
+      "cf.cond_br"(%2, %1)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, i32) -> ()
     ^bb1:  // pred: ^bb0
       %3 = "arith.constant"() {value = 1 : i32} : () -> i32
       "cf.br"(%3)[^bb2] : (i32) -> ()

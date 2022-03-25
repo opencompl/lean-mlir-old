@@ -1,7 +1,7 @@
 "builtin.module"() ({
   %0 = "foo.op"() : () -> i64
   %1 = "foo.op"() : () -> i32
-  %2 = "foo.op"() : () -> memref<1xf64>
+  %2 = "foo.op"() : () -> memref<1 × f64>
   "test.format_literal_op"() {foo.some_attr} : () -> ()
   "test.format_attr_op"() {attr = 10 : i64} : () -> ()
   "test.format_opt_attr_op_a"() {opt_attr = 10 : i64} : () -> ()
@@ -45,19 +45,19 @@
   "test.format_implicit_terminator_region_a_op"() ({
     "test.return"(%0) : (i64) -> ()
   }) : () -> ()
-  %4:2 = "test.format_result_a_op"() : () -> (i64, memref<1xf64>)
-  %5:2 = "test.format_result_b_op"() : () -> (i64, memref<1xf64>)
-  %6:2 = "test.format_result_c_op"() : () -> (i64, memref<1xf64>)
+  %4:2 = "test.format_result_a_op"() : () -> (i64, memref<1 × f64>)
+  %5:2 = "test.format_result_b_op"() : () -> (i64, memref<1 × f64>)
+  %6:2 = "test.format_result_c_op"() : () -> (i64, memref<1 × f64>)
   %7:3 = "test.format_variadic_result"() : () -> (i64, i64, i64)
-  %8:5 = "test.format_multiple_variadic_results"() {result_segment_sizes = dense<[3, 2]> : vector<2xi32>} : () -> (i64, i64, i64, i32, i32)
-  "test.format_operand_a_op"(%0, %2) : (i64, memref<1xf64>) -> ()
-  "test.format_operand_b_op"(%0, %2) : (i64, memref<1xf64>) -> ()
-  "test.format_operand_c_op"(%0, %2) : (i64, memref<1xf64>) -> ()
-  "test.format_operand_d_op"(%0, %2) : (i64, memref<1xf64>) -> ()
-  "test.format_operand_e_op"(%0, %2) : (i64, memref<1xf64>) -> ()
+  %8:5 = "test.format_multiple_variadic_results"() {result_segment_sizes = dense<[3, 2]> : vector<2 × i32>} : () -> (i64, i64, i64, i32, i32)
+  "test.format_operand_a_op"(%0, %2) : (i64, memref<1 × f64>) -> ()
+  "test.format_operand_b_op"(%0, %2) : (i64, memref<1 × f64>) -> ()
+  "test.format_operand_c_op"(%0, %2) : (i64, memref<1 × f64>) -> ()
+  "test.format_operand_d_op"(%0, %2) : (i64, memref<1 × f64>) -> ()
+  "test.format_operand_e_op"(%0, %2) : (i64, memref<1 × f64>) -> ()
   "test.format_variadic_operand"(%0, %0, %0) : (i64, i64, i64) -> ()
-  "test.format_variadic_of_variadic_operand"(%0, %0, %0) {operand_segments = dense<[2, 0, 1]> : tensor<3xi32>} : (i64, i64, i64) -> ()
-  "test.format_multiple_variadic_operands"(%0, %0, %0, %0, %1) {operand_segment_sizes = dense<[3, 2]> : vector<2xi32>} : (i64, i64, i64, i64, i32) -> ()
+  "test.format_variadic_of_variadic_operand"(%0, %0, %0) {operand_segments = dense<[2, 0, 1]> : tensor<3 × i32>} : (i64, i64, i64) -> ()
+  "test.format_multiple_variadic_operands"(%0, %0, %0, %0, %1) {operand_segment_sizes = dense<[3, 2]> : vector<2 × i32>} : (i64, i64, i64, i64, i32) -> ()
   "foo.successor_test_region"() ({
     "test.format_successor_a_op"()[^bb1] {attr} : () -> ()
   ^bb1:  // 2 preds: ^bb0, ^bb1
@@ -70,18 +70,18 @@
   "test.format_optional_unit_attribute_no_elide"() {is_optional} : () -> ()
   "test.format_optional_enum_attr"() {attr = 5 : i64} : () -> ()
   "test.format_optional_enum_attr"() : () -> ()
-  %9 = "test.format_optional_operand_result_a_op"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (i64) -> i64
-  %10 = "test.format_optional_operand_result_a_op"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> i64
-  "test.format_optional_operand_result_a_op"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (i64) -> ()
-  "test.format_optional_operand_result_a_op"(%0, %0, %0) {operand_segment_sizes = dense<[1, 2]> : vector<2xi32>} : (i64, i64, i64) -> ()
-  %11 = "test.format_optional_operand_result_b_op"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2xi32>} : (i64) -> i64
-  %12 = "test.format_optional_operand_result_b_op"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> i64
-  %13 = "test.format_optional_operand_result_b_op"() {operand_segment_sizes = dense<0> : vector<2xi32>} : () -> i64
-  "test.format_optional_result_a_op"() {result_segment_sizes = dense<0> : vector<2xi32>} : () -> ()
-  %14:3 = "test.format_optional_result_a_op"() {result_segment_sizes = dense<[1, 2]> : vector<2xi32>} : () -> (i64, i64, i64)
-  "test.format_optional_result_b_op"() {result_segment_sizes = dense<0> : vector<2xi32>} : () -> ()
-  %15:3 = "test.format_optional_result_b_op"() {result_segment_sizes = dense<[1, 2]> : vector<2xi32>} : () -> (i64, i64, i64)
-  %16:3 = "test.format_optional_result_c_op"() {result_segment_sizes = dense<[1, 2]> : vector<2xi32>} : () -> (i64, i64, i64)
+  %9 = "test.format_optional_operand_result_a_op"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (i64) -> i64
+  %10 = "test.format_optional_operand_result_a_op"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> i64
+  "test.format_optional_operand_result_a_op"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (i64) -> ()
+  "test.format_optional_operand_result_a_op"(%0, %0, %0) {operand_segment_sizes = dense<[1, 2]> : vector<2 × i32>} : (i64, i64, i64) -> ()
+  %11 = "test.format_optional_operand_result_b_op"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (i64) -> i64
+  %12 = "test.format_optional_operand_result_b_op"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> i64
+  %13 = "test.format_optional_operand_result_b_op"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> i64
+  "test.format_optional_result_a_op"() {result_segment_sizes = dense<0> : vector<2 × i32>} : () -> ()
+  %14:3 = "test.format_optional_result_a_op"() {result_segment_sizes = dense<[1, 2]> : vector<2 × i32>} : () -> (i64, i64, i64)
+  "test.format_optional_result_b_op"() {result_segment_sizes = dense<0> : vector<2 × i32>} : () -> ()
+  %15:3 = "test.format_optional_result_b_op"() {result_segment_sizes = dense<[1, 2]> : vector<2 × i32>} : () -> (i64, i64, i64)
+  %16:3 = "test.format_optional_result_c_op"() {result_segment_sizes = dense<[1, 2]> : vector<2 × i32>} : () -> (i64, i64, i64)
   "test.format_optional_else"() {isFirstBranchPresent} : () -> ()
   "test.format_optional_else"() : () -> ()
   "test.format_compound_attr"() {compound = #test.cmpnd_a<1, !test.smpla, [5, 6]>} : () -> ()
@@ -106,10 +106,10 @@
     "test.format_qual_cpmd_nested_type"(%arg0) : (!test.cmpnd_nested_outer<i <42 <1, !test.smpla, [5, 6]>>>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (!test.cmpnd_nested_outer<i <42 <1, !test.smpla, [5, 6]>>>) -> (), sym_name = "qualifiedCompoundNestedExplicit"} : () -> ()
-  "test.format_custom_directive_operands"(%0, %0, %0) {operand_segment_sizes = dense<1> : vector<3xi32>} : (i64, i64, i64) -> ()
-  "test.format_custom_directive_operands"(%0, %0) {operand_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : (i64, i64) -> ()
-  "test.format_custom_directive_operands_and_types"(%0, %0, %0) {operand_segment_sizes = dense<1> : vector<3xi32>} : (i64, i64, i64) -> ()
-  "test.format_custom_directive_operands_and_types"(%0, %0) {operand_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : (i64, i64) -> ()
+  "test.format_custom_directive_operands"(%0, %0, %0) {operand_segment_sizes = dense<1> : vector<3 × i32>} : (i64, i64, i64) -> ()
+  "test.format_custom_directive_operands"(%0, %0) {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i64, i64) -> ()
+  "test.format_custom_directive_operands_and_types"(%0, %0, %0) {operand_segment_sizes = dense<1> : vector<3 × i32>} : (i64, i64, i64) -> ()
+  "test.format_custom_directive_operands_and_types"(%0, %0) {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i64, i64) -> ()
   "test.format_custom_directive_attributes"() {attr = 54 : i64} : () -> ()
   "test.format_custom_directive_attributes"() {attr = 54 : i64, optAttr = 46 : i64} : () -> ()
   "test.format_custom_directive_regions"() ({
@@ -120,10 +120,10 @@
   }, {
     "test.return"() : () -> ()
   }) : () -> ()
-  %17:3 = "test.format_custom_directive_results"() {result_segment_sizes = dense<1> : vector<3xi32>} : () -> (i64, i64, i64)
-  %18:2 = "test.format_custom_directive_results"() {result_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : () -> (i64, i64)
-  %19:3 = "test.format_custom_directive_results_with_type_refs"() {result_segment_sizes = dense<1> : vector<3xi32>} : () -> (i64, i64, i64)
-  %20:2 = "test.format_custom_directive_results_with_type_refs"() {result_segment_sizes = dense<[1, 0, 1]> : vector<3xi32>} : () -> (i64, i64)
+  %17:3 = "test.format_custom_directive_results"() {result_segment_sizes = dense<1> : vector<3 × i32>} : () -> (i64, i64, i64)
+  %18:2 = "test.format_custom_directive_results"() {result_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : () -> (i64, i64)
+  %19:3 = "test.format_custom_directive_results_with_type_refs"() {result_segment_sizes = dense<1> : vector<3 × i32>} : () -> (i64, i64, i64)
+  %20:2 = "test.format_custom_directive_results_with_type_refs"() {result_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : () -> (i64, i64)
   "test.format_custom_directive_with_optional_operand_ref"(%0) : (i64) -> ()
   "test.format_custom_directive_with_optional_operand_ref"() : () -> ()
   "func.func"() ({
@@ -150,7 +150,7 @@
   ^bb0(%arg0: i32, %arg1: f32):
     "test.terminator"() : () -> ()
   }) : () -> (i32, f32)
-  %35:4 = "test.format_infer_type_variadic_operands"(%1, %1, %0, %0) {operand_segment_sizes = dense<2> : vector<2xi32>} : (i32, i32, i64, i64) -> (i32, i32, i64, i64)
+  %35:4 = "test.format_infer_type_variadic_operands"(%1, %1, %0, %0) {operand_segment_sizes = dense<2> : vector<2 × i32>} : (i32, i32, i64, i64) -> (i32, i32, i64, i64)
   "test.has_str_value"() : () -> ()
 }) : () -> ()
 
