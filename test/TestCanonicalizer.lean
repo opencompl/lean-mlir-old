@@ -3,13 +3,24 @@ import MLIR.Doc
 import MLIR.AST
 import MLIR.EDSL
 
+open Lean
+open Lean.Parser
 open  MLIR.EDSL
 open MLIR.AST
 open MLIR.Doc
 open IO
 
+declare_syntax_cat mlir_ops
+syntax (ws mlir_op ws)* : mlir_ops
+syntax "[mlir_ops|" mlir_ops "]" : term
+
+macro_rules
+| `([mlir_ops| $[ $xs ]* ]) => do 
+  let xs <- xs.mapM (fun x => `([mlir_op| $x]))
+  quoteMList xs.toList
+
 -- | write an op into the path
-def o: Op := [mlir_op|
+def o: List Op := [mlir_ops|
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>):
@@ -19,7 +30,6 @@ def o: Op := [mlir_op|
   }) {function_type = (memref<2 × f32>) -> (), sym_name = "no_side_effects", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>, %arg1: i32):
@@ -30,7 +40,6 @@ def o: Op := [mlir_op|
   }) {function_type = (memref<i32>, i32) -> (), sym_name = "simple", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>, %arg1: memref<i32>, %arg2: i32):
@@ -40,7 +49,6 @@ def o: Op := [mlir_op|
   }) {function_type = (memref<i32>, memref<i32>, i32) -> (), sym_name = "mayalias", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>, %arg1: memref<i32>, %arg2: i1, %arg3: i32):
@@ -55,7 +63,6 @@ def o: Op := [mlir_op|
   }) {function_type = (memref<i32>, memref<i32>, i1, i32) -> (), sym_name = "recursive", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>):
@@ -64,10 +71,9 @@ def o: Op := [mlir_op|
   }) {function_type = (memref<i32>) -> (), sym_name = "unknown", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
 
 ] 
 -- | main program
 def main : IO Unit :=
-    let str := Pretty.doc o
+    let str := Doc.VGroup (o.map Pretty.doc)
     FS.writeFile "testZAnalysisZtest-alias-analysis-modref.out.txt" str

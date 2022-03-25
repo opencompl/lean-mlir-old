@@ -11,6 +11,23 @@ open MLIR.AST
 
 namespace MLIR.EDSL
 
+instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| toString n⟩
+
+def quoteMDimension (d: Dimension): MacroM Syntax :=
+  match d with
+  | Dimension.Known n => do 
+    `(Dimension.Known $(quote n))
+  | Dimension.Unknown => `(Dimension.Unknown)
+
+def quoteMList (k: List Syntax): MacroM Syntax :=
+  match k with 
+  | [] => `([])
+  | (k::ks) => do
+      let sks <- quoteMList ks
+      `([$k] ++ $sks)
+
+
+
 -- AFFINE SYTAX
 -- ============
 
@@ -117,9 +134,20 @@ def succ0 :  BBName := ([mlir_op_successor_arg| ^bb])
 -- EDSL MLIR TYPES
 -- ===============
 
-syntax "(" ")" : mlir_type
-syntax "(" mlir_type ")" : mlir_type
-syntax "(" mlir_type "," mlir_type ")" : mlir_type
+
+syntax "[mlir_type|" mlir_type "]" : term
+
+syntax "(" mlir_type,* ")" : mlir_type
+macro_rules
+| `([mlir_type| ( $xs,* )]) => do
+      let xs <- xs.getElems.mapM (fun x => `([mlir_type| $x]))
+      let x <- quoteMList xs.toList
+      `(MLIRTy.tuple $x)
+
+-- syntax "(" mlir_type ")" : mlir_type
+-- syntax "(" mlir_type "," mlir_type ")" : mlir_type
+-- | HACK: just switch to real parsing of lists
+-- syntax "(" mlir_type "," mlir_type "," mlir_type ")" : mlir_type
 syntax mlir_type "->" mlir_type : mlir_type
 syntax "{{" term "}}" : mlir_type
 syntax "!" str : mlir_type
@@ -128,7 +156,6 @@ syntax ident: mlir_type
 -- | TODO: fix this rule, it interfers with way too much other stuff!
 -- syntax "i" numLit : mlir_type
 
-syntax "[mlir_type|" mlir_type "]" : term
 
 
 set_option hygiene false in -- allow i to expand 
@@ -161,17 +188,20 @@ def tyf32NoGap : MLIRTy := [mlir_type| f32]
 macro_rules
 | `([mlir_type| {{ $t }} ]) => return t -- antiquot type
 
+-- macro_rules
+--   | `([mlir_type| ( ) ]) => `(MLIRTy.tuple [])
+--   | `([mlir_type| ( $x:mlir_type )]) => 
+--         `(MLIRTy.tuple [ [mlir_type|$x] ])
+--   | `([mlir_type| ( $x:mlir_type, $y:mlir_type )]) => 
+--     `(MLIRTy.tuple [ [mlir_type|$x], [mlir_type|$y] ] )
+--   | `([mlir_type| ( $x:mlir_type, $y:mlir_type, $z:mlir_type )]) => 
+--     `(MLIRTy.tuple [ [mlir_type|$x], [mlir_type|$y], [mlir_type| $z ] ] )
+
 macro_rules
-  | `([mlir_type| ( ) ]) => `(MLIRTy.tuple [])
-  | `([mlir_type| ( $x:mlir_type )]) => 
-        `(MLIRTy.tuple [ [mlir_type|$x] ])
-  | `([mlir_type| ( $x:mlir_type, $y:mlir_type )]) => 
-    `(MLIRTy.tuple [ [mlir_type|$x], [mlir_type|$y] ] )
-  -- | `([mlir_type| i $x:numLit ) => `(MLIRTy.int $x)
   | `([mlir_type| $dom:mlir_type -> $codom:mlir_type]) =>
      `(MLIRTy.fn [mlir_type|$dom] [mlir_type|$codom])
 
-def ty0 : MLIRTy := [mlir_type| ()]
+def ty0 : MLIRTy := [mlir_type| ( )]
 def tyi32 : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
 -- def tyi32' : MLIRTy := ([mlir_type| i32) -- TODO: how to keep no gap?
 def tysingle : MLIRTy := [mlir_type| (i42)]
@@ -179,6 +209,7 @@ def typair : MLIRTy := [mlir_type| (i32, i64)]
 def tyfn0 : MLIRTy := [mlir_type| () -> ()]
 def tyfn1 : MLIRTy := [mlir_type| (i11) -> (i12)]
 def tyfn2 : MLIRTy := [mlir_type| (i21, i22) -> (i23, i24)]
+def tyfn3 : MLIRTy := [mlir_type| (i21, i22, i23) -> (i23, i24, i25)]
 #print ty0
 #print tyi32
 #print typair
@@ -216,21 +247,6 @@ def string_to_dimension (s: String): MacroM Dimension := do
   else if s.isNat
   then return Dimension.Known s.toNat!
   else Macro.throwError ("unknown dimension: | " ++ s ++ "  |")
-
-instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| toString n⟩
-
-def quoteMDimension (d: Dimension): MacroM Syntax :=
-  match d with
-  | Dimension.Known n => do 
-    `(Dimension.Known $(quote n))
-  | Dimension.Unknown => `(Dimension.Unknown)
-
-def quoteMList (k: List Syntax): MacroM Syntax :=
-  match k with 
-  | [] => `([])
-  | (k::ks) => do
-      let sks <- quoteMList ks
-      `([$k] ++ $sks)
 
 
 -- (MLIR.EDSL.«mlir_dimension_list_×_»
