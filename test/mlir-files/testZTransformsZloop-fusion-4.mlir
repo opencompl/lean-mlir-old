@@ -58,7 +58,7 @@
 #map5 = affine_map<(d0, d1) -> (d0, d1)>
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<8x7xf32>):
+  ^bb0(%arg0: memref<8 × 7 × f32>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<56 × f32>
     %1 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
     "affine.for"() ({
@@ -75,13 +75,13 @@
       "affine.for"() ({
       ^bb0(%arg2: index):
         %2 = "affine.load"(%0, %arg1, %arg2) {map = #map4} : (memref<56 × f32>, index, index) -> f32
-        "affine.store"(%2, %arg0, %arg1, %arg2) {map = #map5} : (f32, memref<8x7xf32>, index, index) -> ()
+        "affine.store"(%2, %arg0, %arg1, %arg2) {map = #map5} : (f32, memref<8 × 7 × f32>, index, index) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map1, step = 1 : index, upper_bound = #map3} : () -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<8x7xf32>) -> (), sym_name = "unflatten2d_with_transpose"} : () -> ()
+  }) {function_type = (memref<8 × 7 × f32>) -> (), sym_name = "unflatten2d_with_transpose"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -115,7 +115,7 @@
 #map4 = affine_map<() -> (32)>
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<64x64xf32, 1>, %arg1: memref<1x64xf32, 1>, %arg2: memref<1x64xf32, 1>):
+  ^bb0(%arg0: memref<64 × 64 × f32, 1>, %arg1: memref<1 × 64 × f32, 1>, %arg2: memref<1 × 64 × f32, 1>):
     %0 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
     %1 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
     "affine.for"() ({
@@ -124,12 +124,12 @@
       ^bb0(%arg4: index):
         %2 = "affine.for"(%0) ({
         ^bb0(%arg5: index, %arg6: f32):
-          %4 = "affine.load"(%arg0, %arg5, %arg4) {map = #map0} : (memref<64x64xf32, 1>, index, index) -> f32
+          %4 = "affine.load"(%arg0, %arg5, %arg4) {map = #map0} : (memref<64 × 64 × f32, 1>, index, index) -> f32
           %5 = "arith.addf"(%arg6, %4) : (f32, f32) -> f32
           "affine.yield"(%5) : (f32) -> ()
         }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : (f32) -> f32
         %3 = "arith.addf"(%2, %2) : (f32, f32) -> f32
-        "affine.store"(%3, %arg1, %arg3, %arg4) {map = #map0} : (f32, memref<1x64xf32, 1>, index, index) -> ()
+        "affine.store"(%3, %arg1, %arg3, %arg4) {map = #map0} : (f32, memref<1 × 64 × f32, 1>, index, index) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
       "affine.yield"() : () -> ()
@@ -140,18 +140,18 @@
       ^bb0(%arg4: index):
         %2 = "affine.for"(%1) ({
         ^bb0(%arg5: index, %arg6: f32):
-          %4 = "affine.load"(%arg0, %arg5, %arg4) {map = #map0} : (memref<64x64xf32, 1>, index, index) -> f32
+          %4 = "affine.load"(%arg0, %arg5, %arg4) {map = #map0} : (memref<64 × 64 × f32, 1>, index, index) -> f32
           %5 = "arith.mulf"(%arg6, %4) : (f32, f32) -> f32
           "affine.yield"(%5) : (f32) -> ()
         }) {lower_bound = #map1, step = 1 : index, upper_bound = #map4} : (f32) -> f32
         %3 = "arith.mulf"(%2, %2) : (f32, f32) -> f32
-        "affine.store"(%3, %arg2, %arg3, %arg4) {map = #map0} : (f32, memref<1x64xf32, 1>, index, index) -> ()
+        "affine.store"(%3, %arg2, %arg3, %arg4) {map = #map0} : (f32, memref<1 × 64 × f32, 1>, index, index) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map3} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<64x64xf32, 1>, memref<1x64xf32, 1>, memref<1x64xf32, 1>) -> (), sym_name = "reduce_add_non_maximal_f32_f32"} : () -> ()
+  }) {function_type = (memref<64 × 64 × f32, 1>, memref<1 × 64 × f32, 1>, memref<1 × 64 × f32, 1>) -> (), sym_name = "reduce_add_non_maximal_f32_f32"} : () -> ()
 }) : () -> ()
 
 // -----

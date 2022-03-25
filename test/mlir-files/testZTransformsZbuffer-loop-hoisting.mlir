@@ -59,15 +59,15 @@
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
     %0 = "arith.cmpi"(%arg0, %arg1) {predicate = 0 : i64} : (index, index) -> i1
-    %1 = "memref.alloc"(%arg0, %arg0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
+    %1 = "memref.alloc"(%arg0, %arg0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × f32>
     %2 = "scf.if"(%0) ({
-      "scf.yield"(%1) : (memref<?x?xf32>) -> ()
+      "scf.yield"(%1) : (memref<? × ? × f32>) -> ()
     }, {
-      %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
-      "scf.yield"(%1) : (memref<?x?xf32>) -> ()
-    }) : (i1) -> memref<?x?xf32>
-    "func.return"(%2) : (memref<?x?xf32>) -> ()
-  }) {function_type = (index, index) -> memref<?x?xf32>, sym_name = "nested_region_control_flow"} : () -> ()
+      %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × f32>
+      "scf.yield"(%1) : (memref<? × ? × f32>) -> ()
+    }) : (i1) -> memref<? × ? × f32>
+    "func.return"(%2) : (memref<? × ? × f32>) -> ()
+  }) {function_type = (index, index) -> memref<? × ? × f32>, sym_name = "nested_region_control_flow"} : () -> ()
 }) : () -> ()
 
 // -----

@@ -1,9 +1,9 @@
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32, %arg1: i32):
-    %0 = "arith.constant"() {value = dense<[[0, 1], [2, 3]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+    %0 = "arith.constant"() {value = dense<[[0, 1], [2, 3]]> : tensor<2 × 2 × i32>} : () -> tensor<2 × 2 × i32>
     %1 = "arith.constant"() {value = dense<1> : tensor<5 × i32>} : () -> tensor<5 × i32>
-    %2 = "arith.constant"() {value = dense<[[0, 1]]> : tensor<1x2xi32>} : () -> tensor<1x2xi32>
+    %2 = "arith.constant"() {value = dense<[[0, 1]]> : tensor<1 × 2 × i32>} : () -> tensor<1 × 2 × i32>
     %3 = "arith.constant"() {value = 10 : i32} : () -> i32
     %4 = "test.func"() : () -> i32
     %5:2 = "test.merge_blocks"() ({

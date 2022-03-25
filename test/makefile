@@ -1,3 +1,3 @@
 all:
 	make -C mlir-files/
-	go run mlir.go
+	go run run-mlir-round-trip-tests.go

@@ -20,13 +20,13 @@
 #map4 = affine_map<() -> (256)>
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<256x512xf32>, %arg1: memref<256 × f32>):
+  ^bb0(%arg0: memref<256 × 512 × f32>, %arg1: memref<256 × f32>):
     %0 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg2: index):
       %1 = "affine.for"(%0) ({
       ^bb0(%arg3: index, %arg4: f32):
-        %2 = "affine.load"(%arg0, %arg2, %arg3) {map = #map0} : (memref<256x512xf32>, index, index) -> f32
+        %2 = "affine.load"(%arg0, %arg2, %arg3) {map = #map0} : (memref<256 × 512 × f32>, index, index) -> f32
         %3 = "arith.addf"(%arg4, %2) : (f32, f32) -> f32
         "affine.yield"(%3) : (f32) -> ()
       }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : (f32) -> f32
@@ -34,7 +34,7 @@
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map4} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<256x512xf32>, memref<256 × f32>) -> (), sym_name = "affine_red_add"} : () -> ()
+  }) {function_type = (memref<256 × 512 × f32>, memref<256 × f32>) -> (), sym_name = "affine_red_add"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -42,15 +42,15 @@
 #map1 = affine_map<(d0, d1) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<4x4xf32>, %arg1: tensor<4 × f32>):
+  ^bb0(%arg0: tensor<4 × 4 × f32>, %arg1: tensor<4 × f32>):
     %0 = "linalg.generic"(%arg0, %arg1) ({
     ^bb0(%arg2: f32, %arg3: f32):
       %1 = "arith.cmpf"(%arg2, %arg3) {predicate = 2 : i64} : (f32, f32) -> i1
       %2 = "arith.select"(%1, %arg2, %arg3) : (i1, f32, f32) -> f32
       "linalg.yield"(%2) : (f32) -> ()
-    }) {indexing_maps = [#map0, #map1], iterator_types = ["parallel", "reduction"], operand_segment_sizes = dense<1> : vector<2 × i32>} : (tensor<4x4xf32>, tensor<4 × f32>) -> tensor<4 × f32>
+    }) {indexing_maps = [#map0, #map1], iterator_types = ["parallel", "reduction"], operand_segment_sizes = dense<1> : vector<2 × i32>} : (tensor<4 × 4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
     "func.return"() : () -> ()
-  }) {function_type = (tensor<4x4xf32>, tensor<4 × f32>) -> (), sym_name = "linalg_red_max"} : () -> ()
+  }) {function_type = (tensor<4 × 4 × f32>, tensor<4 × f32>) -> (), sym_name = "linalg_red_max"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -58,16 +58,16 @@
 #map1 = affine_map<(d0, d1) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<4x4xf32>, %arg1: tensor<4 × f32>):
+  ^bb0(%arg0: tensor<4 × 4 × f32>, %arg1: tensor<4 × f32>):
     %0 = "linalg.generic"(%arg0, %arg1) ({
     ^bb0(%arg2: f32, %arg3: f32):
       %1 = "arith.mulf"(%arg2, %arg2) : (f32, f32) -> f32
       %2 = "arith.subf"(%1, %arg2) : (f32, f32) -> f32
       %3 = "arith.addf"(%2, %arg3) : (f32, f32) -> f32
       "linalg.yield"(%3) : (f32) -> ()
-    }) {indexing_maps = [#map0, #map1], iterator_types = ["parallel", "reduction"], operand_segment_sizes = dense<1> : vector<2 × i32>} : (tensor<4x4xf32>, tensor<4 × f32>) -> tensor<4 × f32>
+    }) {indexing_maps = [#map0, #map1], iterator_types = ["parallel", "reduction"], operand_segment_sizes = dense<1> : vector<2 × i32>} : (tensor<4 × 4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
     "func.return"() : () -> ()
-  }) {function_type = (tensor<4x4xf32>, tensor<4 × f32>) -> (), sym_name = "linalg_fused_red_add"} : () -> ()
+  }) {function_type = (tensor<4 × 4 × f32>, tensor<4 × f32>) -> (), sym_name = "linalg_fused_red_add"} : () -> ()
 }) : () -> ()
 
 // -----

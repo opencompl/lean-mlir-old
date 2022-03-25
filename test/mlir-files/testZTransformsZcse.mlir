@@ -35,10 +35,10 @@
   }) {function_type = () -> (i32, i32), sym_name = "different_ops"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: tensor<* × f32>):
-    %0 = "tensor.cast"(%arg0) : (tensor<* × f32>) -> tensor<?x?xf32>
-    %1 = "tensor.cast"(%arg0) : (tensor<* × f32>) -> tensor<4x?xf32>
-    "func.return"(%0, %1) : (tensor<?x?xf32>, tensor<4x?xf32>) -> ()
-  }) {function_type = (tensor<* × f32>) -> (tensor<?x?xf32>, tensor<4x?xf32>), sym_name = "different_results"} : () -> ()
+    %0 = "tensor.cast"(%arg0) : (tensor<* × f32>) -> tensor<? × ? × f32>
+    %1 = "tensor.cast"(%arg0) : (tensor<* × f32>) -> tensor<4 × ? × f32>
+    "func.return"(%0, %1) : (tensor<? × ? × f32>, tensor<4 × ? × f32>) -> ()
+  }) {function_type = (tensor<* × f32>) -> (tensor<? × ? × f32>, tensor<4 × ? × f32>), sym_name = "different_results"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
     %0 = "arith.cmpi"(%arg0, %arg1) {predicate = 2 : i64} : (index, index) -> i1
@@ -47,10 +47,10 @@
     "func.return"(%0, %1, %2) : (i1, i1, i1) -> ()
   }) {function_type = (index, index) -> (i1, i1, i1), sym_name = "different_attributes"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2x1xf32>
-    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2x1xf32>
-    "func.return"(%0, %1) : (memref<2x1xf32>, memref<2x1xf32>) -> ()
-  }) {function_type = () -> (memref<2x1xf32>, memref<2x1xf32>), sym_name = "side_effect"} : () -> ()
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × 1 × f32>
+    %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × 1 × f32>
+    "func.return"(%0, %1) : (memref<2 × 1 × f32>, memref<2 × 1 × f32>) -> ()
+  }) {function_type = () -> (memref<2 × 1 × f32>, memref<2 × 1 × f32>), sym_name = "side_effect"} : () -> ()
   "func.func"() ({
     %0 = "arith.constant"() {value = 1 : i32} : () -> i32
     "affine.for"() ({

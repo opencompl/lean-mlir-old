@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt" // A package in the Go standard library.
 	"io/ioutil"
 	"log"
@@ -44,8 +43,7 @@ func fileNameWithoutExtTrimSuffix(fileName string) string {
 }
 
 func main() {
-	// ROOTDIR := "/home/siddu_druid/phd/lean-mlir/playground/"
-	MLIR_GLOB_PATH := "/home/siddu_druid/work/llvm-project/mlir/test/*/*.mlir"
+	MLIR_GLOB_PATH := "./mlir-files/*.mlir"
 	log.Output(0, fmt.Sprintf("globbing from %s", MLIR_GLOB_PATH))
 
 	testfiles, err := filepath.Glob(MLIR_GLOB_PATH)
@@ -59,27 +57,18 @@ func main() {
 	for _, testFilePath := range testfiles {
 		testFileDir, testFileNameWithExtension := filepath.Split(testFilePath)
 		testFileNameWithoutExtension := fileNameWithoutExtTrimSuffix(testFileNameWithExtension)
-
-		// --- mlir opt canonicalization ---
-		canonCmd := exec.Command("mlir-opt", testFilePath, "--mlir-print-op-generic", "--allow-unregistered-dialect")
-		check(err)
-		var canonStdout bytes.Buffer
-		canonCmd.Stdout = &canonStdout // write output into canon out file.
-		var canonStderr bytes.Buffer
-		canonCmd.Stderr = &canonStderr
-		check(err)
-		log.Output(0, fmt.Sprintf("Running | %s |.", canonCmd.String()))
-		err = canonCmd.Run()
+		// --- open test file
+		log.Output(0, fmt.Sprintf("Reading | %s |.", testFilePath))
+		inputContents, err := ioutil.ReadFile(testFilePath)
 		if err != nil {
-			log.Output(0, fmt.Sprintf("Error | %s |.", canonStderr.String()))
+			log.Output(0, fmt.Sprintf("Error opening test file: | %s |.", err.Error()))
 			panic(err)
 		}
-
 		// --- run lean through round trip ---
 		// ----- Write lean
 		const leanFilePath = "TestCanonicalizer.lean"
 		leanFileStdoutPath := testFileNameWithoutExtension + ".out.txt"
-		leanFileContents := mk_testfile_contents(canonStdout.String(), leanFileStdoutPath)
+		leanFileContents := mk_testfile_contents(string(inputContents), leanFileStdoutPath)
 		log.Output(0, fmt.Sprintf("Writing | %s |.", leanFilePath))
 		err = ioutil.WriteFile(leanFilePath, []byte(leanFileContents), 0666)
 		check(err)
@@ -104,7 +93,7 @@ func main() {
 
 		// --- write canonicalized file output
 		canonOutFilePath := filepath.Join(testFileDir, testFileNameWithoutExtension, ".canon")
-		ioutil.WriteFile(canonOutFilePath, canonStdout.Bytes(), 0666)
+		ioutil.WriteFile(canonOutFilePath, inputContents, 0666)
 
 		// --- run diff
 		diffCmd := exec.Command("diff", canonOutFilePath, leanFileStdoutPath)

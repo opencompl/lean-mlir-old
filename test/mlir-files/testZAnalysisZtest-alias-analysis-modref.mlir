@@ -1,8 +1,8 @@
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>):
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>, test.ptr = "alloc"} : () -> memref<8x64xf32>
-    "memref.dealloc"(%0) {test.ptr = "dealloc"} : (memref<8x64xf32>) -> ()
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>, test.ptr = "alloc"} : () -> memref<8 × 64 × f32>
+    "memref.dealloc"(%0) {test.ptr = "dealloc"} : (memref<8 × 64 × f32>) -> ()
     "func.return"() {test.ptr = "return"} : () -> ()
   }) {function_type = (memref<2 × f32>) -> (), sym_name = "no_side_effects", test.ptr = "func"} : () -> ()
 }) : () -> ()

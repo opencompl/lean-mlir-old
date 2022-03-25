@@ -42,19 +42,19 @@
   "func.func"() ({
   }) {function_type = (f80, f128) -> (), sym_name = "float_types", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (vector<f32>, vector<1 × f32>, vector<2x4xf32>) -> (), sym_name = "vectors", sym_visibility = "private"} : () -> ()
+  }) {function_type = (vector<f32>, vector<1 × f32>, vector<2 × 4 × f32>) -> (), sym_name = "vectors", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (tensor<* × f32>, tensor<*xvector<2x4xf32>>, tensor<1x?x4x?x?xi32>, tensor<i8>) -> (), sym_name = "tensors", sym_visibility = "private"} : () -> ()
+  }) {function_type = (tensor<* × f32>, tensor<*xvector<2 × 4 × f32>>, tensor<1x?x4x?x?xi32>, tensor<i8>) -> (), sym_name = "tensors", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (tensor<16x32xf64, "sparse">) -> (), sym_name = "tensor_encoding", sym_visibility = "private"} : () -> ()
+  }) {function_type = (tensor<16 × 32 × f64, "sparse">) -> (), sym_name = "tensor_encoding", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (tensor<9223372036854775807 × f32>) -> (), sym_name = "large_shape_dimension", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = ((memref<1x?x4x?x?xi32, #map0>, memref<8 × i8>) -> (), () -> ()) -> (), sym_name = "functions", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<2x4x8xi8, 1>) -> (), sym_name = "memrefs2", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<2 × 4 × 8 × i8, 1>) -> (), sym_name = "memrefs2", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<2x4x8xi8>) -> (), sym_name = "memrefs3", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<2 × 4 × 8 × i8>) -> (), sym_name = "memrefs3", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (memref<2 × i8>) -> (), sym_name = "memrefs_drop_triv_id_inline", sym_visibility = "private"} : () -> ()
   "func.func"() ({
@@ -62,17 +62,17 @@
   "func.func"() ({
   }) {function_type = (memref<2 × i8, 1>) -> (), sym_name = "memrefs_drop_triv_id_inline1", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32>) -> (), sym_name = "memrefs_nomap_nospace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32>) -> (), sym_name = "memrefs_nomap_nospace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, #map1>) -> (), sym_name = "memrefs_map_nospace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, #map1>) -> (), sym_name = "memrefs_map_nospace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, 3>) -> (), sym_name = "memrefs_nomap_intspace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, 3>) -> (), sym_name = "memrefs_nomap_intspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, #map1, 5>) -> (), sym_name = "memrefs_map_intspace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, #map1, 5>) -> (), sym_name = "memrefs_map_intspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, "local">) -> (), sym_name = "memrefs_nomap_strspace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, "local">) -> (), sym_name = "memrefs_nomap_strspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, #map1, "private">) -> (), sym_name = "memrefs_map_strspace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, #map1, "private">) -> (), sym_name = "memrefs_map_strspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (memref<5x6x7xf32, {memSpace = "special", subIndex = 1 : i64}>) -> (), sym_name = "memrefs_nomap_dictspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
@@ -80,27 +80,27 @@
   "func.func"() ({
   }) {function_type = (complex<i1>) -> complex<f32>, sym_name = "complex_types", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1x?xindex>) -> (), sym_name = "memref_with_index_elems", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × ? × inde × >) -> (), sym_name = "memref_with_index_elems", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1x?xcomplex<f32>>) -> (), sym_name = "memref_with_complex_elems", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × ? × comple × <f32>>) -> (), sym_name = "memref_with_complex_elems", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1x?xvector<10 × f32>>) -> (), sym_name = "memref_with_vector_elems", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × ? × vector<10 × f32>>) -> (), sym_name = "memref_with_vector_elems", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1x?x!test.memref_element>) -> (), sym_name = "memref_with_custom_elem", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1 × ? × !test.memref_element>) -> (), sym_name = "memref_with_custom_elem", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1 × memref<1 × f64 × >>) -> (), sym_name = "memref_of_memref", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1xmemref<1 × f64>>) -> (), sym_name = "memref_of_memref", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<1 × memref<* × f32 × >>) -> (), sym_name = "memref_of_unranked_memref", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<1xmemref<* × f32>>) -> (), sym_name = "memref_of_unranked_memref", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<* × memref<1 × f32 × >>) -> (), sym_name = "unranked_memref_of_memref", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<*xmemref<1 × f32>>) -> (), sym_name = "unranked_memref_of_memref", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<* × memref<* × i32 × >>) -> (), sym_name = "unranked_memref_of_unranked_memref", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<*xmemref<* × i32>>) -> (), sym_name = "unranked_memref_of_unranked_memref", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<*xcomplex<f32>>) -> (), sym_name = "unranked_memref_with_complex_elems", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<* × comple × <f32>>) -> (), sym_name = "unranked_memref_with_complex_elems", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<*xindex>) -> (), sym_name = "unranked_memref_with_index_elems", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<* × inde × >) -> (), sym_name = "unranked_memref_with_index_elems", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<* × vector<10 × f32 × >>) -> (), sym_name = "unranked_memref_with_vector_elems", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<*xvector<10 × f32>>) -> (), sym_name = "unranked_memref_with_vector_elems", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: i32, %arg1: f32):
     %1 = "foo"() : () -> i64
@@ -193,19 +193,19 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "complex_loops"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: index, %arg1: memref<?x?xi32>):
+  ^bb0(%arg0: index, %arg1: memref<? × ? × i32>):
     %1 = "arith.constant"() {value = 0 : i32} : () -> i32
     "affine.for"(%arg0) ({
     ^bb0(%arg2: index):
       "affine.for"(%arg2, %arg0) ({
       ^bb0(%arg3: index):
-        "memref.store"(%1, %arg1, %arg2, %arg3) : (i32, memref<?x?xi32>, index, index) -> ()
+        "memref.store"(%1, %arg1, %arg2, %arg3) : (i32, memref<? × ? × i32>, index, index) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map6, step = 1 : index, upper_bound = #map7} : (index, index) -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map2, step = 1 : index, upper_bound = #map7} : (index) -> ()
     "func.return"() : () -> ()
-  }) {function_type = (index, memref<?x?xi32>) -> (), sym_name = "triang_loop"} : () -> ()
+  }) {function_type = (index, memref<? × ? × i32>) -> (), sym_name = "triang_loop"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: memref<100 × f32>):
     "affine.for"(%arg0, %arg1) ({
@@ -418,87 +418,87 @@
   }) {function_type = (index, index) -> (), sym_name = "funcsimplemap"} : () -> ()
   "func.func"() ({
     "splatBoolTensor"() {bar = dense<false> : tensor<i1>} : () -> ()
-    "splatUIntTensor"() {bar = dense<222> : tensor<2x1x4xui8>} : () -> ()
-    "splatIntTensor"() {bar = dense<5> : tensor<2x1x4xi32>} : () -> ()
-    "splatFloatTensor"() {bar = dense<-5.000000e+00> : tensor<2x1x4xf32>} : () -> ()
-    "splatIntVector"() {bar = dense<5> : vector<2x1x4xi64>} : () -> ()
-    "splatFloatVector"() {bar = dense<-5.000000e+00> : vector<2x1x4xf16>} : () -> ()
+    "splatUIntTensor"() {bar = dense<222> : tensor<2 × 1 × 4 × ui8>} : () -> ()
+    "splatIntTensor"() {bar = dense<5> : tensor<2 × 1 × 4 × i32>} : () -> ()
+    "splatFloatTensor"() {bar = dense<-5.000000e+00> : tensor<2 × 1 × 4 × f32>} : () -> ()
+    "splatIntVector"() {bar = dense<5> : vector<2 × 1 × 4 × i64>} : () -> ()
+    "splatFloatVector"() {bar = dense<-5.000000e+00> : vector<2 × 1 × 4 × f16>} : () -> ()
     "splatIntScalar"() {bar = dense<5> : tensor<i9>} : () -> ()
     "splatFloatScalar"() {bar = dense<-5.000000e+00> : tensor<f16>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "splattensorattr"} : () -> ()
   "func.func"() ({
-    "fooi3"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2x1x4xi3>} : () -> ()
-    "fooi6"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : tensor<2x1x4xi6>} : () -> ()
-    "fooi8"() {bar = dense<5> : tensor<1x1x1xi8>} : () -> ()
-    "fooi13"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2x1x4xi13>} : () -> ()
-    "fooi16"() {bar = dense<-5> : tensor<1x1x1xi16>} : () -> ()
-    "fooi23"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2x1x4xi23>} : () -> ()
-    "fooi32"() {bar = dense<5> : tensor<1x1x1xi32>} : () -> ()
-    "fooi33"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2x1x4xi33>} : () -> ()
-    "fooi43"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2x1x4xi43>} : () -> ()
-    "fooi53"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2x1x4xi53>} : () -> ()
-    "fooi64"() {bar = dense<[[[1, -2, 1, 2]], [[0, 3, -1, 2]]]> : tensor<2x1x4xi64>} : () -> ()
-    "fooi64"() {bar = dense<-5> : tensor<1x1x1xi64>} : () -> ()
-    "fooi67"() {bar = dense<[[[-5, 4, 6, 2]]]> : vector<1x1x4xi67>} : () -> ()
+    "fooi3"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2 × 1 × 4 × i3>} : () -> ()
+    "fooi6"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : tensor<2 × 1 × 4 × i6>} : () -> ()
+    "fooi8"() {bar = dense<5> : tensor<1 × 1 × 1 × i8>} : () -> ()
+    "fooi13"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2 × 1 × 4 × i13>} : () -> ()
+    "fooi16"() {bar = dense<-5> : tensor<1 × 1 × 1 × i16>} : () -> ()
+    "fooi23"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2 × 1 × 4 × i23>} : () -> ()
+    "fooi32"() {bar = dense<5> : tensor<1 × 1 × 1 × i32>} : () -> ()
+    "fooi33"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2 × 1 × 4 × i33>} : () -> ()
+    "fooi43"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2 × 1 × 4 × i43>} : () -> ()
+    "fooi53"() {bar = dense<[[[1, -2, 1, 2]], [[0, 2, -1, 2]]]> : tensor<2 × 1 × 4 × i53>} : () -> ()
+    "fooi64"() {bar = dense<[[[1, -2, 1, 2]], [[0, 3, -1, 2]]]> : tensor<2 × 1 × 4 × i64>} : () -> ()
+    "fooi64"() {bar = dense<-5> : tensor<1 × 1 × 1 × i64>} : () -> ()
+    "fooi67"() {bar = dense<[[[-5, 4, 6, 2]]]> : vector<1 × 1 × 4 × i67>} : () -> ()
     "foo2"() {bar = dense<> : tensor<0 × i32>} : () -> ()
-    "foo2"() {bar = dense<> : tensor<1x0xi32>} : () -> ()
-    "foo2"() {bar = dense<> : tensor<0x512x512xi32>} : () -> ()
-    "foo3"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : tensor<2x1x4xi32>} : () -> ()
-    "float1"() {bar = dense<5.000000e+00> : tensor<1x1x1xf32>} : () -> ()
+    "foo2"() {bar = dense<> : tensor<1 × 0 × i32>} : () -> ()
+    "foo2"() {bar = dense<> : tensor<0 × 512 × 512 × i32>} : () -> ()
+    "foo3"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : tensor<2 × 1 × 4 × i32>} : () -> ()
+    "float1"() {bar = dense<5.000000e+00> : tensor<1 × 1 × 1 × f32>} : () -> ()
     "float2"() {bar = dense<> : tensor<0 × f32>} : () -> ()
-    "float2"() {bar = dense<> : tensor<1x0xf32>} : () -> ()
-    "bfloat16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2x1x4xbf16>} : () -> ()
-    "float16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2x1x4xf16>} : () -> ()
-    "float32"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2x1x4xf32>} : () -> ()
-    "float64"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2x1x4xf64>} : () -> ()
+    "float2"() {bar = dense<> : tensor<1 × 0 × f32>} : () -> ()
+    "bfloat16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × bf16>} : () -> ()
+    "float16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × f16>} : () -> ()
+    "float32"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × f32>} : () -> ()
+    "float64"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × f64>} : () -> ()
     "intscalar"() {bar = dense<1> : tensor<i32>} : () -> ()
     "floatscalar"() {bar = dense<5.000000e+00> : tensor<f32>} : () -> ()
     "index"() {bar = dense<1> : tensor<inde × >} : () -> ()
-    "index"() {bar = dense<[1, 2]> : tensor<2xindex>} : () -> ()
+    "index"() {bar = dense<[1, 2]> : tensor<2 × inde × >} : () -> ()
     "complex_attr"() {bar = dense<(1,1)> : tensor<comple × <i64>>} : () -> ()
-    "complex_attr"() {bar = dense<[(1,1), (2,2)]> : tensor<2xcomplex<i64>>} : () -> ()
+    "complex_attr"() {bar = dense<[(1,1), (2,2)]> : tensor<2 × comple × <i64>>} : () -> ()
     "complex_attr"() {bar = dense<(1.000000e+00,0.000000e+00)> : tensor<comple × <f32>>} : () -> ()
-    "complex_attr"() {bar = dense<[(1.000000e+00,0.000000e+00), (2.000000e+00,2.000000e+00)]> : tensor<2xcomplex<f32>>} : () -> ()
+    "complex_attr"() {bar = dense<[(1.000000e+00,0.000000e+00), (2.000000e+00,2.000000e+00)]> : tensor<2 × comple × <f32>>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "densetensorattr"} : () -> ()
   "func.func"() ({
-    "fooi8"() {bar = dense<5> : vector<1x1x1xi8>} : () -> ()
-    "fooi16"() {bar = dense<-5> : vector<1x1x1xi16>} : () -> ()
-    "foo32"() {bar = dense<5> : vector<1x1x1xi32>} : () -> ()
-    "fooi64"() {bar = dense<-5> : vector<1x1x1xi64>} : () -> ()
-    "foo3"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : vector<2x1x4xi32>} : () -> ()
-    "float1"() {bar = dense<5.000000e+00> : vector<1x1x1xf32>} : () -> ()
-    "bfloat16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2x1x4xbf16>} : () -> ()
-    "float16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2x1x4xf16>} : () -> ()
-    "float32"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2x1x4xf32>} : () -> ()
-    "float64"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2x1x4xf64>} : () -> ()
+    "fooi8"() {bar = dense<5> : vector<1 × 1 × 1 × i8>} : () -> ()
+    "fooi16"() {bar = dense<-5> : vector<1 × 1 × 1 × i16>} : () -> ()
+    "foo32"() {bar = dense<5> : vector<1 × 1 × 1 × i32>} : () -> ()
+    "fooi64"() {bar = dense<-5> : vector<1 × 1 × 1 × i64>} : () -> ()
+    "foo3"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : vector<2 × 1 × 4 × i32>} : () -> ()
+    "float1"() {bar = dense<5.000000e+00> : vector<1 × 1 × 1 × f32>} : () -> ()
+    "bfloat16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × bf16>} : () -> ()
+    "float16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × f16>} : () -> ()
+    "float32"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × f32>} : () -> ()
+    "float64"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × f64>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "densevectorattr"} : () -> ()
   "func.func"() ({
-    "fooi8"() {bar = sparse<0, -2> : tensor<1x1x1xi8>} : () -> ()
-    "fooi16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2, -1, 5]> : tensor<2x2x2xi16>} : () -> ()
-    "fooi32"() {bar = sparse<> : tensor<1x1xi32>} : () -> ()
+    "fooi8"() {bar = sparse<0, -2> : tensor<1 × 1 × 1 × i8>} : () -> ()
+    "fooi16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2, -1, 5]> : tensor<2 × 2 × 2 × i16>} : () -> ()
+    "fooi32"() {bar = sparse<> : tensor<1 × 1 × i32>} : () -> ()
     "fooi64"() {bar = sparse<0, -1> : tensor<1 × i64>} : () -> ()
     "foo2"() {bar = sparse<> : tensor<0 × i32>} : () -> ()
     "foo3"() {bar = sparse<> : tensor<i32>} : () -> ()
-    "foof16"() {bar = sparse<0, -2.000000e+00> : tensor<1x1x1xf16>} : () -> ()
-    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.000000e+00, -1.000000e+00, 5.000000e+00]> : tensor<2x2x2xbf16>} : () -> ()
-    "foof32"() {bar = sparse<> : tensor<1x0x1xf32>} : () -> ()
+    "foof16"() {bar = sparse<0, -2.000000e+00> : tensor<1 × 1 × 1 × f16>} : () -> ()
+    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.000000e+00, -1.000000e+00, 5.000000e+00]> : tensor<2 × 2 × 2 × bf16>} : () -> ()
+    "foof32"() {bar = sparse<> : tensor<1 × 0 × 1 × f32>} : () -> ()
     "foof64"() {bar = sparse<0, -1.000000e+00> : tensor<1 × f64>} : () -> ()
     "foof320"() {bar = sparse<> : tensor<0 × f32>} : () -> ()
     "foof321"() {bar = sparse<> : tensor<f32>} : () -> ()
-    "foostr"() {bar = sparse<0, "foo"> : tensor<1x1x1x!unknown<"">>} : () -> ()
-    "foostr"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], ["a", "b", "c"]> : tensor<2x2x2x!unknown<"">>} : () -> ()
+    "foostr"() {bar = sparse<0, "foo"> : tensor<1 × 1 × 1 × !unknown<"">>} : () -> ()
+    "foostr"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], ["a", "b", "c"]> : tensor<2 × 2 × 2 × !unknown<"">>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "sparsetensorattr"} : () -> ()
   "func.func"() ({
-    "fooi8"() {bar = sparse<0, -2> : vector<1x1x1xi8>} : () -> ()
-    "fooi16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2, -1, 5]> : vector<2x2x2xi16>} : () -> ()
-    "fooi32"() {bar = sparse<> : vector<1x1xi32>} : () -> ()
+    "fooi8"() {bar = sparse<0, -2> : vector<1 × 1 × 1 × i8>} : () -> ()
+    "fooi16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2, -1, 5]> : vector<2 × 2 × 2 × i16>} : () -> ()
+    "fooi32"() {bar = sparse<> : vector<1 × 1 × i32>} : () -> ()
     "fooi64"() {bar = sparse<0, -1> : vector<1 × i64>} : () -> ()
-    "foof16"() {bar = sparse<0, -2.000000e+00> : vector<1x1x1xf16>} : () -> ()
-    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.000000e+00, -1.000000e+00, 5.000000e+00]> : vector<2x2x2xbf16>} : () -> ()
+    "foof16"() {bar = sparse<0, -2.000000e+00> : vector<1 × 1 × 1 × f16>} : () -> ()
+    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.000000e+00, -1.000000e+00, 5.000000e+00]> : vector<2 × 2 × 2 × bf16>} : () -> ()
     "foof64"() {bar = sparse<0, -1.000000e+00> : vector<1 × f64>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "sparsevectorattr"} : () -> ()
@@ -649,10 +649,10 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "f32_potential_precision_loss"} : () -> ()
   "func.func"() ({
-    "foo"() {bar = dense<0 × FFFFFFFF> : tensor<4x4xf32>} : () -> ()
-    "foo"() {bar = dense<[[0xFFFFFFFF, 0x7F800000], [0x7FBFFFFF, 0x7F800001]]> : tensor<2x2xf32>} : () -> ()
+    "foo"() {bar = dense<0 × FFFFFFFF> : tensor<4 × 4 × f32>} : () -> ()
+    "foo"() {bar = dense<[[0xFFFFFFFF, 0x7F800000], [0x7FBFFFFF, 0x7F800001]]> : tensor<2 × 2 × f32>} : () -> ()
     "foo"() {bar = dense<[0 × FFFFFFFF, 0.000000e+00]> : tensor<2 × f32>} : () -> ()
-    "foo"() {bar = sparse<[[1, 1, 0], [0, 1, 1]], [0xFFFFFFFF, 0x7F800001]> : tensor<2x2x2xf32>} : () -> ()
+    "foo"() {bar = sparse<[[1, 1, 0], [0, 1, 1]], [0 × FFFFFFFF, 0 × 7F800001]> : tensor<2 × 2 × 2 × f32>} : () -> ()
   }) {function_type = () -> (), sym_name = "special_float_values_in_tensors"} : () -> ()
   "func.func"() ({
     "test.polyfor"() ({

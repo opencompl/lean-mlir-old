@@ -73,9 +73,9 @@
   ^bb0(%arg0: memref<3 × f32, #map>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<3 × f32>
     "test.op_norm"(%arg0, %0) : (memref<3 × f32, #map>, memref<3 × f32>) -> ()
-    %1 = "memref.reinterpret_cast"(%0) {operand_segment_sizes = dense<[1, 0, 0, 0]> : vector<4 × i32>, static_offsets = [0], static_sizes = [3, 1, 1], static_strides = [1, 1, 1]} : (memref<3 × f32>) -> memref<3x1x1xf32>
-    "func.return"(%1) : (memref<3x1x1xf32>) -> ()
-  }) {function_type = (memref<3 × f32, #map>) -> memref<3x1x1xf32>, sym_name = "test_norm_reinterpret_cast"} : () -> ()
+    %1 = "memref.reinterpret_cast"(%0) {operand_segment_sizes = dense<[1, 0, 0, 0]> : vector<4 × i32>, static_offsets = [0], static_sizes = [3, 1, 1], static_strides = [1, 1, 1]} : (memref<3 × f32>) -> memref<3 × 1 × 1 × f32>
+    "func.return"(%1) : (memref<3 × 1 × 1 × f32>) -> ()
+  }) {function_type = (memref<3 × f32, #map>) -> memref<3 × 1 × 1 × f32>, sym_name = "test_norm_reinterpret_cast"} : () -> ()
 }) : () -> ()
 
 // -----

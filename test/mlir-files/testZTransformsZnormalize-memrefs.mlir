@@ -23,18 +23,18 @@
 #map22 = affine_map<() -> (8)>
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64x256xf32, #map0>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 256 × f32, #map0>
     "affine.for"() ({
     ^bb0(%arg0: index):
       "affine.for"() ({
       ^bb0(%arg1: index):
-        %1 = "affine.load"(%0, %arg0, %arg1) {map = #map1} : (memref<64x256xf32, #map0>, index, index) -> f32
+        %1 = "affine.load"(%0, %arg0, %arg1) {map = #map1} : (memref<64 × 256 × f32, #map0>, index, index) -> f32
         "prevent.dce"(%1) : (f32) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map2, step = 1 : index, upper_bound = #map3} : () -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map2, step = 1 : index, upper_bound = #map4} : () -> ()
-    "memref.dealloc"(%0) : (memref<64x256xf32, #map0>) -> ()
+    "memref.dealloc"(%0) : (memref<64 × 256 × f32, #map0>) -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "permute"} : () -> ()
   "func.func"() ({
@@ -50,14 +50,14 @@
     "func.return"() : () -> ()
   }) {function_type = (index) -> (), sym_name = "shift"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64x128x256xf32, #map7>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 128 × 256 × f32, #map7>
     "affine.for"() ({
     ^bb0(%arg0: index):
       "affine.for"() ({
       ^bb0(%arg1: index):
         "affine.for"() ({
         ^bb0(%arg2: index):
-          %1 = "affine.load"(%0, %arg0, %arg1, %arg2) {map = #map8} : (memref<64x128x256xf32, #map7>, index, index, index) -> f32
+          %1 = "affine.load"(%0, %arg0, %arg1, %arg2) {map = #map8} : (memref<64 × 128 × 256 × f32, #map7>, index, index, index) -> f32
           "prevent.dce"(%1) : (f32) -> ()
           "affine.yield"() : () -> ()
         }) {lower_bound = #map2, step = 1 : index, upper_bound = #map3} : () -> ()
@@ -68,23 +68,23 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "high_dim_permute"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64x128xf32, #map10>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 128 × f32, #map10>
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "invalid_map"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index):
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64x512xf32, #map11>
-    %1 = "affine.load"(%0, %arg0) {map = #map12} : (memref<64x512xf32, #map11>, index) -> f32
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 512 × f32, #map11>
+    %1 = "affine.load"(%0, %arg0) {map = #map12} : (memref<64 × 512 × f32, #map11>, index) -> f32
     "prevent.dce"(%1) : (f32) -> ()
     "func.return"() : () -> ()
   }) {function_type = (index) -> (), sym_name = "data_tiling"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64x128xf32, #map13>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 128 × f32, #map13>
     "affine.for"() ({
     ^bb0(%arg0: index):
       "affine.for"() ({
       ^bb0(%arg1: index):
-        %1 = "affine.load"(%0, %arg0, %arg1) {map = #map1} : (memref<64x128xf32, #map13>, index, index) -> f32
+        %1 = "affine.load"(%0, %arg0, %arg1) {map = #map1} : (memref<64 × 128 × f32, #map13>, index, index) -> f32
         "prevent.dce"(%1) : (f32) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map2, step = 1 : index, upper_bound = #map9} : () -> ()
@@ -93,12 +93,12 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "strided"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2x5xf32, #map14>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × 5 × f32, #map14>
     "affine.for"() ({
     ^bb0(%arg0: index):
       "affine.for"() ({
       ^bb0(%arg1: index):
-        %1 = "affine.load"(%0, %arg0, %arg1) {map = #map1} : (memref<2x5xf32, #map14>, index, index) -> f32
+        %1 = "affine.load"(%0, %arg0, %arg1) {map = #map1} : (memref<2 × 5 × f32, #map14>, index, index) -> f32
         "prevent.dce"(%1) : (f32) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map2, step = 1 : index, upper_bound = #map15} : () -> ()
@@ -108,12 +108,12 @@
   }) {function_type = () -> (), sym_name = "strided_cumulative"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index):
-    %0 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[0, 1]> : vector<2 × i32>} : (index) -> memref<10x10xf32, #map17>
+    %0 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[0, 1]> : vector<2 × i32>} : (index) -> memref<10 × 10 × f32, #map17>
     "affine.for"() ({
     ^bb0(%arg1: index):
       "affine.for"() ({
       ^bb0(%arg2: index):
-        %1 = "affine.load"(%0, %arg1, %arg2) {map = #map1} : (memref<10x10xf32, #map17>, index, index) -> f32
+        %1 = "affine.load"(%0, %arg1, %arg2) {map = #map1} : (memref<10 × 10 × f32, #map17>, index, index) -> f32
         "prevent.dce"(%1) : (f32) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map2, step = 1 : index, upper_bound = #map18} : () -> ()
@@ -123,12 +123,12 @@
   }) {function_type = (index) -> (), sym_name = "symbolic_operands"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
-    %0 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[0, 2]> : vector<2 × i32>} : (index, index) -> memref<256x1024xf32, #map19>
+    %0 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[0, 2]> : vector<2 × i32>} : (index, index) -> memref<256 × 1024 × f32, #map19>
     "affine.for"() ({
     ^bb0(%arg2: index):
       "affine.for"() ({
       ^bb0(%arg3: index):
-        %1 = "affine.load"(%0, %arg2, %arg3) {map = #map1} : (memref<256x1024xf32, #map19>, index, index) -> f32
+        %1 = "affine.load"(%0, %arg2, %arg3) {map = #map1} : (memref<256 × 1024 × f32, #map19>, index, index) -> f32
         "affine.yield"() : () -> ()
       }) {lower_bound = #map2, step = 1 : index, upper_bound = #map20} : () -> ()
       "affine.yield"() : () -> ()
@@ -136,7 +136,7 @@
     "func.return"() : () -> ()
   }) {function_type = (index, index) -> (), sym_name = "semi_affine_layout_map"} : () -> ()
   "func.func"() ({
-    %0 = "memref.alloc"() {alignment = 32 : i64, operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64x128x256xf32, #map7>
+    %0 = "memref.alloc"() {alignment = 32 : i64, operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 128 × 256 × f32, #map7>
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "alignment"} : () -> ()
   "func.func"() ({

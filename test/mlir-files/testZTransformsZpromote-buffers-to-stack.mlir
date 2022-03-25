@@ -36,7 +36,7 @@
   "func.func"() ({
   ^bb0(%arg0: memref<* × f32>):
     %0 = "memref.rank"(%arg0) : (memref<* × f32>) -> index
-    %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<?xindex>
+    %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × inde × >
     "func.return"() : () -> ()
   }) {function_type = (memref<* × f32>) -> (), sym_name = "dynamicRanked"} : () -> ()
 }) : () -> ()
@@ -46,7 +46,7 @@
   "func.func"() ({
   ^bb0(%arg0: memref<* × f32>):
     %0 = "memref.rank"(%arg0) : (memref<* × f32>) -> index
-    %1 = "memref.alloc"(%0, %0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xindex>
+    %1 = "memref.alloc"(%0, %0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × inde × >
     "func.return"() : () -> ()
   }) {function_type = (memref<* × f32>) -> (), sym_name = "dynamicRanked2D"} : () -> ()
 }) : () -> ()
@@ -55,7 +55,7 @@
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index):
-    %0 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<?xindex>
+    %0 = "memref.alloc"(%arg0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × inde × >
     "func.return"() : () -> ()
   }) {function_type = (index) -> (), sym_name = "dynamicNoRank"} : () -> ()
 }) : () -> ()
@@ -229,34 +229,34 @@
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
     %0 = "arith.cmpi"(%arg0, %arg1) {predicate = 0 : i64} : (index, index) -> i1
-    %1 = "memref.alloc"(%arg0, %arg0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
+    %1 = "memref.alloc"(%arg0, %arg0) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × f32>
     %2 = "scf.if"(%0) ({
-      "scf.yield"(%1) : (memref<?x?xf32>) -> ()
+      "scf.yield"(%1) : (memref<? × ? × f32>) -> ()
     }, {
-      %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<?x?xf32>
-      "scf.yield"(%1) : (memref<?x?xf32>) -> ()
-    }) : (i1) -> memref<?x?xf32>
-    "func.return"(%2) : (memref<?x?xf32>) -> ()
-  }) {function_type = (index, index) -> memref<?x?xf32>, sym_name = "nested_region_control_flow"} : () -> ()
+      %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × f32>
+      "scf.yield"(%1) : (memref<? × ? × f32>) -> ()
+    }) : (i1) -> memref<? × ? × f32>
+    "func.return"(%2) : (memref<? × ? × f32>) -> ()
+  }) {function_type = (index, index) -> memref<? × ? × f32>, sym_name = "nested_region_control_flow"} : () -> ()
 }) : () -> ()
 
 // -----
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index):
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2x2xf32>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × 2 × f32>
     %1 = "test.region_if"(%0) ({
-    ^bb0(%arg1: memref<2x2xf32>):
-      "test.region_if_yield"(%arg1) : (memref<2x2xf32>) -> ()
+    ^bb0(%arg1: memref<2 × 2 × f32>):
+      "test.region_if_yield"(%arg1) : (memref<2 × 2 × f32>) -> ()
     }, {
-    ^bb0(%arg1: memref<2x2xf32>):
-      "test.region_if_yield"(%arg1) : (memref<2x2xf32>) -> ()
+    ^bb0(%arg1: memref<2 × 2 × f32>):
+      "test.region_if_yield"(%arg1) : (memref<2 × 2 × f32>) -> ()
     }, {
-    ^bb0(%arg1: memref<2x2xf32>):
-      "test.region_if_yield"(%arg1) : (memref<2x2xf32>) -> ()
-    }) : (memref<2x2xf32>) -> memref<2x2xf32>
-    "func.return"(%1) : (memref<2x2xf32>) -> ()
-  }) {function_type = (index) -> memref<2x2xf32>, sym_name = "inner_region_control_flow"} : () -> ()
+    ^bb0(%arg1: memref<2 × 2 × f32>):
+      "test.region_if_yield"(%arg1) : (memref<2 × 2 × f32>) -> ()
+    }) : (memref<2 × 2 × f32>) -> memref<2 × 2 × f32>
+    "func.return"(%1) : (memref<2 × 2 × f32>) -> ()
+  }) {function_type = (index) -> memref<2 × 2 × f32>, sym_name = "inner_region_control_flow"} : () -> ()
 }) : () -> ()
 
 // -----
@@ -328,7 +328,7 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4xindex>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × inde × >
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "indexElementType"} : () -> ()
 }) : () -> ()
@@ -336,7 +336,7 @@
 // -----
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4xindex>
+    %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × inde × >
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "bigIndexElementType"} : () -> ()
 }) {dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<inde × , 256 : i64>>} : () -> ()

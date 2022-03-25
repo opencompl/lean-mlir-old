@@ -117,7 +117,24 @@ func main() {
 			// [^blah]: negated capture group for blah
 			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
 			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
-			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)([^x>]*)>/<\1 × \2 × \3>/g`, outPath)
+			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g`, outPath)
+
+			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
+			var sedStderr bytes.Buffer
+			sedCommand.Stderr = &sedStderr
+			err = sedCommand.Run()
+			if err != nil {
+				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
+			}
+			check(err)
+		} // end sed run block
+
+		{
+			// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+			// [^blah]: negated capture group for blah
+			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
+			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
+			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g`, outPath)
 
 			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
 			var sedStderr bytes.Buffer

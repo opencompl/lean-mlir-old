@@ -378,11 +378,11 @@
     "func.return"(%2) : (vector<4 × i32>) -> ()
   }) {function_type = () -> vector<4 × i32>, sym_name = "muli_splat_vector"} : () -> ()
   "func.func"() ({
-  ^bb0(%arg0: tensor<8x4xf32>):
+  ^bb0(%arg0: tensor<8 × 4 × f32>):
     %0 = "arith.constant"() {value = 1 : index} : () -> index
-    %1 = "tensor.dim"(%arg0, %0) : (tensor<8x4xf32>, index) -> index
+    %1 = "tensor.dim"(%arg0, %0) : (tensor<8 × 4 × f32>, index) -> index
     "func.return"(%1) : (index) -> ()
-  }) {function_type = (tensor<8x4xf32>) -> index, sym_name = "dim"} : () -> ()
+  }) {function_type = (tensor<8 × 4 × f32>) -> index, sym_name = "dim"} : () -> ()
 }) : () -> ()
 
 // -----

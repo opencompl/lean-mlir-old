@@ -1,10 +1,10 @@
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<10x20xf32>):
-    %0 = "math.tanh"(%arg0) : (tensor<10x20xf32>) -> tensor<10x20xf32>
-    %1 = "test.same_operand_result_type"(%0) : (tensor<10x20xf32>) -> tensor<10x20xf32>
-    "func.return"(%1) : (tensor<10x20xf32>) -> ()
-  }) {function_type = (tensor<10x20xf32>) -> tensor<10x20xf32>, shape.function = @shape_lib::@same_result_shape, sym_name = "tanh"} : () -> ()
+  ^bb0(%arg0: tensor<10 × 20 × f32>):
+    %0 = "math.tanh"(%arg0) : (tensor<10 × 20 × f32>) -> tensor<10 × 20 × f32>
+    %1 = "test.same_operand_result_type"(%0) : (tensor<10 × 20 × f32>) -> tensor<10 × 20 × f32>
+    "func.return"(%1) : (tensor<10 × 20 × f32>) -> ()
+  }) {function_type = (tensor<10 × 20 × f32>) -> tensor<10 × 20 × f32>, shape.function = @shape_lib::@same_result_shape, sym_name = "tanh"} : () -> ()
   "shape.function_library"() ({
     "func.func"() ({
     ^bb0(%arg0: !shape.value_shape):
