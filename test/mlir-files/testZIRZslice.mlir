@@ -1,0 +1,31 @@
+#map0 = affine_map<(d0, d1, d2) -> (d0, d2)>
+#map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+#map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+"builtin.module"() ({
+  "func.func"() ({
+  ^bb0(%arg0: index, %arg1: index, %arg2: index):
+    %0 = "memref.alloc"(%arg0, %arg2) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+    %1 = "memref.alloc"(%arg2, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+    %2 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+    %3 = "memref.alloc"(%arg0, %arg1) {operand_segment_sizes = dense<[2, 0]> : vector<2xi32>} : (index, index) -> memref<?x?xf32>
+    "linalg.matmul"(%0, %1, %2) ({
+    ^bb0(%arg3: f32, %arg4: f32, %arg5: f32):
+      %4 = "arith.mulf"(%arg3, %arg4) : (f32, f32) -> f32
+      %5 = "arith.addf"(%arg5, %4) : (f32, f32) -> f32
+      "linalg.yield"(%5) : (f32) -> ()
+    }) {linalg.memoized_indexing_maps = [#map0, #map1, #map2], operand_segment_sizes = dense<[2, 1]> : vector<2xi32>} : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "linalg.matmul"(%0, %1, %3) ({
+    ^bb0(%arg3: f32, %arg4: f32, %arg5: f32):
+      %4 = "arith.mulf"(%arg3, %arg4) : (f32, f32) -> f32
+      %5 = "arith.addf"(%arg5, %4) : (f32, f32) -> f32
+      "linalg.yield"(%5) : (f32) -> ()
+    }) {linalg.memoized_indexing_maps = [#map0, #map1, #map2], operand_segment_sizes = dense<[2, 1]> : vector<2xi32>} : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "memref.dealloc"(%2) : (memref<?x?xf32>) -> ()
+    "memref.dealloc"(%1) : (memref<?x?xf32>) -> ()
+    "memref.dealloc"(%0) : (memref<?x?xf32>) -> ()
+    "memref.dealloc"(%3) : (memref<?x?xf32>) -> ()
+    "func.return"() : () -> ()
+  }) {function_type = (index, index, index) -> (), sym_name = "slicing_linalg_op"} : () -> ()
+}) : () -> ()
+
+// -----
