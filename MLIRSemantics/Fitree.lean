@@ -43,7 +43,7 @@ def psum (E: Type → Type u) (F: Type → Type v) :=
 inductive PVoid: Type -> Type u
 
 infixr:40 " ~> " => pto
-infixl:40 " +' " => psum
+infixr:60 " +' " => psum
 
 class Member (E: Type → Type u) (F: Type → Type v) where
   inject : E ~> F
@@ -64,6 +64,11 @@ example (E: Type → Type u) (F: Type → Type v):
   Member E (E +' F) := inferInstance
 example (E: Type → Type u) (F: Type → Type v):
   Member E (F +' (F +' E)) := inferInstance
+
+def case_ (h1: E ~> G) (h2: F ~> G): E +' F ~> G :=
+  fun R ef => match ef with
+  | Sum.inl e => h1 R e
+  | Sum.inr f => h2 R f
 
 end events
 
@@ -97,7 +102,7 @@ def Fitree.trigger {E: Type → Type u} {F: Type → Type v} {T} [Member E F]
 def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with
   | Ret r => k r
-  | Vis e k' => Vis e (λ r => bind (k' r) k)
+  | Vis e k' => Vis e (fun r => bind (k' r) k)
 
 instance {E}: Monad (Fitree E) where
   pure := Fitree.ret
@@ -105,15 +110,15 @@ instance {E}: Monad (Fitree E) where
 
 
 -- Interpretation into the monad of finite ITrees
-def interp {M} [Monad M] {E} (h: forall ⦃T⦄, E T → M T):
+def interp {M} [Monad M] {E} (h: E ~> M):
     forall ⦃R⦄, Fitree E R → M R :=
-  λ _ t =>
+  fun _ t =>
     match t with
     | Fitree.Ret r => pure r
-    | Fitree.Vis e k => bind (h e) (λ t => interp h (k t))
+    | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 -- Interpretation into the state monad
-def interp_state {M S} [Monad M] {E} (h: forall ⦃T⦄, E T → StateT S M T):
+def interp_state {M S} [Monad M] {E} (h: E ~> StateT S M):
     forall ⦃R⦄, Fitree E R → StateT S M R :=
   interp h
 
@@ -124,3 +129,12 @@ def Fitree.run {R}: Fitree PVoid R → R
   | Vis e k => nomatch e
 
 end fitree
+
+
+/- Predicates to reason about the absence of events -/
+
+inductive Fitree.no_event_l {E F R}: Fitree (E +' F) R → Prop :=
+  | Ret r: no_event_l (Ret r)
+  | Vis f k: (∀ t, no_event_l (k t)) → no_event_l (Vis (Sum.inr f) k)
+
+-- TODO: Tactic to automate the proof of no_event_l

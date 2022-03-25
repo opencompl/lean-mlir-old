@@ -6,7 +6,7 @@ concrete Lean types and values.
 
 In order to support the untyped SSA environment (which doesn't require name
 definitions/uses to match as this is proven later), every concrete MLIR type
-should be Inhabited so that `SSAEnvE.Get` can return default values.
+should be Inhabited so that `SSAEnvE.Get` can pretend to return default values.
 
 Current properly-supported MLIR built-in types:
 
