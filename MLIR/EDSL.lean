@@ -208,10 +208,7 @@ def dim1 := [mlir_dimension| ?]
 
 -- | 1 x 2 x 3 x ..
 declare_syntax_cat mlir_dimension_list
--- syntax ident : mlir_dimension_list
--- syntax num ident : mlir_dimension_list
-syntax mlir_dimension ident: mlir_dimension_list
-syntax mlir_type: mlir_dimension_list
+syntax (mlir_dimension "×")* mlir_type : mlir_dimension_list
 
 def string_to_dimension (s: String): MacroM Dimension := do
   if s == "?"
@@ -235,47 +232,58 @@ def quoteMList (k: List Syntax): MacroM Syntax :=
       let sks <- quoteMList ks
       `([$k] ++ $sks)
 
+
+-- (MLIR.EDSL.«mlir_dimension_list_×_»
+--  [
+--    [(MLIR.EDSL.mlir_dimension_ (numLit "3")) "×"]
+--    [(MLIR.EDSL.mlir_dimension_ (numLit "3")) "×"]]
+ -- (MLIR.EDSL.mlir_type__ `i32))| )
+
 -- | TODO: assert that the string we get is of the form x3x4x?x2...
 -- that is, interleaved x and other stuff.
-set_option hygiene false in
-def parseTensorDimensionList (k: Syntax) (dims: Syntax): MacroM (Syntax × Syntax) := do
-        let xstr := dims.getId.toString
-        let xparts := (xstr.splitOn "x").tail!
-        let ty := xparts.getLast!
-        let xparts := xparts.dropLast
-        let xparts := [] ++ xparts -- TODO: add k into this list.
-        -- Macro.throwError $ ("unknown dimension list: |" ++ (toString xparts) ++ "| )")
+def parseTensorDimensionList (k: Syntax) : MacroM (Syntax × Syntax) := do
 
-        let tyIdent := Lean.mkIdent ty
-        -- let tyStx <- `([mlir_type|  $(quote tyIdent)])
-        let tyStx <-  `([mlir_type|  i32])
-        let dims <- xparts.mapM string_to_dimension
-        let dimsStx <- quoteMList ([k] ++ (<- dims.mapM quoteMDimension))
-        return (dimsStx, tyStx)
-  -- | err => Macro.throwError $  ("unknown dimension list: |" ++ err.reprint.getD "???" ++ "| )")
+  let ty <- `([mlir_type|  $(k.getArgs.back)])
+  let dimensions := (k.getArg 0)
+  let dimensions <- dimensions.getArgs.toList.mapM (fun x => `([mlir_dimension| $(x.getArg 0)]))
+  let dimensions <- quoteMList dimensions
+  -- Macro.throwError $ ("unknown dimension list:\n|" ++ (toString k.getArgs) ++ "|" ++ "\nDIMS: " ++ (toString dimensions) ++ " |\nTYPE: " ++ (toString ty)++ "")
+  return (dimensions, ty)
+
+
+  --       let xstr := dims.getId.toString
+  --       let xparts := (xstr.splitOn "x").tail!
+  --       let ty := xparts.getLast!
+  --       let xparts := xparts.dropLast
+  --       let xparts := [] ++ xparts -- TODO: add k into this list.
+  --       -- Macro.throwError $ ("unknown dimension list: |" ++ (toString xparts) ++ "| )")
+
+  --       let tyIdent := Lean.mkIdent ty
+  --       -- let tyStx <- `([mlir_type|  $(quote tyIdent)])
+  --       let tyStx <-  `([mlir_type|  i32])
+  --       let dims <- xparts.mapM string_to_dimension
+  --       let dimsStx <- quoteMList ([k] ++ (<- dims.mapM quoteMDimension))
+  --       return (dimsStx, tyStx)
+  -- -- | err => Macro.throwError $  ("unknown dimension list: |" ++ err.reprint.getD "???" ++ "| )")
 
 -- TODO: where is vector type syntax defined?
 -- | TODO: fix bug that does not allow a trailing times.
 syntax "vector" "<" mlir_dimension_list ">"  : mlir_type
 set_option hygiene false in -- allow i to expand 
 macro_rules
--- | `([mlir_type| vector < $dims:mlir_dimension_list  >]) => do
-| `([mlir_type| vector < $n:mlir_dimension $rest:ident  >]) => do
-    let n <- `([mlir_dimension| $n])
-    let (dims, ty) <- parseTensorDimensionList n rest 
+| `([mlir_type| vector < $dims:mlir_dimension_list  >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims 
     `(MLIRTy.vector $dims $ty)
 
-set_option hygiene false in -- allow i to expand 
-def vectorTy0 := [mlir_type| vector<3x3xi32>]
+def vectorTy0 := [mlir_type| vector<3 × 3 × i32>]
 #print vectorTy0
 
 
 -- | TODO: is this actually necessary?
 syntax  "<" mlir_dimension_list  ">"  : mlir_type
 macro_rules
-| `([mlir_type| vector < $n:mlir_dimension $rest:ident  >]) => do
-    let n <- `([mlir_dimension| $n])
-    let (dims, ty) <- parseTensorDimensionList n rest 
+| `([mlir_type|  < $dims:mlir_dimension_list  >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims 
     `(MLIRTy.vector $dims $ty)
 
 
@@ -283,27 +291,21 @@ macro_rules
 
 syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
 macro_rules
-| `([mlir_type| tensor <  $n:mlir_dimension $rest:ident >]) => do
-    let n <- `([mlir_dimension| $n])
-    let (dims, ty) <- parseTensorDimensionList n rest 
-    `(MLIRTy.tensor $dims $ty)
+| `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims 
+    `(MLIRTy.vector $dims $ty)
 
-def tensorTy0 := [mlir_type| tensor<3x3xi32>]
+def tensorTy0 := [mlir_type| tensor<3×3×i32>]
 #print tensorTy0
 
--- def tensorTy1 := [mlir_type| tensor<3x?xf32 >]
--- #print tensorTy1
      
 syntax "memref" "<"  mlir_dimension_list  ">"  : mlir_type
 macro_rules
-| `([mlir_type| memref <  $n:mlir_dimension $rest:ident >]) => do
-    let n <- `([mlir_dimension| $n])
-    let (dims, ty) <- parseTensorDimensionList n rest 
-    `(MLIRTy.memref $dims $ty)
-| `([mlir_type| memref <  $ty:mlir_type >]) => do
-    `(MLIRTy.memref [1] [mlir_type| $ty])
+| `([mlir_type| memref  < $dims:mlir_dimension_list  >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims 
+    `(MLIRTy.vector $dims $ty)
 
-def memrefTy0 := [mlir_type| memref<3x3xi32>]
+def memrefTy0 := [mlir_type| memref<3×3×i32>]
 #print memrefTy0
 
 def memrefTy1 := [mlir_type| memref<i32>]

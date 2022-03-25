@@ -14,7 +14,7 @@ def matmul_ein := [ein_factor| x_k_i x^i_l]
 
 -- | Mix into MLIR definitions.
 def matmul_linalg := [mlir_op|
-   func @"main"(%a: tensor<3x4:f32>, %b: tensor<3x4:f32>, %out: tensor<3x4:f32>)  {
+   func @"main"(%a: tensor<3 × 4 × f32>, %b: tensor<3×4 ×  f32>, %out: tensor<3×4 × f32>)  {
       ^entry:
         a^i b_i (%out)
     }
