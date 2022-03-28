@@ -59,6 +59,7 @@ inductive MLIRTy : Type where
 | fn : MLIRTy -> MLIRTy -> MLIRTy
 | int : Int -> MLIRTy
 | float: Int -> MLIRTy
+| index:  MLIRTy
 | tuple : List MLIRTy -> MLIRTy
 | vector: List Dimension -> MLIRTy -> MLIRTy
 | tensor: List Dimension -> MLIRTy -> MLIRTy
@@ -201,6 +202,7 @@ partial instance :  Pretty MLIRTy where
     | MLIRTy.user k => [doc| "!"k]
     | MLIRTy.int k => [doc| "i"k]
     | MLIRTy.float k => [doc| "f"k]
+    | MLIRTy.index => [doc| "index"]
     | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
     | MLIRTy.vector dims ty => "vector<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"

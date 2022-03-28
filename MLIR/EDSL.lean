@@ -152,10 +152,11 @@ syntax mlir_type "->" mlir_type : mlir_type
 syntax "{{" term "}}" : mlir_type
 syntax "!" str : mlir_type
 syntax ident: mlir_type
+syntax "index" : mlir_type
 
--- | TODO: fix this rule, it interfers with way too much other stuff!
--- syntax "i" numLit : mlir_type
 
+macro_rules
+| `([mlir_type| index ]) =>  `(MLIRTy.index) -- antiquot type
 
 
 set_option hygiene false in -- allow i to expand 
