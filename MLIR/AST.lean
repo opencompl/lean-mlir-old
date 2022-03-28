@@ -80,6 +80,7 @@ inductive AttrVal : Type where
 | symbol: String -> AttrVal -- symbol ref attr
 | str : String -> AttrVal
 | int : Int -> MLIRTy -> AttrVal
+| float : Float -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
 | dense: TensorElem -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
@@ -233,6 +234,7 @@ partial instance : Pretty AttrVal where
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
+   | AttrVal.float f ty => doc f ++ " : " ++ doc ty
    | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map go) ", ") ++ "]"

@@ -488,7 +488,7 @@ syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
 syntax mlir_attr_val_symbol : mlir_attr_val
 syntax num (":" mlir_type)? : mlir_attr_val
-
+syntax scientificLit (":" mlir_type)? : mlir_attr_val
 
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
@@ -504,8 +504,6 @@ macro_rules
 macro_rules
 | `([mlir_attr_val|  $x:numLit ]) => `(AttrVal.int $x (MLIRTy.int 64))
 | `([mlir_attr_val| $x:numLit : $t:mlir_type]) => `(AttrVal.int $x [mlir_type| $t])
--- | TODO: how to get mlir_type?
--- macro_rules
 
 
 
@@ -585,6 +583,16 @@ macro_rules
 
 def attrVal9Alias : AttrVal := [mlir_attr_val| #a ]
 #reduce attrVal9Alias
+
+macro_rules
+| `([mlir_attr_val|  $x:scientificLit ]) => `(AttrVal.float $x (MLIRTy.float 64))
+| `([mlir_attr_val| $x:scientificLit : $t:mlir_type]) => `(AttrVal.float $x [mlir_type| $t])
+
+
+-- def attrVal10Float : AttrVal := [mlir_attr_val| 0.000000e+00  ]
+def attrVal10Float : AttrVal := [mlir_attr_val| 0.0023 ]
+#reduce attrVal10Float
+
 
 -- MLIR ATTRIBUTE
 -- ===============
