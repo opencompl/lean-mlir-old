@@ -478,6 +478,7 @@ declare_syntax_cat mlir_attr_val
 declare_syntax_cat mlir_attr_val_symbol
 syntax "@" ident : mlir_attr_val_symbol
 syntax "@" str : mlir_attr_val_symbol
+syntax mlir_attr_val_symbol "::" mlir_attr_val_symbol : mlir_attr_val_symbol
 
 
 syntax str: mlir_attr_val
@@ -533,7 +534,14 @@ macro_rules
       `(AttrVal.symbol $(Lean.quote x.getId.toString))
 
 macro_rules
+| `([mlir_attr_val_symbol| $x:mlir_attr_val_symbol :: $y:mlir_attr_val_symbol ]) =>
+      `(AttrVal.nestedsymbol [mlir_attr_val_symbol| $x] [mlir_attr_val_symbol| $y])
+
+
+macro_rules
 | `([mlir_attr_val| $x:mlir_attr_val_symbol ]) => `([mlir_attr_val_symbol| $x])
+
+
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 #reduce attrVal0Str
@@ -557,6 +565,8 @@ def attrVal5int: AttrVal := [mlir_attr_val| 42 ]
 def attrVal6Symbol : AttrVal := [mlir_attr_val| @func_foo ]
 #reduce attrVal6Symbol
 
+def attrVal7NestedSymbol : AttrVal := [mlir_attr_val| @func_foo::@"func_bar" ]
+#reduce attrVal7NestedSymbol
 
 
 -- MLIR ATTRIBUTE
