@@ -21,7 +21,7 @@
   }) {function_type = () -> (), sym_name = "slice_depth1_loop_nest"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d0, d1)>
 #map2 = affine_map<() -> (0)>
@@ -54,7 +54,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_reduction_to_pointwise"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -87,4 +87,4 @@
   }) {function_type = () -> (), sym_name = "should_fuse_avoiding_dependence_cycle"} : () -> ()
 }) : () -> ()
 
-// -----
+

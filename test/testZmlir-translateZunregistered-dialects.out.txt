@@ -1,0 +1,13 @@
+
+"builtin.module"()(
+ {
+  ^entry:
+   "func.func"()(
+    {
+     ^entry:
+      "simple.terminator"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "trivial"
+    }:() -> ()
+ }):() -> ()

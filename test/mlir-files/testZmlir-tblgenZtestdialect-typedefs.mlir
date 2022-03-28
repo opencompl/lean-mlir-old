@@ -29,4 +29,4 @@
   }) {function_type = (!test.struct<{field1,!test.smpla}, {field2,!test.int<none, 3>}>) -> (), sym_name = "structTest"} : () -> ()
 }) : () -> ()
 
-// -----
+

@@ -51,4 +51,4 @@
   }) {function_type = () -> i32, sym_name = "test_dialect_canonicalizer"} : () -> ()
 }) : () -> ()
 
-// -----
+

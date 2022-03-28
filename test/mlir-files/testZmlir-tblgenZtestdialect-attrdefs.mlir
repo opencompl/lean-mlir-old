@@ -7,4 +7,4 @@
   }) {foo = #test.cmpnd_nested_outer_qual<i #test.cmpnd_nested_inner<42 <1, !test.smpla, [5, 6]>>>, function_type = () -> (), sym_name = "qualifiedAttr", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 
-// -----
+

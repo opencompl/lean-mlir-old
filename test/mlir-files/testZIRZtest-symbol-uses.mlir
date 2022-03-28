@@ -13,7 +13,7 @@
   }) {test.reference = @symbol_baz} : () -> ()
 }) {sym.outside_use = @symbol_foo} : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "builtin.module"() ({
@@ -26,7 +26,7 @@
   }) {function_type = () -> (), sym_name = "symbol_bar"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "foo.possibly_unknown_symbol_table"() ({
@@ -34,4 +34,4 @@
   }) {function_type = () -> (), sym_name = "symbol_bar"} : () -> ()
 }) : () -> ()
 
-// -----
+

@@ -32,7 +32,7 @@
   "live.user"() {use = @live_function_d} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "func.call"() {callee = @dead_function_e} : () -> ()
@@ -47,4 +47,4 @@
   }) {function_type = () -> (), sym_name = "dead_function_f", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 
-// -----
+

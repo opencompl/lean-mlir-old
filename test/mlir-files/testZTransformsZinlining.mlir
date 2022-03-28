@@ -12,10 +12,10 @@
   "func.func"() ({
   ^bb0(%arg0: i1):
     "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
     "func.return"(%0) : (i32) -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     %1 = "arith.constant"() {value = 55 : i32} : () -> i32
     "func.return"(%1) : (i32) -> ()
   }) {function_type = (i1) -> i32, sym_name = "func_with_multi_return"} : () -> ()
@@ -81,7 +81,7 @@
   }) {function_type = () -> i16, sym_name = "inline_convert_call"} : () -> ()
   "func.func"() ({
     "cf.br"()[^bb1] : () -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
     "func.return"(%0) : (i32) -> ()
   }) {function_type = () -> i32, sym_name = "convert_callee_fn_multiblock"} : () -> ()
@@ -124,7 +124,7 @@
   "func.func"() ({
   ^bb0(%arg0: i32):
     "cf.br"(%arg0)[^bb1] : (i32) -> ()
-  ^bb1(%0: i32):  // pred: ^bb0
+  ^bb1(%0: i32):  
     "test.foo"(%0) : (i32) -> ()
     "func.return"() : () -> ()
   }) {function_type = (i32) -> (), sym_name = "func_with_block_args_location"} : () -> ()
@@ -140,4 +140,4 @@
   }) {function_type = (i32) -> (), sym_name = "func_with_block_args_location_callee2"} : () -> ()
 }) : () -> ()
 
-// -----
+

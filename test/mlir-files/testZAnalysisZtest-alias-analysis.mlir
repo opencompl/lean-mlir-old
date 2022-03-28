@@ -9,7 +9,7 @@
   }) {function_type = (memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "simple", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>, %arg1: i1):
@@ -17,14 +17,14 @@
     %1 = "memref.alloca"() {operand_segment_sizes = dense<0> : vector<2 × i32>, test.ptr = "alloca_2"} : () -> memref<8 × 64 × f32>
     %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>, test.ptr = "alloc_1"} : () -> memref<8 × 64 × f32>
     "cf.cond_br"(%arg1, %0, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<1> : vector<3 × i32>} : (i1, memref<8 × 64 × f32>, memref<8 × 64 × f32>) -> ()
-  ^bb1(%3: memref<8 × 64 × f32>):  // pred: ^bb0
+  ^bb1(%3: memref<8 × 64 × f32>):  
     "cf.br"(%3)[^bb2] : (memref<8 × 64 × f32>) -> ()
-  ^bb2(%4: memref<8 × 64 × f32>):  // 2 preds: ^bb0, ^bb1
+  ^bb2(%4: memref<8 × 64 × f32>):  
     "func.return"() : () -> ()
   }) {function_type = (memref<2 × f32>, i1) -> (), sym_name = "control_flow", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>, %arg1: i1):
@@ -32,14 +32,14 @@
     %1 = "memref.alloca"() {operand_segment_sizes = dense<0> : vector<2 × i32>, test.ptr = "alloca_2"} : () -> memref<8 × 64 × f32>
     %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>, test.ptr = "alloc_1"} : () -> memref<8 × 64 × f32>
     "cf.cond_br"(%arg1, %0, %2)[^bb1, ^bb2] {operand_segment_sizes = dense<1> : vector<3 × i32>} : (i1, memref<8 × 64 × f32>, memref<8 × 64 × f32>) -> ()
-  ^bb1(%3: memref<8 × 64 × f32>):  // pred: ^bb0
+  ^bb1(%3: memref<8 × 64 × f32>):  
     "cf.br"(%3)[^bb2] : (memref<8 × 64 × f32>) -> ()
-  ^bb2(%4: memref<8 × 64 × f32>):  // 2 preds: ^bb0, ^bb1
+  ^bb2(%4: memref<8 × 64 × f32>):  
     "func.return"() : () -> ()
   }) {function_type = (memref<2 × f32>, i1) -> (), sym_name = "control_flow_merge", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>, %arg1: i1):
@@ -65,7 +65,7 @@
   }) {function_type = (memref<2 × f32>, i1) -> (), sym_name = "region_control_flow", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>, %arg1: index, %arg2: index, %arg3: index):
@@ -80,7 +80,7 @@
   }) {function_type = (memref<2 × f32>, index, index, index) -> (), sym_name = "region_loop_control_flow", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>, %arg1: index):
@@ -92,7 +92,7 @@
   }) {function_type = (memref<2 × f32>, index) -> (), sym_name = "view_like", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<2 × f32>):
@@ -104,4 +104,4 @@
   }) {function_type = (memref<2 × f32>) -> (), sym_name = "constants", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+

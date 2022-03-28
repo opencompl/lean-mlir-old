@@ -11,4 +11,4 @@
   }) {function_type = () -> (i32, i32), sym_name = "test_fold_before_previously_folded_op"} : () -> ()
 }) : () -> ()
 
-// -----
+

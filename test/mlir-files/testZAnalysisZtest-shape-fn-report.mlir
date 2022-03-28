@@ -14,4 +14,4 @@
   }) {mapping = {test.same_operand_result_type = @same_result_shape}, sym_name = "shape_lib"} : () -> ()
 }) {shape.lib = [@shape_lib]} : () -> ()
 
-// -----
+

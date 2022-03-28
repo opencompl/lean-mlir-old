@@ -1,0 +1,13 @@
+
+"builtin.module"()(
+ {
+  ^entry:
+   "func.func"()(
+    {
+     ^entry:
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "main"
+    }:() -> ()
+ }):() -> ()

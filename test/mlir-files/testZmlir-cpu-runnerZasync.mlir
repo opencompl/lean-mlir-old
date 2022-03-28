@@ -51,4 +51,4 @@
   }) {function_type = (memref<* × f32>) -> (), llvm.emit_c_interface, sym_name = "print_memref_f32", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 
-// -----
+

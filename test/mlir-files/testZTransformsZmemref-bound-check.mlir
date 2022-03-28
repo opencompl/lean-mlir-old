@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d1)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -206,7 +206,7 @@
   }) {function_type = () -> (), sym_name = "out_of_bounds"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> ((d0 * 72 + d1) floordiv 2304 + (d1 mod 9) floordiv 3)>
 #map1 = affine_map<(d0, d1) -> ((d0 * 72 + d1) mod 2304 - (((d0 * 72 + d1) mod 2304) floordiv 1152) * 1151 - (((d0 * 72 + d1) mod 1152) floordiv 9) * 9 - ((d1 mod 9) floordiv 3) * 3)>
 #map2 = affine_map<(d0, d1) -> ((((d0 * 72 + d1) mod 1152) floordiv 9) floordiv 8)>
@@ -235,7 +235,7 @@
   }) {function_type = (memref<4x4x16x1xf32>) -> (), sym_name = "test_complex_mod_floordiv"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 mod 4)>
 #map2 = affine_map<(d0) -> (d0 mod 4 + 4)>
@@ -259,7 +259,7 @@
   }) {function_type = () -> (), sym_name = "test_mod_bound"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 floordiv 4)>
 #map2 = affine_map<(d0) -> (d0 floordiv 4 + 4)>
@@ -291,7 +291,7 @@
   }) {function_type = () -> (), sym_name = "test_floordiv_bound"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 - 4)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<(d0) -> (d0 + 4)>
@@ -326,4 +326,4 @@
   }) {function_type = () -> (), sym_name = "zero_d_memref"} : () -> ()
 }) : () -> ()
 
-// -----
+

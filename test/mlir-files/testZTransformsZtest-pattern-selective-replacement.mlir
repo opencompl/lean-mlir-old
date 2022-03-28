@@ -7,9 +7,9 @@
   }) {function_type = (i32, i32) -> (), sym_name = "test1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+

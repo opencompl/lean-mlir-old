@@ -54,4 +54,4 @@
   }) {function_type = (memref<?x?xvector<4 × 4 × f32>>) -> (), llvm.emit_c_interface, sym_name = "print_memref_vector_4x4xf32", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 
-// -----
+

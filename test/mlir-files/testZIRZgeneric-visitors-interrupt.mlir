@@ -7,7 +7,7 @@
   }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -19,7 +19,7 @@
   }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -33,7 +33,7 @@
   }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "foo"() : () -> ()
@@ -46,7 +46,7 @@
   }) {function_type = () -> (), sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "foo"() : () -> ()
@@ -59,7 +59,7 @@
   }) {function_type = () -> (), sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -73,7 +73,7 @@
   }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -87,7 +87,7 @@
   }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -101,4 +101,4 @@
   }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+

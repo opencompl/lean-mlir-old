@@ -1,0 +1,57 @@
+
+"builtin.module"()(
+ {
+  ^entry:
+   "func.func"()(
+    {
+     ^entry:
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "foo"
+    }:() -> ()
+   "func.func"()(
+    {
+     ^entry:
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "bar"
+    }:() -> ()
+   "func.func"()(
+    {
+     ^entry:
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "baz"
+    }:() -> ()
+   "func.func"()(
+    {
+     ^entry:
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "foobar"
+    }:() -> ()
+   "builtin.module"()(
+    {
+     ^entry:
+      "func.func"()(
+       {
+        ^entry:
+         "func.return"():() -> ()
+       }){
+       function_type = () -> ()
+       , sym_name = "baz"
+       }:() -> ()
+      "func.func"()(
+       {
+        ^entry:
+         "func.return"():() -> ()
+       }){
+       function_type = () -> ()
+       , sym_name = "foobar"
+       }:() -> ()
+    }):() -> ()
+ }):() -> ()

@@ -5,13 +5,13 @@
   }, {
     "dialect.innerop2"() : () -> ()
     "dialect.innerop3"(%0#0, %0#2, %0#3)[^bb1, ^bb2] : (i1, i32, i64) -> ()
-  ^bb1(%1: i32):  // pred: ^bb0
+  ^bb1(%1: i32):  
     "dialect.innerop4"() : () -> ()
     "dialect.innerop5"() : () -> ()
-  ^bb2(%2: i64):  // pred: ^bb0
+  ^bb2(%2: i64):  
     "dialect.innerop6"() : () -> ()
     "dialect.innerop7"() : () -> ()
   }) : () -> ()
 }) : () -> ()
 
-// -----
+

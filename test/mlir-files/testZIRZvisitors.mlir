@@ -20,20 +20,20 @@
   }) {function_type = () -> (), sym_name = "structured_cfg"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "regionOp0"() ({
       "op0"() : () -> ()
       "cf.br"()[^bb2] : () -> ()
-    ^bb1:  // no predecessors
+    ^bb1:  
       "op1"() : () -> ()
       "cf.br"()[^bb2] : () -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "op2"() : () -> ()
     }) : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "unstructured_cfg"} : () -> ()
 }) : () -> ()
 
-// -----
+

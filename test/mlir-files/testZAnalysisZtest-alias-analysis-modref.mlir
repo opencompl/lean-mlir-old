@@ -7,7 +7,7 @@
   }) {function_type = (memref<2 × f32>) -> (), sym_name = "no_side_effects", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>, %arg1: i32):
@@ -18,7 +18,7 @@
   }) {function_type = (memref<i32>, i32) -> (), sym_name = "simple", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>, %arg1: memref<i32>, %arg2: i32):
@@ -28,7 +28,7 @@
   }) {function_type = (memref<i32>, memref<i32>, i32) -> (), sym_name = "mayalias", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>, %arg1: memref<i32>, %arg2: i1, %arg3: i32):
@@ -43,7 +43,7 @@
   }) {function_type = (memref<i32>, memref<i32>, i1, i32) -> (), sym_name = "recursive", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<i32>):
@@ -52,4 +52,4 @@
   }) {function_type = (memref<i32>) -> (), sym_name = "unknown", test.ptr = "func"} : () -> ()
 }) : () -> ()
 
-// -----
+

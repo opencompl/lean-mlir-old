@@ -17,7 +17,7 @@
   }) {function_type = () -> (), sym_name = "replace_non_root_illegal_op"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "builtin.module"() ({
@@ -32,7 +32,7 @@
   }) {function_type = () -> (), sym_name = "recursively_legal_invalid_op"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.region"() ({
@@ -44,7 +44,7 @@
   }) {function_type = () -> (), sym_name = "test_undo_region_clone"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "foo.unknown_op"() {test.dynamically_legal} : () -> ()
@@ -53,33 +53,33 @@
   }) {function_type = () -> (), sym_name = "test_unknown_dynamically_legal"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.region"() ({
     ^bb0(%arg0: i64):
       "cf.br"(%arg0)[^bb1] : (i64) -> ()
-    ^bb1(%0: i64):  // pred: ^bb0
+    ^bb1(%0: i64):  
       "test.invalid"(%0) : (i64) -> ()
     }) : () -> ()
     "test.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "test_undo_region_inline"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.region"() ({
     ^bb0(%arg0: i64):
       "cf.br"(%arg0)[^bb1] : (i64) -> ()
-    ^bb1(%0: i64):  // pred: ^bb0
+    ^bb1(%0: i64):  
       "test.invalid"(%0) : (i64) -> ()
     }) {legalizer.erase_old_blocks, legalizer.should_clone} : () -> ()
     "test.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "test_undo_block_erase"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "test.illegal_op_g"() : () -> i32
@@ -87,4 +87,4 @@
   }) {function_type = () -> i32, sym_name = "create_unregistered_op_in_pattern"} : () -> ()
 }) : () -> ()
 
-// -----
+

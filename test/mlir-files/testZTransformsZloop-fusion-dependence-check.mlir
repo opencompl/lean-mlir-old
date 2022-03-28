@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -34,7 +34,7 @@
   }) {function_type = () -> (), sym_name = "cannot_fuse_would_create_cycle"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -66,7 +66,7 @@
   }) {function_type = () -> (), sym_name = "can_fuse_rar_dependence"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -99,7 +99,7 @@
   }) {function_type = () -> (), sym_name = "can_fuse_different_memrefs"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -125,7 +125,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_intermediate_store"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -150,7 +150,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_intermediate_load"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -178,7 +178,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_ssa_value_def"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -208,7 +208,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_store_before_load"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -236,7 +236,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_load_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -268,7 +268,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_load_in_loop_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -296,7 +296,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_store_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -328,7 +328,7 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_store_in_loop_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -360,4 +360,4 @@
   }) {function_type = () -> (), sym_name = "should_not_fuse_across_ssa_value_def_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+

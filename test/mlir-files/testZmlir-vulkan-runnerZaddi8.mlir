@@ -44,4 +44,4 @@
   }) {function_type = (memref<* × i32>) -> (), sym_name = "print_memref_i32", sym_visibility = "private"} : () -> ()
 }) {gpu.container_module, spv.target_env = #spv.target_env<#spv.vce<v1.0, [Shader], [SPV_KHR_storage_buffer_storage_class, SPV_KHR_8bit_storage]>, {}>} : () -> ()
 
-// -----
+

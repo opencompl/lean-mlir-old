@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (16)>
@@ -25,7 +25,7 @@
   }) {function_type = () -> (), sym_name = "slice_depth1_loop_nest"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (5)>
@@ -48,7 +48,7 @@
   }) {function_type = () -> (), sym_name = "forward_slice_slice_depth1_loop_nest"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 2)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -76,7 +76,7 @@
   }) {function_type = () -> (), sym_name = "slice_depth1_loop_nest_with_offsets"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (16)>
@@ -108,7 +108,7 @@
   }) {function_type = () -> (), sym_name = "slice_depth2_loop_nest"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (16)>
@@ -142,7 +142,7 @@
   }) {function_type = () -> (), sym_name = "slice_depth2_loop_nest_two_loads"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (16)>
@@ -176,7 +176,7 @@
   }) {function_type = () -> (), sym_name = "slice_depth2_loop_nest_two_stores"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (16)>
@@ -209,4 +209,4 @@
   }) {function_type = () -> (), sym_name = "slice_loop_nest_with_smaller_outer_trip_count"} : () -> ()
 }) : () -> ()
 
-// -----
+

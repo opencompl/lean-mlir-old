@@ -28,7 +28,7 @@
   }) {function_type = () -> (), sym_name = "func_f"} : () -> ()
 }) {test.name = "simple"} : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "func.func"() ({
@@ -41,4 +41,4 @@
   }) {function_type = () -> (), sym_name = "func_b"} : () -> ()
 }) {test.name = "nested"} : () -> ()
 
-// -----
+

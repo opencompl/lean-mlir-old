@@ -16,4 +16,4 @@
   }) {function_type = () -> (), sym_name = "test_match_op_with_enum"} : () -> ()
 }) : () -> ()
 
-// -----
+

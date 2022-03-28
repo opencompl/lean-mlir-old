@@ -117,11 +117,11 @@
   }) {function_type = () -> (), sym_name = "block_label_empty_list"} : () -> ()
   "func.func"() ({
     "func.return"() : () -> ()
-  ^bb1:  // no predecessors
+  ^bb1:  
     "cf.br"()[^bb3] : () -> ()
-  ^bb2:  // pred: ^bb2
+  ^bb2:  
     "cf.br"()[^bb2] : () -> ()
-  ^bb3:  // pred: ^bb1
+  ^bb3:  
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "multiblock"} : () -> ()
   "func.func"() ({
@@ -302,29 +302,29 @@
   "func.func"() ({
     %1:2 = "foo"() : () -> (i1, i17)
     "cf.br"()[^bb2] : () -> ()
-  ^bb1:  // pred: ^bb2
+  ^bb1:  
     %2:2 = "baz"(%3#1, %3#0, %1#1) : (f32, i11, i17) -> (i16, i8)
     "func.return"(%2#0, %2#1) : (i16, i8) -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     %3:2 = "bar"(%1#0, %1#1) : (i1, i17) -> (i11, f32)
     "cf.br"()[^bb1] : () -> ()
   }) {function_type = () -> (i16, i8), sym_name = "ssa_values"} : () -> ()
   "func.func"() ({
     %1:2 = "foo"() : () -> (i1, i17)
     "cf.br"(%1#1, %1#0)[^bb1] : (i17, i1) -> ()
-  ^bb1(%2: i17, %3: i1):  // pred: ^bb0
+  ^bb1(%2: i17, %3: i1):  
     %4:2 = "baz"(%2, %3, %1#1) : (i17, i1, i17) -> (i16, i8)
     "func.return"(%4#0, %4#1) : (i16, i8) -> ()
   }) {function_type = () -> (i16, i8), sym_name = "bbargs"} : () -> ()
   "func.func"() ({
     %1:2 = "foo"() : () -> (i1, i17)
     "cf.br"(%1#0, %1#1)[^bb1] : (i1, i17) -> ()
-  ^bb1(%2: i1, %3: i17):  // pred: ^bb0
+  ^bb1(%2: i1, %3: i17):  
     "cf.cond_br"(%2, %3, %2, %3)[^bb2, ^bb3] {operand_segment_sizes = dense<[1, 1, 2]> : vector<3 × i32>} : (i1, i17, i1, i17) -> ()
-  ^bb2(%4: i17):  // pred: ^bb1
+  ^bb2(%4: i17):  
     %5 = "arith.constant"() {value = true} : () -> i1
     "func.return"(%5, %4) : (i1, i17) -> ()
-  ^bb3(%6: i1, %7: i17):  // pred: ^bb1
+  ^bb3(%6: i1, %7: i17):  
     "func.return"(%6, %7) : (i1, i17) -> ()
   }) {function_type = () -> (i1, i17), sym_name = "verbose_terminators"} : () -> ()
   "func.func"() ({
@@ -332,9 +332,9 @@
     %2 = "bar"() : () -> i32
     %3 = "bar"() : () -> i64
     "cf.cond_br"(%1, %2, %3)[^bb1, ^bb2] {operand_segment_sizes = dense<1> : vector<3 × i32>} : (i1, i32, i64) -> ()
-  ^bb1(%4: i32):  // pred: ^bb0
+  ^bb1(%4: i32):  
     "cf.br"(%3)[^bb2] : (i64) -> ()
-  ^bb2(%5: i64):  // 2 preds: ^bb0, ^bb1
+  ^bb2(%5: i64):  
     %6 = "foo"() : () -> i32
     "func.return"(%6) : (i32) -> ()
   }) {function_type = () -> i32, sym_name = "condbr_simple"} : () -> ()
@@ -343,9 +343,9 @@
     %2 = "bar"() : () -> i32
     %3 = "bar"() : () -> i64
     "cf.cond_br"(%1, %2, %3, %3, %2, %2)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 2, 3]> : vector<3 × i32>} : (i1, i32, i64, i64, i32, i32) -> ()
-  ^bb1(%4: i32, %5: i64):  // pred: ^bb0
+  ^bb1(%4: i32, %5: i64):  
     "func.return"(%4) : (i32) -> ()
-  ^bb2(%6: i64, %7: i32, %8: i32):  // pred: ^bb0
+  ^bb2(%6: i64, %7: i32, %8: i32):  
     %9 = "foo"() : () -> i32
     "func.return"(%9) : (i32) -> ()
   }) {function_type = () -> i32, sym_name = "condbr_moarargs"} : () -> ()
@@ -533,13 +533,13 @@
   "func.func"() ({
     "region"()[^bb1] ({
     }) : () -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "terminator_with_regions"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: i1):
     "unregistered_br"(%arg0)[^bb1] : (i1) -> ()
-  ^bb1(%1: i1):  // pred: ^bb0
+  ^bb1(%1: i1):  
     "func.return"(%1) : (i1) -> ()
   }) {function_type = (i1) -> i1, sym_name = "unregistered_term"} : () -> ()
   "func.func"() ({
@@ -725,26 +725,26 @@
   "func.func"() ({
     %1 = "arith.constant"() {value = false} : () -> i1
     "func.return"(%1) : (i1) -> ()
-  ^bb1:  // no predecessors
+  ^bb1:  
     %2:3 = "bar"(%3) : (i64) -> (i1, i1, i1)
     "cf.br"()[^bb3] : () -> ()
-  ^bb2:  // pred: ^bb2
+  ^bb2:  
     "cf.br"()[^bb2] : () -> ()
-  ^bb3:  // pred: ^bb1
+  ^bb3:  
     %3 = "foo"() : () -> i64
     "func.return"(%2#1) : (i1) -> ()
   }) {function_type = () -> i1, sym_name = "unreachable_dominance_violation_ok"} : () -> ()
   "func.func"() ({
     "cf.br"()[^bb2] : () -> ()
-  ^bb1:  // pred: ^bb2
+  ^bb1:  
     "test.graph_region"() ({
       %2:3 = "bar"(%1) : (i64) -> (i1, i1, i1)
     }) : () -> ()
     "cf.br"()[^bb3] : () -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     %1 = "foo"() : () -> i64
     "cf.br"()[^bb1] : () -> ()
-  ^bb3:  // pred: ^bb1
+  ^bb3:  
     "func.return"(%1) : (i64) -> ()
   }) {function_type = () -> i64, sym_name = "graph_region_in_hierarchy_ok"} : () -> ()
   "func.func"() ({
@@ -792,4 +792,4 @@
   %0 = "test.format_optional_result_d_op"() : () -> f80
 }) : () -> ()
 
-// -----
+

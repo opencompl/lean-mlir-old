@@ -49,7 +49,7 @@
   }) {function_type = (memref<7x8x9x10xf32>) -> (), sym_name = "unflatten4d"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0 * 8 + d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (8)>
@@ -84,7 +84,7 @@
   }) {function_type = (memref<8 × 7 × f32>) -> (), sym_name = "unflatten2d_with_transpose"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (100)>
@@ -107,7 +107,7 @@
   }) {function_type = (memref<100 × f32>, memref<100 × f32>, memref<100 × f32>) -> (), sym_name = "check_src_dst_step"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (64)>
@@ -154,4 +154,4 @@
   }) {function_type = (memref<64 × 64 × f32, 1>, memref<1 × 64 × f32, 1>, memref<1 × 64 × f32, 1>) -> (), sym_name = "reduce_add_non_maximal_f32_f32"} : () -> ()
 }) : () -> ()
 
-// -----
+

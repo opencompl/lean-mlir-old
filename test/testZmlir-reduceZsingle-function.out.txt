@@ -1,0 +1,14 @@
+
+"builtin.module"()(
+ {
+  ^entry:
+   "func.func"()(
+    {
+     ^entry:
+      "test.op_crash"():() -> ()
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "test"
+    }:() -> ()
+ }):() -> ()

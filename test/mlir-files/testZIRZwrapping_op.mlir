@@ -9,4 +9,4 @@
   }) {function_type = (i32, f32) -> (i3, i2, i1), sym_name = "wrapping_op"} : () -> ()
 }) : () -> ()
 
-// -----
+

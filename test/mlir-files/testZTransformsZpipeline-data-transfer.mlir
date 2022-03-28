@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (32)>
@@ -34,7 +34,7 @@
   }) {function_type = () -> (), sym_name = "loop_nest_dma"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (512)>
@@ -58,7 +58,7 @@
   }) {function_type = (memref<512 × f32>, memref<512 × f32>) -> (), sym_name = "loop_step"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 * 64)>
 #map1 = affine_map<(d0) -> (d0, d0)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -110,7 +110,7 @@
   }) {function_type = (memref<512 × 32 × vector<8 × f32>>, memref<512 × 32 × vector<8 × f32>>, memref<512 × 32 × vector<8 × f32>>) -> (), sym_name = "loop_dma_nested"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 * 64)>
 #map1 = affine_map<(d0) -> (d0, d0)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -147,7 +147,7 @@
   }) {function_type = (memref<512 × 32 × vector<8 × f32>>) -> (), sym_name = "loop_dma_dependent"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0, d0)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -173,7 +173,7 @@
   }) {function_type = (memref<512 × 32 × f32>) -> (), sym_name = "escaping_use"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0, d0)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -199,7 +199,7 @@
   }) {function_type = (memref<512 × 32 × f32>) -> (), sym_name = "escaping_tag"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0, d0)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -225,7 +225,7 @@
   }) {function_type = (memref<512 × 32 × f32>) -> f32, sym_name = "live_out_use"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0, d0)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -266,4 +266,4 @@
   }) {function_type = () -> (), sym_name = "escaping_and_indexed_use_mix"} : () -> ()
 }) : () -> ()
 
-// -----
+

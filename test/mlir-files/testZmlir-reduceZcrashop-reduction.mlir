@@ -12,4 +12,4 @@
   }) {function_type = () -> (), sym_name = "simple5"} : () -> ()
 }) : () -> ()
 
-// -----
+

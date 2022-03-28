@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<() -> (0)>
 #map1 = affine_map<() -> (8)>
 #map2 = affine_map<() -> (128)>
@@ -25,7 +25,7 @@
   }) {function_type = (memref<f32>) -> (), sym_name = "affine_for"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
@@ -35,7 +35,7 @@
   }) {function_type = () -> f32, sym_name = "simple_addf"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
@@ -45,7 +45,7 @@
   }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_splat_tensor"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
@@ -55,7 +55,7 @@
   }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_dense_tensor"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
@@ -65,7 +65,7 @@
   }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_dense_and_splat_tensors"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 1 : i32} : () -> i32
@@ -75,7 +75,7 @@
   }) {function_type = () -> i32, sym_name = "simple_addi"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1, %arg1: i32):
@@ -89,7 +89,7 @@
   }) {function_type = (i1, i32) -> (i1, i32), sym_name = "simple_and"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index):
@@ -101,7 +101,7 @@
   }) {function_type = (index) -> index, sym_name = "and_index"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: tensor<2 × i32>):
@@ -115,7 +115,7 @@
   }) {function_type = (tensor<2 × i32>) -> tensor<2 × i32>, sym_name = "tensor_and"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: vector<2 × i32>):
@@ -129,7 +129,7 @@
   }) {function_type = (vector<2 × i32>) -> vector<2 × i32>, sym_name = "vector_and"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<1> : vector<8 × i32>} : () -> vector<8 × i32>
@@ -139,7 +139,7 @@
   }) {function_type = () -> vector<8 × i32>, sym_name = "addi_splat_vector"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
@@ -149,7 +149,7 @@
   }) {function_type = () -> f32, sym_name = "simple_subf"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<4.500000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
@@ -159,7 +159,7 @@
   }) {function_type = () -> vector<4 × f32>, sym_name = "subf_splat_vector"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -172,7 +172,7 @@
   }) {function_type = (i32) -> (i32, i32), sym_name = "simple_subi"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<4> : tensor<4 × i32>} : () -> tensor<4 × i32>
@@ -182,7 +182,7 @@
   }) {function_type = () -> tensor<4 × i32>, sym_name = "subi_splat_tensor"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1)[s0] -> (d0 floordiv 128 + s0 + d1 mod 128)>
 #map1 = affine_map<(d0, d1)[s0] -> ((s0 ceildiv 128) * 128)>
 #map2 = affine_map<(d0) -> (42)>
@@ -199,7 +199,7 @@
   }) {function_type = (index) -> (index, index, index), sym_name = "affine_apply"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
@@ -209,7 +209,7 @@
   }) {function_type = () -> f32, sym_name = "simple_mulf"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
@@ -219,7 +219,7 @@
   }) {function_type = () -> tensor<4 × f32>, sym_name = "mulf_splat_tensor"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
@@ -233,7 +233,7 @@
   }) {function_type = () -> (i32, i32, i32), sym_name = "simple_divi_signed"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<0> : tensor<4 × i32>} : () -> tensor<4 × i32>
@@ -247,7 +247,7 @@
   }) {function_type = () -> (tensor<4 × i32>, tensor<4 × i32>, tensor<4 × i32>), sym_name = "divi_signed_splat_tensor"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
@@ -261,7 +261,7 @@
   }) {function_type = () -> (i32, i32, i32), sym_name = "simple_divi_unsigned"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<0> : tensor<4 × i32>} : () -> tensor<4 × i32>
@@ -275,7 +275,7 @@
   }) {function_type = () -> (tensor<4 × i32>, tensor<4 × i32>, tensor<4 × i32>), sym_name = "divi_unsigned_splat_tensor"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
@@ -293,7 +293,7 @@
   }) {function_type = () -> (i32, i32, i32, i32, i32), sym_name = "simple_arith.floordivsi"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
@@ -311,7 +311,7 @@
   }) {function_type = () -> (i32, i32, i32, i32, i32), sym_name = "simple_arith.ceildivsi"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
@@ -329,7 +329,7 @@
   }) {function_type = () -> (i32, i32, i32, i32, i32), sym_name = "simple_arith.ceildivui"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -344,7 +344,7 @@
   }) {function_type = (i32) -> (i32, i32, i32), sym_name = "simple_arith.remsi"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -359,7 +359,7 @@
   }) {function_type = (i32) -> (i32, i32, i32), sym_name = "simple_arith.remui"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4 : i32} : () -> i32
@@ -369,7 +369,7 @@
   }) {function_type = () -> i32, sym_name = "muli"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = dense<4> : vector<4 × i32>} : () -> vector<4 × i32>
@@ -385,7 +385,7 @@
   }) {function_type = (tensor<8 × 4 × f32>) -> index, sym_name = "dim"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 42 : i32} : () -> i32
@@ -404,7 +404,7 @@
   }) {function_type = () -> (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1), sym_name = "cmpi"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
@@ -429,7 +429,7 @@
   }) {function_type = () -> (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1), sym_name = "cmpf_normal_numbers"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
@@ -454,7 +454,7 @@
   }) {function_type = () -> (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1), sym_name = "cmpf_nan"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
@@ -479,7 +479,7 @@
   }) {function_type = () -> (i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1, i1), sym_name = "cmpf_inf"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "func.func"() ({
@@ -496,7 +496,7 @@
   }) {function_type = () -> (), sym_name = "nested_isolated_region"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.one_region_op"() ({
@@ -508,7 +508,7 @@
   }) {function_type = () -> (), sym_name = "custom_insertion_position"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<f32>):
@@ -517,4 +517,4 @@
   }) {function_type = (memref<f32>) -> memref<f32>, sym_name = "subview_scalar_fold"} : () -> ()
 }) : () -> ()
 
-// -----
+

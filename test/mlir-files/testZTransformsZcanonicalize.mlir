@@ -262,10 +262,10 @@
   ^bb0(%arg0: i1):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × f32>
     "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     "memref.dealloc"(%0) : (memref<4 × f32>) -> ()
     "func.return"() : () -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     "memref.dealloc"(%0) : (memref<4 × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (i1) -> (), sym_name = "dead_dealloc_fold_multi_use"} : () -> ()
@@ -289,11 +289,11 @@
   "func.func"() ({
     "func.func"() ({
       "func.return"() : () -> ()
-    ^bb1:  // no predecessors
+    ^bb1:  
       "func.return"() : () -> ()
     }) {function_type = () -> (), sym_name = "nested"} : () -> ()
     "func.return"() : () -> ()
-  ^bb1:  // no predecessors
+  ^bb1:  
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "dead_block_elim"} : () -> ()
   "func.func"() ({
@@ -481,7 +481,7 @@
   }) {function_type = (memref<? × i32>) -> memref<2 × i32>, sym_name = "cast_values"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index):
@@ -503,7 +503,7 @@
   }) {function_type = (index) -> (f32, f32, f32, f32), sym_name = "view"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1, d2) -> (d0 * 64 + d1 * 4 + d2)>
 #map1 = affine_map<(d0, d1, d2)[s0, s1, s2, s3] -> (d0 * s1 + s0 + d1 * s2 + d2 * s3)>
 #map2 = affine_map<(d0, d1)[s0] -> (d0 * 4 + s0 + d1)>
@@ -591,7 +591,7 @@
   }) {function_type = (memref<100 × i32>) -> (), sym_name = "remove_dead_else"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -619,7 +619,7 @@
   }) {function_type = (tensor<4 × 5 × i32>) -> tensor<4 × 5 × i32>, sym_name = "tensor_divi_unsigned_by_one"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -635,7 +635,7 @@
   }) {function_type = (tensor<4 × 5 × i32>) -> tensor<4 × 5 × i32>, sym_name = "tensor_arith.floordivsi_by_one"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -651,7 +651,7 @@
   }) {function_type = (tensor<4 × 5 × i32>) -> tensor<4 × 5 × i32>, sym_name = "tensor_arith.ceildivsi_by_one"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -667,7 +667,7 @@
   }) {function_type = (tensor<4 × 5 × i32>) -> tensor<4 × 5 × i32>, sym_name = "tensor_arith.ceildivui_by_one"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0, d1)[s0, s1, s2] -> (d0 * s1 + s0 + d1 * s2)>
 "builtin.module"() ({
   "func.func"() ({
@@ -678,7 +678,7 @@
   }) {function_type = (memref<4 × 5 × f32>, index) -> memref<? × ? × f32, #map>, sym_name = "memref_cast_folding_subview"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0, d1)[s0, s1] -> (d0 * s1 + s0 + d1)>
 "builtin.module"() ({
   "func.func"() ({
@@ -689,7 +689,7 @@
   }) {function_type = (memref<16 × 16 × f32>, index, index) -> memref<3 × 4 × f32, #map>, sym_name = "memref_cast_folding_subview_static"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: tensor<8 × 16 × 4 × f32>, %arg1: index, %arg2: index):
@@ -704,7 +704,7 @@
   }) {function_type = (tensor<8 × 16 × 4 × f32>, index, index) -> tensor<? × ? × ? × f32>, sym_name = "slice"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1):
@@ -714,7 +714,7 @@
   }) {function_type = (i1) -> i1, sym_name = "fold_trunci"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: vector<4 × i1>):
@@ -724,7 +724,7 @@
   }) {function_type = (vector<4 × i1>) -> vector<4 × i1>, sym_name = "fold_trunci_vector"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1):
@@ -734,7 +734,7 @@
   }) {function_type = (i1) -> i2, sym_name = "do_not_fold_trunci"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: vector<4 × i1>):
@@ -744,7 +744,7 @@
   }) {function_type = (vector<4 × i1>) -> vector<4 × i2>, sym_name = "do_not_fold_trunci_vector"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1):
@@ -760,7 +760,7 @@
   }) {function_type = () -> memref<5 × f32>, sym_name = "simple_clone_elimination"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -784,7 +784,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "clone_loop_alloc"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index):
@@ -815,4 +815,4 @@
   }) {function_type = (index, index, index) -> memref<? × ? × f32>, sym_name = "clone_nested_region"} : () -> ()
 }) : () -> ()
 
-// -----
+

@@ -95,4 +95,4 @@
   }) {function_type = (i32) -> (), sym_name = "loop_region_branch_terminator_op"} : () -> ()
 }) : () -> ()
 
-// -----
+

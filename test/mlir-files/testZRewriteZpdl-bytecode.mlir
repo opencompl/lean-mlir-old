@@ -3,11 +3,11 @@
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.apply_constraint"(%arg0, %arg0)[^bb1, ^bb3] {name = "multi_entity_constraint"} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.apply_constraint"(%arg0)[^bb2, ^bb3] {name = "single_entity_constraint"} : (!pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -24,7 +24,7 @@
   }) {sym_name = "ir", test.apply_constraint_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -32,9 +32,9 @@
       %0 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_value_type"(%0) : (!pdl.range<value>) -> !pdl.range<type>
       "pdl_interp.apply_constraint"(%0, %1)[^bb1, ^bb2] {name = "multi_entity_var_constraint"} : (!pdl.range<value>, !pdl.range<type>) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -52,15 +52,15 @@
   }) {sym_name = "ir", test.apply_constraint_2} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -78,15 +78,15 @@
   }) {sym_name = "ir", test.apply_rewrite_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -103,15 +103,15 @@
   }) {sym_name = "ir", test.apply_rewrite_2} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -131,15 +131,15 @@
   }) {sym_name = "ir", test.apply_rewrite_3} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -157,7 +157,7 @@
   }) {sym_name = "ir", test.apply_rewrite_4} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -165,9 +165,9 @@
       %0 = "pdl_interp.create_attribute"() {value} : () -> !pdl.attribute
       %1 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.are_equal"(%0, %1)[^bb1, ^bb2] : (!pdl.attribute, !pdl.attribute) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -184,7 +184,7 @@
   }) {sym_name = "ir", test.are_equal_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -193,9 +193,9 @@
       %1 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %2 = "pdl_interp.get_value_type"(%1) : (!pdl.range<value>) -> !pdl.range<type>
       "pdl_interp.are_equal"(%2, %0)[^bb1, ^bb2] : (!pdl.range<type>, !pdl.range<type>) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -213,17 +213,17 @@
   }) {sym_name = "ir", test.are_equal_2} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb3] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.branch"()[^bb2] : () -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 2 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 2 preds: ^bb0, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -240,16 +240,16 @@
   }) {sym_name = "ir", test.branch_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       %0 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.check_attribute"(%0)[^bb1, ^bb2] {constantValue} : (!pdl.attribute) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -266,17 +266,17 @@
   }) {sym_name = "ir", test.check_attribute_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operand_count"(%arg0)[^bb1, ^bb3] {compareAtLeast, count = 1 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.check_operand_count"(%arg0)[^bb2, ^bb3] {count = 2 : i32} : (!pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -294,15 +294,15 @@
   }) {sym_name = "ir", test.check_operand_count_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -319,17 +319,17 @@
   }) {sym_name = "ir", test.check_operation_name_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_result_count"(%arg0)[^bb1, ^bb3] {compareAtLeast, count = 1 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.check_result_count"(%arg0)[^bb2, ^bb3] {count = 2 : i32} : (!pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -347,19 +347,19 @@
   }) {sym_name = "ir", test.check_result_count_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       %0 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.is_not_null"(%0)[^bb1, ^bb3] : (!pdl.attribute) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %1 = "pdl_interp.get_attribute_type"(%0) : (!pdl.attribute) -> !pdl.type
       "pdl_interp.check_type"(%1)[^bb2, ^bb3] {type = i32} : (!pdl.type) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -376,7 +376,7 @@
   }) {sym_name = "ir", test.check_type_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -384,9 +384,9 @@
       %0 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_value_type"(%0) : (!pdl.range<value>) -> !pdl.range<type>
       "pdl_interp.check_types"(%1)[^bb1, ^bb2] {types = [i32]} : (!pdl.range<type>) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -404,25 +404,25 @@
   }) {sym_name = "ir", test.check_types_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       %0 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.is_not_null"(%0)[^bb1, ^bb3] : (!pdl.attribute) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %1 = "pdl_interp.create_type"() {value = i32} : () -> !pdl.type
       %2 = "pdl_interp.get_attribute_type"(%0) : (!pdl.attribute) -> !pdl.type
       "pdl_interp.are_equal"(%2, %1)[^bb2, ^bb3] : (!pdl.type, !pdl.type) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -439,7 +439,7 @@
   }) {sym_name = "ir", test.create_type_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -448,9 +448,9 @@
       %1 = "pdl_interp.get_users"(%0) : (!pdl.value) -> !pdl.range<operation>
       %2 = "pdl_interp.extract"(%1) {index = 1 : i32} : (!pdl.range<operation>) -> !pdl.operation
       "pdl_interp.is_not_null"(%2)[^bb1, ^bb2] : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%2, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -469,7 +469,7 @@
   }) {sym_name = "ir", test.extract_op} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -478,9 +478,9 @@
       %1 = "pdl_interp.get_value_type"(%0) : (!pdl.range<value>) -> !pdl.range<type>
       %2 = "pdl_interp.extract"(%1) {index = 1 : i32} : (!pdl.range<type>) -> !pdl.type
       "pdl_interp.is_not_null"(%2)[^bb1, ^bb2] : (!pdl.type) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -499,7 +499,7 @@
   }) {sym_name = "ir", test.extract_type} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -507,9 +507,9 @@
       %0 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.extract"(%0) {index = 1 : i32} : (!pdl.range<value>) -> !pdl.value
       "pdl_interp.is_not_null"(%1)[^bb1, ^bb2] : (!pdl.value) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -528,7 +528,7 @@
   }) {sym_name = "ir", test.extract_value} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -542,13 +542,13 @@
         "pdl_interp.foreach"(%3)[^bb1] ({
         ^bb0(%arg2: !pdl.operation):
           "pdl_interp.record_match"(%arg2, %arg0)[^bb1] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-        ^bb1:  // pred: ^bb0
+        ^bb1:  
           "pdl_interp.continue"() : () -> ()
         }) : (!pdl.range<operation>) -> ()
-      ^bb1:  // pred: ^bb0
+      ^bb1:  
         "pdl_interp.continue"() : () -> ()
       }) : (!pdl.range<operation>) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -571,7 +571,7 @@
   }) {sym_name = "ir", test.foreach} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -581,10 +581,10 @@
       "pdl_interp.foreach"(%1)[^bb1] ({
       ^bb0(%arg1: !pdl.operation):
         "pdl_interp.record_match"(%arg1, %arg0)[^bb1] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-      ^bb1:  // pred: ^bb0
+      ^bb1:  
         "pdl_interp.continue"() : () -> ()
       }) : (!pdl.range<operation>) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -603,22 +603,22 @@
   }) {sym_name = "ir", test.get_users_of_value} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_result_count"(%arg0)[^bb1, ^bb2] {compareAtLeast, count = 2 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_users"(%0) : (!pdl.range<value>) -> !pdl.range<operation>
       "pdl_interp.foreach"(%1)[^bb2] ({
       ^bb0(%arg1: !pdl.operation):
         "pdl_interp.record_match"(%arg1, %arg0)[^bb1] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-      ^bb1:  // pred: ^bb0
+      ^bb1:  
         "pdl_interp.continue"() : () -> ()
       }) : (!pdl.range<operation>) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -637,23 +637,23 @@
   }) {sym_name = "ir", test.get_all_users_of_range} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_result_count"(%arg0)[^bb1, ^bb2] {compareAtLeast, count = 2 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.extract"(%0) {index = 0 : i32} : (!pdl.range<value>) -> !pdl.value
       %2 = "pdl_interp.get_users"(%1) : (!pdl.value) -> !pdl.range<operation>
       "pdl_interp.foreach"(%2)[^bb2] ({
       ^bb0(%arg1: !pdl.operation):
         "pdl_interp.record_match"(%arg1, %arg0)[^bb1] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-      ^bb1:  // pred: ^bb0
+      ^bb1:  
         "pdl_interp.continue"() : () -> ()
       }) : (!pdl.range<operation>) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -672,21 +672,21 @@
   }) {sym_name = "ir", test.get_first_users_of_range} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operand_count"(%arg0)[^bb1, ^bb3] {count = 5 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_operand"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.value
       %1 = "pdl_interp.get_operand"(%arg0) {index = 4 : i32} : (!pdl.operation) -> !pdl.value
       %2 = "pdl_interp.get_defining_op"(%0) : (!pdl.value) -> !pdl.operation
       %3 = "pdl_interp.get_defining_op"(%1) : (!pdl.value) -> !pdl.operation
       "pdl_interp.are_equal"(%2, %3)[^bb2, ^bb3] : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -706,19 +706,19 @@
   }) {sym_name = "ir", test.get_defining_op_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operand_count"(%arg0)[^bb1, ^bb3] {count = 2 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_operands"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_operands"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.are_equal"(%0, %1)[^bb2, ^bb3] : (!pdl.range<value>, !pdl.range<value>) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -736,36 +736,36 @@
   }) {sym_name = "ir", test.get_operands_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb9] {name = "test.attr_sized_operands"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_operands"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.is_not_null"(%0)[^bb2, ^bb9] : (!pdl.range<value>) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       %1 = "pdl_interp.get_operands"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%1)[^bb9, ^bb3] : (!pdl.value) -> ()
-    ^bb3:  // pred: ^bb2
+    ^bb3:  
       %2 = "pdl_interp.get_operands"(%arg0) {index = 1 : i32} : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.is_not_null"(%2)[^bb4, ^bb9] : (!pdl.range<value>) -> ()
-    ^bb4:  // pred: ^bb3
+    ^bb4:  
       %3 = "pdl_interp.get_operands"(%arg0) {index = 1 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%3)[^bb9, ^bb5] : (!pdl.value) -> ()
-    ^bb5:  // pred: ^bb4
+    ^bb5:  
       %4 = "pdl_interp.get_operands"(%arg0) {index = 2 : i32} : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.is_not_null"(%4)[^bb6, ^bb9] : (!pdl.range<value>) -> ()
-    ^bb6:  // pred: ^bb5
+    ^bb6:  
       %5 = "pdl_interp.get_operands"(%arg0) {index = 2 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%5)[^bb7, ^bb9] : (!pdl.value) -> ()
-    ^bb7:  // pred: ^bb6
+    ^bb7:  
       %6 = "pdl_interp.get_operands"(%arg0) {index = 50 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%6)[^bb9, ^bb8] : (!pdl.value) -> ()
-    ^bb8:  // pred: ^bb7
+    ^bb8:  
       "pdl_interp.record_match"(%arg0, %0, %2, %4, %5, %arg0)[^bb9] {benefit = 1 : i16, operand_segment_sizes = dense<[5, 1]> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.range<value>, !pdl.range<value>, !pdl.range<value>, !pdl.value, !pdl.operation) -> ()
-    ^bb9:  // 9 preds: ^bb0, ^bb1, ^bb2, ^bb3, ^bb4, ^bb5, ^bb6, ^bb7, ^bb8
+    ^bb9:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -786,21 +786,21 @@
   }) {sym_name = "ir", test.get_operands_2} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_result_count"(%arg0)[^bb1, ^bb3] {count = 5 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_result"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.value
       %1 = "pdl_interp.get_result"(%arg0) {index = 4 : i32} : (!pdl.operation) -> !pdl.value
       %2 = "pdl_interp.get_value_type"(%0) : (!pdl.value) -> !pdl.type
       %3 = "pdl_interp.get_value_type"(%1) : (!pdl.value) -> !pdl.type
       "pdl_interp.are_equal"(%2, %3)[^bb2, ^bb3] : (!pdl.type, !pdl.type) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -818,19 +818,19 @@
   }) {sym_name = "ir", test.get_result_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_result_count"(%arg0)[^bb1, ^bb3] {count = 5 : i32} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_results"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.are_equal"(%0, %1)[^bb2, ^bb3] : (!pdl.range<value>, !pdl.range<value>) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 3 preds: ^bb0, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -847,36 +847,36 @@
   }) {sym_name = "ir", test.get_results_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb9] {name = "test.attr_sized_results"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_results"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.is_not_null"(%0)[^bb2, ^bb9] : (!pdl.range<value>) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       %1 = "pdl_interp.get_results"(%arg0) {index = 0 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%1)[^bb9, ^bb3] : (!pdl.value) -> ()
-    ^bb3:  // pred: ^bb2
+    ^bb3:  
       %2 = "pdl_interp.get_results"(%arg0) {index = 1 : i32} : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.is_not_null"(%2)[^bb4, ^bb9] : (!pdl.range<value>) -> ()
-    ^bb4:  // pred: ^bb3
+    ^bb4:  
       %3 = "pdl_interp.get_results"(%arg0) {index = 1 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%3)[^bb9, ^bb5] : (!pdl.value) -> ()
-    ^bb5:  // pred: ^bb4
+    ^bb5:  
       %4 = "pdl_interp.get_results"(%arg0) {index = 2 : i32} : (!pdl.operation) -> !pdl.range<value>
       "pdl_interp.is_not_null"(%4)[^bb6, ^bb9] : (!pdl.range<value>) -> ()
-    ^bb6:  // pred: ^bb5
+    ^bb6:  
       %5 = "pdl_interp.get_results"(%arg0) {index = 2 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%5)[^bb7, ^bb9] : (!pdl.value) -> ()
-    ^bb7:  // pred: ^bb6
+    ^bb7:  
       %6 = "pdl_interp.get_results"(%arg0) {index = 50 : i32} : (!pdl.operation) -> !pdl.value
       "pdl_interp.is_not_null"(%6)[^bb9, ^bb8] : (!pdl.value) -> ()
-    ^bb8:  // pred: ^bb7
+    ^bb8:  
       "pdl_interp.record_match"(%arg0, %0, %2, %4, %5, %arg0)[^bb9] {benefit = 1 : i16, operand_segment_sizes = dense<[5, 1]> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.range<value>, !pdl.range<value>, !pdl.range<value>, !pdl.value, !pdl.operation) -> ()
-    ^bb9:  // 9 preds: ^bb0, ^bb1, ^bb2, ^bb3, ^bb4, ^bb5, ^bb6, ^bb7, ^bb8
+    ^bb9:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -904,17 +904,17 @@
   }) {sym_name = "ir", test.get_results_2} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb3] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@failure} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 2 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 2 preds: ^bb0, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -936,18 +936,18 @@
   }) {sym_name = "ir", test.record_match_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %0 = "pdl_interp.get_operands"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %2 = "pdl_interp.get_value_type"(%1) : (!pdl.range<value>) -> !pdl.range<type>
       "pdl_interp.record_match"(%0, %2, %arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<[3, 1]> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.range<value>, !pdl.range<type>, !pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -967,15 +967,15 @@
   }) {sym_name = "ir", test.record_match_2} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.check_operation_name"(%arg0)[^bb1, ^bb2] {name = "test.op"} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb2] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb2:  // 2 preds: ^bb0, ^bb1
+    ^bb2:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -994,19 +994,19 @@
   }) {sym_name = "ir", test.replace_op_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       %0 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.switch_attribute"(%0)[^bb3, ^bb3, ^bb1] {caseValues = [0, unit]} : (!pdl.attribute) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %1 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr_2"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.switch_attribute"(%1)[^bb2, ^bb3, ^bb3] {caseValues = [0, unit]} : (!pdl.attribute) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 5 preds: ^bb0, ^bb0, ^bb1, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -1023,17 +1023,17 @@
   }) {sym_name = "ir", test.switch_attribute_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.switch_operand_count"(%arg0)[^bb3, ^bb3, ^bb1] {caseValues = dense<[0, 1]> : vector<2 × i32>} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.switch_operand_count"(%arg0)[^bb2, ^bb3, ^bb3] {caseValues = dense<[0, 2]> : vector<2 × i32>} : (!pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 5 preds: ^bb0, ^bb0, ^bb1, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -1051,17 +1051,17 @@
   }) {sym_name = "ir", test.switch_operand_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.switch_operation_name"(%arg0)[^bb3, ^bb3, ^bb1] {caseValues = ["foo.op", "test.op"]} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.switch_operation_name"(%arg0)[^bb2, ^bb3, ^bb3] {caseValues = ["foo.op", "bar.op"]} : (!pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 5 preds: ^bb0, ^bb0, ^bb1, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -1078,17 +1078,17 @@
   }) {sym_name = "ir", test.switch_operation_name_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       "pdl_interp.switch_result_count"(%arg0)[^bb3, ^bb3, ^bb1] {caseValues = dense<[0, 1]> : vector<2 × i32>} : (!pdl.operation) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.switch_result_count"(%arg0)[^bb2, ^bb3, ^bb3] {caseValues = dense<[0, 2]> : vector<2 × i32>} : (!pdl.operation) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 5 preds: ^bb0, ^bb0, ^bb1, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -1105,21 +1105,21 @@
   }) {sym_name = "ir", test.switch_result_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
     ^bb0(%arg0: !pdl.operation):
       %0 = "pdl_interp.get_attribute"(%arg0) {name = "test_attr"} : (!pdl.operation) -> !pdl.attribute
       "pdl_interp.is_not_null"(%0)[^bb1, ^bb4] : (!pdl.attribute) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %1 = "pdl_interp.get_attribute_type"(%0) : (!pdl.attribute) -> !pdl.type
       "pdl_interp.switch_type"(%1)[^bb4, ^bb2, ^bb4] {caseValues = [i32, i64]} : (!pdl.type) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.switch_type"(%1)[^bb3, ^bb4, ^bb4] {caseValues = [i16, i64]} : (!pdl.type) -> ()
-    ^bb3:  // pred: ^bb2
+    ^bb3:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb4] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb4:  // 6 preds: ^bb0, ^bb1, ^bb1, ^bb2, ^bb2, ^bb3
+    ^bb4:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -1136,7 +1136,7 @@
   }) {sym_name = "ir", test.switch_type_1} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "pdl_interp.func"() ({
@@ -1144,11 +1144,11 @@
       %0 = "pdl_interp.get_results"(%arg0) : (!pdl.operation) -> !pdl.range<value>
       %1 = "pdl_interp.get_value_type"(%0) : (!pdl.range<value>) -> !pdl.range<type>
       "pdl_interp.switch_types"(%1)[^bb3, ^bb1, ^bb3] {caseValues = [[i64, i64], [i32]]} : (!pdl.range<type>) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "pdl_interp.switch_types"(%1)[^bb2, ^bb3, ^bb3] {caseValues = [[i32], [i64, i32]]} : (!pdl.range<type>) -> ()
-    ^bb2:  // pred: ^bb1
+    ^bb2:  
       "pdl_interp.record_match"(%arg0, %arg0)[^bb3] {benefit = 1 : i16, operand_segment_sizes = dense<1> : vector<2 × i32>, rewriter = @rewriters::@success} : (!pdl.operation, !pdl.operation) -> ()
-    ^bb3:  // 5 preds: ^bb0, ^bb0, ^bb1, ^bb1, ^bb2
+    ^bb3:  
       "pdl_interp.finalize"() : () -> ()
     }) {function_type = (!pdl.operation) -> (), sym_name = "matcher"} : () -> ()
     "builtin.module"() ({
@@ -1165,4 +1165,4 @@
   }) {sym_name = "ir", test.switch_types_1} : () -> ()
 }) : () -> ()
 
-// -----
+

@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -30,7 +30,7 @@
   }) {function_type = () -> (), sym_name = "store_may_execute_before_load"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -52,7 +52,7 @@
   }) {function_type = () -> (), sym_name = "dependent_loops"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -66,7 +66,7 @@
   }) {function_type = () -> (), sym_name = "different_memrefs"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -80,7 +80,7 @@
   }) {function_type = () -> (), sym_name = "store_load_different_elements"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -94,7 +94,7 @@
   }) {function_type = () -> (), sym_name = "load_store_different_elements"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -107,7 +107,7 @@
   }) {function_type = () -> (), sym_name = "store_load_same_element"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -120,7 +120,7 @@
   }) {function_type = () -> (), sym_name = "load_load_same_element"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -133,7 +133,7 @@
   }) {function_type = (index) -> (), sym_name = "store_load_same_symbol"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -146,7 +146,7 @@
   }) {function_type = (index, index) -> (), sym_name = "store_load_different_symbols"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 + 1)>
 "builtin.module"() ({
@@ -162,7 +162,7 @@
   }) {function_type = () -> (), sym_name = "store_load_diff_element_affine_apply_const"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 1)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<(d0) -> (d0 - 1)>
@@ -180,7 +180,7 @@
   }) {function_type = () -> (), sym_name = "store_load_same_element_affine_apply_const"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0)>
 "builtin.module"() ({
   "func.func"() ({
@@ -195,7 +195,7 @@
   }) {function_type = (index) -> (), sym_name = "store_load_affine_apply_symbol"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 + 1)>
 "builtin.module"() ({
@@ -211,7 +211,7 @@
   }) {function_type = (index) -> (), sym_name = "store_load_affine_apply_symbol_offset"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -232,7 +232,7 @@
   }) {function_type = () -> (), sym_name = "store_range_load_after_range"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<()[s0] -> (s0)>
@@ -254,7 +254,7 @@
   }) {function_type = (index, index) -> (), sym_name = "store_load_func_symbol"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 - 1)>
 #map2 = affine_map<() -> (0)>
@@ -276,7 +276,7 @@
   }) {function_type = () -> (), sym_name = "store_range_load_last_in_range"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (1)>
 #map2 = affine_map<() -> (11)>
@@ -297,7 +297,7 @@
   }) {function_type = () -> (), sym_name = "store_range_load_before_range"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 + 1)>
 #map2 = affine_map<() -> (1)>
@@ -319,7 +319,7 @@
   }) {function_type = () -> (), sym_name = "store_range_load_first_in_range"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 3)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (1)>
@@ -340,7 +340,7 @@
   }) {function_type = () -> (), sym_name = "store_plus_3"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 - 2)>
 #map2 = affine_map<() -> (2)>
@@ -361,7 +361,7 @@
   }) {function_type = () -> (), sym_name = "load_minus_2"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d1)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -389,7 +389,7 @@
   }) {function_type = () -> (), sym_name = "perfectly_nested_loops_loop_independent"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d1)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -418,7 +418,7 @@
   }) {function_type = () -> (), sym_name = "perfectly_nested_loops_loop_carried_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d1)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -447,7 +447,7 @@
   }) {function_type = () -> (), sym_name = "perfectly_nested_loops_loop_carried_at_depth2"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d1)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -480,7 +480,7 @@
   }) {function_type = () -> (), sym_name = "one_common_loop"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 + 1)>
 #map2 = affine_map<() -> (0)>
@@ -505,7 +505,7 @@
   }) {function_type = () -> (), sym_name = "dependence_cycle"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0 - 1)>
 #map1 = affine_map<(d0, d1) -> (d1 + 1)>
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
@@ -536,7 +536,7 @@
   }) {function_type = (index, index) -> (), sym_name = "negative_and_positive_direction_vectors"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 1)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -561,7 +561,7 @@
   }) {function_type = () -> (), sym_name = "war_raw_waw_deps"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 mod 2)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<(d0) -> ((d0 + 1) mod 2)>
@@ -583,7 +583,7 @@
   }) {function_type = () -> (), sym_name = "mod_deps"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (8)>
@@ -625,7 +625,7 @@
   }) {function_type = () -> (), sym_name = "loop_nest_depth"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1, d2) -> (d0 floordiv 4)>
 #map1 = affine_map<(d0, d1, d2) -> (d1 mod 2)>
 #map2 = affine_map<(d0, d1, d2) -> (d2 floordiv 4)>
@@ -656,7 +656,7 @@
   }) {function_type = () -> (), sym_name = "mod_div_3d"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1, d2, d3, d4, d5) -> (d0, d1, d2, d3, d4, d5)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (1)>
@@ -725,7 +725,7 @@
   }) {function_type = () -> (), sym_name = "delinearize_mod_floordiv"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (8)>
@@ -743,7 +743,7 @@
   }) {function_type = () -> (), sym_name = "strided_loop_with_dependence_at_depth2"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 1)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -763,7 +763,7 @@
   }) {function_type = () -> (), sym_name = "strided_loop_with_no_dependence"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 4)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -783,7 +783,7 @@
   }) {function_type = () -> (), sym_name = "strided_loop_with_loop_carried_dependence_at_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 - 1)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<(d0) -> (d0 + 1)>
@@ -808,7 +808,7 @@
   }) {function_type = () -> (), sym_name = "test_dep_store_depth1_load_depth2"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0) -> (d0 + 1)>
 #map2 = affine_map<(d0) -> (d0 - 2)>
@@ -833,7 +833,7 @@
   }) {function_type = () -> (), sym_name = "test_dep_store_depth2_load_depth1"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (100)>
@@ -856,7 +856,7 @@
   }) {function_type = () -> (), sym_name = "test_affine_for_if_same_block"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -880,7 +880,7 @@
   }) {function_type = () -> (), sym_name = "test_affine_for_if_separated"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (100)>
@@ -908,7 +908,7 @@
   }) {function_type = () -> (), sym_name = "test_affine_for_if_partially_joined"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (100)>
@@ -940,7 +940,7 @@
   }) {function_type = () -> (), sym_name = "test_interleaved_affine_for_if"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (101)>
@@ -970,4 +970,4 @@
   }) {function_type = () -> (), sym_name = "test_interleaved_affine_for_if"} : () -> ()
 }) : () -> ()
 
-// -----
+

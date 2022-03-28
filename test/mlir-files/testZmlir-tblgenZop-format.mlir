@@ -60,9 +60,9 @@
   "test.format_multiple_variadic_operands"(%0, %0, %0, %0, %1) {operand_segment_sizes = dense<[3, 2]> : vector<2 × i32>} : (i64, i64, i64, i64, i32) -> ()
   "foo.successor_test_region"() ({
     "test.format_successor_a_op"()[^bb1] {attr} : () -> ()
-  ^bb1:  // 2 preds: ^bb0, ^bb1
+  ^bb1:  
     "test.format_successor_a_op"()[^bb1, ^bb2] {attr} : () -> ()
-  ^bb2:  // pred: ^bb1
+  ^bb2:  
     "test.format_successor_a_op"() {attr} : () -> ()
   }) {arg_names = ["i", "j", "k"]} : () -> ()
   "test.format_optional_unit_attribute"() {is_optional} : () -> ()
@@ -128,9 +128,9 @@
   "test.format_custom_directive_with_optional_operand_ref"() : () -> ()
   "func.func"() ({
     "test.format_custom_directive_successors"()[^bb1, ^bb2, ^bb2] : () -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     "test.format_custom_directive_successors"()[^bb2] : () -> ()
-  ^bb2:  // 3 preds: ^bb0, ^bb0, ^bb1
+  ^bb2:  
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "foo"} : () -> ()
   %21 = "test.format_infer_variadic_type_from_non_variadic"(%0, %0) : (i64, i64) -> i64
@@ -154,4 +154,4 @@
   "test.has_str_value"() : () -> ()
 }) : () -> ()
 
-// -----
+

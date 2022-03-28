@@ -10,4 +10,4 @@
   }) {function_type = (i32) -> (), sym_name = "remove_all_ops"} : () -> ()
 }) : () -> ()
 
-// -----
+

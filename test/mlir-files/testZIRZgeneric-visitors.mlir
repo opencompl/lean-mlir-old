@@ -20,7 +20,7 @@
   }) {function_type = () -> (), sym_name = "structured_cfg"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
@@ -39,4 +39,4 @@
   }) {function_type = () -> (), sym_name = "correct_number_of_regions"} : () -> ()
 }) : () -> ()
 
-// -----
+

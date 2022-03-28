@@ -4,4 +4,4 @@
   }) {sym_name = "foo"} : () -> ()
 }) {sym_name = "inner_mod1"} : () -> ()
 
-// -----
+

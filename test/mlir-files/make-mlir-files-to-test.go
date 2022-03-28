@@ -10,29 +10,6 @@ import (
 	"strings"
 )
 
-func mk_testfile_contents(mlir_contents string, print_path string) string {
-	out := fmt.Sprintf(`
-import MLIR.Doc
-import MLIR.AST
-import MLIR.EDSL
-
-open  MLIR.EDSL
-open MLIR.AST
-open MLIR.Doc
-open IO
-
--- | write an op into the path
-def o: Op := [mlir_op|
-%s
-] 
--- | main program
-def main : IO Unit :=
-    let str := Pretty.doc o
-    FS.writeFile "%s" str
-`, mlir_contents, print_path)
-	return out
-}
-
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -135,6 +112,20 @@ func main() {
 			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
 			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
 			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g`, outPath)
+
+			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
+			var sedStderr bytes.Buffer
+			sedCommand.Stderr = &sedStderr
+			err = sedCommand.Run()
+			if err != nil {
+				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
+			}
+			check(err)
+		} // end sed run block
+
+		{
+			// --- run sed to remove comments
+			sedCommand := exec.Command("sed", "-i", "-r", `s-//.*--g`, outPath)
 
 			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
 			var sedStderr bytes.Buffer

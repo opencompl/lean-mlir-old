@@ -9,4 +9,4 @@
   %6 = "test.unregistered_side_effect_op"() {effect_parameter = #map} : () -> i32
 }) : () -> ()
 
-// -----
+

@@ -12,7 +12,7 @@
   }) {function_type = () -> (), sym_name = "public_function"} : () -> ()
 }) {test.simple} : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "func.func"() ({
@@ -26,7 +26,7 @@
   "live.user"() {uses = [@public_module::@nested_function]} : () -> ()
 }) {test.nested} : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "func.func"() ({
@@ -43,7 +43,7 @@
   "live.user"() {uses = [@nested_module, @private_module]} : () -> ()
 }) {test.no_dce_non_hidden_parent} : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> (), sym_name = "private_symbol", sym_visibility = "private"} : () -> ()
@@ -51,7 +51,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> (), sym_name = "dead_private_function", sym_visibility = "private"} : () -> ()
@@ -61,4 +61,4 @@
   "live.user"() {uses = [@unknown_symbol]} : () -> ()
 }) : () -> ()
 
-// -----
+

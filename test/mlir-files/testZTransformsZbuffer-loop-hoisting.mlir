@@ -2,43 +2,43 @@
   "func.func"() ({
   ^bb0(%arg0: i1, %arg1: memref<2 × f32>, %arg2: memref<2 × f32>):
     "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     "cf.br"(%arg1)[^bb3] : (memref<2 × f32>) -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
     "test.buffer_based"(%arg1, %0) : (memref<2 × f32>, memref<2 × f32>) -> ()
     "cf.br"(%0)[^bb3] : (memref<2 × f32>) -> ()
-  ^bb3(%1: memref<2 × f32>):  // 2 preds: ^bb1, ^bb2
+  ^bb3(%1: memref<2 × f32>):  
     "test.copy"(%1, %arg2) : (memref<2 × f32>, memref<2 × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (i1, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "condBranch"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1, %arg1: memref<? × f32>, %arg2: memref<? × f32>, %arg3: index):
     "cf.cond_br"(%arg0, %arg3)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, index) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     "cf.br"(%arg1)[^bb3] : (memref<? × f32>) -> ()
-  ^bb2(%0: index):  // pred: ^bb0
+  ^bb2(%0: index):  
     %1 = "memref.alloc"(%0) {operand_segment_sizes = dense<[1, 0]> : vector<2 × i32>} : (index) -> memref<? × f32>
     "test.buffer_based"(%arg1, %1) : (memref<? × f32>, memref<? × f32>) -> ()
     "cf.br"(%1)[^bb3] : (memref<? × f32>) -> ()
-  ^bb3(%2: memref<? × f32>):  // 2 preds: ^bb1, ^bb2
+  ^bb3(%2: memref<? × f32>):  
     "test.copy"(%2, %arg2) : (memref<? × f32>, memref<? × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (i1, memref<? × f32>, memref<? × f32>, index) -> (), sym_name = "condBranchDynamicType"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i1, %arg1: memref<2 × f32>, %arg2: memref<2 × f32>):
     "cf.cond_br"(%arg0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     "cf.br"(%arg1)[^bb3] : (memref<2 × f32>) -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
     "test.region_buffer_based"(%arg1, %0) ({
     ^bb0(%arg3: f32, %arg4: f32):
@@ -48,13 +48,13 @@
       "test.region_yield"(%3) : (f32) -> ()
     }) : (memref<2 × f32>, memref<2 × f32>) -> ()
     "cf.br"(%0)[^bb3] : (memref<2 × f32>) -> ()
-  ^bb3(%1: memref<2 × f32>):  // 2 preds: ^bb1, ^bb2
+  ^bb3(%1: memref<2 × f32>):  
     "test.copy"(%1, %arg2) : (memref<2 × f32>, memref<2 × f32>) -> ()
     "func.return"() : () -> ()
   }) {function_type = (i1, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "nested_regions_and_cond_branch"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
@@ -70,7 +70,7 @@
   }) {function_type = (index, index) -> memref<? × ? × f32>, sym_name = "nested_region_control_flow"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -86,7 +86,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "loop_alloc"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>):
@@ -106,7 +106,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>) -> memref<2 × f32>, sym_name = "loop_nested_if_alloc"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -138,7 +138,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "loop_nested_alloc"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: index, %arg4: memref<? × f32>, %arg5: memref<? × f32>):
@@ -169,7 +169,7 @@
   }) {function_type = (index, index, index, index, memref<? × f32>, memref<? × f32>) -> (), sym_name = "loop_nested_alloc_dyn_dependency"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -184,7 +184,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "hoist_one_loop"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -198,7 +198,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "no_hoist_one_loop"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -217,7 +217,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "hoist_multiple_loop"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -237,7 +237,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "no_hoist_one_loop_conditional"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -258,7 +258,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "hoist_one_loop_conditional"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -273,7 +273,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "no_hoist_one_loop_dependency"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -292,7 +292,7 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "partial_hoist_multiple_loop_dependency"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<2 × f32>, %arg4: memref<2 × f32>):
@@ -311,4 +311,4 @@
   }) {function_type = (index, index, index, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "hoist_alloca"} : () -> ()
 }) : () -> ()
 
-// -----
+

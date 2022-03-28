@@ -33,4 +33,4 @@
   }) {function_type = (memref<? × ? × f32>) -> (), sym_name = "triangular"} : () -> ()
 }) : () -> ()
 
-// -----
+

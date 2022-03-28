@@ -8,124 +8,124 @@
   }) {function_type = () -> (), sym_name = "bar"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
 ^bb0:
 }) : () -> ()
 
-// -----
+

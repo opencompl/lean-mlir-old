@@ -169,10 +169,10 @@
     %1 = "arith.mulf"(%0, %0) : (f64, f64) -> f64
     %2 = "arith.constant"() {value = true} : () -> i1
     "cf.cond_br"(%2)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 0]> : vector<3 × i32>} : (i1) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     %3:2 = "func.call"(%arg2) {callee = @ret_single_argument_type} : (memref<8 × f64, #map21>) -> (memref<16 × f64, #map21>, memref<8 × f64, #map21>)
     "func.return"(%3#1, %1) : (memref<8 × f64, #map21>, f64) -> ()
-  ^bb2:  // pred: ^bb0
+  ^bb2:  
     "func.return"(%arg2, %1) : (memref<8 × f64, #map21>, f64) -> ()
   }) {function_type = (memref<16 × f64, #map21>, f64, memref<8 × f64, #map21>) -> (memref<8 × f64, #map21>, f64), sym_name = "ret_multiple_argument_type"} : () -> ()
   "func.func"() ({
@@ -241,4 +241,4 @@
   }) {function_type = () -> memref<8 × f32, #map21>, sym_name = "affine_parallel_norm"} : () -> ()
 }) : () -> ()
 
-// -----
+

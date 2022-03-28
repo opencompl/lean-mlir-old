@@ -9,7 +9,7 @@
   }) {function_type = (memref<4 × 1024 × f32>) -> memref<1 × 128 × f32, #map1>, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 1536)>
 #map1 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 2688)>
 #map2 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 3745)>
@@ -23,7 +23,7 @@
   }) {function_type = (memref<4 × 1024 × f32>) -> memref<1 × 10 × f32, #map2>, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0, d1)[s0] -> (d0 * 1024 + s0 + d1)>
 "builtin.module"() ({
   "func.func"() ({
@@ -36,7 +36,7 @@
   }) {function_type = (memref<4 × 1024 × f32>) -> memref<1 × 128 × f32, #map>, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0, d1)[s0] -> (d0 * 1024 + s0 + d1)>
 "builtin.module"() ({
   "func.func"() ({
@@ -49,4 +49,4 @@
   }) {function_type = (memref<4 × 1024 × f32>) -> memref<1 × 128 × f32, #map>, sym_name = "main"} : () -> ()
 }) : () -> ()
 
-// -----
+

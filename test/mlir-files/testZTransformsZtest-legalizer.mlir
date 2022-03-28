@@ -93,7 +93,7 @@
   }) {function_type = () -> (), sym_name = "bounded_recursion"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "test.illegal_op_f"() : () -> i32
@@ -101,7 +101,7 @@
   }) {function_type = () -> i32, sym_name = "fail_to_convert_illegal_op"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.region_builder"() : () -> ()
@@ -109,7 +109,7 @@
   }) {function_type = () -> (), sym_name = "fail_to_convert_illegal_op_in_region"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.region"() ({
@@ -121,7 +121,7 @@
   }) {function_type = () -> (), sym_name = "fail_to_convert_region"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.create_illegal_block"() : () -> ()
@@ -129,7 +129,7 @@
   }) {function_type = () -> (), sym_name = "create_illegal_block"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.undo_block_arg_replace"() ({
@@ -140,18 +140,18 @@
   }) {function_type = () -> (), sym_name = "undo_block_arg_replace"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.undo_block_erase"() ({
       "unregistered.return"()[^bb1] : () -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "unregistered.return"() : () -> ()
     }) : () -> ()
   }) {function_type = () -> (), sym_name = "undo_block_erase"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     "test.illegal_op_with_region_anchor"() : () -> ()
@@ -159,7 +159,7 @@
   }) {function_type = () -> (), sym_name = "undo_child_created_before_parent"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "test.blackhole_producer"() : () -> i32
@@ -168,7 +168,7 @@
   }) {function_type = () -> (), sym_name = "blackhole"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "test.illegal_op_g"() : () -> i32
@@ -176,7 +176,7 @@
   }) {function_type = () -> i32, sym_name = "create_unregistered_op_in_pattern"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -185,4 +185,4 @@
   }) {function_type = (f32) -> i32, sym_name = "typemismatch"} : () -> ()
 }) : () -> ()
 
-// -----
+

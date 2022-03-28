@@ -6,4 +6,4 @@
 ()() 6>, !test.ap_float<5.000000e+00>, !test.ap_float<>, !test.default_valued_type<(i64)>, !test.default_valued_type<>, !test.custom_type<-5>, !test.custom_type<2 0 1 5>, !test.custom_type_string<"foo" foo>, !test.custom_type_string<"bar" bar>), sym_name = "test_roundtrip_default_parsers_struct", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 
-// -----
+

@@ -6,4 +6,4 @@
   "test.dense_splat"() {foo.dense_attr = dense<1> : tensor<3 × i32>} : () -> ()
 }) : () -> ()
 
-// -----
+

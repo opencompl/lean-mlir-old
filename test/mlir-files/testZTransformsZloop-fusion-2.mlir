@@ -2,7 +2,7 @@
 ^bb0:
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (4)>
@@ -60,7 +60,7 @@
   }) {function_type = (memref<64 × 4 × f32>, memref<64 × 4 × f32>) -> (), sym_name = "should_fuse_at_depth_above_loop_carried_dependence"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -90,7 +90,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_only_two_loops_and_remove_producer"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -118,7 +118,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_after_one_loop_interchange"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (8)>
@@ -161,7 +161,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_after_two_loop_interchanges"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -184,7 +184,7 @@
   }) {function_type = (memref<10 × f32>) -> memref<10 × f32>, sym_name = "should_fuse_live_out_writer"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (8)>
@@ -233,7 +233,7 @@
   }) {function_type = (memref<128 × 8 × f32>, memref<32 × 8 × f32>, f32) -> memref<32 × 8 × f32>, sym_name = "slice_tile"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<(d0, d1) -> (d0 - d1)>
 #map2 = affine_map<() -> (0)>
@@ -277,7 +277,7 @@
   }) {function_type = () -> (), sym_name = "test_add_slice_bounds"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -344,7 +344,7 @@
   }) {function_type = (memref<10 × 10 × f32>, memref<10 × 10 × f32>) -> (), sym_name = "should_fuse_init_loops_siblings_then_shared_producer"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -398,7 +398,7 @@
   }) {function_type = () -> (), sym_name = "two_matrix_vector_products"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (16)>
@@ -430,7 +430,7 @@
   }) {function_type = () -> (), sym_name = "should_not_slice_past_slice_barrier"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0 * 16 + d1)>
 #map1 = affine_map<(d0, d1) -> (d0, d1)>
 #map2 = affine_map<() -> (0)>
@@ -478,7 +478,7 @@
   }) {function_type = (memref<4x4x16x1xf32>, memref<144 × 9 × f32>, memref<9 × f32>) -> (), sym_name = "fuse_across_dim_mismatch"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> ((d0 * 72 + d1) floordiv 2304)>
 #map1 = affine_map<(d0, d1) -> (((d0 * 72 + d1) mod 2304) floordiv 1152)>
 #map2 = affine_map<(d0, d1) -> ((((d0 * 72 + d1) mod 1152) floordiv 9) floordiv 8)>
@@ -557,7 +557,7 @@
   }) {function_type = (f32) -> (), sym_name = "fuse_across_varying_dims_complex"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (100)>
@@ -589,7 +589,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_with_slice_union"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (1024)>
@@ -630,7 +630,7 @@
   }) {function_type = (memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>) -> (), sym_name = "affine_add_mm_fused"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (1024)>
@@ -696,7 +696,7 @@
   }) {function_type = (memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>) -> (), sym_name = "affine_2mm_fused"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (1024)>
@@ -743,7 +743,7 @@
   }) {function_type = (memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>, memref<1024 × 1024 × f32>) -> (), sym_name = "affine_2_dependent_mm_fused"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -768,7 +768,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_self_dependence_multi_store_producer"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -792,7 +792,7 @@
   }) {function_type = () -> (), sym_name = "should_fuse_dead_multi_store_producer"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -816,4 +816,4 @@
   }) {function_type = (memref<10 × f32>) -> (), sym_name = "should_fuse_function_live_out_multi_store_producer"} : () -> ()
 }) : () -> ()
 
-// -----
+

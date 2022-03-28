@@ -1,0 +1,118 @@
+
+"builtin.module"()(
+ {
+  ^entry:
+   "func.func"()(
+    {
+     ^entry:
+      %0="arith.constant"(){value = 0 : i32}:() -> i32
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "foo"
+    }:() -> ()
+   "func.func"()(
+    {
+     ^entry:
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "bar"
+    }:() -> ()
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()
+"builtin.module"()(
+ {
+  ^bb0:
+ }):() -> ()

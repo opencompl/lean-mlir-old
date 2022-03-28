@@ -24,7 +24,7 @@
   }) {function_type = () -> (memref<1 × f32>, memref<2 × f32>, memref<3 × f32>), res_attrs = [{}, {test.some_attr}, {}], sym_name = "mixed_result_attrs", sym_visibility = "private"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> memref<1 × f32>, sym_name = "callee", sym_visibility = "private"} : () -> ()
@@ -35,7 +35,7 @@
   }) {function_type = () -> (), sym_name = "call_basic"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> (memref<1 × f32>, memref<2 × f32>), sym_name = "callee", sym_visibility = "private"} : () -> ()
@@ -45,7 +45,7 @@
   }) {function_type = () -> (), sym_name = "call_multiple_result"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> (i1, memref<1 × f32>, i32), sym_name = "callee", sym_visibility = "private"} : () -> ()
@@ -55,7 +55,7 @@
   }) {function_type = () -> (), sym_name = "call_non_memref_result"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> memref<? × f32>, sym_name = "callee", sym_visibility = "private"} : () -> ()
@@ -65,4 +65,4 @@
   }) {function_type = () -> (), sym_name = "call_non_memref_result"} : () -> ()
 }) : () -> ()
 
-// -----
+

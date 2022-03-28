@@ -9,7 +9,7 @@
   }) {test.reference = @symbol_foo} : () -> ()
 }) {sym.outside_use = @symbol_foo} : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "builtin.module"() ({
     "func.func"() ({
@@ -26,7 +26,7 @@
   }) {function_type = () -> (), sym_name = "symbol_bar"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> (), sym.new_name = "replaced_name", sym_name = "failed_repl", sym_visibility = "private"} : () -> ()
@@ -34,7 +34,7 @@
   }) : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> (), sym.new_name = "replaced_foo", sym_name = "symbol_foo", sym_visibility = "private"} : () -> ()
@@ -43,4 +43,4 @@
   }) {function_type = () -> (), sym_name = "symbol_bar"} : () -> ()
 }) : () -> ()
 
-// -----
+

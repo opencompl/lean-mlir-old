@@ -66,7 +66,7 @@
   "test.op_funcref"() {func = @test_norm_mix} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map = affine_map<(d0) -> (d0 floordiv 32, d0 mod 32)>
 "builtin.module"() ({
   "func.func"() ({
@@ -78,4 +78,4 @@
   }) {function_type = (memref<3 × f32, #map>) -> memref<3 × 1 × 1 × f32>, sym_name = "test_norm_reinterpret_cast"} : () -> ()
 }) : () -> ()
 
-// -----
+

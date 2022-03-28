@@ -7,4 +7,4 @@
   }) {function_type = () -> (), sym_name = "kat"} : () -> ()
 }) {test.simple} : () -> ()
 
-// -----
+

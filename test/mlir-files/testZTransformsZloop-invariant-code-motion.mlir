@@ -21,7 +21,7 @@
   }) {function_type = () -> (), sym_name = "nested_loops_both_having_invariant_code"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<() -> (0)>
 #map1 = affine_map<() -> (10)>
 "builtin.module"() ({
@@ -42,7 +42,7 @@
   }) {function_type = () -> (), sym_name = "nested_loops_code_invariant_to_both"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -62,7 +62,7 @@
   }) {function_type = () -> (), sym_name = "single_loop_nothing_invariant"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0 + 1)>
 #map1 = affine_map<(d0) -> (d0)>
 #map2 = affine_map<() -> (0)>
@@ -87,7 +87,7 @@
   }) {function_type = () -> (), sym_name = "invariant_code_inside_affine_if"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<() -> (0)>
 #map1 = affine_map<() -> (10)>
 #set = affine_set<(d0, d1) : (d1 - d0 >= 0)>
@@ -112,7 +112,7 @@
   }) {function_type = () -> (), sym_name = "invariant_affine_if"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -139,7 +139,7 @@
   }) {function_type = () -> (), sym_name = "invariant_affine_if2"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<() -> (0)>
 #map1 = affine_map<() -> (10)>
 #set = affine_set<(d0, d1) : (d1 - d0 >= 0)>
@@ -169,7 +169,7 @@
   }) {function_type = () -> (), sym_name = "invariant_affine_nested_if"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (10)>
@@ -203,7 +203,7 @@
   }) {function_type = () -> (), sym_name = "invariant_affine_nested_if_else"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
@@ -225,7 +225,7 @@
   }) {function_type = () -> (), sym_name = "invariant_loop_dialect"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
@@ -245,7 +245,7 @@
   }) {function_type = () -> (), sym_name = "variant_loop_dialect"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
@@ -263,7 +263,7 @@
   }) {function_type = () -> (), sym_name = "parallel_loop_with_invariant"} : () -> ()
 }) : () -> ()
 
-// -----
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = () -> index, sym_name = "make_val", sym_visibility = "private"} : () -> ()
@@ -285,4 +285,4 @@
   }) {function_type = (index, index, index) -> (), sym_name = "nested_uses_inside"} : () -> ()
 }) : () -> ()
 
-// -----
+

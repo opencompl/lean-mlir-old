@@ -52,4 +52,4 @@
   }) {function_type = (memref<* × i32>) -> (), sym_name = "print_memref_i32", sym_visibility = "private"} : () -> ()
 }) {gpu.container_module, spv.target_env = #spv.target_env<#spv.vce<v1.0, [Shader], [SPV_KHR_variable_pointers]>, {max_compute_workgroup_invocations = 128 : i32, max_compute_workgroup_size = dense<[128, 128, 64]> : vector<3 × i32>}>} : () -> ()
 
-// -----
+

@@ -1,0 +1,18 @@
+
+"builtin.module"()(
+ {
+  ^entry:
+   "func.func"()(
+    {
+     ^entry:
+      "test.op_with_region_pattern"()(
+       {
+        ^entry:
+         "test.op_with_region_terminator"():() -> ()
+       }):() -> ()
+      "func.return"():() -> ()
+    }){
+    function_type = () -> ()
+    , sym_name = "remove_op_with_inner_ops_pattern"
+    }:() -> ()
+ }):() -> ()

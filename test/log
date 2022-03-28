@@ -1,0 +1,191 @@
+> LEAN_PATH=./build/lib:./..//./build/lib /home/siddu_druid/.elan/toolchains/leanprover--lean4---nightly-2022-03-09/bin/lean ./..//././MLIR/EDSL.lean -R ./..//./. -o ./..//./build/lib/MLIR/EDSL.olean -i ./..//./build/lib/MLIR/EDSL.ilean -c ./..//./build/ir/MLIR/EDSL.c
+def MLIR.EDSL.operand0 : SSAVal :=
+SSAVal.SSAVal "x"
+def MLIR.EDSL.operand1 : SSAVal :=
+SSAVal.SSAVal "x"
+def MLIR.EDSL.operand2 : SSAVal :=
+SSAVal.SSAVal (IntToString 0)
+def MLIR.EDSL.succ0 : BBName :=
+BBName.mk "bb"
+!lz.int
+i32
+f32
+def MLIR.EDSL.ty0 : MLIRTy :=
+MLIRTy.tuple []
+def MLIR.EDSL.tyi32 : MLIRTy :=
+MLIRTy.int 32
+def MLIR.EDSL.typair : MLIRTy :=
+MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 64] ++ []))
+def MLIR.EDSL.tyfn0 : MLIRTy :=
+MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple [])
+def MLIR.EDSL.tyfn1 : MLIRTy :=
+MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 11] ++ [])) (MLIRTy.tuple ([MLIRTy.int 12] ++ []))
+def MLIR.EDSL.dim0 : Dimension :=
+Dimension.Known 30
+def MLIR.EDSL.dim1 : Dimension :=
+Dimension.Unknown
+def MLIR.EDSL.vectorTy0 : MLIRTy :=
+MLIRTy.vector ([Dimension.Known 3] ++ ([Dimension.Known 3] ++ [])) (MLIRTy.int 32)
+def MLIR.EDSL.tensorTy0 : MLIRTy :=
+MLIRTy.vector ([Dimension.Known 3] ++ ([Dimension.Known 3] ++ [])) (MLIRTy.int 32)
+def MLIR.EDSL.memrefTy0 : MLIRTy :=
+MLIRTy.vector ([Dimension.Known 3] ++ ([Dimension.Known 3] ++ [])) (MLIRTy.int 32)
+def MLIR.EDSL.memrefTy1 : MLIRTy :=
+MLIRTy.vector [] (MLIRTy.int 32)
+AttrVal.str "foo"
+AttrVal.type
+  (MLIRTy.fn (MLIRTy.tuple [MLIRTy.int (Int.ofNat 32), MLIRTy.int (Int.ofNat 64)]) (MLIRTy.int (Int.ofNat 32)))
+AttrVal.list [AttrVal.str "foo", AttrVal.str "foo"]
+AttrVal.affine
+  (AffineMap.mk (AffineTuple.mk [AffineExpr.Var "x", AffineExpr.Var "y"]) (AffineTuple.mk [AffineExpr.Var "y"]))
+AttrVal.symbol "foo"
+AttrVal.int (Int.ofNat 42) (MLIRTy.int (Int.ofNat 64))
+./..//././MLIR/EDSL.lean:557:32: error: elaboration function for 'MLIR.EDSL.«term[mlir_attr_val_symbol|_]»' has not been implemented
+  [mlir_attr_val_symbol|@func_foo]
+./..//././MLIR/EDSL.lean:558:8: error: unknown identifier 'attrVal6Symbol'
+sorryAx ?m.30246
+def MLIR.EDSL.attr0Str : AttrEntry :=
+AttrEntry.mk "sym_name" (AttrVal.str "add")
+def MLIR.EDSL.attr1Type : AttrEntry :=
+AttrEntry.mk "type"
+  (AttrVal.type (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))
+def MLIR.EDSL.bbstmt1 : BasicBlockStmt :=
+BasicBlockStmt.StmtOp
+  (Op.mk "foo" ([] ++ [SSAVal.SSAVal "x"] ++ [SSAVal.SSAVal "y"]) [] [] (AttrDict.mk [])
+    (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))
+def MLIR.EDSL.bbstmt2 : BasicBlockStmt :=
+BasicBlockStmt.StmtAssign (SSAVal.SSAVal "z")
+  (Op.mk "foo" ([] ++ [SSAVal.SSAVal "x"] ++ [SSAVal.SSAVal "y"]) [] [] (AttrDict.mk [])
+    (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))
+def MLIR.EDSL.bbop1 : SSAVal × MLIRTy :=
+(SSAVal.SSAVal "x", MLIRTy.int 32)
+def MLIR.EDSL.bb1NoArgs : BasicBlock :=
+BasicBlock.mk "entry" []
+  ([] ++
+        [BasicBlockStmt.StmtOp
+            (Op.mk "foo" ([] ++ [SSAVal.SSAVal "x"] ++ [SSAVal.SSAVal "y"]) [] [] (AttrDict.mk [])
+              (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))] ++
+      [BasicBlockStmt.StmtAssign (SSAVal.SSAVal "z")
+          (Op.mk "bar" ([] ++ [SSAVal.SSAVal "x"]) [] [] (AttrDict.mk [])
+            (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ [])) (MLIRTy.tuple ([MLIRTy.int 32] ++ []))))] ++
+    [BasicBlockStmt.StmtOp
+        (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x0"]) [] [] (AttrDict.mk [])
+          (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 42] ++ [])) (MLIRTy.tuple [])))])
+def MLIR.EDSL.bb2SingleArg : BasicBlock :=
+BasicBlock.mk "entry" ([] ++ [(SSAVal.SSAVal "argp", MLIRTy.int 32)])
+  ([] ++
+        [BasicBlockStmt.StmtOp
+            (Op.mk "foo" ([] ++ [SSAVal.SSAVal "x"] ++ [SSAVal.SSAVal "y"]) [] [] (AttrDict.mk [])
+              (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))] ++
+      [BasicBlockStmt.StmtAssign (SSAVal.SSAVal "z")
+          (Op.mk "bar" ([] ++ [SSAVal.SSAVal "x"]) [] [] (AttrDict.mk [])
+            (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ [])) (MLIRTy.tuple ([MLIRTy.int 32] ++ []))))] ++
+    [BasicBlockStmt.StmtOp
+        (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x0"]) [] [] (AttrDict.mk [])
+          (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 42] ++ [])) (MLIRTy.tuple [])))])
+BasicBlock.mk "entry"
+  [(SSAVal.SSAVal "argp", MLIRTy.int (Int.ofNat 32)), (SSAVal.SSAVal "argq", MLIRTy.int (Int.ofNat 64))]
+  [BasicBlockStmt.StmtOp
+      (Op.mk "foo" [SSAVal.SSAVal "x", SSAVal.SSAVal "y"] [] [] (AttrDict.mk [])
+        (MLIRTy.fn (MLIRTy.tuple [MLIRTy.int (Int.ofNat 32), MLIRTy.int (Int.ofNat 32)]) (MLIRTy.int (Int.ofNat 32)))),
+    BasicBlockStmt.StmtAssign (SSAVal.SSAVal "z")
+      (Op.mk "bar" [SSAVal.SSAVal "x"] [] [] (AttrDict.mk [])
+        (MLIRTy.fn (MLIRTy.tuple [MLIRTy.int (Int.ofNat 32)]) (MLIRTy.tuple [MLIRTy.int (Int.ofNat 32)]))),
+    BasicBlockStmt.StmtOp
+      (Op.mk "std.return" [SSAVal.SSAVal "x0"] [] [] (AttrDict.mk [])
+        (MLIRTy.fn (MLIRTy.tuple [MLIRTy.int (Int.ofNat 42)]) (MLIRTy.tuple [])))]
+def MLIR.EDSL.rgn0 : Region :=
+Region.mk []
+def MLIR.EDSL.rgn1 : Region :=
+Region.mk
+  [BasicBlock.mk "entry" []
+      ([] ++
+        [BasicBlockStmt.StmtOp
+            (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x0"]) [] [] (AttrDict.mk [])
+              (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 42] ++ [])) (MLIRTy.tuple [])))])]
+def MLIR.EDSL.rgn2 : Region :=
+Region.mk
+  ([BasicBlock.mk "entry" []
+        ([] ++
+          [BasicBlockStmt.StmtOp
+              (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x0"]) [] [] (AttrDict.mk [])
+                (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 42] ++ [])) (MLIRTy.tuple [])))])] ++
+    [BasicBlock.mk "loop" []
+        ([] ++
+          [BasicBlockStmt.StmtOp
+              (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x1"]) [] [] (AttrDict.mk [])
+                (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 42] ++ [])) (MLIRTy.tuple [])))])])
+def MLIR.EDSL.rgn1 : Region :=
+Region.mk
+  [BasicBlock.mk "entry" []
+      ([] ++
+        [BasicBlockStmt.StmtOp
+            (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x0"]) [] [] (AttrDict.mk [])
+              (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 42] ++ [])) (MLIRTy.tuple [])))])]
+def MLIR.EDSL.opcall1 : Op :=
+Op.mk "foo" ([] ++ [SSAVal.SSAVal "x"] ++ [SSAVal.SSAVal "y"]) [] [] (AttrDict.mk [])
+  (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32))
+def MLIR.EDSL.opattr0 : Op :=
+Op.mk "foo" [] [] []
+  (AttrDict.mk
+    ([] ++ [AttrEntry.mk "sym_name" (AttrVal.str "add")] ++
+      [AttrEntry.mk "type"
+          (AttrVal.type (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))]))
+  (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple []))
+def MLIR.EDSL.oprgn0 : Op :=
+Op.mk "func" [] []
+  ([] ++
+    [Region.mk
+        [BasicBlock.mk "bb0" ([] ++ [(SSAVal.SSAVal "arg0", MLIRTy.int 32)] ++ [(SSAVal.SSAVal "arg1", MLIRTy.int 32)])
+            ([] ++
+                [BasicBlockStmt.StmtAssign (SSAVal.SSAVal "x")
+                    (Op.mk "std.addi" ([] ++ [SSAVal.SSAVal "arg0"] ++ [SSAVal.SSAVal "arg1"]) [] [] (AttrDict.mk [])
+                      (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32)))] ++
+              [BasicBlockStmt.StmtOp
+                  (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "x"]) [] [] (AttrDict.mk [])
+                    (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ [])) (MLIRTy.tuple [])))])]])
+  (AttrDict.mk []) (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple []))
+def MLIR.EDSL.opRgnAttr0 : Op :=
+Op.mk "module" [] []
+  ([] ++
+    [Region.mk
+        [BasicBlock.mk "entry" []
+            ([] ++
+                [BasicBlockStmt.StmtOp
+                    (Op.mk "func" [] []
+                      ([] ++
+                        [Region.mk
+                            [BasicBlock.mk "bb0"
+                                ([] ++ [(SSAVal.SSAVal "arg0", MLIRTy.int 32)] ++
+                                  [(SSAVal.SSAVal "arg1", MLIRTy.int 32)])
+                                ([] ++
+                                    [BasicBlockStmt.StmtAssign (SSAVal.SSAVal "zero")
+                                        (Op.mk "std.addi" ([] ++ [SSAVal.SSAVal "arg0"] ++ [SSAVal.SSAVal "arg1"]) [] []
+                                          (AttrDict.mk [])
+            error: external command /home/siddu_druid/.elan/toolchains/leanprover--lean4---nightly-2022-03-09/bin/lean exited with status 1
+error: build failed
+                              (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ [])))
+                                            (MLIRTy.int 32)))] ++
+                                  [BasicBlockStmt.StmtOp
+                                      (Op.mk "std.return" ([] ++ [SSAVal.SSAVal "zero"]) [] [] (AttrDict.mk [])
+                                        (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ [])) (MLIRTy.tuple [])))])]])
+                      (AttrDict.mk
+                        ([] ++ [AttrEntry.mk "sym_name" (AttrVal.str "add")] ++
+                          [AttrEntry.mk "type"
+                              (AttrVal.type
+                                (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ [])))
+                                  (MLIRTy.int 32)))]))
+                      (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple [])))] ++
+              [BasicBlockStmt.StmtOp
+                  (Op.mk "module_terminator" [] [] [] (AttrDict.mk [])
+                    (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple [])))])]])
+  (AttrDict.mk []) (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple []))
+def MLIR.EDSL.opcall2 : Op :=
+Op.mk "foo" ([] ++ [SSAVal.SSAVal "x"] ++ [SSAVal.SSAVal "y"]) ([] ++ [BBName.mk "bb1"] ++ [BBName.mk "bb2"]) []
+  (AttrDict.mk []) (MLIRTy.fn (MLIRTy.tuple ([MLIRTy.int 32] ++ ([MLIRTy.int 32] ++ []))) (MLIRTy.int 32))
+./..//././MLIR/EDSL.lean:774:18: error: elaboration function for 'MLIR.EDSL.«term[mlir_op|_]»' has not been implemented
+  [mlir_op|func@"main"(){ ^entry: %x="asm.int"(){"val"=32}:()->(i32) }]
+def MLIR.EDSL.mod1 : Op :=
+Op.mk "module" [] [] [Region.fromOps ([] ++ [Op.empty "module_terminator"])] AttrDict.empty
+  (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple []))
+

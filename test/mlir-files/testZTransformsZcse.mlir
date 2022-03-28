@@ -65,10 +65,10 @@
     %0 = "arith.constant"() {value = 1 : i32} : () -> i32
     %1 = "arith.constant"() {value = true} : () -> i1
     "cf.cond_br"(%1, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, i32) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     "cf.br"(%2)[^bb2] : (i32) -> ()
-  ^bb2(%3: i32):  // 2 preds: ^bb0, ^bb1
+  ^bb2(%3: i32):  
     "func.return"(%3) : (i32) -> ()
   }) {function_type = () -> i32, sym_name = "down_propagate"} : () -> ()
   "func.func"() ({
@@ -85,10 +85,10 @@
     %0 = "arith.constant"() {value = 0 : i32} : () -> i32
     %1 = "arith.constant"() {value = true} : () -> i1
     "cf.cond_br"(%1, %0)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, i32) -> ()
-  ^bb1:  // pred: ^bb0
+  ^bb1:  
     %2 = "arith.constant"() {value = 1 : i32} : () -> i32
     "cf.br"(%2)[^bb2] : (i32) -> ()
-  ^bb2(%3: i32):  // 2 preds: ^bb0, ^bb1
+  ^bb2(%3: i32):  
     %4 = "arith.constant"() {value = 1 : i32} : () -> i32
     %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
     "func.return"(%5) : (i32) -> ()
@@ -98,10 +98,10 @@
       %1 = "arith.constant"() {value = 0 : i32} : () -> i32
       %2 = "arith.constant"() {value = true} : () -> i1
       "cf.cond_br"(%2, %1)[^bb1, ^bb2] {operand_segment_sizes = dense<[1, 0, 1]> : vector<3 × i32>} : (i1, i32) -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       %3 = "arith.constant"() {value = 1 : i32} : () -> i32
       "cf.br"(%3)[^bb2] : (i32) -> ()
-    ^bb2(%4: i32):  // 2 preds: ^bb0, ^bb1
+    ^bb2(%4: i32):  
       %5 = "arith.constant"() {value = 1 : i32} : () -> i32
       %6 = "arith.addi"(%4, %5) : (i32, i32) -> i32
       "foo.yield"(%6) : (i32) -> ()
@@ -131,4 +131,4 @@
   }) {function_type = () -> (), sym_name = "use_before_def"} : () -> ()
 }) : () -> ()
 
-// -----
+

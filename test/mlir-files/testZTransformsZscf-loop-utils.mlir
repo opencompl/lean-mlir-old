@@ -23,4 +23,4 @@
   }) {function_type = (index, index, index, f32) -> f32, sym_name = "hoist2"} : () -> ()
 }) : () -> ()
 
-// -----
+

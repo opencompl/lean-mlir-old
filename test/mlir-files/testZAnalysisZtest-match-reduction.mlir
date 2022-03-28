@@ -12,7 +12,7 @@
   }) {function_type = (tensor<? × f32>, tensor<1 × f32>) -> (), sym_name = "linalg_red_add"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (512)>
@@ -37,7 +37,7 @@
   }) {function_type = (memref<256 × 512 × f32>, memref<256 × f32>) -> (), sym_name = "affine_red_add"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<(d0, d1) -> (d0)>
 "builtin.module"() ({
@@ -53,7 +53,7 @@
   }) {function_type = (tensor<4 × 4 × f32>, tensor<4 × f32>) -> (), sym_name = "linalg_red_max"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 #map1 = affine_map<(d0, d1) -> (d0)>
 "builtin.module"() ({
@@ -70,7 +70,7 @@
   }) {function_type = (tensor<4 × 4 × f32>, tensor<4 × f32>) -> (), sym_name = "linalg_fused_red_add"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (512)>
@@ -88,7 +88,7 @@
   }) {function_type = (memref<512 × f32>) -> (), sym_name = "affine_no_red_rec"} : () -> ()
 }) : () -> ()
 
-// -----
+
 #map0 = affine_map<(d0) -> (d0)>
 #map1 = affine_map<() -> (0)>
 #map2 = affine_map<() -> (512)>
@@ -106,4 +106,4 @@
   }) {function_type = (memref<512 × f32>) -> (), sym_name = "affine_output_dep"} : () -> ()
 }) : () -> ()
 
-// -----
+

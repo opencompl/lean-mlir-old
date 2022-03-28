@@ -71,7 +71,7 @@
     %2 = "arith.addi"(%1, %arg1) : (i32, i32) -> i32
     %3 = "test.any_cond"() ({
       "cf.br"(%2)[^bb1] : (i32) -> ()
-    ^bb1(%5: i32):  // pred: ^bb0
+    ^bb1(%5: i32):  
       %6 = "arith.addi"(%5, %2) : (i32, i32) -> i32
       "test.yield"(%6) : (i32) -> ()
     }) : () -> i32
@@ -108,11 +108,11 @@
     %0 = "arith.addi"(%arg0, %arg0) : (i32, i32) -> i32
     %1 = "test.any_cond"() ({
       "cf.br"()[^bb1] : () -> ()
-    ^bb1:  // pred: ^bb0
+    ^bb1:  
       "test.yield"(%0) : (i32) -> ()
     }) : () -> i32
     "func.return"(%1) : (i32) -> ()
   }) {function_type = (i32) -> i32, sym_name = "test_not_sunk_deeply"} : () -> ()
 }) : () -> ()
 
-// -----
+

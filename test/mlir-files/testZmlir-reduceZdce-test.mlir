@@ -10,4 +10,4 @@
   }) {function_type = (i1, memref<2 × f32>, memref<2 × f32>) -> (), sym_name = "simple1"} : () -> ()
 }) : () -> ()
 
-// -----
+

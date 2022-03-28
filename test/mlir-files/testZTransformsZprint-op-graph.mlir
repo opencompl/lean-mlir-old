@@ -8,11 +8,11 @@
     %4 = "test.func"() : () -> i32
     %5:2 = "test.merge_blocks"() ({
       "test.br"(%arg0, %4, %3)[^bb1] : (i32, i32, i32) -> ()
-    ^bb1(%6: i32, %7: i32, %8: i32):  // pred: ^bb0
+    ^bb1(%6: i32, %7: i32, %8: i32):  
       "test.return"(%6, %7) : (i32, i32) -> ()
     }) : () -> (i32, i32)
     "test.return"(%5#0, %5#1) : (i32, i32) -> ()
   }) {function_type = (i32, i32) -> (), sym_name = "merge_blocks"} : () -> ()
 }) : () -> ()
 
-// -----
+
