@@ -60,6 +60,14 @@ instance : Coe String Doc where
 instance : Append Doc where 
   append := Doc.Concat
 
+
+instance : HAppend Doc String Doc where 
+  hAppend d s := Doc.Concat d (Doc.Text s)
+
+instance : HAppend String Doc Doc where 
+  hAppend s d:= Doc.Concat (Doc.Text s) d
+
+
 def doc_dbl_quot : Doc :=  doc '"'
 
 def doc_surround_dbl_quot [Pretty a] (v: a): Doc := 

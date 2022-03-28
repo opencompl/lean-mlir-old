@@ -75,6 +75,7 @@ inductive TensorElem :=
 | int: Int -> TensorElem
 | nested: List TensorElem -> TensorElem
 
+-- | TODO: factor Symbol out from AttrVal
 inductive AttrVal : Type where
 | symbol: String -> AttrVal -- symbol ref attr
 | str : String -> AttrVal
@@ -83,6 +84,9 @@ inductive AttrVal : Type where
 | dense: TensorElem -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
 | list: List AttrVal -> AttrVal
+-- | guaranteee: both components will be AttrVal.Symbol.
+-- | TODO: factor symbols out.
+| nestedsymbol: AttrVal -> AttrVal -> AttrVal 
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
@@ -224,6 +228,7 @@ partial instance : Pretty AttrVal where
   let rec go (v: AttrVal) :=
    match v with
    | AttrVal.symbol s => "@" ++ doc_surround_dbl_quot s
+   | AttrVal.nestedsymbol s t => (go s) ++ "::" ++ (go t)
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
