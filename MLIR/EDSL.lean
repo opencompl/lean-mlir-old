@@ -476,6 +476,7 @@ macro_rules
 -- | TODO: consider renaming this to mlir_attr
 declare_syntax_cat mlir_attr_val
 declare_syntax_cat mlir_attr_val_symbol
+syntax "@" ident : mlir_attr_val_symbol
 syntax "@" str : mlir_attr_val_symbol
 
 
@@ -489,6 +490,7 @@ syntax num (":" mlir_type)? : mlir_attr_val
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[escape|" term "]" : mlir_attr_val
 syntax "[mlir_attr_val|" mlir_attr_val "]" : term
+syntax "[mlir_attr_val_symbol|" mlir_attr_val_symbol "]" : term
 syntax "[mlir_attr|" mlir_attr_val "]" : term
 macro_rules
 | `([mlir_attr|  $x ]) => `([mlir_attr_val| $x ])
@@ -523,8 +525,15 @@ macro_rules
       `(AttrVal.affine [affine_map| $a])
 
 macro_rules
-| `([mlir_attr_val| @ $x:strLit ]) =>
+| `([mlir_attr_val_symbol| @ $x:strLit ]) =>
       `(AttrVal.symbol $x)
+
+macro_rules
+| `([mlir_attr_val_symbol| @ $x:ident ]) =>
+      `(AttrVal.symbol $(Lean.quote x.getId.toString))
+
+macro_rules
+| `([mlir_attr_val| $x:mlir_attr_val_symbol ]) => `([mlir_attr_val_symbol| $x])
 
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 #reduce attrVal0Str
@@ -543,6 +552,10 @@ def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
 
 def attrVal5int: AttrVal := [mlir_attr_val| 42 ]
 #reduce attrVal5int
+
+
+def attrVal6Symbol : AttrVal := [mlir_attr_val| @func_foo ]
+#reduce attrVal6Symbol
 
 
 
@@ -744,7 +757,7 @@ syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" mlir_regi
 -- | note that this only supports single BB region.
 -- | TODO: add support for multi BB region.
 macro_rules 
-| `([mlir_op| func @$name ( $args,* )  $rgn ]) => do
+| `([mlir_op| func $name:mlir_attr_val_symbol ( $args,* )  $rgn ]) => do
      let initList <- `([])
      let argsList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
      let typesList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.snd [mlir_bb_operand| $x]])
@@ -753,7 +766,7 @@ macro_rules
      let argTys <- `(($argsList).map Prod.snd)
      let ty <-  `(MLIRTy.fn (MLIRTy.tuple $typesList) MLIRTy.unit)
      let attrs <- `(AttrDict.empty.addType "type" $ty)
-     let attrs <- `(($attrs).addString "sym_name" $name)
+     let attrs <- `(($attrs).add ("sym_name", [mlir_attr_val_symbol| $name]))
 
      `(Op.mk "func" [] [] [$rgn] $attrs $ty)
 
