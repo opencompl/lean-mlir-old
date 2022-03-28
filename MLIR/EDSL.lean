@@ -11,7 +11,10 @@ open MLIR.AST
 
 namespace MLIR.EDSL
 
-instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| toString n⟩
+
+def IntToString (i: Int): String := i.repr
+
+instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| n.repr⟩
 
 def quoteMDimension (d: Dimension): MacroM Syntax :=
   match d with
@@ -97,8 +100,8 @@ syntax "[escape|" term "]" : mlir_op_operand
 
 syntax "[mlir_op_operand| " mlir_op_operand "]" : term -- translate operands into term
 macro_rules
-  | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (toString x.getId))) 
-  | `([mlir_op_operand| % $n:numLit]) => `(SSAVal.SSAVal (toString $n))
+  | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (x.getId.toString))) 
+  | `([mlir_op_operand| % $n:numLit]) => `(SSAVal.SSAVal (IntToString $n))
   | `([mlir_op_operand| [escape| $t:term ] ]) => return t
 
 def operand0 := [mlir_op_operand| %x]
@@ -125,7 +128,7 @@ syntax "[mlir_op_successor_arg|" mlir_op_successor_arg "]" : term
 
 macro_rules
   | `([mlir_op_successor_arg| ^ $x:ident  ]) => 
-      `(BBName.mk $(Lean.quote (toString x.getId)))
+      `(BBName.mk $(Lean.quote (x.getId.toString)))
 
 def succ0 :  BBName := ([mlir_op_successor_arg| ^bb])
 #print succ0
@@ -403,11 +406,11 @@ macro_rules
    let initList <- `([])
    let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
    let opsList <- `([mlir_bb_stmts| $stmts])
-   `(BasicBlock.mk $(Lean.quote (toString name.getId)) $argsList $opsList)
+   `(BasicBlock.mk $(Lean.quote (name.getId.toString)) $argsList $opsList)
 | `([mlir_bb| ^ $name:ident : $stmts ]) => do
    let initList <- `([])
    let opsList <- `([mlir_bb_stmts| $stmts])
-   `(BasicBlock.mk $(Lean.quote (toString name.getId)) [] $opsList)
+   `(BasicBlock.mk $(Lean.quote (name.getId.toString)) [] $opsList)
 
 
 -- ENTRY BB
@@ -556,7 +559,7 @@ syntax "[mlir_attr_entry|" mlir_attr_entry "]" : term
 
 macro_rules 
   | `([mlir_attr_entry| $name:ident  = $v:mlir_attr_val]) => 
-     `(AttrEntry.mk $(Lean.quote (toString name.getId))  [mlir_attr_val| $v])
+     `(AttrEntry.mk $(Lean.quote (name.getId.toString))  [mlir_attr_val| $v])
   | `([mlir_attr_entry| $name:strLit  = $v:mlir_attr_val]) => 
      `(AttrEntry.mk $name [mlir_attr_val| $v])
 
