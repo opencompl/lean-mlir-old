@@ -87,6 +87,7 @@ inductive AttrVal : Type where
 -- | guaranteee: both components will be AttrVal.Symbol.
 -- | TODO: factor symbols out.
 | nestedsymbol: AttrVal -> AttrVal -> AttrVal 
+| alias: String -> AttrVal 
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
@@ -235,6 +236,7 @@ partial instance : Pretty AttrVal where
    | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map go) ", ") ++ "]"
+   | AttrVal.alias a => "#" ++ a
   go v
 
 instance : Pretty AttrEntry where
