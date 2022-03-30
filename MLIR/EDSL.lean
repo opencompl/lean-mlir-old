@@ -154,6 +154,7 @@ macro_rules
 syntax mlir_type "->" mlir_type : mlir_type
 syntax "{{" term "}}" : mlir_type
 syntax "!" str : mlir_type
+syntax "!" ident : mlir_type
 syntax ident: mlir_type
 syntax "index" : mlir_type
 
@@ -180,9 +181,17 @@ macro_rules
         else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
 
 macro_rules
-| `([mlir_type| ! $x ]) => `(MLIRTy.user $x)
+| `([mlir_type| ! $x:strLit ]) => `(MLIRTy.user $x)
+
+macro_rules
+| `([mlir_type| ! $x:ident ]) => `(MLIRTy.user $(Lean.quote x.getId.toString))
+
 def tyUser : MLIRTy := [mlir_type| !"lz.int"]
 #eval tyUser
+
+def tyUserIdent : MLIRTy := [mlir_type| !shape.value]
+#eval tyUserIdent
+
 
 def tyi32NoGap : MLIRTy := [mlir_type| i32]
 #eval tyi32NoGap
