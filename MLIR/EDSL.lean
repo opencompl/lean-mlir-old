@@ -637,6 +637,15 @@ def attrDict0 : AttrDict := [mlir_attr_dict| {}]
 def attrDict1 : AttrDict := [mlir_attr_dict| {foo = "bar" }]
 def attrDict2 : AttrDict := [mlir_attr_dict| {foo = "bar", baz = "quux" }]
 
+-- dict attribute val
+syntax mlir_attr_dict : mlir_attr_val
+
+macro_rules
+| `([mlir_attr_val| $v:mlir_attr_dict]) => `(AttrVal.dict [mlir_attr_dict| $v])
+
+def nestedAttrDict0 := [mlir_attr_dict| {foo = {bar = "baz"} }]
+#print nestedAttrDict0
+
 -- MLIR OPS WITH REGIONS AND ATTRIBUTES AND BASIC BLOCK ARGS
 -- =========================================================
 

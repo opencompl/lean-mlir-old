@@ -75,6 +75,7 @@ inductive TensorElem :=
 | int: Int -> TensorElem
 | nested: List TensorElem -> TensorElem
 
+mutual
 -- | TODO: factor Symbol out from AttrVal
 inductive AttrVal : Type where
 | symbol: String -> AttrVal -- symbol ref attr
@@ -88,7 +89,8 @@ inductive AttrVal : Type where
 -- | guaranteee: both components will be AttrVal.Symbol.
 -- | TODO: factor symbols out.
 | nestedsymbol: AttrVal -> AttrVal -> AttrVal 
-| alias: String -> AttrVal 
+| alias: String -> AttrVal
+| dict: AttrDict -> AttrVal
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
@@ -99,6 +101,7 @@ inductive AttrEntry : Type where
 
 inductive AttrDict : Type := 
 | mk: List AttrEntry -> AttrDict
+end
 
 
 mutual
@@ -225,39 +228,49 @@ partial instance : Pretty TensorElem where
        | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ] 
     go t
 
-partial instance : Pretty AttrVal where
- doc (v: AttrVal) := 
-  let rec go (v: AttrVal) :=
+mutual 
+partial def docAttrVal (v: AttrVal) := 
    match v with
    | AttrVal.symbol s => "@" ++ doc_surround_dbl_quot s
-   | AttrVal.nestedsymbol s t => (go s) ++ "::" ++ (go t)
+   | AttrVal.nestedsymbol s t => (docAttrVal s) ++ "::" ++ (docAttrVal t)
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => doc ty
    | AttrVal.int i ty => doc i ++ " : " ++ doc ty
    | AttrVal.float f ty => doc f ++ " : " ++ doc ty
    | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ doc ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
-   | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map go) ", ") ++ "]"
+   | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map docAttrVal) ", ") ++ "]"
    | AttrVal.alias a => "#" ++ a
-  go v
+   | AttrVal.dict d => docAttrDict d 
+
+partial def docAttrEntry (a: AttrEntry) := 
+    match a with
+    | AttrEntry.mk k v => k ++ " = " ++ (docAttrVal v)
+
+
+partial def docAttrDict (v: AttrDict) :=
+   match v with
+   | AttrDict.mk attrs => 
+        if List.isEmpty attrs
+        then Doc.Text ""
+        else "{" ++ Doc.Nest (vintercalate_doc (attrs.map docAttrEntry)  ", ")  ++ "}" 
+end
+
+partial instance : Pretty AttrVal where
+ doc (v: AttrVal) := docAttrVal v
 
 instance : Pretty AttrEntry where
-  doc (a: AttrEntry) := 
-    match a with
-    | AttrEntry.mk k v => k ++ " = " ++ (doc v)
+  doc (a: AttrEntry) := docAttrEntry a 
+
+
+ instance : Pretty AttrDict where
+   doc v := docAttrDict v
 
 instance : Pretty AttrDefn where
   doc (v: AttrDefn) := 
   match v with
   | AttrDefn.mk name val => "#" ++ name ++ " := " ++ (doc val)
  
-
- instance : Pretty AttrDict where
-   doc v := match v with
-   | AttrDict.mk attrs => 
-        if List.isEmpty attrs
-        then Doc.Text ""
-        else "{" ++ Doc.Nest (vintercalate_doc attrs ", ")  ++ "}" 
 
 instance: Coe String SSAVal where
   coe (s: String) := SSAVal.SSAVal s
