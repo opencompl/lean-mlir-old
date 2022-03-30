@@ -344,6 +344,7 @@ syntax "[mlir_op|" mlir_op "]" : term
 
 syntax mlir_op: mlir_bb_stmt
 syntax mlir_op_operand "=" mlir_op : mlir_bb_stmt
+syntax mlir_op_operand ":" numLit "=" mlir_op : mlir_bb_stmt
 syntax "{{" term "}}" : mlir_bb_stmt
 
 syntax "[mlir_bb_stmt|" mlir_bb_stmt "]" : term
@@ -354,7 +355,10 @@ macro_rules
   | `([mlir_bb_stmt| $call:mlir_op ]) =>
        `(BasicBlockStmt.StmtOp ([mlir_op| $call]))
   | `([mlir_bb_stmt| $res:mlir_op_operand = $call:mlir_op]) => 
-       `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) ([mlir_op| $call]))
+       `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) none ([mlir_op| $call]))
+  | `([mlir_bb_stmt| $res:mlir_op_operand : $ix:numLit = $call:mlir_op]) => 
+       `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) (some $ix) ([mlir_op| $call]))
+
   | `([mlir_bb_stmt| {{ $t }} ]) => return t
 
 macro_rules
@@ -591,7 +595,7 @@ macro_rules
 
 -- def attrVal10Float : AttrVal := [mlir_attr_val| 0.000000e+00  ]
 def attrVal10Float : AttrVal := [mlir_attr_val| 0.0023 ]
-#reduce attrVal10Float
+#print attrVal10Float
 
 
 -- MLIR ATTRIBUTE

@@ -114,7 +114,7 @@ inductive Op : Type where
       -> Op
 
 inductive BasicBlockStmt : Type where
-| StmtAssign : SSAVal -> Op -> BasicBlockStmt
+| StmtAssign : SSAVal -> (ix: Option Int) -> Op ->BasicBlockStmt
 | StmtOp : Op -> BasicBlockStmt
 
 
@@ -380,8 +380,10 @@ partial def op_to_doc (op: Op): Doc :=
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
-  | BasicBlockStmt.StmtAssign lhs rhs => 
+  | BasicBlockStmt.StmtAssign lhs none rhs => 
       [doc| lhs "="  (op_to_doc rhs) ]
+  | BasicBlockStmt.StmtAssign lhs (some ix) rhs => 
+      [doc| lhs ":" ix "="  (op_to_doc rhs) ]
   | BasicBlockStmt.StmtOp rhs => (op_to_doc rhs)
 
 
@@ -659,7 +661,7 @@ def blocklens_update {f: Type -> Type} {t: Type}[Applicative f] (lens: BasicBloc
         | none => Pure.pure src 
         | some stmt => 
             let stmt := match stmt with 
-            | BasicBlockStmt.StmtAssign lhs op => (BasicBlockStmt.StmtAssign lhs) <$> (oplens_update oplens transform op)  
+            | BasicBlockStmt.StmtAssign lhs ix op => (BasicBlockStmt.StmtAssign lhs ix) <$> (oplens_update oplens transform op)  
             | BasicBlockStmt.StmtOp op => BasicBlockStmt.StmtOp <$> (oplens_update oplens transform op)
             (fun stmt => BasicBlock.mk name args (ops.set ix stmt)) <$> stmt
 end
