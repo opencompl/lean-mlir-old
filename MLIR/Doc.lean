@@ -47,6 +47,10 @@ instance : Pretty String where
 instance : Pretty Int where
   doc := Doc.Text ∘ toString
 
+instance : Pretty Bool where
+  doc := Doc.Text ∘ toString
+
+
 instance : Pretty Float where
   doc f := Doc.Text (toString (repr f)) 
 

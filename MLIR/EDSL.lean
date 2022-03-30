@@ -471,10 +471,20 @@ declare_syntax_cat mlir_tensor
 syntax numLit : mlir_tensor
 syntax "[" sepBy(mlir_tensor, ",") "]" : mlir_tensor
 
+syntax ident: mlir_tensor
 syntax "[mlir_tensor|" mlir_tensor "]" : term
 
 macro_rules
 | `([mlir_tensor| $x:numLit ]) => `(TensorElem.int $x)
+
+macro_rules 
+| `([mlir_tensor| $x:ident ]) => do 
+      let xstr := x.getId.toString
+      if xstr == "true" 
+      then `(TensorElem.Bool true)
+      else if xstr == "false"
+      then `(TensorElem.Bool false)
+      else Macro.throwError ("unknown tensor value: |" ++ xstr ++ "|")
 
 macro_rules
 | `([mlir_tensor| [ $xs,* ] ]) => do 
@@ -482,6 +492,10 @@ macro_rules
     let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_tensor| $x]]) 
     `(TensorElem.nested $vals)
 
+
+def tensorValNum := [mlir_tensor| 42]
+def tensorValTrue := [mlir_tensor| true]
+def tensorValFalse := [mlir_tensor| false]
 
 -- MLIR ATTRIBUTE VALUE
 -- ====================

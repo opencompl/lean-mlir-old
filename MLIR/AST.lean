@@ -73,6 +73,7 @@ deriving instance DecidableEq for SSAVal
 
 inductive TensorElem := 
 | int: Int -> TensorElem
+| bool: Bool -> TensorElem
 | nested: List TensorElem -> TensorElem
 
 mutual
@@ -225,6 +226,7 @@ partial instance : Pretty TensorElem where
     let rec go (t: TensorElem) := 
       match t with
        | TensorElem.int i => doc i
+       | TensorElem.bool b => doc b
        | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ] 
     go t
 
