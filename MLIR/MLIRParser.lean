@@ -175,7 +175,8 @@ partial def popcall (u: Unit) : P BasicBlockStmt := do
      let val <- pssaval
      pconsume '='
      let op <- pop u
-     return (BasicBlockStmt.StmtAssign val op)
+     let index := none -- for syntax %val:ix = ...
+     return (BasicBlockStmt.StmtAssign val index op)
    else do
      let op <- pop u
      return (BasicBlockStmt.StmtOp op)

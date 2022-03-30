@@ -481,9 +481,9 @@ macro_rules
 | `([mlir_tensor| $x:ident ]) => do 
       let xstr := x.getId.toString
       if xstr == "true" 
-      then `(TensorElem.Bool true)
+      then `(TensorElem.bool true)
       else if xstr == "false"
-      then `(TensorElem.Bool false)
+      then `(TensorElem.bool false)
       else Macro.throwError ("unknown tensor value: |" ++ xstr ++ "|")
 
 macro_rules

@@ -134,7 +134,7 @@ def freePDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List Basi
     let rhs := rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := match parent with 
       | SSAVal.SSAVal parentName => (SSAVal.SSAVal $ operandName)
-    [BasicBlockStmt.StmtAssign lhs rhs]
+    [BasicBlockStmt.StmtAssign lhs none rhs]
 
 def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List BasicBlockStmt := 
     -- let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
@@ -144,7 +144,7 @@ def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List Bas
     let rhs := rhs.addArg (SSAVal.SSAVal $ operandName) [mlir_type| !"pdl.operation"]
     let rhs := rhs.addResult [mlir_type| !"pdl.value"]
     let lhs := SSAVal.SSAVal $ operandName ++ "_result"
-    [BasicBlockStmt.StmtAssign lhs rhs]
+    [BasicBlockStmt.StmtAssign lhs none rhs]
 
 
 def opOperandsToPDL (ops: List String) (args: RBMap Nat String compare) (parent: SSAVal): List BasicBlockStmt :=
@@ -167,7 +167,7 @@ def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt :=
     | none => []
   let argSSAVals := args.bind 
     (fun arg => match arg with
-          | BasicBlockStmt.StmtAssign lhs _ => [lhs]
+          | BasicBlockStmt.StmtAssign lhs _ _ => [lhs]
           | BasicBlockStmt.StmtOp _ => [])
   let op := Op.empty "pdl.operation"
   let op := match kind? with 
@@ -177,7 +177,7 @@ def opToPDL (m: MatchInfo) (parentName: String): List BasicBlockStmt :=
   let op := op.addResult [mlir_type| !"pdl.operation"] 
   let op := op.addAttr "operand_segment_sizes" (AttrVal.dense_vector [args.length, 0, 0]) 
   let op := op.addAttr "attributeNames" (AttrVal.list [])
-  args ++ [BasicBlockStmt.StmtAssign lhs op]
+  args ++ [BasicBlockStmt.StmtAssign lhs none op]
 
 def MatchInfo.toPDL (m: MatchInfo): Op :=
  -- let stmts := m.ops.reverse.map (opToPDL m)
@@ -264,9 +264,6 @@ declare_syntax_cat str_newline
 partial def stx_vgroup_strings (ss: Array String)
 : Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
 
-  let si := Lean.SourceInfo.original 
-      "".toSubstring 0
-      "asd".toSubstring 1
   -- let newline :=   Lean.Syntax.atom si "atom"
   
   let newline :=
