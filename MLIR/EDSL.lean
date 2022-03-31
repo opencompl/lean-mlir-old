@@ -391,7 +391,7 @@ macro_rules
 syntax "^" ident ":" mlir_bb_stmts : mlir_bb
 syntax "^" ident "(" sepBy(mlir_bb_operand, ",") ")" ":" mlir_bb_stmts : mlir_bb
 
-syntax (ws mlir_bb_stmt ws)* : mlir_bb_stmts
+syntax (mlir_bb_stmt)* : mlir_bb_stmts
 
 syntax "[mlir_bb_stmts|" incQuotDepth(mlir_bb_stmts) "]" : term
 macro_rules
