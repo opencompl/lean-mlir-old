@@ -33,6 +33,218 @@ import MLIRSemantics.Util.Arith
 import MLIR.AST
 open MLIR.AST
 
+def shape_prod: List Nat → Nat :=
+  List.foldr (·*·) 1
+
+theorem shape_prod_nil: shape_prod (0::l) = 0 := by
+  induction l <;> simp [shape_prod, List.foldr]
+
+theorem List.all_cons {α} (P: α → Bool) head tail:
+    List.all (head::tail) P ↔ P head ∧ List.all tail P := by
+  simp [List.all, List.foldr]
+
+theorem List.all_nil {α} (P: α → Bool):
+    List.all [] P = true := by
+  simp [List.all, List.foldr]
+
+def List.get_Fin {α} (l: List α) (n: Nat) (H: n < l.length): α :=
+  match l, n with
+  | a::as, 0 => a
+  | a::as, n+1 =>
+    get_Fin as n (by
+      simp [length] at H;
+      apply @Nat.lt_of_add_lt_add_right _ _ 1; assumption)
+
+/-
+## Shape inference on literal tensors
+
+This section defines shape verification and shape inference for TensorElem
+(tensor literals), *excluding the case of uniform tensor literals*. The shape
+inference is proven correct, and the `flatten` method is defined that exports
+the tensor literal to a flat array suitable for use in a `RankedTensor`.
+
+`RankedTensor` provides the functions that actually turn tensor literals into
+ranked tensors and properly handle uniform tensor literals.
+
+TODO: Integrate TensorElem invariants into the verifier
+-/
+
+namespace MLIR.AST.TensorElem
+
+-- Check whether a tensor literal matches a concrete shape
+def hasShape: TensorElem → List Nat → Bool
+  | TensorElem.int _, [] =>
+      true
+  | TensorElem.nested l, rank::size =>
+      l.length = rank ∧ l.all (hasShape . size)
+  | TensorElem.int _, _::_ =>
+      false
+  | TensorElem.nested _, [] =>
+      false
+
+-- Shape inference function; this determines the unique shape that we allow a
+-- non-uniform tensor can have (hasShape is more liberal with empty lists, but
+-- the MLIR compiler is not)
+def inferredShape: TensorElem → Option (List Nat)
+  | TensorElem.int _ =>
+      some []
+  | TensorElem.nested [] =>
+      some [0]
+  | TensorElem.nested (e::l) =>
+      Option.bind (inferredShape e) fun s1 =>
+      Option.bind (inferredShape (TensorElem.nested l)) fun s2 =>
+      match s2 with
+      | [] => none /- impossible -/
+      | head :: tail =>
+        if s1 = tail then some ((head+1) :: s1) else none
+
+-- First let's prove the list case equivalent to a more readable form
+
+theorem inferredShape_cons: ∀ head tail s_head s_tail,
+    inferredShape (TensorElem.nested tail) = some (s_head :: s_tail) →
+    inferredShape head = some s_tail →
+    inferredShape (TensorElem.nested (head :: tail)) =
+      some ((s_head+1) :: s_tail) := by
+  intros head tail s_head s_tail H1 H2
+  simp [inferredShape, H2, Option.bind, H1];
+
+theorem inferredShape_cons_inv: ∀ {head tail s_head s_tail},
+    inferredShape (TensorElem.nested (head::tail)) = some (s_head::s_tail) →
+    s_head > 0 ∧
+    inferredShape head = some s_tail ∧
+    inferredShape (TensorElem.nested tail) = some ((s_head-1) :: s_tail) := by
+  intros head tail s_head s_tail
+  simp [inferredShape]
+  cases inferredShape head <;> simp [Option.bind]
+  case some head_shape =>
+  cases inferredShape (TensorElem.nested tail) <;> simp [Option.bind]
+  case some tail_shape =>
+  cases tail_shape <;> simp
+  case cons s_head' s_tail' =>
+  apply dite (head_shape = s_tail')
+  . intros Heq; rw [Heq]; simp
+    intros H; rw [←H.1, Nat.add_sub_self_right, ←H.2]
+    exact ⟨by simp_arith, rfl, rfl, rfl⟩
+  . intros Hne; simp [Hne]
+
+theorem inferredShape_list {l head tail}:
+    inferredShape (TensorElem.nested l) = some (head::tail) →
+    head = l.length ∧ l.all (inferredShape . = some tail) := by
+  revert head tail; induction l <;> simp
+  case nil =>
+    intros head tile H; simp [inferredShape, List.all_nil] at *; simp [H.1]
+  case cons head tail ih =>
+    intros s_head s_tail H
+    let H' := inferredShape_cons_inv H
+    specialize (ih H'.2.2)
+    constructor
+    . simp [←ih.1, Nat.succ_eq_add_one, Nat.minus_plus_one H'.1]
+    . simp [List.all_cons]
+      constructor; exact H'.2.1; exact ih.2
+
+theorem inferredShape_list_to_cons {l s}:
+    inferredShape (TensorElem.nested l) = some s →
+    ∃ tail, s = l.length :: tail := by
+  cases s <;> simp [inferredShape]
+  case nil =>
+    cases l <;> simp [inferredShape]
+    case cons head tail =>
+      cases inferredShape head <;> simp [Option.bind]
+      cases inferredShape (TensorElem.nested tail) <;> simp [Option.bind]
+      case some.some s1 s2 =>
+        cases s2 <;> simp
+        case cons s2_head s2_tail =>
+          apply dite (s1 = s2_tail) <;> intros H <;> simp [H]
+  case cons s_head s_tail =>
+    intro H
+    let H' := inferredShape_list H
+    apply Exists.intro s_tail
+    exact ⟨H'.1, rfl⟩
+
+-- We can now show that the shape inference function is correct
+
+theorem hasShape_inferredShape_1:
+  ∀ (e: TensorElem) (shape: List Nat),
+    e.inferredShape = some shape → e.hasShape shape := by
+  intro e
+  -- Cannot use the [induction] tactic because TensorElem is a nested inductive
+  -- and the tactic only supports recursors with a single motive
+  apply @TensorElem.recOn
+    (motive_1 := fun e =>
+      ∀s, e.inferredShape = some s → e.hasShape s)
+    (motive_2 := fun l =>
+      ∀s, l.all (TensorElem.inferredShape . = some s) →
+        l.all (TensorElem.hasShape . s))
+  case int =>
+    intros _ s H; cases s <;> simp [inferredShape, hasShape] at *
+  case nested =>
+    intros l motive_2 s H
+    let H' := inferredShape_list_to_cons H
+    cases H'; case intro s_tail Hs =>
+      rw [Hs]; rw [Hs] at H; clear Hs H'
+      let H' := inferredShape_list H
+      simp [hasShape, motive_2 _ H'.2]
+  case nil =>
+    intros s H; simp [List.all_nil]
+  case cons =>
+    intros head tail motive_1 ih s H; simp [List.all_cons] at *
+    simp [motive_1 _ H.1, ih _ H.2]
+
+-- Which allows us to flatten the term into a single array for a RankedTensor
+
+def flatten: TensorElem → List Int
+  | TensorElem.int i =>
+      [i]
+  | TensorElem.nested [] =>
+      []
+  | TensorElem.nested (e::l) =>
+      flatten e ++ flatten (TensorElem.nested l)
+
+-- Once again, we prove a more friendly version of the list case first
+
+theorem flatten_list:
+  ∀ (l: List TensorElem),
+    flatten (TensorElem.nested l) = (l.map flatten).join := by
+  intros l; induction l <;> simp
+  case cons _ _ ih =>
+    simp [flatten, List.map, List.join, ih]
+
+theorem flatten_size (e: TensorElem) (shape: List Nat):
+    e.hasShape shape → e.flatten.length = shape_prod shape := by
+  revert shape
+  apply @TensorElem.recOn
+    (motive_1 := fun e =>
+      ∀s, e.hasShape s → e.flatten.length = shape_prod s)
+    (motive_2 := fun l =>
+      ∀s, l.all (TensorElem.hasShape . s) →
+        (l.map TensorElem.flatten).join.length = l.length * shape_prod s)
+    <;> simp <;> clear e
+  case int =>
+    intros _ s H;
+    cases s <;> simp [TensorElem.flatten, TensorElem.hasShape] at *
+  case nested =>
+    intros l motive_2 s H
+    cases s <;> simp [TensorElem.hasShape] at H
+    case cons s_head s_tail =>
+    simp [TensorElem.flatten_list, shape_prod, List.foldr]
+    simp [motive_2 s_tail H.2, shape_prod, Nat.mul_comm, H.1]
+  case cons =>
+    intros head tail motive_1 IH2 s H
+    simp [List.map, List.join, Nat.add_comm]
+    simp [Nat.succ_eq_add_one, Nat.right_distrib]
+    simp [List.all_cons] at H
+    simp [IH2 s H.2]
+    rw [motive_1]
+    apply H.1
+
+-- TODO: TensorElem.dense: have other base types than Int in TensorElem
+def dense (e: TensorElem) (shape: List Nat) (H: e.hasShape shape):
+    Fin (shape_prod shape) → Int :=
+  fun i =>
+    List.get_Fin e.flatten i (by rw [flatten_size _ _ H]; simp [i.isLt])
+
+end MLIR.AST.TensorElem
+
 
 /-
 ### Vector types
@@ -45,10 +257,6 @@ TODO: Not modeled fully by lean-mlir right now
 TODO: Consider a different type KnownRankedTensor that we could project to if
 TODO| we have known dimensions. Everything is conditioned by DimList.known...
 -/
-
-@[simp]
-def shape_prod :=
-  List.foldr (·*·) 1
 
 @[simp]
 def shape_refines: List Nat → List Dimension → Bool
@@ -117,7 +325,7 @@ theorem dim_known_prod_refines {D: DimList}:
     cases S; simp at Hrefines
     cases head <;> simp at *
     rw [←Hrefines.1, ←ih Hknown Hrefines.2]
-    simp [List.foldr]
+    simp [shape_prod, List.foldr]
 
 theorem dim_known_prod (D: DimList):
     D.known → shape_prod D.project = D.prod :=
@@ -158,20 +366,42 @@ theorem RankedTensor.eq_of_fields_eq (α D): ∀ (t₁ t₂: RankedTensor α D),
   cases t₁; cases t₂; simp at *
   trivial
 
-def RankedTensor.default {α D} [Inhabited α]: RankedTensor α D :=
+def RankedTensor.uniform {α} D (v: α): RankedTensor α D :=
   { shape := D.default_refinement,
     size  := shape_prod (D.default_refinement),
-    data  := fun _ => Inhabited.default,
+    data  := fun _ => v,
     Hdim  := default_refinement_refines _,
     Hsize := rfl }
 
+def RankedTensor.default α D [Inhabited α]: RankedTensor α D :=
+  RankedTensor.uniform D Inhabited.default
+
+inductive MLIR.AST.TensorElem.rankCompatibleWith (D: DimList) (e:TensorElem) :=
+  | Uniform i: e = TensorElem.int i → rankCompatibleWith D e
+  | HasShape s: e.hasShape s → shape_refines s D → rankCompatibleWith D e
+
+-- TODO: RankedTensor.ofTensorElem: account for typing?
+def RankedTensor.ofTensorElem (D: DimList) (e: TensorElem)
+    (H: e.rankCompatibleWith D): RankedTensor Int D:=
+  match H with
+  | TensorElem.rankCompatibleWith.Uniform i Heq =>
+      RankedTensor.uniform D i
+  | TensorElem.rankCompatibleWith.HasShape s Hshape Hrefines =>
+      { shape := s,
+        size  := shape_prod s,
+        data  := TensorElem.dense e s Hshape,
+        Hdim  := Hrefines,
+        Hsize := rfl }
+
 instance {α D} [Inhabited α]: Inhabited (RankedTensor α D) where
-  default := RankedTensor.default
+  default := RankedTensor.default α D
+
 
 /-
 ### Unranked tensors
 TODO: Unranked tensors?
 -/
+
 
 /-
 ### Evaluation of MLIR types

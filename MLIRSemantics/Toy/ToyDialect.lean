@@ -31,9 +31,25 @@ inductive ToyOp: Type → Type _ :=
 def toy_semantics_op (ret_name: Option SSAVal):
       Op → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
 
-  | Op.mk "toy.constant" [] [] [] attributes (MLIRTy.fn (MLIRTy.tuple []) _) =>
-      -- TODO: Access attributes
-      return ()
+  | Op.mk "toy.constant" [] [] [] attrs (MLIRTy.fn (MLIRTy.tuple []) τ₁) =>
+      match AttrDict.find attrs "value" with
+      | some (AttrVal.dense elem τ₂) =>
+          if H: τ₁ = τ₂ then
+            -- TODO: Carry hypothesis on TensorElem that its type matches the
+            -- number of entries (so it can be prebuilt easily)
+            match elem with
+            -- TODO: TensorElement should support floats
+            | TensorElem.int i =>
+                return () -- return constant tensor
+            | elem =>
+                if H: true then -- TODO: condition to build tensor
+                  return () -- build tensor
+                else
+                  Fitree.trigger InvalidOpE.InvalidOp
+          else
+            Fitree.trigger InvalidOpE.InvalidOp
+      | _ =>
+          Fitree.trigger InvalidOpE.InvalidOp
 
   | Op.mk "toy.transpose" [t_name] [] [] _ (MLIRTy.fn τ₁ τ₂) =>
       match τ₁ with
@@ -145,7 +161,7 @@ def transpose_stmt := [mlir_bb_stmt|
   toy_semantics_bbstmt transpose_stmt
 
 #reduce (skipProofs := true)
-  interp_invalid (toy_semantics_bbstmt transpose_stmt) _
+  interp_invalid (toy_semantics_bbstmt transpose_stmt) sorry
 
 #reduce (skipProofs := true)
   interp_ssa (interp_invalid (toy_semantics_bbstmt transpose_stmt) _) [[]]

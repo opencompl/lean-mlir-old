@@ -14,3 +14,11 @@ theorem Int.mul_ge_0 (n m: Int): n ≥ 0 → m ≥ 0 → n * m ≥ 0 := by
 
 theorem Int.mul_comm (n m: Int): n * m = m * n := by
   sorry
+
+theorem Nat.lt_of_add_lt_add_right {a b c: Nat} (h: a + c < b + c):
+    a < b := by
+  sorry
+
+theorem Nat.minus_plus_one {a: Nat} (h: a > 0):
+    a - 1 + 1 = a := by
+  sorry

@@ -67,7 +67,7 @@ def transpose {α n m} (t: Matrix α n m): Matrix α m n :=
     data := t.data ∘ transpose_remap t.size n m
             (by rw [t.Hsize, dim_known_prod_refines _ t.Hdim] <;> simp),
     Hdim := by simp,
-    Hsize := by simp [List.foldr];
+    Hsize := by simp [shape_prod, List.foldr];
                 rw [t.Hsize, dim_known_prod_refines _ t.Hdim] <;>
                 simp [Nat.mul_comm] }
 
