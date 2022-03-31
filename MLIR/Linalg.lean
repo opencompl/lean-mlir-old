@@ -312,7 +312,7 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
                  , AttrVal.affine (AffineMap.mk input_tuple leaf1_tuple)
                  , AttrVal.affine (AffineMap.mk input_tuple output_tuple)]
   let attrdict := [mlir_attr_dict| { 
-       indexing_maps = [escape| indexing_maps ],
+      indexing_maps = $(indexing_maps),
       library_call = "linalg_matmul",
       iterator_types = [iterator_types.parallel,
                         iterator_types.parallel,

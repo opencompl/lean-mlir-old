@@ -183,7 +183,7 @@ def MatchInfo.toPDL (m: MatchInfo): Op :=
  -- let stmts := m.ops.reverse.map (opToPDL m)
  let stmts := m.ops.map (opToPDL m)
  let rgn := Region.mk [BasicBlock.mk "entry" [] stmts.join]
- [mlir_op| "pdl.pattern" () ([escape| rgn]) { "benefit" = 1 : i16 } : () -> ()  ]
+ [mlir_op| "pdl.pattern" () ($(rgn)) { "benefit" = 1 : i16 } : () -> ()  ]
 
 
 -- | TODO: monadify this.
@@ -544,7 +544,6 @@ def RewriteInfo.toPDL (state: RewriteInfo): Op :=
    let bb := bb.appendStmt (Op.empty "pdl.rewrite_end")
    let rewrite := rewrite.appendRegion bb
 
-   -- [mlir_op| "pdl.rewrite" ([escape| root]) ([escape| rgn]) : ( !"pdl.value" ) -> ()  ]
    -- apend rewrite to matchop
    let matchop := state.matchInfo.toPDL
    let matchBB := matchop.singletonRegion.singletonBlock
@@ -558,7 +557,7 @@ def rewriter0pdl: Op := (rewriterToRewriteInfo rewriter0 RewriteInfo.empty).toPD
 
 def full0pdl : Op := [mlir_op|
    module  {
-         [escape| rewriter0pdl]
+         $(rewriter0pdl)
    }]
 #eval IO.eprintln $ Pretty.doc $ full0pdl
 
@@ -567,8 +566,8 @@ def runPattern (rewrite: Op) (code: Op): IO (Option Op) := do
   let filepath := "temp.mlir"
   let combinedModule := 
   [mlir_op| module {
-    [escape| rewrite]
-    [escape| code]
+    $(rewrite)
+    $(code)
   }]
   let outstr := "// RUN: mlir-opt %s  -allow-unregistered-dialect -test-pdl-bytecode-pass \n" ++ 
       (Pretty.doc combinedModule)
