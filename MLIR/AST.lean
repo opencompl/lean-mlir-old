@@ -55,16 +55,6 @@ inductive Dimension
 
 deriving instance DecidableEq for Dimension
 
-inductive MLIRTy : Type where
-| fn : MLIRTy -> MLIRTy -> MLIRTy
-| int : Int -> MLIRTy
-| float: Int -> MLIRTy
-| index:  MLIRTy
-| tuple : List MLIRTy -> MLIRTy
-| vector: List Dimension -> MLIRTy -> MLIRTy
-| tensor: List Dimension -> MLIRTy -> MLIRTy
-| memref: List Dimension -> MLIRTy -> MLIRTy
-| user: String -> MLIRTy -- user defined type
 
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
@@ -77,6 +67,24 @@ inductive TensorElem :=
 | nested: List TensorElem -> TensorElem
 
 mutual
+
+inductive MemrefLayoutSpec : Type where 
+| stride: (offset: Dimension) -> (stride: List Dimension) -> MemrefLayoutSpec
+| attr: AttrVal -> MemrefLayoutSpec
+
+inductive MLIRTy : Type where
+| fn : MLIRTy -> MLIRTy -> MLIRTy
+| int : Int -> MLIRTy
+| float: Int -> MLIRTy
+| index:  MLIRTy
+| tuple : List MLIRTy -> MLIRTy
+| vector: List Dimension -> MLIRTy -> MLIRTy
+| tensor: List Dimension -> MLIRTy -> MLIRTy
+| memref: (dims: List Dimension) -> (t: MLIRTy) -> 
+  (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
+| user: String -> MLIRTy -- user defined type
+
+
 -- | TODO: factor Symbol out from AttrVal
 inductive AttrVal : Type where
 | symbol: String -> AttrVal -- symbol ref attr
@@ -192,33 +200,12 @@ def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
   | _, _ =>
       false
 
-def MLIRTy.decEq (t1 t2: MLIRTy): Decidable (Eq t1 t2) :=
-  if MLIRTy.beq t1 t2 then isTrue sorry else isFalse sorry
-
-instance: DecidableEq MLIRTy :=
-  MLIRTy.decEq
-
 
 instance : Pretty Dimension where
   doc dim := 
   match dim with
   | Dimension.Unknown => "?"
   | Dimension.Known i => doc i
-
-partial instance :  Pretty MLIRTy where
-  doc (ty: MLIRTy) :=
-    let rec  go (ty: MLIRTy) :=  
-    match ty with
-    | MLIRTy.user k => [doc| "!"k]
-    | MLIRTy.int k => [doc| "i"k]
-    | MLIRTy.float k => [doc| "f"k]
-    | MLIRTy.index => [doc| "index"]
-    | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
-    | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
-    | MLIRTy.vector dims ty => "vector<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
-    | MLIRTy.memref dims ty => "memref<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
-    | MLIRTy.tensor dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
-    go ty
 
 
 partial instance : Pretty TensorElem where
@@ -230,16 +217,41 @@ partial instance : Pretty TensorElem where
        | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ] 
     go t
 
-mutual 
+-- | TODO: allow typeclass instances inside mutual blocks
+mutual
+
+partial def docMemrefLayoutSpec(spec: MemrefLayoutSpec) : Doc :=
+match spec with
+| MemrefLayoutSpec.stride offset strides => [doc| "offset:" offset ", strides: " "[" (strides),* "]"] 
+|  MemrefLayoutSpec.attr v => docAttrVal v
+
+
+partial def docMlirTy(ty: MLIRTy) : Doc := 
+    let rec  go (ty: MLIRTy) :=  
+    match ty with
+    | MLIRTy.user k => [doc| "!"k]
+    | MLIRTy.int k => [doc| "i"k]
+    | MLIRTy.float k => [doc| "f"k]
+    | MLIRTy.index => [doc| "index"]
+    | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
+    | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
+    | MLIRTy.vector dims ty => "vector<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.memref dims ty layout? memspace? => 
+      let docLayout := match layout? with | some x => [doc| "," (docMemrefLayoutSpec x)] | none => ""
+      let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
+      [doc| "memref<" (intercalate_doc dims "x") "x" (go ty) (docLayout)  (docMemspace) ">"]
+    | MLIRTy.tensor dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    go ty
+
 partial def docAttrVal (v: AttrVal) := 
    match v with
    | AttrVal.symbol s => "@" ++ doc_surround_dbl_quot s
    | AttrVal.nestedsymbol s t => (docAttrVal s) ++ "::" ++ (docAttrVal t)
    | AttrVal.str str => doc_surround_dbl_quot str 
-   | AttrVal.type ty => doc ty
-   | AttrVal.int i ty => doc i ++ " : " ++ doc ty
-   | AttrVal.float f ty => doc f ++ " : " ++ doc ty
-   | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ doc ty
+   | AttrVal.type ty => docMlirTy ty
+   | AttrVal.int i ty => doc i ++ " : " ++ docMlirTy ty
+   | AttrVal.float f ty => doc f ++ " : " ++ docMlirTy ty
+   | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ docMlirTy ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map docAttrVal) ", ") ++ "]"
    | AttrVal.alias a => "#" ++ a
@@ -257,6 +269,12 @@ partial def docAttrDict (v: AttrDict) :=
         then Doc.Text ""
         else "{" ++ Doc.Nest (vintercalate_doc (attrs.map docAttrEntry)  ", ")  ++ "}" 
 end
+
+partial instance : Pretty MemrefLayoutSpec where
+ doc  := docMemrefLayoutSpec
+
+partial instance : Pretty MLIRTy where
+ doc := docMlirTy
 
 partial instance : Pretty AttrVal where
  doc (v: AttrVal) := docAttrVal v

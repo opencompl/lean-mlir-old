@@ -326,18 +326,6 @@ macro_rules
 def tensorTy0 := [mlir_type| tensor<3×3×i32>]
 #print tensorTy0
 
-     
-syntax "memref" "<"  mlir_dimension_list  ">"  : mlir_type
-macro_rules
-| `([mlir_type| memref  < $dims:mlir_dimension_list  >]) => do
-    let (dims, ty) <- parseTensorDimensionList dims 
-    `(MLIRTy.vector $dims $ty)
-
-def memrefTy0 := [mlir_type| memref<3×3×i32>]
-#print memrefTy0
-
-def memrefTy1 := [mlir_type| memref<i32>]
-#print memrefTy1
 
 
 
@@ -855,6 +843,69 @@ macro_rules
 
 def mod1 : Op := [mlir_op| module { }]
 #print mod1
+
+--- MEMREF+TENSOR
+--- =============
+-- dimension-list ::= dimension-list-ranked | (`*` `x`)
+-- dimension-list-ranked ::= (dimension `x`)*
+-- dimension ::= `?` | decimal-literal
+-- tensor-type ::= `tensor` `<` dimension-list tensor-memref-element-type `>`
+-- tensor-memref-element-type ::= vector-element-type | vector-type | complex-type
+
+
+-- https://mlir.llvm.org/docs/Dialects/Builtin/#memreftype
+-- memref-type ::= `memref` `<` dimension-list-ranked type
+--                (`,` layout-specification)? (`,` memory-space)? `>`
+
+-- stride-list ::= `[` (dimension (`,` dimension)*)? `]`
+-- strided-layout ::= `offset:` dimension `,` `strides: ` stride-list
+-- layout-specification ::= semi-affine-map | strided-layout | attribute-value
+-- memory-space ::= attribute-value
+-- | good example for paper.
+declare_syntax_cat memref_type_stride_list
+syntax "[" (mlir_dimension,*) "]" : memref_type_stride_list
+
+declare_syntax_cat memref_type_strided_layout
+syntax "offset:" mlir_dimension "," "strides:" memref_type_stride_list : memref_type_strided_layout
+
+declare_syntax_cat memref_type_layout_specification
+syntax memref_type_strided_layout : memref_type_layout_specification
+syntax mlir_attr_val : memref_type_layout_specification
+syntax "[memref_type_layout_specification|" memref_type_layout_specification "]" : term
+
+
+macro_rules
+| `([memref_type_layout_specification| $v:mlir_attr_val]) => 
+    `(MemrefLayoutSpec.attr [mlir_attr_val| $v])
+| `([memref_type_layout_specification| offset: $o:mlir_dimension , strides: [ $[ $ds:mlir_dimension ],* ]]) =>  do
+    let ds <- ds.mapM (fun d => `([mlir_dimension| $d]))
+    let ds <- quoteMList ds.toList
+    `(MemrefLayoutSpec.stride [mlir_dimension| $o] $ds)
+
+syntax "memref" "<"  mlir_dimension_list ("," memref_type_layout_specification)? ("," mlir_attr_val)?  ">"  : mlir_type
+macro_rules
+| `([mlir_type| memref  < $dims:mlir_dimension_list $[, $layout ]? $[, $memspace]? >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims 
+    let memspace <- match memspace with 
+                    | some s => `(some [mlir_attr_val| $s])
+                    | none => `(none)
+
+    let layout <- match layout with 
+                  | some stx => `(some [memref_type_layout_specification| $stx])
+                  | none => `(none)
+    `(MLIRTy.memref $dims $ty $layout $memspace)
+
+def memrefTy0 := [mlir_type| memref<3×3×i32>]
+#print memrefTy0
+
+def memrefTy1 := [mlir_type| memref<i32>]
+#print memrefTy1
+
+def memrefTy2 := [mlir_type| memref<2 × 4 × i8, #map1>]
+#print memrefTy2
+
+def memrefTy3 := [mlir_type| memref<2 × 4 × i8, #map1, 1>]
+#print memrefTy3
 
 
 end MLIR.EDSL
