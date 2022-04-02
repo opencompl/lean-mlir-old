@@ -3,10 +3,13 @@ package main
 import (
 	"flag"
 	"fmt" // A package in the Go standard library.
+	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -33,7 +36,7 @@ syntax "[mlir_ops|" mlir_ops "]" : term
 macro_rules
 |`+"`"+`([mlir_ops| $[ $xs ]* ]) => do 
   let xs <- xs.mapM (fun x =>`+"`"+`([mlir_op| $x]))
-  quoteMList xs.toList
+  quoteMList xs.toList (<-` + "`" + `(MLIR.AST.Op))
 
   
 -- | write an op into the path
@@ -58,6 +61,21 @@ func fileNameWithoutExtTrimSuffix(fileName string) string {
 	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
+// Copy the src file to dst.
+func Copy(src, dst string) error {
+	in, err := os.Open(src)
+	check(err)
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	check(err)
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	check(err)
+	return out.Close()
+}
+
 var FlagStopOnCompileError bool = false
 
 func main() {
@@ -80,7 +98,7 @@ func main() {
 	for iprogress, testFilePath := range testfiles {
 		fmt.Printf("PROGRESS %4d/%4d: %4.2f | %%", iprogress, len(testfiles),
 			float32(iprogress)/float32(len(testfiles))*100.)
-		successRatio := float32(len(successFiles)) / float32(len(testfiles))
+		successRatio := float32(len(successFiles)) / float32(len(successFiles)+len(failureFiles))
 		fmt.Printf(" | num success: %4d | num failures: %4d  | success ratio: %4.2f\n",
 			len(successFiles), len(failureFiles), successRatio*100.)
 
@@ -110,11 +128,21 @@ func main() {
 			log.Output(0, fmt.Sprintf("Leanc error out: | %s |", buildCmdOut))
 			failureFiles = append(failureFiles, testFilePath)
 
+			// Save failing files into a 1-failures/ folder.
+			err = os.MkdirAll("1-failures", 0777)
+			check(err)
+			errFilePath :=
+				"1-failures/" + strconv.Itoa(len(failureFiles)) + "-" + testFileNameWithExtension + ".lean"
+			log.Output(0, fmt.Sprintf("Copying failing test case to | %s |.", errFilePath))
+
+			Copy(leanFilePath, errFilePath)
 			if FlagStopOnCompileError {
+				log.Output(0, "failing because StopOnCompileError=true")
 				panic(err)
 			} else {
 				continue
 			}
+
 		}
 
 		// ---- Run project
