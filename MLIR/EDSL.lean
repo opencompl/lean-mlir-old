@@ -448,6 +448,8 @@ macro_rules
 
 declare_syntax_cat mlir_tensor
 syntax numLit : mlir_tensor
+syntax scientificLit : mlir_tensor
+
 syntax "[" sepBy(mlir_tensor, ",") "]" : mlir_tensor
 
 syntax ident: mlir_tensor
@@ -455,6 +457,9 @@ syntax "[mlir_tensor|" mlir_tensor "]" : term
 
 macro_rules
 | `([mlir_tensor| $x:numLit ]) => `(TensorElem.int $x)
+
+macro_rules
+| `([mlir_tensor| $x:scientificLit ]) => `(TensorElem.float $x)
 
 macro_rules 
 | `([mlir_tensor| $x:ident ]) => do 
@@ -473,6 +478,7 @@ macro_rules
 
 
 def tensorValNum := [mlir_tensor| 42]
+def tensorValFloat := [mlir_tensor| 0.000000]
 def tensorValTrue := [mlir_tensor| true]
 def tensorValFalse := [mlir_tensor| false]
 

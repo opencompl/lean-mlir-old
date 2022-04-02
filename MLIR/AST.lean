@@ -63,6 +63,7 @@ deriving instance DecidableEq for SSAVal
 
 inductive TensorElem := 
 | int: Int -> TensorElem
+| float: Float -> TensorElem
 | bool: Bool -> TensorElem
 | nested: List TensorElem -> TensorElem
 
@@ -214,6 +215,7 @@ partial instance : Pretty TensorElem where
       match t with
        | TensorElem.int i => doc i
        | TensorElem.bool b => doc b
+       | TensorElem.float f => doc f
        | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ] 
     go t
 
