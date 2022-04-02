@@ -22,13 +22,13 @@ def quoteMDimension (d: Dimension): MacroM Syntax :=
     `(Dimension.Known $(quote n))
   | Dimension.Unknown => `(Dimension.Unknown)
 
-def quoteMList (k: List Syntax): MacroM Syntax :=
-  match k with 
-  | [] => `([])
-  | (k::ks) => do
-      let sks <- quoteMList ks
-      `([$k] ++ $sks)
 
+def quoteMList (k: List Syntax) (ty: Syntax): MacroM Syntax :=
+  match k with 
+  | [] => `(@List.nil $ty)
+  | (k::ks) => do
+      let sks <- quoteMList ks ty
+      `([$k] ++ $sks)
 
 
 -- AFFINE SYTAX
@@ -56,7 +56,7 @@ macro_rules
 
 macro_rules
 | `([affine_tuple| ( $xs,* ) ]) => do
-   let initList  <- `([])
+   let initList  <- `(@List.nil MLIR.AST.AffineExpr)
    let argsList <- xs.getElems.foldlM
     (init := initList) 
     (fun xs x => `($xs ++ [[affine_expr| $x]]))
@@ -143,7 +143,7 @@ syntax "(" mlir_type,* ")" : mlir_type
 macro_rules
 | `([mlir_type| ( $xs,* )]) => do
       let xs <- xs.getElems.mapM (fun x => `([mlir_type| $x]))
-      let x <- quoteMList xs.toList
+      let x <- quoteMList xs.toList (<- `(MLIRTy))
       `(MLIRTy.tuple $x)
 
 -- syntax "(" mlir_type ")" : mlir_type
@@ -274,7 +274,7 @@ def parseTensorDimensionList (k: Syntax) : MacroM (Syntax × Syntax) := do
   let ty <- `([mlir_type|  $(k.getArgs.back)])
   let dimensions := (k.getArg 0)
   let dimensions <- dimensions.getArgs.toList.mapM (fun x => `([mlir_dimension| $(x.getArg 0)]))
-  let dimensions <- quoteMList dimensions
+  let dimensions <- quoteMList dimensions (<- `(MLIR.AST.Dimension))
   -- Macro.throwError $ ("unknown dimension list:\n|" ++ (toString k.getArgs) ++ "|" ++ "\nDIMS: " ++ (toString dimensions) ++ " |\nTYPE: " ++ (toString ty)++ "")
   return (dimensions, ty)
 
@@ -384,7 +384,7 @@ syntax (mlir_bb_stmt)* : mlir_bb_stmts
 syntax "[mlir_bb_stmts|" incQuotDepth(mlir_bb_stmts) "]" : term
 macro_rules
 | `([mlir_bb_stmts| $[ $stmts ]*  ]) => do
-      let initList <- `([])
+      let initList <- `(@List.nil MLIR.AST.BasicBlockStmt)
       stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
 
 macro_rules
@@ -397,12 +397,11 @@ syntax "[mlir_bb|" mlir_bb "]": term
 
 macro_rules 
 | `([mlir_bb| ^ $name:ident ( $operands,* ) : $stmts ]) => do
-   let initList <- `([])
+   let initList <- `(@List.nil (MLIR.AST.SSAVal × MLIR.AST.MLIRTy))
    let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
    let opsList <- `([mlir_bb_stmts| $stmts])
    `(BasicBlock.mk $(Lean.quote (name.getId.toString)) $argsList $opsList)
 | `([mlir_bb| ^ $name:ident : $stmts ]) => do
-   let initList <- `([])
    let opsList <- `([mlir_bb_stmts| $stmts])
    `(BasicBlock.mk $(Lean.quote (name.getId.toString)) [] $opsList)
 
@@ -637,8 +636,8 @@ syntax "[mlir_attr_dict|" incQuotDepth(mlir_attr_dict) "]" : term
 
 macro_rules
 | `([mlir_attr_dict| {  $attrEntries,* } ]) => do
-        let initList <- `([])
-        let attrsList <-attrEntries.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_entry| $x]]) 
+        let attrsList <- attrEntries.getElems.toList.mapM (fun x => `([mlir_attr_entry| $x]))
+        let attrsList <- quoteMList attrsList (<- `(MLIR.AST.AttrEntry))
         `(AttrDict.mk $attrsList)
 
 
@@ -672,17 +671,23 @@ macro_rules
         $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
         $[ $attrDict ]? : $ty:mlir_type ]) => do
-        let initList <- `([])
-        let operandsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
+        let operandsList <- operands.getElems.mapM (fun x => `([mlir_op_operand| $x]))
+        let operandsList <- quoteMList operandsList.toList (<- `(MLIR.AST.SSAVal))
+
         let succList <- match succ with
-                | none => `([])
-                | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
+                | none => `(@List.nil MLIR.AST.BBName)
+                | some xs => do 
+                  let xs <- xs.getElems.mapM (fun x => `([mlir_op_successor_arg| $x]))
+                  quoteMList xs.toList (<- `(MLIR.AST.BBName))
         let attrDict <- match attrDict with 
                           | none => `(AttrDict.mk []) 
                           | some dict => `([mlir_attr_dict| $dict])
         let rgnsList <- match rgns with 
-                          | none => `([]) 
-                          | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
+                  | none => `(@List.nil MLIR.AST.Region) 
+                  | some rgns => do 
+                    let rngs <- rgns.getElems.mapM (fun x => `([mlir_region| $x]))
+                    quoteMList rngs.toList (<- `(MLIR.AST.Region))
+
         `(Op.mk $name -- name
                 $operandsList -- operands
                 $succList -- bbs
@@ -813,9 +818,12 @@ syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" mlir_regi
 -- | TODO: add support for multi BB region.
 macro_rules 
 | `([mlir_op| func $name:mlir_attr_val_symbol ( $args,* )  $rgn ]) => do
-     let initList <- `([])
-     let argsList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
-     let typesList <- args.getElems.foldlM (init := initList) fun xs x => `($xs ++ [Prod.snd [mlir_bb_operand| $x]])
+     let argsList <- args.getElems.mapM (fun x => `([mlir_bb_operand| $x])) 
+     let argsList <- quoteMList argsList.toList (<- `(MLIR.AST.SSAVal × MLIR.AST.MLIRTy))
+
+     let typesList <- args.getElems.mapM (fun x => `(Prod.snd [mlir_bb_operand| $x])) 
+     let typesList <- quoteMList typesList.toList (<- `(MLIR.AST.MLIRTy))
+
      let rgn <- `([mlir_region| $rgn])
      let rgn <- `(($rgn).ensureEntryBlock.setEntryBlockArgs $argsList)
      let argTys <- `(($argsList).map Prod.snd)
@@ -835,7 +843,7 @@ syntax "module" "{" mlir_op* "}" : mlir_op
 
 macro_rules 
 | `([mlir_op| module { $ops* } ]) => do
-     let initList <- `([])
+     let initList <- `(@List.nil MLIR.AST.Op)
      let ops <- ops.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op| $x] ])
      let ops <- `($ops ++ [Op.empty "module_terminator"])
      let rgn <- `(Region.fromOps $ops)
@@ -879,7 +887,7 @@ macro_rules
     `(MemrefLayoutSpec.attr [mlir_attr_val| $v])
 | `([memref_type_layout_specification| offset: $o:mlir_dimension , strides: [ $[ $ds:mlir_dimension ],* ]]) =>  do
     let ds <- ds.mapM (fun d => `([mlir_dimension| $d]))
-    let ds <- quoteMList ds.toList
+    let ds <- quoteMList ds.toList (<- `(MLIR.AST.Dimension))
     `(MemrefLayoutSpec.stride [mlir_dimension| $o] $ds)
 
 syntax "memref" "<"  mlir_dimension_list ("," memref_type_layout_specification)? ("," mlir_attr_val)?  ">"  : mlir_type
