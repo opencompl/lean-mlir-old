@@ -79,7 +79,7 @@ inductive MLIRTy : Type where
 | float: Int -> MLIRTy
 | index:  MLIRTy
 | tuple : List MLIRTy -> MLIRTy
-| vector: List Dimension -> MLIRTy -> MLIRTy
+| vector: (fixed: (List Int)) -> (scaled: (List Int)) -> MLIRTy -> MLIRTy
 | tensorRanked: List Dimension -> MLIRTy -> MLIRTy
 | tensorUnranked: MLIRTy -> MLIRTy
 | memrefRanked: (dims: List Dimension) -> (t: MLIRTy) -> 
@@ -182,6 +182,7 @@ inductive Module where
       ->  Module
 
 
+-- | TODO: either remove or fix.
 def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
   match t1, t2 with
   | MLIRTy.fn a1 b1, MLIRTy.fn a2 b2 =>
@@ -194,8 +195,8 @@ def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
       true
   | MLIRTy.tuple (t1::l1), MLIRTy.tuple (t2::l2) =>
       beq t1 t2 && beq (MLIRTy.tuple l1) (MLIRTy.tuple l2)
-  | MLIRTy.vector l1 t1, MLIRTy.vector l2 t2 =>
-      l1 == l2 && beq t1 t2
+  | MLIRTy.vector l1 f1 s1, MLIRTy.vector l2 f2 s2 =>
+    false
   | MLIRTy.tensorRanked l1 t1, MLIRTy.tensorRanked l2 t2 =>
       l1 == l2 && beq t1 t2
   | MLIRTy.user n1, MLIRTy.user n2 =>
@@ -239,7 +240,14 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
     | MLIRTy.index => [doc| "index"]
     | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
-    | MLIRTy.vector dims ty => "vector<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.vector fixed scaled ty => 
+      let docFixed := match fixed with 
+        | [] => "" 
+        | _ => (intercalate_doc fixed "×") ++ "×"
+      let docScaling := match scaled with 
+        | [] => ""
+        | _ => (intercalate_doc fixed "×") ++ "×"
+      [doc| "vector<" (docFixed) (docScaling) (go ty) ">"]
     | MLIRTy.memrefRanked dims ty layout? memspace? => 
       let docLayout := match layout? with | some x => [doc| "," (docMemrefLayoutSpec x)] | none => ""
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
@@ -319,9 +327,11 @@ instance : Coe MLIRTy AttrVal where
   coe (t: MLIRTy) := AttrVal.type t
 
 
+-- | create a dense vector with values 'xs' and type vector<len(xs)xity>
 def AttrVal.dense_vector (xs: List Int) (ity: MLIRTy := MLIRTy.int 32): AttrVal :=
-  let vshape := [Dimension.Known (xs.length)]
-  let vty := MLIRTy.vector vshape ity 
+  let fixedShape := [Int.ofNat xs.length]
+  let scaledShape := []
+  let vty := MLIRTy.vector fixedShape scaledShape ity 
   AttrVal.dense xs vty
 
 instance : Coe (String × AttrVal) AttrEntry where 
