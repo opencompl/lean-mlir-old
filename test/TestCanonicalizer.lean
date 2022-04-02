@@ -32,9 +32,14 @@ def o: List Op := [mlir_ops|
 
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<4 × 4 × ? × f32>, %arg1: f32, %arg2: i32, %arg3: index, %arg4: i64, %arg5: f16):
-    %19 = "arith.constant"() {value = dense<0.00000000> : vector<4 × f32>} : () -> vector<4 × f32>
-  }) {function_type = (tensor<4 × 4 × ? × f32>, f32, i32, index, i64, f16) -> (), sym_name = "standard_instrs"} : () -> ()
+  ^bb0(%arg0: memref<4 × f32>, %arg1: memref<? × f32>, %arg2: memref<64 × 16 × 4 × f32, #map2>):
+    %0 = "memref.cast"(%arg0) : (memref<4 × f32>) -> memref<? × f32>
+    %1 = "memref.cast"(%arg1) : (memref<? × f32>) -> memref<4 × f32>
+    %2 = "memref.cast"(%arg2) : (memref<64 × 16 × 4 × f32, #map2>) -> memref<64 × 16 × 4 × f32, #map3>
+    %3 = "memref.cast"(%2) : (memref<64 × 16 × 4 × f32, #map3>) -> memref<64 × 16 × 4 × f32, #map2>
+    %5 = "memref.cast"(%4) : (memref<* × f32>) -> memref<4 × f32>
+    "func.return"() : () -> ()
+  }) {function_type = (memref<4 × f32>, memref<? × f32>, memref<64 × 16 × 4 × f32, #map2>) -> (), sym_name = "memref_cast"} : () -> ()
 }) : () -> ()
 
 

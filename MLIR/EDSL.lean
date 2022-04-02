@@ -33,7 +33,6 @@ def quoteMList (k: List Syntax) (ty: Syntax): MacroM Syntax :=
 
 -- AFFINE SYTAX
 -- ============
-
  
 declare_syntax_cat affine_expr
 declare_syntax_cat affine_tuple
@@ -868,9 +867,10 @@ def mod1 : Op := [mlir_op| module { }]
 
 
 -- https://mlir.llvm.org/docs/Dialects/Builtin/#memreftype
--- memref-type ::= `memref` `<` dimension-list-ranked type
---                (`,` layout-specification)? (`,` memory-space)? `>`
-
+-- memref-type ::= ranked-memref-type | unranked-memref-type
+-- ranked-memref-type ::= `memref` `<` dimension-list-ranked type
+--                        (`,` layout-specification)? (`,` memory-space)? `>`
+-- unranked-memref-type ::= `memref` `<*x` type (`,` memory-space)? `>`
 -- stride-list ::= `[` (dimension (`,` dimension)*)? `]`
 -- strided-layout ::= `offset:` dimension `,` `strides: ` stride-list
 -- layout-specification ::= semi-affine-map | strided-layout | attribute-value
@@ -896,6 +896,7 @@ macro_rules
     let ds <- quoteMList ds.toList (<- `(MLIR.AST.Dimension))
     `(MemrefLayoutSpec.stride [mlir_dimension| $o] $ds)
 
+-- | ranked memref
 syntax "memref" "<"  mlir_dimension_list ("," memref_type_layout_specification)? ("," mlir_attr_val)?  ">"  : mlir_type
 macro_rules
 | `([mlir_type| memref  < $dims:mlir_dimension_list $[, $layout ]? $[, $memspace]? >]) => do
@@ -907,7 +908,7 @@ macro_rules
     let layout <- match layout with 
                   | some stx => `(some [memref_type_layout_specification| $stx])
                   | none => `(none)
-    `(MLIRTy.memref $dims $ty $layout $memspace)
+    `(MLIRTy.memrefRanked $dims $ty $layout $memspace)
 
 def memrefTy0 := [mlir_type| memref<3×3×i32>]
 #print memrefTy0
@@ -920,6 +921,29 @@ def memrefTy2 := [mlir_type| memref<2 × 4 × i8, #map1>]
 
 def memrefTy3 := [mlir_type| memref<2 × 4 × i8, #map1, 1>]
 #print memrefTy3
+  
 
+-- | unranked memref
+-- unranked-memref-type ::= `memref` `<*x` type (`,` memory-space)? `>`
+-- | TODO: Do I need two different parsers for these cases?
+syntax "memref" "<"  "*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
+syntax "memref" "<*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
+macro_rules
+| `([mlir_type| memref < * × $ty  $[, $memspace]? >]) => do
+    let memspace <- match memspace with 
+                    | some s => `(some [mlir_attr_val| $s])
+                    | none => `(none)
+    `(MLIRTy.memrefUnranked [mlir_type| $ty] $memspace)
+
+macro_rules
+| `([mlir_type| memref <* × $ty  $[, $memspace]? >]) => do
+    let memspace <- match memspace with 
+                    | some s => `(some [mlir_attr_val| $s])
+                    | none => `(none)
+    `(MLIRTy.memrefUnranked [mlir_type| $ty] $memspace)
+ 
+def memrefTy4 := [mlir_type| memref<* × f32>]
+#print memrefTy4
 
 end MLIR.EDSL
+
