@@ -32,14 +32,10 @@ def o: List Op := [mlir_ops|
 
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<4 × f32>, %arg1: memref<? × f32>, %arg2: memref<64 × 16 × 4 × f32, #map2>):
-    %0 = "memref.cast"(%arg0) : (memref<4 × f32>) -> memref<? × f32>
-    %1 = "memref.cast"(%arg1) : (memref<? × f32>) -> memref<4 × f32>
-    %2 = "memref.cast"(%arg2) : (memref<64 × 16 × 4 × f32, #map2>) -> memref<64 × 16 × 4 × f32, #map3>
-    %3 = "memref.cast"(%2) : (memref<64 × 16 × 4 × f32, #map3>) -> memref<64 × 16 × 4 × f32, #map2>
-    %5 = "memref.cast"(%4) : (memref<* × f32>) -> memref<4 × f32>
+  ^bb0(%arg0: memref<* × i32>, %arg1: tensor<* × i32>):
+    "memref.tensor_store"(%arg1, %arg0) : (tensor<* × i32>, memref<* × i32>) -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<4 × f32>, memref<? × f32>, memref<64 × 16 × 4 × f32, #map2>) -> (), sym_name = "memref_cast"} : () -> ()
+  }) {function_type = (memref<* × i32>, tensor<* × i32>) -> (), sym_name = "unranked_tensor_load_store"} : () -> ()
 }) : () -> ()
 
 

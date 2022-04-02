@@ -80,7 +80,8 @@ inductive MLIRTy : Type where
 | index:  MLIRTy
 | tuple : List MLIRTy -> MLIRTy
 | vector: List Dimension -> MLIRTy -> MLIRTy
-| tensor: List Dimension -> MLIRTy -> MLIRTy
+| tensorRanked: List Dimension -> MLIRTy -> MLIRTy
+| tensorUnranked: MLIRTy -> MLIRTy
 | memrefRanked: (dims: List Dimension) -> (t: MLIRTy) -> 
   (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
 | memrefUnranked:  (t: MLIRTy) ->  (memspace: Option AttrVal) -> MLIRTy
@@ -195,7 +196,7 @@ def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
       beq t1 t2 && beq (MLIRTy.tuple l1) (MLIRTy.tuple l2)
   | MLIRTy.vector l1 t1, MLIRTy.vector l2 t2 =>
       l1 == l2 && beq t1 t2
-  | MLIRTy.tensor l1 t1, MLIRTy.tensor l2 t2 =>
+  | MLIRTy.tensorRanked l1 t1, MLIRTy.tensorRanked l2 t2 =>
       l1 == l2 && beq t1 t2
   | MLIRTy.user n1, MLIRTy.user n2 =>
       n1 == n2
@@ -246,7 +247,8 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
     | MLIRTy.memrefUnranked ty memspace? => 
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" "*x" (go ty) (docMemspace) ">"]
-    | MLIRTy.tensor dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.tensorRanked dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.tensorUnranked ty => "tensor<" ++ "*x" ++ go ty ++ ">"
     go ty
 
 partial def docAttrVal (v: AttrVal) := 

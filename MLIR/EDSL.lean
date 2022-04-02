@@ -307,11 +307,11 @@ def vectorTy0 := [mlir_type| vector<3 × 3 × i32>]
 
 
 -- | TODO: is this actually necessary?
-syntax  "<" mlir_dimension_list  ">"  : mlir_type
-macro_rules
-| `([mlir_type|  < $dims:mlir_dimension_list  >]) => do
-    let (dims, ty) <- parseTensorDimensionList dims 
-    `(MLIRTy.vector $dims $ty)
+-- syntax  "<" mlir_dimension_list  ">"  : mlir_type
+-- macro_rules
+-- | `([mlir_type|  < $dims:mlir_dimension_list  >]) => do
+--     let (dims, ty) <- parseTensorDimensionList dims 
+--     `(MLIRTy.vector $dims $ty)
 
 
 -- | TODO: fix bug that does not allow a trailing times.
@@ -320,10 +320,44 @@ syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
 macro_rules
 | `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
     let (dims, ty) <- parseTensorDimensionList dims 
-    `(MLIRTy.vector $dims $ty)
+    `(MLIRTy.tensorRanked $dims $ty)
+
+-- | TODO: this is a huge hack.
+-- | TODO: I should be able to use the lower level parser to parse this cleanly?
+syntax "tensor" "<"  "*" "×" mlir_type ">"  : mlir_type
+syntax "tensor" "<*" "×" mlir_type ">"  : mlir_type
+syntax "tensor" "<*×" mlir_type ">"  : mlir_type
+
+macro_rules
+| `([mlir_type| tensor < *× $ty:mlir_type >]) => do
+    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+
+macro_rules
+| `([mlir_type| tensor < * × $ty:mlir_type >]) => do
+    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+
+macro_rules
+| `([mlir_type| tensor <* × $ty:mlir_type >]) => do
+    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+
+macro_rules
+| `([mlir_type| tensor <*×$ty:mlir_type >]) => do
+    `(MLIRTy.tensorUnranked [mlir_type| $ty])
 
 def tensorTy0 := [mlir_type| tensor<3×3×i32>]
 #print tensorTy0
+
+def tensorTy1 := [mlir_type| tensor< * × i32>]
+#print tensorTy1
+
+def tensorTy2 := [mlir_type| tensor< * × f32>]
+#print tensorTy2
+
+def tensorTy3 := [mlir_type| tensor<*× f32>]
+#print tensorTy3
+
+def tensorTy4 := [mlir_type| tensor<* × f32>]
+#print tensorTy4
 
 
 
