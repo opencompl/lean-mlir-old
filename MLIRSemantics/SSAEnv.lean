@@ -97,6 +97,7 @@ inductive SSAEnvE: Type → Type _ where
   | Get: (τ: MLIRTy) → [Inhabited τ.eval] → SSAVal → SSAEnvE τ.eval
   | Set: (τ: MLIRTy) → SSAVal → τ.eval → SSAEnvE Unit
 
+@[simp_itree]
 def SSAEnvE.handle {E}: SSAEnvE ~> StateT SSAEnv (Fitree E) :=
   fun _ e env =>
     match e with
@@ -107,8 +108,18 @@ def SSAEnvE.handle {E}: SSAEnvE ~> StateT SSAEnv (Fitree E) :=
     | Set τ name v =>
         return ((), env.set name τ v)
 
+@[simp_itree]
+def SSAEnv.set? {E} [Member SSAEnvE E]
+    (τ: MLIRTy) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
+  match name? with
+  | some name =>
+      Fitree.trigger (SSAEnvE.Set τ name v)
+  | none =>
+      return ()
+
 -- In-context handler interpreting (SSAEnvE +' E ~> E)
 
+@[simp_itree]
 private def stateT_defaultHandler E: E ~> StateT SSAEnv (Fitree E) :=
   fun _ e m => do
     let r <- Fitree.trigger e;

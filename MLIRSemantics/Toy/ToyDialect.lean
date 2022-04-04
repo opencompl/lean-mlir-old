@@ -15,9 +15,9 @@ open MLIR.AST
 /- To be automatically generated -/
 
 inductive ToyOp: Type → Type _ :=
-  | Constant: (α: Type) → (n m: Nat) →
-      RankedTensor α [Dimension.Known n, Dimension.Known m] →
-      ToyOp (RankedTensor α [Dimension.Known n, Dimension.Known m])
+  | Constant: /- (α: Type) → -/ (D: DimList) → (Hknown: D.known) →
+      (e: TensorElem) → (Hcompat: e.rankCompatibleWith D) →
+      ToyOp (RankedTensor Int D)
   | Transpose: (α: Type) → (n m: Nat) →
       RankedTensor α [Dimension.Known n, Dimension.Known m] →
       ToyOp (RankedTensor α [Dimension.Known m, Dimension.Known n])
@@ -26,24 +26,29 @@ inductive ToyOp: Type → Type _ :=
       RankedTensor α D →
       ToyOp (RankedTensor α D')
 
-/- To be automatically generated -/
+/- To be automatically generated (hopefully; basically this is the
+   verification stuff) -/
 
 def toy_semantics_op (ret_name: Option SSAVal):
       Op → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
 
-  | Op.mk "toy.constant" [] [] [] attrs (MLIRTy.fn (MLIRTy.tuple []) τ₁) =>
+  | Op.mk "toy.constant" [] [] [] attrs
+        (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tensor D₁ (MLIRTy.int 32))) =>
       match AttrDict.find attrs "value" with
-      | some (AttrVal.dense elem τ₂) =>
-          if H: τ₁ = τ₂ then
-            -- TODO: Carry hypothesis on TensorElem that its type matches the
-            -- number of entries (so it can be prebuilt easily)
-            match elem with
-            -- TODO: TensorElement should support floats
-            | TensorElem.int i =>
-                return () -- return constant tensor
-            | elem =>
-                if H: true then -- TODO: condition to build tensor
-                  return () -- build tensor
+      | some (AttrVal.dense elem (MLIRTy.tensor D₂ (MLIRTy.int 32))) =>
+          if H: D₁ = D₂ ∧ DimList.known D₁ then
+            match Heq: elem with
+            | TensorElem.int i => do
+                let t ← Fitree.trigger (ToyOp.Constant D₁ H.2 elem
+                  (TensorElem.rankCompatibleWith.Uniform i Heq));
+                SSAEnv.set? (MLIRTy.tensor D₁ (MLIRTy.int 32)) ret_name t
+            | elem => do
+                if Hshape: elem.hasShape (DimList.default_refinement D₁) then
+                  let t ← Fitree.trigger (ToyOp.Constant D₁ H.2 elem
+                    (TensorElem.rankCompatibleWith.HasShape
+                     (DimList.default_refinement D₁) Hshape
+                     (default_refinement_refines D₁)));
+                  SSAEnv.set? (MLIRTy.tensor D₁ (MLIRTy.int 32)) ret_name t
                 else
                   Fitree.trigger InvalidOpE.InvalidOp
           else
@@ -57,12 +62,8 @@ def toy_semantics_op (ret_name: Option SSAVal):
           let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensor [Dimension.Known
                   n, Dimension.Known m] τ) _ t_name);
           let t' ← Fitree.trigger (ToyOp.Transpose τ.eval n m t);
-          match ret_name with
-          | some name =>
-              Fitree.trigger (@SSAEnvE.Set (MLIRTy.tensor [Dimension.Known m,
-                Dimension.Known n] τ) name t')
-          | none =>
-              return ()
+          SSAEnv.set? (MLIRTy.tensor [Dimension.Known m, Dimension.Known n] τ)
+            ret_name t'
       | _ =>
           Fitree.trigger InvalidOpE.InvalidOp
 
@@ -77,11 +78,7 @@ def toy_semantics_op (ret_name: Option SSAVal):
             let t' ← Fitree.trigger (ToyOp.Reshape σ₁.eval D D'
                      H.2.1 H.2.2.1 H.2.2.2 t);
             let t': RankedTensor σ₂.eval D' := cast (by rw [H.1]) t';
-            match ret_name with
-            | some name =>
-                Fitree.trigger (@SSAEnvE.Set (MLIRTy.tensor D' σ₂) name t')
-            | none =>
-                return ()
+            SSAEnv.set? (MLIRTy.tensor D' σ₂) ret_name t'
           else
             Fitree.trigger InvalidOpE.InvalidOp
       | _, _ =>
@@ -97,12 +94,23 @@ def toy_semantics_bbstmt:
   | BasicBlockStmt.StmtOp op =>
       toy_semantics_op none op
 
+-- TODO: toy_semantics_bb: handle basic block arguments
+@[simp]
+def toy_semantics_bb:
+      BasicBlock → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
+  | BasicBlock.mk name args [] =>
+      Fitree.ret ()
+  | BasicBlock.mk name args (op1::ops) =>
+      List.foldr (fun t acc => Fitree.bind acc (fun _ => t))
+                 (toy_semantics_bbstmt op1)
+                 (ops.map toy_semantics_bbstmt)
+
 /- Manually specified: ToyOp event handler -/
 
 def ToyOp.handle {E}: ToyOp ~> Fitree E :=
   fun _ e => match e with
-  | ToyOp.Constant α n m t =>
-      return t
+  | ToyOp.Constant D Hknown elem Hcompat =>
+      return RankedTensor.ofTensorElem D elem Hcompat
   | ToyOp.Transpose α n m t =>
       return transpose t
   | ToyOp.Reshape α D D' H H' Hprod t =>
@@ -112,6 +120,11 @@ def ToyOp.handle {E}: ToyOp ~> Fitree E :=
 
 def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
   interp (case_ ToyOp.handle (fun T => @Fitree.trigger E E T _)) t
+
+@[simp]
+def run_toy (t: Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit) (env: SSAEnv):
+    Fitree PVoid (Unit × SSAEnv) :=
+  interp ToyOp.handle (interp_ssa (interp_invalid t sorry) env)
 
 /-
 ### Interpretation layers for Toy programs
@@ -153,18 +166,49 @@ elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> f
       let e ← withTransparency (mode := TransparencyMode.all) <| reduce e (skipProofs := skipProofs) (skipTypes := false)
       logInfo e
 
+---
+
 def transpose_stmt := [mlir_bb_stmt|
     %t2 = "toy.transpose"(%t1): tensor<2×4:i32> -> tensor<4×2:i32>
 ]
 
-#reduce (skipProofs := true)
-  toy_semantics_bbstmt transpose_stmt
+def double_transpose := [mlir_bb|
+  ^dbl:
+    %t2 = "toy.transpose"(%t1): tensor<2×4:i32> -> tensor<4×2:i32>
+    %t3 = "toy.transpose"(%t2): tensor<4×2:i32> -> tensor<2×4:i32>
+]
 
 #reduce (skipProofs := true)
-  interp_invalid (toy_semantics_bbstmt transpose_stmt) sorry
-
-#reduce (skipProofs := true)
-  interp_ssa (interp_invalid (toy_semantics_bbstmt transpose_stmt) _) [[]]
+  toy_semantics_bb double_transpose
 
 #reduce (skipProofs := true)
   interp ToyOp.handle (interp_ssa (interp_invalid (toy_semantics_bbstmt transpose_stmt) _) [[]])
+
+set_option maxRecDepth 100000
+
+theorem double_transpose_correct:
+  ∀ (t1: RankedTensor Int [2,4]),
+    run_toy (toy_semantics_bb double_transpose)
+      [[("t1", ⟨MLIRTy.tensor [2,4] (MLIRTy.int 32), t1⟩)]]
+    =
+    Fitree.ret ((), [[
+      (SSAVal.SSAVal "t1", ⟨MLIRTy.tensor [2,4] (MLIRTy.int 32), t1⟩),
+      (SSAVal.SSAVal "t2", ⟨MLIRTy.tensor [4,2] (MLIRTy.int 32), transpose t1⟩),
+      (SSAVal.SSAVal "t3", ⟨MLIRTy.tensor [2,4] (MLIRTy.int 32), t1⟩)
+    ]]) := by
+  intros t1
+  unfold double_transpose
+  simp
+  simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
+  simp [interp_invalid]; simp_itree
+  simp [interp_ssa]; simp_itree
+  rw [transpose_involutive]
+  rfl
+
+inductive Tree :=
+  | Leaf: Int → Tree
+  | Node: Tree → Tree → Tree
+
+def Tree.sum: Tree → Int
+  | Leaf i => i
+  | Node t t' => sum t + sum t'

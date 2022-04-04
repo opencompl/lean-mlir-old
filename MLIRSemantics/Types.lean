@@ -29,6 +29,7 @@ Types that need improvements or refinements:
 -/
 
 import MLIRSemantics.Util.Arith
+import MLIRSemantics.Fitree
 
 import MLIR.AST
 open MLIR.AST
@@ -54,6 +55,10 @@ def List.get_Fin {α} (l: List α) (n: Nat) (H: n < l.length): α :=
     get_Fin as n (by
       simp [length] at H;
       apply @Nat.lt_of_add_lt_add_right _ _ 1; assumption)
+
+instance: OfNat Dimension (n: Nat) where
+  ofNat := Dimension.Known n
+
 
 /-
 ## Shape inference on literal tensors
@@ -414,7 +419,7 @@ TODO: Not all MLIRTy types are correctly evaluated
    See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/
    reduction.20of.20dependent.20return.20type/near/276044057 -/
 
-@[reducible]
+@[reducible, simp_itree]
 def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
   @MLIRTy.rec
     (motive_1 := fun _ => Type)

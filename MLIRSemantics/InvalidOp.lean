@@ -17,6 +17,7 @@ import MLIRSemantics.Fitree
 inductive InvalidOpE: Type → Type :=
   | InvalidOp: InvalidOpE Unit
 
+@[simp_itree]
 def InvalidOpE.handle {E}: InvalidOpE ~> Fitree E :=
   fun _ ⟨⟩ => Fitree.Ret ()
 

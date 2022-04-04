@@ -31,6 +31,8 @@ only model programs that always terminate.
 [1]: https://github.com/vellvm/vellvm
 -/
 
+import MLIRSemantics.SimpItree
+
 /- Extendable effect families -/
 
 section events
@@ -65,6 +67,7 @@ example (E: Type → Type u) (F: Type → Type v):
 example (E: Type → Type u) (F: Type → Type v):
   Member E (F +' (F +' E)) := inferInstance
 
+@[simp_itree]
 def case_ (h1: E ~> G) (h2: F ~> G): E +' F ~> G :=
   fun R ef => match ef with
   | Sum.inl e => h1 R e
@@ -92,13 +95,16 @@ inductive Fitree (E: Type → Type u) (R: Type) where
   | Ret (r: R): Fitree E R
   | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
+@[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
 
+@[simp_itree]
 def Fitree.trigger {E: Type → Type u} {F: Type → Type v} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 
+@[simp_itree]
 def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with
   | Ret r => k r
@@ -110,6 +116,7 @@ instance {E}: Monad (Fitree E) where
 
 
 -- Interpretation into the monad of finite ITrees
+@[simp_itree]
 def interp {M} [Monad M] {E} (h: E ~> M):
     forall ⦃R⦄, Fitree E R → M R :=
   fun _ t =>
@@ -118,6 +125,7 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 -- Interpretation into the state monad
+@[simp_itree]
 def interp_state {M S} [Monad M] {E} (h: E ~> StateT S M):
     forall ⦃R⦄, Fitree E R → StateT S M R :=
   interp h
@@ -138,3 +146,19 @@ inductive Fitree.no_event_l {E F R}: Fitree (E +' F) R → Prop :=
   | Vis f k: (∀ t, no_event_l (k t)) → no_event_l (Vis (Sum.inr f) k)
 
 -- TODO: Tactic to automate the proof of no_event_l
+
+
+/- Rewriting tactic simp_itree -/
+
+open Lean Elab.Tactic Parser.Tactic
+
+def toSimpLemma (name : Name) : Syntax :=
+  mkNode `Lean.Parser.Tactic.simpLemma
+    #[mkNullNode, mkNullNode, mkIdent name]
+
+elab "simp_itree" : tactic => do
+  -- TODO: Also handle .lemmaNames, not just unfolding!
+  let lemmas := (← SimpItreeExtension.getTheorems).toUnfold.fold
+    (init := #[]) (fun acc n => acc.push (toSimpLemma n))
+  evalTactic $ ← `(tactic|simp [$lemmas.reverse,*,
+    Member.inject, StateT.bind, StateT.pure, bind, pure, cast_eq])
