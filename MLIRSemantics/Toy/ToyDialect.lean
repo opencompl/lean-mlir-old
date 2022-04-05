@@ -161,7 +161,6 @@ elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> f
     let e ← Term.elabTerm term none
     Term.synthesizeSyntheticMVarsNoPostponing
     let (e, _) ← Term.levelMVarToParam (← instantiateMVars e)
-    -- TODO: add options or notation for setting the following parameters
     withTheReader Core.Context (fun ctx => { ctx with options := ctx.options.setBool `smartUnfolding false }) do
       let e ← withTransparency (mode := TransparencyMode.all) <| reduce e (skipProofs := skipProofs) (skipTypes := false)
       logInfo e
@@ -169,8 +168,15 @@ elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> f
 ---
 
 def transpose_stmt := [mlir_bb_stmt|
-    %t2 = "toy.transpose"(%t1): tensor<2×4:i32> -> tensor<4×2:i32>
+  %t2 = "toy.transpose"(%t1): tensor<2×4:i32> -> tensor<4×2:i32>
 ]
+
+def constant_stmt := [mlir_bb_stmt|
+  %t = "toy.constant"() {value=dense<[[1,2],[3,4]]>: tensor<2×2:i32>}:
+    () -> tensor<2×2:i32>
+]
+
+#reduce constant_stmt
 
 def double_transpose := [mlir_bb|
   ^dbl:
@@ -182,9 +188,10 @@ def double_transpose := [mlir_bb|
   toy_semantics_bb double_transpose
 
 #reduce (skipProofs := true)
-  interp ToyOp.handle (interp_ssa (interp_invalid (toy_semantics_bbstmt transpose_stmt) _) [[]])
+  run_toy (toy_semantics_bbstmt transpose_stmt) [[]]
 
-set_option maxRecDepth 100000
+#reduce (skipProofs := true)
+  run_toy (toy_semantics_bbstmt constant_stmt) [[]]
 
 theorem double_transpose_correct:
   ∀ (t1: RankedTensor Int [2,4]),

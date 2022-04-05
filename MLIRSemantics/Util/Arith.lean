@@ -1,4 +1,4 @@
--- set_option pp.all true
+-- Int
 
 theorem Int.n_sub_0 (n: Int): n - 0 = n := by
   cases n <;> rfl
@@ -14,6 +14,8 @@ theorem Int.mul_ge_0 (n m: Int): n ≥ 0 → m ≥ 0 → n * m ≥ 0 := by
 
 theorem Int.mul_comm (n m: Int): n * m = m * n := by
   sorry
+
+-- Nat
 
 theorem Nat.lt_of_add_lt_add_right {a b c: Nat} (h: a + c < b + c):
     a < b := by

@@ -29,6 +29,7 @@ Types that need improvements or refinements:
 -/
 
 import MLIRSemantics.Util.Arith
+import MLIRSemantics.Util.List
 import MLIRSemantics.Fitree
 
 import MLIR.AST
@@ -39,22 +40,6 @@ def shape_prod: List Nat → Nat :=
 
 theorem shape_prod_nil: shape_prod (0::l) = 0 := by
   induction l <;> simp [shape_prod, List.foldr]
-
-theorem List.all_cons {α} (P: α → Bool) head tail:
-    List.all (head::tail) P ↔ P head ∧ List.all tail P := by
-  simp [List.all, List.foldr]
-
-theorem List.all_nil {α} (P: α → Bool):
-    List.all [] P = true := by
-  simp [List.all, List.foldr]
-
-def List.get_Fin {α} (l: List α) (n: Nat) (H: n < l.length): α :=
-  match l, n with
-  | a::as, 0 => a
-  | a::as, n+1 =>
-    get_Fin as n (by
-      simp [length] at H;
-      apply @Nat.lt_of_add_lt_add_right _ _ 1; assumption)
 
 instance: OfNat Dimension (n: Nat) where
   ofNat := Dimension.Known n
@@ -242,12 +227,6 @@ theorem flatten_size (e: TensorElem) (shape: List Nat):
     rw [motive_1]
     apply H.1
 
--- TODO: TensorElem.dense: have other base types than Int in TensorElem
-def dense (e: TensorElem) (shape: List Nat) (H: e.hasShape shape):
-    Fin (shape_prod shape) → Int :=
-  fun i =>
-    List.get_Fin e.flatten i (by rw [flatten_size _ _ H]; simp [i.isLt])
-
 end MLIR.AST.TensorElem
 
 
@@ -356,27 +335,24 @@ structure RankedTensor (α: Type) (D: DimList) where
   shape: List Nat
   -- Contents; we use a function for brevity
   -- TODO: RankedTensor: Consider a more computable data storage method
-  size: Nat
-  data: Fin size → α
+  data: List α
   -- Invariants: shape/dimension must be compatible, shape/size must match
-  Hdim: shape_refines shape D
-  Hsize: size = shape_prod shape
+  h_refines: shape_refines shape D
+  h_data_size: data.length = shape_prod shape
 
 theorem RankedTensor.eq_of_fields_eq (α D): ∀ (t₁ t₂: RankedTensor α D),
   t₁.shape = t₂.shape →
-  (Hsize: t₁.size = t₂.size) →
-  (Hdata: HEq t₁.data t₂.data) →
+  t₁.data = t₂.data →
     t₁ = t₂ := by
-  intros t₁ t₂ Hshape Hsize Hdata
+  intros t₁ t₂ Hshape Hdata
   cases t₁; cases t₂; simp at *
   trivial
 
 def RankedTensor.uniform {α} D (v: α): RankedTensor α D :=
-  { shape := D.default_refinement,
-    size  := shape_prod (D.default_refinement),
-    data  := fun _ => v,
-    Hdim  := default_refinement_refines _,
-    Hsize := rfl }
+  { shape       := D.default_refinement,
+    data        := List.uniform v (shape_prod D.default_refinement),
+    h_refines   := default_refinement_refines _,
+    h_data_size := List.uniform_length _ _ }
 
 def RankedTensor.default α D [Inhabited α]: RankedTensor α D :=
   RankedTensor.uniform D Inhabited.default
@@ -392,11 +368,10 @@ def RankedTensor.ofTensorElem (D: DimList) (e: TensorElem)
   | TensorElem.rankCompatibleWith.Uniform i Heq =>
       RankedTensor.uniform D i
   | TensorElem.rankCompatibleWith.HasShape s Hshape Hrefines =>
-      { shape := s,
-        size  := shape_prod s,
-        data  := TensorElem.dense e s Hshape,
-        Hdim  := Hrefines,
-        Hsize := rfl }
+      { shape       := s,
+        data        := e.flatten,
+        h_refines   := Hrefines,
+        h_data_size := TensorElem.flatten_size e s Hshape }
 
 instance {α D} [Inhabited α]: Inhabited (RankedTensor α D) where
   default := RankedTensor.default α D
