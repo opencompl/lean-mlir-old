@@ -5,6 +5,6 @@ package MLIRSemantics {
   binRoot := `MLIRSemantics
   dependencies := #[{
     name := "MLIR",
-    src := Source.git "https://github.com/lephe/lean-mlir.git" "26ffa804c78e824e0128fb54e27dfdfbc00d035b",
+    src := Source.git "https://github.com/lephe/lean-mlir.git" "9efb35eda4b75c4d04bb992ae1aca7215293a87c",
   }]
 }

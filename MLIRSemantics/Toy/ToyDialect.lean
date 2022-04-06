@@ -168,20 +168,20 @@ elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> f
 ---
 
 def transpose_stmt := [mlir_bb_stmt|
-  %t2 = "toy.transpose"(%t1): tensor<2×4:i32> -> tensor<4×2:i32>
+  %t2 = "toy.transpose"(%t1): tensor<2x4:i32> -> tensor<4x2:i32>
 ]
 
 def constant_stmt := [mlir_bb_stmt|
-  %t = "toy.constant"() {value=dense<[[1,2],[3,4]]>: tensor<2×2:i32>}:
-    () -> tensor<2×2:i32>
+  %t = "toy.constant"() {value=dense<[[1,2],[3,4]]>: tensor<2x2:i32>}:
+    () -> tensor<2x2:i32>
 ]
 
 #reduce constant_stmt
 
 def double_transpose := [mlir_bb|
   ^dbl:
-    %t2 = "toy.transpose"(%t1): tensor<2×4:i32> -> tensor<4×2:i32>
-    %t3 = "toy.transpose"(%t2): tensor<4×2:i32> -> tensor<2×4:i32>
+    %t2 = "toy.transpose"(%t1): tensor<2x4:i32> -> tensor<4x2:i32>
+    %t3 = "toy.transpose"(%t2): tensor<4x2:i32> -> tensor<2x4:i32>
 ]
 
 #reduce (skipProofs := true)
@@ -211,11 +211,3 @@ theorem double_transpose_correct:
   simp [interp_ssa]; simp_itree
   rw [transpose_involutive]
   rfl
-
-inductive Tree :=
-  | Leaf: Int → Tree
-  | Node: Tree → Tree → Tree
-
-def Tree.sum: Tree → Int
-  | Leaf i => i
-  | Node t t' => sum t + sum t'

@@ -18,7 +18,7 @@ program's environment by a monadic transformation, and (2) replacing the
 interaction with an actual implementation.
 
 This approach allows monadic domains to be used while keeping each family of
-interactions separate. This is relevant for Vellvm as LLVM IR as many complex
+interactions separate. This is relevant for Vellvm as LLVM IR has many complex
 features, and even more relevant for MLIR since each dialect can bring more
 interactions and environment transforms and all of them have to be studied and
 defined independently.
