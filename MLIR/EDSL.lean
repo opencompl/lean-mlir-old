@@ -572,6 +572,7 @@ syntax affine_map : mlir_attr_val
 syntax mlir_attr_val_symbol : mlir_attr_val
 syntax num (":" mlir_type)? : mlir_attr_val
 syntax scientificLit (":" mlir_type)? : mlir_attr_val
+syntax ident: mlir_attr_val
 
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[mlir_attr_val|" incQuotDepth(mlir_attr_val) "]" : term
@@ -584,6 +585,9 @@ macro_rules
 | `([mlir_attr_val|  $x:numLit ]) => `(AttrVal.int $x (MLIRTy.int 64))
 | `([mlir_attr_val| $x:numLit : $t:mlir_type]) => `(AttrVal.int $x [mlir_type| $t])
 
+macro_rules
+| `([mlir_attr_val| true ]) => `(AttrVal.bool True)
+| `([mlir_attr_val| false ]) => `(AttrVal.bool False)
 
 
 macro_rules 

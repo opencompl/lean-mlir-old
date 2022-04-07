@@ -93,6 +93,7 @@ inductive AttrVal : Type where
 | symbol: String -> AttrVal -- symbol ref attr
 | str : String -> AttrVal
 | int : Int -> MLIRTy -> AttrVal
+| bool : Bool -> AttrVal
 | float : Float -> MLIRTy -> AttrVal
 | type :MLIRTy -> AttrVal
 | dense: TensorElem -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
@@ -266,6 +267,7 @@ partial def docAttrVal (v: AttrVal) :=
    | AttrVal.str str => doc_surround_dbl_quot str 
    | AttrVal.type ty => docMlirTy ty
    | AttrVal.int i ty => doc i ++ " : " ++ docMlirTy ty
+   | AttrVal.bool b => if b then "true" else "false"
    | AttrVal.float f ty => doc f ++ " : " ++ docMlirTy ty
    | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ docMlirTy ty
    | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
