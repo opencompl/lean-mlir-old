@@ -107,6 +107,7 @@ inductive AttrVal : Type where
 | dict: AttrDict -> AttrVal
 | opaque: (dialect: String) -> (value: String) -> AttrVal
 | opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRTy) -> AttrVal
+| unit: AttrVal
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
@@ -280,6 +281,7 @@ partial def docAttrVal (v: AttrVal) :=
    | AttrVal.dict d => docAttrDict d 
    | AttrVal.opaque dialect val => [doc| "#" (dialect) "<"  (val) ">"]
    | AttrVal.opaqueElements dialect val ty => [doc| "#opaque<" (dialect) ","  (val) ">" ":" (docMlirTy ty)]
+   | AttrVal.unit => "()"
 
 partial def docAttrEntry (a: AttrEntry) := 
     match a with

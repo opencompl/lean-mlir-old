@@ -709,6 +709,7 @@ declare_syntax_cat mlir_attr_entry
 
 syntax ident "=" mlir_attr_val : mlir_attr_entry
 syntax strLit "=" mlir_attr_val : mlir_attr_entry
+syntax ident : mlir_attr_entry
 
 syntax "[mlir_attr_entry|" incQuotDepth(mlir_attr_entry) "]" : term
 
@@ -720,6 +721,12 @@ macro_rules
   | `([mlir_attr_entry| $name:strLit  = $v:mlir_attr_val]) => 
      `(AttrEntry.mk $name [mlir_attr_val| $v])
 
+macro_rules
+  | `([mlir_attr_entry| $name:ident]) =>
+     `(AttrEntry.mk $(Lean.quote (name.getId.toString))  AttrVal.unit)
+
+  
+
 def attr0Str : AttrEntry := [mlir_attr_entry| sym_name = "add"]
 #print attr0Str
 
@@ -730,6 +737,11 @@ def attr2Escape : AttrEntry :=
    let x : AttrVal := [mlir_attr_val| 42]
    [mlir_attr_entry| sym_name = $(x)]
 #print attr0Str
+
+
+def attr3Unit : AttrEntry :=
+   [mlir_attr_entry| sym_name]
+#print attr3Unit
 
 
 declare_syntax_cat mlir_attr_dict
