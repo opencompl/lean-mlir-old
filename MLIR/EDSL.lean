@@ -298,14 +298,15 @@ def parseTensorDimensionList (k: Syntax) : MacroM (Syntax × Syntax) := do
 -- | TODO: fix bug that does not allow a trailing times.
 
 -- static-dim-list ::= decimal-literal (`x` decimal-literal)*
+-- | Encoding lookahead with notFollowedBy
 declare_syntax_cat static_dim_list
-syntax numLit ("×" numLit)*  notFollowedBy("×") : static_dim_list
+syntax sepBy(numLit, "×", "×" notFollowedBy(mlir_type <|> "[")) : static_dim_list
+
 
 syntax "[static_dim_list|" static_dim_list "]" : term
 macro_rules
-| `([static_dim_list| $n:numLit $[ × $ns:numLit ]* ]) => do
-      let out <- quoteMList ns.toList (<- `(Int))
-      `([$n] ++ $out)
+| `([static_dim_list| $[ $ns:numLit ]×* ]) => do
+      quoteMList ns.toList (<- `(Int))
 
 def staticDimList0 : List Int := [static_dim_list| 1]
 #reduce staticDimList0
@@ -317,27 +318,30 @@ def staticDimList1 : List Int := [static_dim_list| 1 × 2]
 -- vector-dim-list := (static-dim-list `x`)? (`[` static-dim-list `]` `x`)?
 -- | WTF, the whole of vector-dim-list can be empty...
 declare_syntax_cat vector_dim_list
-syntax (static_dim_list "×")? ("[" static_dim_list "]" "×")? : vector_dim_list
+syntax (static_dim_list "×" ("[" static_dim_list "]" "×")? )? : vector_dim_list
 -- vector-element-type ::= float-type | integer-type | index-type
 -- vector-type ::= `vector` `<` vector-dim-list vector-element-type `>`
 syntax "vector" "<" vector_dim_list mlir_type ">"  : mlir_type
 
 set_option hygiene false in -- allow i to expand 
 macro_rules
-| `([mlir_type| vector < $[ $fixed?:static_dim_list × ]? $[ [ $scaled?:static_dim_list ] × ]? $t:mlir_type  >]) => do
+| `([mlir_type| vector < $[$fixed?:static_dim_list × $[ [ $scaled?:static_dim_list ] × ]? ]? $t:mlir_type  >]) => do
       let fixedDims <- match fixed? with  
         | some s =>  `([static_dim_list| $s])
         | none => `((@List.nil Int))
       let scaledDims <- match scaled? with  
-        | some s => `([static_dim_list| $s])
-        | none => `((@List.nil Int))
-      `(MLIRTy.vector [] $scaledDims [mlir_type| $t])
+        | some (some s) => `([static_dim_list| $s])
+        | _ => `((@List.nil Int))
+      `(MLIRTy.vector $fixedDims $scaledDims [mlir_type| $t])
 
 def vectorTy0 := [mlir_type| vector<i32>]
 #print vectorTy0
 
 def vectorTy1 := [mlir_type| vector<2 × i32>]
-#print vectorTy0
+#print vectorTy1
+
+def vectorTy2 := [mlir_type| vector<2 × 3 × [ 4 ] × i32>]
+#print vectorTy2
 
 
 -- | TODO: is this actually necessary?
