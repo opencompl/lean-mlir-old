@@ -563,6 +563,9 @@ syntax "@" ident : mlir_attr_val_symbol
 syntax "@" str : mlir_attr_val_symbol
 syntax "#" ident : mlir_attr_val -- alias
 syntax "#" strLit : mlir_attr_val -- aliass
+
+syntax "#" ident "<" strLit ">" : mlir_attr_val -- opaqueAttr
+syntax "#opaque<" ident "," strLit ">" ":" mlir_type : mlir_attr_val -- opaqueElementsAttr
 syntax mlir_attr_val_symbol "::" mlir_attr_val_symbol : mlir_attr_val_symbol
 
 
@@ -590,6 +593,16 @@ macro_rules
 | `([mlir_attr_val| false ]) => `(AttrVal.bool False)
 
 
+macro_rules
+| `([mlir_attr_val| # $dialect:ident < $opaqueData:strLit > ]) => do
+  let dialect := Lean.quote dialect.getId.toString
+  `(AttrVal.opaque $dialect $opaqueData)
+
+macro_rules
+| `([mlir_attr_val| #opaque< $dialect:ident, $opaqueData:strLit> : $t:mlir_type ]) => do
+  let dialect := Lean.quote dialect.getId.toString
+  `(AttrVal.opaqueElementsAttr $dialect $opaqueData $t)
+
 macro_rules 
   | `([mlir_attr_val| $s:strLit]) => `(AttrVal.str $s)
   | `([mlir_attr_val| [ $xs,* ] ]) => do 
@@ -603,6 +616,11 @@ syntax "dense<" mlir_tensor  ">" ":" mlir_type : mlir_attr_val
 macro_rules
 | `([mlir_attr_val| dense< $v:mlir_tensor > : $t:mlir_type]) => 
     `(AttrVal.dense [mlir_tensor| $v] [mlir_type| $t])
+
+syntax "dense<" ">" ":" mlir_type: mlir_attr_val
+macro_rules
+| `([mlir_attr_val| dense< > : $t:mlir_type]) => 
+    `(AttrVal.dense TensorElem.empty [mlir_type| $t])
 
 macro_rules
   | `([mlir_attr_val| $a:affine_map]) =>
@@ -678,6 +696,9 @@ def attrVal10Float :  AttrVal := [mlir_attr_val| 0.0023 ]
 
 def attrVal11Escape :  AttrVal := [mlir_attr_val| $(attrVal10Float) ]
 #print attrVal11Escape
+
+def attrVal12DenseEmpty:  AttrVal := [mlir_attr_val| dense<> : tensor<0 × i64>]
+#print attrVal12DenseEmpty
 
 
 -- MLIR ATTRIBUTE

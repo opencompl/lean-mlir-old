@@ -66,6 +66,7 @@ inductive TensorElem :=
 | float: Float -> TensorElem
 | bool: Bool -> TensorElem
 | nested: List TensorElem -> TensorElem
+| empty: TensorElem
 
 mutual
 
@@ -104,6 +105,8 @@ inductive AttrVal : Type where
 | nestedsymbol: AttrVal -> AttrVal -> AttrVal 
 | alias: String -> AttrVal
 | dict: AttrDict -> AttrVal
+| opaque: (dialect: String) -> (value: String) -> AttrVal
+| opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRTy) -> AttrVal
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
@@ -221,6 +224,7 @@ partial instance : Pretty TensorElem where
        | TensorElem.bool b => doc b
        | TensorElem.float f => doc f
        | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ] 
+       | TensorElem.empty => ""
     go t
 
 -- | TODO: allow typeclass instances inside mutual blocks
@@ -274,6 +278,8 @@ partial def docAttrVal (v: AttrVal) :=
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map docAttrVal) ", ") ++ "]"
    | AttrVal.alias a => "#" ++ a
    | AttrVal.dict d => docAttrDict d 
+   | AttrVal.opaque dialect val => [doc| "#" (dialect) "<"  (val) ">"]
+   | AttrVal.opaqueElements dialect val ty => [doc| "#opaque<" (dialect) ","  (val) ">" ":" (docMlirTy ty)]
 
 partial def docAttrEntry (a: AttrEntry) := 
     match a with
