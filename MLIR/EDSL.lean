@@ -12,6 +12,10 @@ open MLIR.AST
 namespace MLIR.EDSL
 
 
+-- | positive and negative numbers, hex, octal
+declare_syntax_cat mlir_int
+syntax numLit: mlir_int
+
 def IntToString (i: Int): String := i.repr
 
 instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| n.repr⟩
@@ -661,6 +665,9 @@ def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
 
 def attrVal5int: AttrVal := [mlir_attr_val| 42 ]
 #reduce attrVal5int
+
+-- def attrVal5bint: AttrVal := [mlir_attr_val| -42 ]
+-- #reduce attrVal5bint
 
 
 def attrVal6Symbol : AttrVal := [mlir_attr_val| @func_foo ]

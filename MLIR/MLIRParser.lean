@@ -49,11 +49,11 @@ partial def pdim : P Dimension := do
 partial def ptype_vector : P MLIRTy := do
   pident? "vector"
   pconsume '<'
-  let sz <- pdim
+  let sz <- pnumber
   pconsume 'x'
   let ty <- ptype ()
   pconsume '>'
-  return MLIRTy.vector [sz] ty
+  return MLIRTy.vector [sz] [] ty
 
 -- !<ident>.<ident>  
 partial def puser (u: Unit): P MLIRTy := do
