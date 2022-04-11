@@ -26,6 +26,23 @@ func makeOutPath(rootPath, testFileDir, testFileNameWithoutExtension string) str
 	return testFilePathAts + testFileNameWithoutExtension + ".mlir"
 }
 
+func runSed(filePath, sedCommandString string) {
+	// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+	// [^blah]: negated capture group for blah
+	// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
+	// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
+	sedCommand := exec.Command("sed", "-i", "-r", sedCommandString, filePath)
+
+	log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
+	var sedStderr bytes.Buffer
+	sedCommand.Stderr = &sedStderr
+	err := sedCommand.Run()
+	if err != nil {
+		log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
+	}
+	check(err)
+}
+
 func main() {
 	MLIR_ROOT_PATH := "/home/siddu_druid/work/llvm-project/mlir/"
 	MLIR_GLOB_PATH := "/home/siddu_druid/work/llvm-project/mlir/test/*/*.mlir"
@@ -72,56 +89,32 @@ func main() {
 			canonStdout.Close()
 		} // end run canonicalizataion block
 
-		{
-			// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
-			// [^blah]: negated capture group for blah
-			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
-			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
-			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g`, outPath)
+		// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+		// [^blah]: negated capture group for blah
+		// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
+		// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
+		runSed(outPath, `s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g`)
 
-			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
-			var sedStderr bytes.Buffer
-			sedCommand.Stderr = &sedStderr
-			err = sedCommand.Run()
-			if err != nil {
-				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
-			}
-			check(err)
-		} // end sed run block
+		// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+		// [^blah]: negated capture group for blah
+		// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
+		// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
+		runSed(outPath, `s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g`)
 
-		{
-			// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
-			// [^blah]: negated capture group for blah
-			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
-			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
-			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g`, outPath)
+		// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+		runSed(outPath, `s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g`)
 
-			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
-			var sedStderr bytes.Buffer
-			sedCommand.Stderr = &sedStderr
-			err = sedCommand.Run()
-			if err != nil {
-				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
-			}
-			check(err)
-		} // end sed run block
+		// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+		runSed(outPath, `s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5>/g`)
 
-		{
-			// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
-			// [^blah]: negated capture group for blah
-			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 × \2>/g`, outPath)
-			// sedCommand := exec.Command("sed", "-i", `s/<([^x]*)x([^>]*)>/<\1 BAR \2>/g`, outPath)
-			sedCommand := exec.Command("sed", "-i", "-r", `s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g`, outPath)
+		// --- run sed to replace memref<blahxblah> with memref<blah \times blah>
+		runSed(outPath, `s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5 × \6>/g`)
 
-			log.Output(0, fmt.Sprintf("Running | %s |.", sedCommand.String()))
-			var sedStderr bytes.Buffer
-			sedCommand.Stderr = &sedStderr
-			err = sedCommand.Run()
-			if err != nil {
-				log.Output(0, fmt.Sprintf("Error | %s |.", sedStderr.String()))
-			}
-			check(err)
-		} // end sed run block
+		// vv HACK: remove attribute aliases
+		runSed(outPath, `s/^#.*//`)
+
+		// vv HACK: replace floating point 0e+0 with  0e0
+		runSed(outPath, `s/e\+//g`)
 
 		{
 			// --- run sed to remove comments

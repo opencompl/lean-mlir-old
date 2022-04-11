@@ -1,5 +1,5 @@
-#map0 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 2304)>
-#map1 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 3456)>
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<4 × 1024 × f32>):
@@ -10,9 +10,9 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 1536)>
-#map1 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 2688)>
-#map2 = affine_map<(d0, d1) -> (d0 * 1024 + d1 + 3745)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<4 × 1024 × f32>):
@@ -24,7 +24,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1)[s0] -> (d0 * 1024 + s0 + d1)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<4 × 1024 × f32>):
@@ -37,7 +37,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1)[s0] -> (d0 * 1024 + s0 + d1)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<4 × 1024 × f32>):

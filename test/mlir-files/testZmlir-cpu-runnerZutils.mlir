@@ -1,6 +1,6 @@
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<f32>
     "memref.store"(%0, %1) : (f32, memref<f32>) -> ()
     %2 = "memref.cast"(%1) : (memref<f32>) -> memref<* × f32>
@@ -9,7 +9,7 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "print_0d"} : () -> ()
   "func.func"() ({
-    %0 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<16 × f32>
     %2 = "memref.cast"(%1) : (memref<16 × f32>) -> memref<? × f32>
     "linalg.fill"(%0, %2) ({
@@ -22,8 +22,8 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "print_1d"} : () -> ()
   "func.func"() ({
-    %0 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
-    %1 = "arith.constant"() {value = 4.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 4.00000000 : f32} : () -> f32
     %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<3 × 4 × 5 × f32>
     %3 = "memref.cast"(%2) : (memref<3 × 4 × 5 × f32>) -> memref<? × ? × ? × f32>
     "linalg.fill"(%0, %3) ({
@@ -41,7 +41,7 @@
   }) {function_type = (memref<* × f32>) -> (), llvm.emit_c_interface, sym_name = "print_memref_f32", sym_visibility = "private"} : () -> ()
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
-    %1 = "arith.constant"() {value = 1.000000e+01 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.00000001 : f32} : () -> f32
     %2 = "vector.splat"(%1) : (f32) -> vector<4 × 4 × f32>
     %3 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<1x1xvector<4 × 4 × f32>>
     "memref.store"(%2, %3, %0, %0) : (vector<4 × 4 × f32>, memref<1x1xvector<4 × 4 × f32>>, index, index) -> ()

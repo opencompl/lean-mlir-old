@@ -1,12 +1,12 @@
-#map0 = affine_map<(d0) -> (d0 - 1)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (10)>
-#map3 = affine_map<()[s0] -> (s0)>
-#map4 = affine_map<(d0, d1)[s0, s1, s2] -> (d0 * s1 + s0 + d1 * s2)>
-#map5 = affine_map<(d0, d1)[s0, s1] -> (d0 * s1 + s0 + d1)>
-#map6 = affine_map<() -> (8)>
-#map7 = affine_map<(d0) -> (d0 floordiv 8)>
-#map8 = affine_map<(d0) -> (d0 floordiv 16)>
+
+
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: i32):
@@ -504,13 +504,13 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1, d2) -> (d0 * 64 + d1 * 4 + d2)>
-#map1 = affine_map<(d0, d1, d2)[s0, s1, s2, s3] -> (d0 * s1 + s0 + d1 * s2 + d2 * s3)>
-#map2 = affine_map<(d0, d1)[s0] -> (d0 * 4 + s0 + d1)>
-#map3 = affine_map<(d0) -> (d0)>
-#map4 = affine_map<() -> (0)>
-#map5 = affine_map<() -> (100)>
-#set = affine_set<(d0) : (d0 - 2 >= 0)>
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index):
@@ -668,7 +668,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1)[s0, s1, s2] -> (d0 * s1 + s0 + d1 * s2)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<4 × 5 × f32>, %arg1: index):
@@ -679,7 +679,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1)[s0, s1] -> (d0 * s1 + s0 + d1)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<16 × 16 × f32>, %arg1: index, %arg2: index):

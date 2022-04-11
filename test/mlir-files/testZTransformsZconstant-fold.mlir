@@ -3,9 +3,9 @@
 }) : () -> ()
 
 
-#map0 = affine_map<() -> (0)>
-#map1 = affine_map<() -> (8)>
-#map2 = affine_map<() -> (128)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<f32>):
@@ -13,8 +13,8 @@
     ^bb0(%arg1: index):
       "affine.for"() ({
       ^bb0(%arg2: index):
-        %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
-        %1 = "arith.constant"() {value = 1.500000e+00 : f32} : () -> f32
+        %0 = "arith.constant"() {value = 4.50000000 : f32} : () -> f32
+        %1 = "arith.constant"() {value = 1.50000000 : f32} : () -> f32
         %2 = "arith.addf"(%0, %1) : (f32, f32) -> f32
         "memref.store"(%2, %arg0) : (f32, memref<f32>) -> ()
         "affine.yield"() : () -> ()
@@ -28,8 +28,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
-    %1 = "arith.constant"() {value = 1.500000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.50000000 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.50000000 : f32} : () -> f32
     %2 = "arith.addf"(%0, %1) : (f32, f32) -> f32
     "func.return"(%2) : (f32) -> ()
   }) {function_type = () -> f32, sym_name = "simple_addf"} : () -> ()
@@ -38,8 +38,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %0 = "arith.constant"() {value = dense<4.50000000> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.50000000> : tensor<4 × f32>} : () -> tensor<4 × f32>
     %2 = "arith.addf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
     "func.return"(%2) : (tensor<4 × f32>) -> ()
   }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_splat_tensor"} : () -> ()
@@ -48,8 +48,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
-    %1 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %0 = "arith.constant"() {value = dense<[1.50000000, 2.50000000, 3.50000000, 4.50000000]> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<[1.50000000, 2.50000000, 3.50000000, 4.50000000]> : tensor<4 × f32>} : () -> tensor<4 × f32>
     %2 = "arith.addf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
     "func.return"(%2) : (tensor<4 × f32>) -> ()
   }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_dense_tensor"} : () -> ()
@@ -58,8 +58,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<[1.500000e+00, 2.500000e+00, 3.500000e+00, 4.500000e+00]> : tensor<4 × f32>} : () -> tensor<4 × f32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %0 = "arith.constant"() {value = dense<[1.50000000, 2.50000000, 3.50000000, 4.50000000]> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.50000000> : tensor<4 × f32>} : () -> tensor<4 × f32>
     %2 = "arith.addf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
     "func.return"(%2) : (tensor<4 × f32>) -> ()
   }) {function_type = () -> tensor<4 × f32>, sym_name = "addf_dense_and_splat_tensors"} : () -> ()
@@ -142,8 +142,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
-    %1 = "arith.constant"() {value = 1.500000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.50000000 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.50000000 : f32} : () -> f32
     %2 = "arith.subf"(%0, %1) : (f32, f32) -> f32
     "func.return"(%2) : (f32) -> ()
   }) {function_type = () -> f32, sym_name = "simple_subf"} : () -> ()
@@ -152,8 +152,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4.500000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
+    %0 = "arith.constant"() {value = dense<4.50000000> : vector<4 × f32>} : () -> vector<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.50000000> : vector<4 × f32>} : () -> vector<4 × f32>
     %2 = "arith.subf"(%0, %1) : (vector<4 × f32>, vector<4 × f32>) -> vector<4 × f32>
     "func.return"(%2) : (vector<4 × f32>) -> ()
   }) {function_type = () -> vector<4 × f32>, sym_name = "subf_splat_vector"} : () -> ()
@@ -183,9 +183,9 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1)[s0] -> (d0 floordiv 128 + s0 + d1 mod 128)>
-#map1 = affine_map<(d0, d1)[s0] -> ((s0 ceildiv 128) * 128)>
-#map2 = affine_map<(d0) -> (42)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index):
@@ -202,8 +202,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.500000e+00 : f32} : () -> f32
-    %1 = "arith.constant"() {value = 1.500000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.50000000 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.50000000 : f32} : () -> f32
     %2 = "arith.mulf"(%0, %1) : (f32, f32) -> f32
     "func.return"(%2) : (f32) -> ()
   }) {function_type = () -> f32, sym_name = "simple_mulf"} : () -> ()
@@ -212,8 +212,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = dense<4.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
-    %1 = "arith.constant"() {value = dense<1.500000e+00> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %0 = "arith.constant"() {value = dense<4.50000000> : tensor<4 × f32>} : () -> tensor<4 × f32>
+    %1 = "arith.constant"() {value = dense<1.50000000> : tensor<4 × f32>} : () -> tensor<4 × f32>
     %2 = "arith.mulf"(%0, %1) : (tensor<4 × f32>, tensor<4 × f32>) -> tensor<4 × f32>
     "func.return"(%2) : (tensor<4 × f32>) -> ()
   }) {function_type = () -> tensor<4 × f32>, sym_name = "mulf_splat_tensor"} : () -> ()
@@ -407,8 +407,8 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
-    %1 = "arith.constant"() {value = -1.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.20000001 : f32} : () -> f32
+    %1 = "arith.constant"() {value = -1.00000000 : f32} : () -> f32
     %2 = "arith.cmpf"(%0, %1) {predicate = 0 : i64} : (f32, f32) -> i1
     %3 = "arith.cmpf"(%0, %1) {predicate = 1 : i64} : (f32, f32) -> i1
     %4 = "arith.cmpf"(%0, %1) {predicate = 2 : i64} : (f32, f32) -> i1
@@ -432,7 +432,7 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.20000001 : f32} : () -> f32
     %1 = "arith.constant"() {value = 0xFFFFFFFF : f32} : () -> f32
     %2 = "arith.cmpf"(%0, %1) {predicate = 0 : i64} : (f32, f32) -> i1
     %3 = "arith.cmpf"(%0, %1) {predicate = 1 : i64} : (f32, f32) -> i1
@@ -457,7 +457,7 @@
 
 "builtin.module"() ({
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.20000001 : f32} : () -> f32
     %1 = "arith.constant"() {value = 0x7F800000 : f32} : () -> f32
     %2 = "arith.cmpf"(%0, %1) {predicate = 0 : i64} : (f32, f32) -> i1
     %3 = "arith.cmpf"(%0, %1) {predicate = 1 : i64} : (f32, f32) -> i1

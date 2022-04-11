@@ -41,7 +41,7 @@
     "func.return"(%2, %4) : (i32, i32) -> ()
   }) {function_type = (i32, i32) -> (i32, i32), sym_name = "test_commutative_multi_cst"} : () -> ()
   "func.func"() ({
-    %0 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 4.20000001 : f32} : () -> f32
     %1 = "test.passthrough_fold"(%0) : (f32) -> i32
     "func.return"(%1) : (i32) -> ()
   }) {function_type = () -> i32, sym_name = "typemismatch"} : () -> ()

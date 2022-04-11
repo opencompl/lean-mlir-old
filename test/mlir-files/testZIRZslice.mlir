@@ -1,6 +1,6 @@
-#map0 = affine_map<(d0, d1, d2) -> (d0, d2)>
-#map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
-#map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index):

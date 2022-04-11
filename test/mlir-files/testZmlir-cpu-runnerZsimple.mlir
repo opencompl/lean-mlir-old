@@ -6,7 +6,7 @@
   "llvm.func"() ({
   }) {function_type = !llvm.func<void (ptr<i8>)>, linkage = #llvm.linkage<e × ternal>, sym_name = "free"} : () -> ()
   "llvm.func"() ({
-    %0 = "llvm.mlir.constant"() {value = -4.200000e+02 : f32} : () -> f32
+    %0 = "llvm.mlir.constant"() {value = -4.20000002 : f32} : () -> f32
     %1 = "llvm.call"(%0) {callee = @fabsf} : (f32) -> f32
     "llvm.return"(%1) : (f32) -> ()
   }) {function_type = !llvm.func<f32 ()>, linkage = #llvm.linkage<e × ternal>, sym_name = "main"} : () -> ()
@@ -25,7 +25,7 @@
   "llvm.func"() ({
     %0 = "llvm.call"() {callee = @allocation} : () -> !llvm.ptr<f32>
     %1 = "llvm.mlir.constant"() {value = 0 : index} : () -> i64
-    %2 = "llvm.mlir.constant"() {value = 1.234000e+03 : f32} : () -> f32
+    %2 = "llvm.mlir.constant"() {value = 1.23400003 : f32} : () -> f32
     %3 = "llvm.getelementptr"(%0, %1) {structIndices = dense<-2147483648> : tensor<1 × i32>} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
     "llvm.store"(%2, %3) : (f32, !llvm.ptr<f32>) -> ()
     %4 = "llvm.getelementptr"(%0, %1) {structIndices = dense<-2147483648> : tensor<1 × i32>} : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>

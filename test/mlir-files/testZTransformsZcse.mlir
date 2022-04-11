@@ -1,6 +1,6 @@
-#map0 = affine_map<(d0) -> (d0 mod 2)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (4)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 1 : i32} : () -> i32

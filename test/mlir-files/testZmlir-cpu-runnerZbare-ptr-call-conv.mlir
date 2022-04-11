@@ -4,8 +4,8 @@
     %0 = "arith.constant"() {value = 2 : index} : () -> index
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 1 : index} : () -> index
-    %3 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
-    %4 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
+    %3 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
+    %4 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
     "scf.for"(%1, %0, %2) ({
     ^bb0(%arg2: index):
       %5 = "memref.load"(%arg0, %arg2) : (memref<2 × f32>, index) -> f32
@@ -32,8 +32,8 @@
     %0 = "arith.constant"() {value = 2 : index} : () -> index
     %1 = "arith.constant"() {value = 0 : index} : () -> index
     %2 = "arith.constant"() {value = 1 : index} : () -> index
-    %3 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
-    %4 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
+    %3 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
+    %4 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
     %5 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
     %6 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × f32>
     "scf.for"(%1, %0, %2) ({

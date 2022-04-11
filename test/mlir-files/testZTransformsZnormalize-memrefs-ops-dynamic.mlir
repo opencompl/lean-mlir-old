@@ -1,4 +1,4 @@
-#map = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 floordiv 32, d3 floordiv 64, d2 mod 32, d3 mod 64)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x?x?x14xf32, #map>):
@@ -14,7 +14,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1, d2, d3) -> (d0, d1, (d2 floordiv 4) floordiv 32, (d3 mod 8) floordiv 64, (d2 floordiv 4) mod 32, (d3 mod 8) mod 64)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<?x?x?x?xf32, #map>):
@@ -34,7 +34,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 - d1, d3 - d2)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x?x?x14xf32, #map>):
@@ -50,7 +50,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 - d1, d3 - d2, d2 mod 32, d3 mod 64)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x?x?x14xf32, #map>):
@@ -66,7 +66,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 - d1, d3 floordiv 64, d2 mod 32, d3 mod 32)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x?x?x14xf32, #map>):
@@ -82,7 +82,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1, d2, d3) -> (d0, d1 floordiv 32, d2, d3, d1 mod 32, d1 mod 32)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x?x?x14xf32, #map>):
@@ -98,7 +98,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0, d1, d2, d3) -> (d0 floordiv 32, d1 floordiv 32, d0, d3, d0 mod 32, d1 mod 32)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x?x?x14xf32, #map>):

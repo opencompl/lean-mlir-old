@@ -1,4 +1,4 @@
-#map = affine_map<(d0, d1)[s0] -> (d0 + s0, d1)>
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<1024 × 64 × f32, 1>

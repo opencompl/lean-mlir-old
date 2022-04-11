@@ -1,4 +1,4 @@
-#map = affine_map<(d0, d1) -> (d1, d0)>
+
 "builtin.module"() ({
   %0 = "test.side_effect_op"() : () -> i32
   %1 = "test.side_effect_op"() {effects = [{effect = "read"}, {effect = "free"}]} : () -> i32

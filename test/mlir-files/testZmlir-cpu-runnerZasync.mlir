@@ -4,11 +4,11 @@
     %1 = "arith.constant"() {value = 1 : index} : () -> index
     %2 = "arith.constant"() {value = 2 : index} : () -> index
     %3 = "arith.constant"() {value = 3 : index} : () -> index
-    %4 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
-    %5 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
-    %6 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
-    %7 = "arith.constant"() {value = 3.000000e+00 : f32} : () -> f32
-    %8 = "arith.constant"() {value = 4.000000e+00 : f32} : () -> f32
+    %4 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
+    %5 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
+    %6 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
+    %7 = "arith.constant"() {value = 3.00000000 : f32} : () -> f32
+    %8 = "arith.constant"() {value = 4.00000000 : f32} : () -> f32
     %9 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × f32>
     "linalg.fill"(%4, %9) ({
     ^bb0(%arg0: f32, %arg1: f32):

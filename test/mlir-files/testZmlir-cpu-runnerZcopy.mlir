@@ -1,12 +1,12 @@
-#map0 = affine_map<(d0, d1) -> (d0 + d1 * 2)>
-#map1 = affine_map<(d0, d1, d2) -> (d0 * 3 + d1 + d2)>
+
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = (memref<* × f32>) -> (), llvm.emit_c_interface, sym_name = "print_memref_f32", sym_visibility = "private"} : () -> ()
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
     %1 = "arith.constant"() {value = 1 : index} : () -> index
-    %2 = "arith.constant"() {value = 4.200000e+01 : f32} : () -> f32
+    %2 = "arith.constant"() {value = 4.20000001 : f32} : () -> f32
     %3 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<2 × 3 × f32>
     %4 = "memref.dim"(%3, %0) : (memref<2 × 3 × f32>, index) -> index
     %5 = "memref.dim"(%3, %1) : (memref<2 × 3 × f32>, index) -> index

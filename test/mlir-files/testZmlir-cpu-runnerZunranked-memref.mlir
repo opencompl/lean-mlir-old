@@ -1,9 +1,9 @@
 "builtin.module"() ({
   "func.func"() ({
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<10 × 3 × f32>
-    %1 = "arith.constant"() {value = 2.000000e+00 : f32} : () -> f32
-    %2 = "arith.constant"() {value = 5.000000e+00 : f32} : () -> f32
-    %3 = "arith.constant"() {value = 1.000000e+01 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 2.00000000 : f32} : () -> f32
+    %2 = "arith.constant"() {value = 5.00000000 : f32} : () -> f32
+    %3 = "arith.constant"() {value = 1.00000001 : f32} : () -> f32
     %4 = "memref.cast"(%0) : (memref<10 × 3 × f32>) -> memref<? × ? × f32>
     "linalg.fill"(%3, %4) ({
     ^bb0(%arg0: f32, %arg1: f32):
@@ -44,7 +44,7 @@
   }) {function_type = (memref<* × f32>) -> (), llvm.emit_c_interface, sym_name = "print_memref_f32", sym_visibility = "private"} : () -> ()
   "func.func"() ({
     %0 = "memref.alloca"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × 3 × f32>
-    %1 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
     "linalg.fill"(%1, %0) ({
     ^bb0(%arg0: f32, %arg1: f32):
       "linalg.yield"(%arg0) : (f32) -> ()
@@ -61,7 +61,7 @@
   }) {function_type = (memref<4 × 3 × f32>) -> (memref<* × f32>, memref<* × f32>), sym_name = "return_two_var_memref"} : () -> ()
   "func.func"() ({
     %0 = "memref.alloca"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<4 × 3 × f32>
-    %1 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
     "linalg.fill"(%1, %0) ({
     ^bb0(%arg0: f32, %arg1: f32):
       "linalg.yield"(%arg0) : (f32) -> ()

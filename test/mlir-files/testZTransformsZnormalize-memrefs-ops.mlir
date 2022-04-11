@@ -1,9 +1,9 @@
-#map0 = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 floordiv 32, d3 floordiv 64, d2 mod 32, d3 mod 64)>
-#map1 = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 floordiv 32, d3 floordiv 32, d2 mod 32, d3 mod 32)>
-#map2 = affine_map<() -> (0)>
-#map3 = affine_map<() -> (14)>
-#map4 = affine_map<() -> (16)>
-#map5 = affine_map<() -> (1)>
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1x16x14x14xf32, #map0>):
@@ -31,7 +31,7 @@
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<1x16x14x14xf32, #map1>
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<1x16x14x14xf32>
     "test.op_norm"(%0, %1) : (memref<1x16x14x14xf32, #map1>, memref<1x16x14x14xf32>) -> ()
-    %2 = "arith.constant"() {value = 3.000000e+00 : f32} : () -> f32
+    %2 = "arith.constant"() {value = 3.00000000 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg1: index):
       "affine.for"() ({
@@ -67,7 +67,7 @@
 }) : () -> ()
 
 
-#map = affine_map<(d0) -> (d0 floordiv 32, d0 mod 32)>
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<3 × f32, #map>):

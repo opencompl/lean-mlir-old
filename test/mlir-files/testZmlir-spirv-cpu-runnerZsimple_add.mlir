@@ -25,9 +25,9 @@
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<3 × f32>
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<3 × 3 × f32>
     %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<3 × 3 × 3 × f32>
-    %3 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
-    %4 = "arith.constant"() {value = 3.400000e+00 : f32} : () -> f32
-    %5 = "arith.constant"() {value = 4.300000e+00 : f32} : () -> f32
+    %3 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
+    %4 = "arith.constant"() {value = 3.40000000 : f32} : () -> f32
+    %5 = "arith.constant"() {value = 4.30000000 : f32} : () -> f32
     %6 = "memref.cast"(%0) : (memref<3 × f32>) -> memref<? × f32>
     %7 = "memref.cast"(%1) : (memref<3 × 3 × f32>) -> memref<? × ? × f32>
     %8 = "memref.cast"(%2) : (memref<3 × 3 × 3 × f32>) -> memref<? × ? × ? × f32>

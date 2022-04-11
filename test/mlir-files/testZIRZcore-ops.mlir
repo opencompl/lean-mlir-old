@@ -1,8 +1,8 @@
-#map0 = affine_map<(d0) -> (d0 + 1)>
-#map1 = affine_map<()[s0] -> (s0 + 1)>
-#map2 = affine_map<(d0, d1, d2) -> (d0 * 64 + d1 * 4 + d2)>
-#map3 = affine_map<(d0, d1, d2)[s0, s1, s2, s3] -> (d0 * s1 + s0 + d1 * s2 + d2 * s3)>
-#map4 = affine_map<(d0) -> (d0)>
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: f32):
@@ -33,9 +33,9 @@
     %16 = "arith.select"(%13, %11, %11) : (vector<42 × i1>, vector<42 × i32>, vector<42 × i32>) -> vector<42 × i32>
     %17 = "arith.select"(%9, %arg3, %arg3) : (i1, index, index) -> index
     %18 = "arith.select"(%9, %10, %10) : (i1, tensor<42 × i32>, tensor<42 × i32>) -> tensor<42 × i32>
-    %19 = "arith.constant"() {value = dense<0.000000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
-    %20 = "arith.constant"() {value = dense<0.000000e+00> : tensor<42 × f32>} : () -> tensor<42 × f32>
-    %21 = "arith.constant"() {value = dense<0.000000e+00> : vector<4 × f32>} : () -> vector<4 × f32>
+    %19 = "arith.constant"() {value = dense<0.00000000> : vector<4 × f32>} : () -> vector<4 × f32>
+    %20 = "arith.constant"() {value = dense<0.00000000> : tensor<42 × f32>} : () -> tensor<42 × f32>
+    %21 = "arith.constant"() {value = dense<0.00000000> : vector<4 × f32>} : () -> vector<4 × f32>
     %22 = "arith.cmpf"(%7, %8) {predicate = 2 : i64} : (f32, f32) -> i1
     %23 = "arith.cmpf"(%7, %8) {predicate = 1 : i64} : (f32, f32) -> i1
     %24 = "arith.cmpf"(%21, %21) {predicate = 4 : i64} : (vector<4 × f32>, vector<4 × f32>) -> vector<4 × i1>

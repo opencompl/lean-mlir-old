@@ -3,41 +3,41 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0)>
-#map1 = affine_map<(d0, d1) -> (d1)>
-#map2 = affine_map<(d0, d1) -> (d0, d1)>
-#map3 = affine_map<(d0, d1) -> (d0 * 10 - d1 + 19)>
-#map4 = affine_map<(d0) -> (d0)>
-#map5 = affine_map<() -> (-1)>
-#map6 = affine_map<() -> (10)>
-#map7 = affine_map<() -> (0)>
-#map8 = affine_map<(d0, d1, d2) -> (d0 mod 128 + 1)>
-#map9 = affine_map<(d0, d1, d2) -> (d1 floordiv 4 + 1)>
-#map10 = affine_map<(d0, d1, d2) -> (d2 ceildiv 4)>
-#map11 = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
-#map12 = affine_map<(d0, d1, d2) -> (d0 mod 128)>
-#map13 = affine_map<(d0, d1, d2) -> (d1 floordiv 4)>
-#map14 = affine_map<(d0, d1, d2) -> (d2 ceildiv 4 - 1)>
-#map15 = affine_map<() -> (256)>
-#map16 = affine_map<(d0, d1) -> ((d0 ceildiv 64) * 64)>
-#map17 = affine_map<(d0, d1) -> (d0 floordiv 256)>
-#map18 = affine_map<(d0, d1) -> ((d0 mod 1024) floordiv 4)>
-#map19 = affine_map<(d0, d1) -> (((d1 mod 32) ceildiv 4) * 32)>
-#map20 = affine_map<(d0)[s0] -> (d0 * s0)>
-#map21 = affine_map<(d0) -> ((d0 mod 147456) floordiv 1152)>
-#map22 = affine_map<(d0) -> ((d0 mod 1152) floordiv 384)>
-#map23 = affine_map<() -> (64)>
-#map24 = affine_map<(d0, d1) -> (d0 * 9216 + d1 * 128)>
-#map25 = affine_map<(d0) -> (d0 floordiv 294912)>
-#map26 = affine_map<(d0) -> ((d0 mod 294912) floordiv 147456)>
-#map27 = affine_map<(d0) -> (((d0 mod 147456) floordiv 1152) floordiv 8)>
-#map28 = affine_map<(d0) -> ((d0 mod 384) floordiv 128)>
-#map29 = affine_map<(d0) -> ((d0 mod 128) floordiv 128)>
-#map30 = affine_map<(d0, d1, d2, d3, d4, d5) -> (d0, d1, d2, d3, d4, d5)>
-#map31 = affine_map<() -> (9)>
-#map32 = affine_map<() -> ()>
-#map33 = affine_map<(d0) -> ((d0 * 100) floordiv 1000)>
-#map34 = affine_map<() -> (11)>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "arith.constant"() {value = 0 : index} : () -> index
@@ -207,13 +207,13 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> ((d0 * 72 + d1) floordiv 2304 + (d1 mod 9) floordiv 3)>
-#map1 = affine_map<(d0, d1) -> ((d0 * 72 + d1) mod 2304 - (((d0 * 72 + d1) mod 2304) floordiv 1152) * 1151 - (((d0 * 72 + d1) mod 1152) floordiv 9) * 9 - ((d1 mod 9) floordiv 3) * 3)>
-#map2 = affine_map<(d0, d1) -> ((((d0 * 72 + d1) mod 1152) floordiv 9) floordiv 8)>
-#map3 = affine_map<(d0, d1, d2) -> (d0, d1, d2, d1)>
-#map4 = affine_map<() -> (0)>
-#map5 = affine_map<() -> (9)>
-#map6 = affine_map<() -> (64)>
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<4x4x16x1xf32>):
@@ -236,11 +236,11 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0) -> (d0)>
-#map1 = affine_map<(d0) -> (d0 mod 4)>
-#map2 = affine_map<(d0) -> (d0 mod 4 + 4)>
-#map3 = affine_map<() -> (0)>
-#map4 = affine_map<() -> (4096)>
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<7 × f32>
@@ -260,12 +260,12 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0) -> (d0)>
-#map1 = affine_map<(d0) -> (d0 floordiv 4)>
-#map2 = affine_map<(d0) -> (d0 floordiv 4 + 4)>
-#map3 = affine_map<() -> (0)>
-#map4 = affine_map<(d0) -> ((d0 floordiv 4) * 4 + d0 mod 4)>
-#map5 = affine_map<() -> (4096)>
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<1027 × f32>
@@ -292,14 +292,14 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0) -> (d0 - 4)>
-#map1 = affine_map<(d0) -> (d0)>
-#map2 = affine_map<(d0) -> (d0 + 4)>
-#map3 = affine_map<() -> (4)>
-#map4 = affine_map<() -> (1028)>
-#map5 = affine_map<() -> ()>
-#map6 = affine_map<() -> (0)>
-#map7 = affine_map<() -> (100)>
+
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<1024 × f32>):

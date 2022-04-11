@@ -1,5 +1,5 @@
-#map0 = affine_map<(d0) -> (d0)>
-#map1 = affine_map<(d0) -> (0)>
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: tensor<? × f32>, %arg1: tensor<1 × f32>):
@@ -13,15 +13,15 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0, d1)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (512)>
-#map3 = affine_map<(d0) -> (d0)>
-#map4 = affine_map<() -> (256)>
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<256 × 512 × f32>, %arg1: memref<256 × f32>):
-    %0 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg2: index):
       %1 = "affine.for"(%0) ({
@@ -38,8 +38,8 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0, d1)>
-#map1 = affine_map<(d0, d1) -> (d0)>
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: tensor<4 × 4 × f32>, %arg1: tensor<4 × f32>):
@@ -54,8 +54,8 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0, d1)>
-#map1 = affine_map<(d0, d1) -> (d0)>
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: tensor<4 × 4 × f32>, %arg1: tensor<4 × f32>):
@@ -71,13 +71,13 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0) -> (d0)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (512)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<512 × f32>):
-    %0 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
     %1 = "affine.for"(%0) ({
     ^bb0(%arg1: index, %arg2: f32):
       %2 = "affine.load"(%arg0, %arg1) {map = #map0} : (memref<512 × f32>, index) -> f32
@@ -89,13 +89,13 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0) -> (d0)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (512)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<512 × f32>):
-    %0 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
     %1:2 = "affine.for"(%0, %0) ({
     ^bb0(%arg1: index, %arg2: f32, %arg3: f32):
       %2 = "affine.load"(%arg0, %arg1) {map = #map0} : (memref<512 × f32>, index) -> f32

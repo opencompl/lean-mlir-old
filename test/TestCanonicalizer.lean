@@ -25,19 +25,22 @@ macro_rules
   
 -- | write an op into the path
 def o: List Op := [mlir_ops|
+
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<4 × 4 × ? × f32>, %arg1: f32, %arg2: i32, %arg3: index, %arg4: i64, %arg5: f16):
-    %28 = "arith.constant"() {value = true} : () -> i1
-    %29 = "arith.constant"() {value = false} : () -> i1
-    "func.return"() : () -> ()
-  }) {function_type = (tensor<4 × 4 × ? × f32>, f32, i32, index, i64, f16) -> (), sym_name = "standard_instrs"} : () -> ()
+  ^bb0(%arg0: i1, %arg1: i32):
+    %0 = "arith.constant"() {value = true} : () -> i1
+    %1 = "arith.constant"() {value = -10 : i32} : () -> i32
+    %2 = "arith.constant"() {value = 31 : i32} : () -> i32
+    %3 = "arith.andi"(%arg0, %0) : (i1, i1) -> i1
+    %4 = "arith.andi"(%arg1, %1) : (i32, i32) -> i32
+    %5 = "arith.andi"(%4, %2) : (i32, i32) -> i32
+    "func.return"(%3, %5) : (i1, i32) -> ()
+  }) {function_type = (i1, i32) -> (i1, i32), sym_name = "simple_and"} : () -> ()
 }) : () -> ()
-
-
 
 ] 
 -- | main program
 def main : IO Unit :=
     let str := Doc.VGroup (o.map Pretty.doc)
-    FS.writeFile "testZIRZcore-ops.out.txt" str
+    FS.writeFile "testZTransformsZconstant-fold.out.txt" str

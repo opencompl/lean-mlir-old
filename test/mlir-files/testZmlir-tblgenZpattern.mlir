@@ -187,8 +187,8 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "rewrite_i32elementsattr"} : () -> ()
   "func.func"() ({
-    "test.float_elements_attr"() {scalar_f32_attr = dense<[3.000000e+00, 4.000000e+00]> : tensor<2 × f32>, tensor_f64_attr = dense<6.000000e+00> : tensor<4 × 8 × f64>} : () -> ()
-    "test.float_elements_attr"() {scalar_f32_attr = dense<7.000000e+00> : tensor<2 × f32>, tensor_f64_attr = dense<3.000000e+00> : tensor<4 × 8 × f64>} : () -> ()
+    "test.float_elements_attr"() {scalar_f32_attr = dense<[3.00000000, 4.00000000]> : tensor<2 × f32>, tensor_f64_attr = dense<6.00000000> : tensor<4 × 8 × f64>} : () -> ()
+    "test.float_elements_attr"() {scalar_f32_attr = dense<7.00000000> : tensor<2 × f32>, tensor_f64_attr = dense<3.00000000> : tensor<4 × 8 × f64>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "rewrite_f64elementsattr"} : () -> ()
   "func.func"() ({

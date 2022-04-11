@@ -1,29 +1,29 @@
-#map0 = affine_map<(d0, d1, d2, d3, d4)[s0] -> (d0, d1, d2, d4, d3)>
-#map1 = affine_map<(d0, d1, d2) -> (d1, d0, d2)>
-#map2 = affine_map<() -> (1)>
-#map3 = affine_map<() -> (10)>
-#map4 = affine_map<() -> (200)>
-#map5 = affine_map<() -> (100)>
-#map6 = affine_map<(d0) -> (d0)>
-#map7 = affine_map<()[s0] -> (s0)>
-#map8 = affine_map<()[s0] -> (0, s0 - 1)>
-#map9 = affine_map<()[s0] -> (100, s0 + 1)>
-#map10 = affine_map<(d0, d1)[s0] -> (d0 + d1)>
-#map11 = affine_map<(d0, d1)[s0] -> (s0 + 1)>
-#map12 = affine_map<(d0, d1) -> (d0 + d1)>
-#map13 = affine_map<(d0)[s0] -> (d0 + s0, d0 - s0)>
-#map14 = affine_map<(d0, d1)[s0] -> (d0 + d1 + s0)>
-#map15 = affine_map<() -> (0)>
-#map16 = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
-#map17 = affine_map<()[s0] -> (s0 + 3)>
-#map18 = affine_map<()[s0, s1] -> (s0 + s1)>
-#map19 = affine_map<(d0)[s0] -> (d0 + s0)>
-#set0 = affine_set<(d0)[s0] : (d0 - 2 >= 0, -d0 + 4 >= 0)>
-#set1 = affine_set<(d0)[s0, s1] : (d0 >= 0, -d0 + s0 >= 0, s0 - 5 == 0, -d0 + s1 + 1 >= 0)>
-#set2 = affine_set<(d0, d1)[s0] : (d0 >= 0, d1 >= 0)>
-#set3 = affine_set<(d0, d1, d2) : (d0 >= 0, d1 >= 0, d2 - d1 == 0)>
-#set4 = affine_set<(d0) : (d0 - 1 == 0)>
-#set5 = affine_set<() : (0 == 0)>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   }) {function_type = (i32, i64) -> f32, sym_name = "foo", sym_visibility = "private"} : () -> ()
@@ -285,7 +285,7 @@
   }) {function_type = (index) -> (), sym_name = "simple_ifinst"} : () -> ()
   "func.func"() ({
     "foo"() : () -> ()
-    "foo"() {a = 1 : i64, b = -423 : i64, c = [true, false], d = 1.600000e+01 : f64} : () -> ()
+    "foo"() {a = 1 : i64, b = -423 : i64, c = [true, false], d = 1.60000001 : f64} : () -> ()
     "foo"() {map1 = #map6} : () -> ()
     "foo"() {map2 = #map16} : () -> ()
     "foo"() {map12 = [#map6, #map16]} : () -> ()
@@ -374,16 +374,16 @@
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "unitAttrs"} : () -> ()
   "func.func"() ({
-    "foo"() {a = 4.000000e+00 : f64, b = 2.000000e+00 : f64, c = 7.100000e+00 : f64, d = -0.000000e+00 : f64} : () -> ()
+    "foo"() {a = 4.00000000 : f64, b = 2.00000000 : f64, c = 7.10000000 : f64, d = -0.00000000 : f64} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "floatAttrs"} : () -> ()
   "func.func"() ({
-  }) {dialect.a = "a\22quoted\22string", dialect.b = 4.000000e+00 : f64, dialect.c = tensor<* × f32>, function_type = () -> (), sym_name = "externalfuncattr", sym_visibility = "private"} : () -> ()
+  }) {dialect.a = "a\22quoted\22string", dialect.b = 4.00000000 : f64, dialect.c = tensor<* × f32>, function_type = () -> (), sym_name = "externalfuncattr", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = () -> (), sym_name = "funcattrempty", sym_visibility = "private"} : () -> ()
   "func.func"() ({
     "func.return"() : () -> ()
-  }) {dialect.a = "a\22quoted\22string", dialect.b = 4.000000e+00 : f64, dialect.c = tensor<* × f32>, function_type = () -> (), sym_name = "funcattr", sym_visibility = "private"} : () -> ()
+  }) {dialect.a = "a\22quoted\22string", dialect.b = 4.00000000 : f64, dialect.c = tensor<* × f32>, function_type = () -> (), sym_name = "funcattr", sym_visibility = "private"} : () -> ()
   "func.func"() ({
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "funcattrwithblock"} : () -> ()
@@ -420,11 +420,11 @@
     "splatBoolTensor"() {bar = dense<false> : tensor<i1>} : () -> ()
     "splatUIntTensor"() {bar = dense<222> : tensor<2 × 1 × 4 × ui8>} : () -> ()
     "splatIntTensor"() {bar = dense<5> : tensor<2 × 1 × 4 × i32>} : () -> ()
-    "splatFloatTensor"() {bar = dense<-5.000000e+00> : tensor<2 × 1 × 4 × f32>} : () -> ()
+    "splatFloatTensor"() {bar = dense<-5.00000000> : tensor<2 × 1 × 4 × f32>} : () -> ()
     "splatIntVector"() {bar = dense<5> : vector<2 × 1 × 4 × i64>} : () -> ()
-    "splatFloatVector"() {bar = dense<-5.000000e+00> : vector<2 × 1 × 4 × f16>} : () -> ()
+    "splatFloatVector"() {bar = dense<-5.00000000> : vector<2 × 1 × 4 × f16>} : () -> ()
     "splatIntScalar"() {bar = dense<5> : tensor<i9>} : () -> ()
-    "splatFloatScalar"() {bar = dense<-5.000000e+00> : tensor<f16>} : () -> ()
+    "splatFloatScalar"() {bar = dense<-5.00000000> : tensor<f16>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "splattensorattr"} : () -> ()
   "func.func"() ({
@@ -445,21 +445,21 @@
     "foo2"() {bar = dense<> : tensor<1 × 0 × i32>} : () -> ()
     "foo2"() {bar = dense<> : tensor<0 × 512 × 512 × i32>} : () -> ()
     "foo3"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : tensor<2 × 1 × 4 × i32>} : () -> ()
-    "float1"() {bar = dense<5.000000e+00> : tensor<1 × 1 × 1 × f32>} : () -> ()
+    "float1"() {bar = dense<5.00000000> : tensor<1 × 1 × 1 × f32>} : () -> ()
     "float2"() {bar = dense<> : tensor<0 × f32>} : () -> ()
     "float2"() {bar = dense<> : tensor<1 × 0 × f32>} : () -> ()
-    "bfloat16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × bf16>} : () -> ()
-    "float16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × f16>} : () -> ()
-    "float32"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × f32>} : () -> ()
-    "float64"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : tensor<2 × 1 × 4 × f64>} : () -> ()
+    "bfloat16"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : tensor<2 × 1 × 4 × bf16>} : () -> ()
+    "float16"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : tensor<2 × 1 × 4 × f16>} : () -> ()
+    "float32"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : tensor<2 × 1 × 4 × f32>} : () -> ()
+    "float64"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : tensor<2 × 1 × 4 × f64>} : () -> ()
     "intscalar"() {bar = dense<1> : tensor<i32>} : () -> ()
-    "floatscalar"() {bar = dense<5.000000e+00> : tensor<f32>} : () -> ()
+    "floatscalar"() {bar = dense<5.00000000> : tensor<f32>} : () -> ()
     "index"() {bar = dense<1> : tensor<inde × >} : () -> ()
     "index"() {bar = dense<[1, 2]> : tensor<2 × inde × >} : () -> ()
     "complex_attr"() {bar = dense<(1,1)> : tensor<comple × <i64>>} : () -> ()
     "complex_attr"() {bar = dense<[(1,1), (2,2)]> : tensor<2 × comple × <i64>>} : () -> ()
-    "complex_attr"() {bar = dense<(1.000000e+00,0.000000e+00)> : tensor<comple × <f32>>} : () -> ()
-    "complex_attr"() {bar = dense<[(1.000000e+00,0.000000e+00), (2.000000e+00,2.000000e+00)]> : tensor<2 × comple × <f32>>} : () -> ()
+    "complex_attr"() {bar = dense<(1.00000000,0.00000000)> : tensor<comple × <f32>>} : () -> ()
+    "complex_attr"() {bar = dense<[(1.00000000,0.00000000), (2.00000000,2.00000000)]> : tensor<2 × comple × <f32>>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "densetensorattr"} : () -> ()
   "func.func"() ({
@@ -468,11 +468,11 @@
     "foo32"() {bar = dense<5> : vector<1 × 1 × 1 × i32>} : () -> ()
     "fooi64"() {bar = dense<-5> : vector<1 × 1 × 1 × i64>} : () -> ()
     "foo3"() {bar = dense<[[[5, -6, 1, 2]], [[7, 8, 3, 4]]]> : vector<2 × 1 × 4 × i32>} : () -> ()
-    "float1"() {bar = dense<5.000000e+00> : vector<1 × 1 × 1 × f32>} : () -> ()
-    "bfloat16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × bf16>} : () -> ()
-    "float16"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × f16>} : () -> ()
-    "float32"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × f32>} : () -> ()
-    "float64"() {bar = dense<[[[-5.000000e+00, 6.000000e+00, 1.000000e+00, 2.000000e+00]], [[7.000000e+00, -8.000000e+00, 3.000000e+00, 4.000000e+00]]]> : vector<2 × 1 × 4 × f64>} : () -> ()
+    "float1"() {bar = dense<5.00000000> : vector<1 × 1 × 1 × f32>} : () -> ()
+    "bfloat16"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : vector<2 × 1 × 4 × bf16>} : () -> ()
+    "float16"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : vector<2 × 1 × 4 × f16>} : () -> ()
+    "float32"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : vector<2 × 1 × 4 × f32>} : () -> ()
+    "float64"() {bar = dense<[[[-5.00000000, 6.00000000, 1.00000000, 2.00000000]], [[7.00000000, -8.00000000, 3.00000000, 4.00000000]]]> : vector<2 × 1 × 4 × f64>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "densevectorattr"} : () -> ()
   "func.func"() ({
@@ -482,10 +482,10 @@
     "fooi64"() {bar = sparse<0, -1> : tensor<1 × i64>} : () -> ()
     "foo2"() {bar = sparse<> : tensor<0 × i32>} : () -> ()
     "foo3"() {bar = sparse<> : tensor<i32>} : () -> ()
-    "foof16"() {bar = sparse<0, -2.000000e+00> : tensor<1 × 1 × 1 × f16>} : () -> ()
-    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.000000e+00, -1.000000e+00, 5.000000e+00]> : tensor<2 × 2 × 2 × bf16>} : () -> ()
+    "foof16"() {bar = sparse<0, -2.00000000> : tensor<1 × 1 × 1 × f16>} : () -> ()
+    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.00000000, -1.00000000, 5.00000000]> : tensor<2 × 2 × 2 × bf16>} : () -> ()
     "foof32"() {bar = sparse<> : tensor<1 × 0 × 1 × f32>} : () -> ()
-    "foof64"() {bar = sparse<0, -1.000000e+00> : tensor<1 × f64>} : () -> ()
+    "foof64"() {bar = sparse<0, -1.00000000> : tensor<1 × f64>} : () -> ()
     "foof320"() {bar = sparse<> : tensor<0 × f32>} : () -> ()
     "foof321"() {bar = sparse<> : tensor<f32>} : () -> ()
     "foostr"() {bar = sparse<0, "foo"> : tensor<1 × 1 × 1 × !unknown<"">>} : () -> ()
@@ -497,9 +497,9 @@
     "fooi16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2, -1, 5]> : vector<2 × 2 × 2 × i16>} : () -> ()
     "fooi32"() {bar = sparse<> : vector<1 × 1 × i32>} : () -> ()
     "fooi64"() {bar = sparse<0, -1> : vector<1 × i64>} : () -> ()
-    "foof16"() {bar = sparse<0, -2.000000e+00> : vector<1 × 1 × 1 × f16>} : () -> ()
-    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.000000e+00, -1.000000e+00, 5.000000e+00]> : vector<2 × 2 × 2 × bf16>} : () -> ()
-    "foof64"() {bar = sparse<0, -1.000000e+00> : vector<1 × f64>} : () -> ()
+    "foof16"() {bar = sparse<0, -2.00000000> : vector<1 × 1 × 1 × f16>} : () -> ()
+    "foobf16"() {bar = sparse<[[1, 1, 0], [0, 1, 0], [0, 0, 1]], [2.00000000, -1.00000000, 5.00000000]> : vector<2 × 2 × 2 × bf16>} : () -> ()
+    "foof64"() {bar = sparse<0, -1.00000000> : vector<1 × f64>} : () -> ()
     "func.return"() : () -> ()
   }) {function_type = () -> (), sym_name = "sparsevectorattr"} : () -> ()
   "func.func"() ({
@@ -651,7 +651,7 @@
   "func.func"() ({
     "foo"() {bar = dense<0 × FFFFFFFF> : tensor<4 × 4 × f32>} : () -> ()
     "foo"() {bar = dense<[[0xFFFFFFFF, 0x7F800000], [0x7FBFFFFF, 0x7F800001]]> : tensor<2 × 2 × f32>} : () -> ()
-    "foo"() {bar = dense<[0 × FFFFFFFF, 0.000000e+00]> : tensor<2 × f32>} : () -> ()
+    "foo"() {bar = dense<[0 × FFFFFFFF, 0.00000000]> : tensor<2 × f32>} : () -> ()
     "foo"() {bar = sparse<[[1, 1, 0], [0, 1, 1]], [0 × FFFFFFFF, 0 × 7F800001]> : tensor<2 × 2 × 2 × f32>} : () -> ()
   }) {function_type = () -> (), sym_name = "special_float_values_in_tensors"} : () -> ()
   "func.func"() ({

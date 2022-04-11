@@ -20,9 +20,9 @@
     %3 = "arith.constant"() {value = 0 : i32} : () -> i32
     %4 = "arith.constant"() {value = 1 : i32} : () -> i32
     %5 = "arith.constant"() {value = 2 : i32} : () -> i32
-    %6 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
-    %7 = "arith.constant"() {value = 3.300000e+00 : f32} : () -> f32
-    %8 = "arith.constant"() {value = 1.100000e+00 : f32} : () -> f32
+    %6 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
+    %7 = "arith.constant"() {value = 3.30000000 : f32} : () -> f32
+    %8 = "arith.constant"() {value = 1.10000000 : f32} : () -> f32
     %9 = "memref.cast"(%0) : (memref<8 × 4 × 4 × f32>) -> memref<? × ? × ? × f32>
     %10 = "memref.cast"(%1) : (memref<4 × 4 × f32>) -> memref<? × ? × f32>
     %11 = "memref.cast"(%2) : (memref<8 × 4 × 4 × f32>) -> memref<? × ? × ? × f32>

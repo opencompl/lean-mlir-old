@@ -1,26 +1,26 @@
-#map0 = affine_map<(d0, d1) -> (d1, d0)>
-#map1 = affine_map<(d0, d1) -> (d0, d1)>
-#map2 = affine_map<() -> (0)>
-#map3 = affine_map<() -> (256)>
-#map4 = affine_map<() -> (64)>
-#map5 = affine_map<(d0) -> (d0 + 1)>
-#map6 = affine_map<(d0) -> (d0)>
-#map7 = affine_map<(d0, d1, d2) -> (d2, d0, d1)>
-#map8 = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
-#map9 = affine_map<() -> (128)>
-#map10 = affine_map<(d0, d1) -> (d0, -d1 - 10)>
-#map11 = affine_map<(d0, d1) -> (d0 floordiv 8, d1 floordiv 16, d0 mod 8, d1 mod 16)>
-#map12 = affine_map<(d0) -> (d0, d0)>
-#map13 = affine_map<(d0, d1) -> (d0 * 2, d1 * 4)>
-#map14 = affine_map<(d0, d1) -> (d0 * 3 + d1 * 17)>
-#map15 = affine_map<() -> (5)>
-#map16 = affine_map<() -> (2)>
-#map17 = affine_map<(d0, d1)[s0] -> (d0 * 10 + d1)>
-#map18 = affine_map<() -> (10)>
-#map19 = affine_map<(d0, d1)[s0, s1] -> (d0 * s0 + d1 * s1)>
-#map20 = affine_map<() -> (1024)>
-#map21 = affine_map<(d0) -> (d0 floordiv 4, d0 mod 4)>
-#map22 = affine_map<() -> (8)>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<64 × 256 × f32, #map0>
@@ -151,7 +151,7 @@
   ^bb0(%arg0: memref<8 × f64, #map21>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<8 × f64, #map21>
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<16 × f64, #map21>
-    %2 = "arith.constant"() {value = 2.300000e+01 : f64} : () -> f64
+    %2 = "arith.constant"() {value = 2.30000001 : f64} : () -> f64
     %3 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<24 × f64>
     "func.call"(%0) {callee = @single_argument_type} : (memref<8 × f64, #map21>) -> ()
     "func.call"(%arg0) {callee = @single_argument_type} : (memref<8 × f64, #map21>) -> ()
@@ -179,7 +179,7 @@
   ^bb0(%arg0: memref<8 × f64, #map21>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<8 × f64, #map21>
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<16 × f64, #map21>
-    %2 = "arith.constant"() {value = 2.300000e+01 : f64} : () -> f64
+    %2 = "arith.constant"() {value = 2.30000001 : f64} : () -> f64
     %3:2 = "func.call"(%0) {callee = @ret_single_argument_type} : (memref<8 × f64, #map21>) -> (memref<16 × f64, #map21>, memref<8 × f64, #map21>)
     %4:2 = "func.call"(%arg0) {callee = @ret_single_argument_type} : (memref<8 × f64, #map21>) -> (memref<16 × f64, #map21>, memref<8 × f64, #map21>)
     %5:2 = "func.call"(%1, %2, %0) {callee = @ret_multiple_argument_type} : (memref<16 × f64, #map21>, f64, memref<8 × f64, #map21>) -> (memref<8 × f64, #map21>, f64)
@@ -230,7 +230,7 @@
     "func.return"(%0) : (memref<8 × f64, #map21>) -> ()
   }) {function_type = (memref<16 × f64, #map21>, f64) -> memref<8 × f64, #map21>, sym_name = "use_value_of_external"} : () -> ()
   "func.func"() ({
-    %0 = "arith.constant"() {value = 2.300000e+01 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 2.30000001 : f32} : () -> f32
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<8 × f32, #map21>
     %2 = "affine.parallel"() ({
     ^bb0(%arg0: index):

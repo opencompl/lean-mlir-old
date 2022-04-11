@@ -1,5 +1,5 @@
-#map0 = affine_map<() -> (0)>
-#map1 = affine_map<() -> (8)>
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "test.foo"() : () -> i32

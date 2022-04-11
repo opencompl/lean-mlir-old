@@ -1,15 +1,15 @@
-#map0 = affine_map<() -> (0)>
-#map1 = affine_map<() -> (5)>
-#map2 = affine_map<() -> (0, 0)>
-#map3 = affine_map<(d0, d1) -> (d0, d1)>
-#map4 = affine_map<(d0) -> (d0)>
-#map5 = affine_map<() -> (16)>
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<16 × 16 × f32>
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<16 × 16 × f32>
     %2 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<16 × 16 × f32>
-    %3 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
+    %3 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
     "linalg.fill"(%3, %0) ({
     ^bb0(%arg0: f32, %arg1: f32):
       "linalg.yield"(%arg0) : (f32) -> ()

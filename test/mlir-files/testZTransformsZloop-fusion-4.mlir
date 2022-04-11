@@ -1,15 +1,15 @@
-#map0 = affine_map<(d0, d1, d2, d3) -> (d0 * 720 + d1 * 90 + d2 * 10 + d3)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (10)>
-#map3 = affine_map<() -> (9)>
-#map4 = affine_map<() -> (8)>
-#map5 = affine_map<() -> (7)>
-#map6 = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2, d3)>
+
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<7x8x9x10xf32>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<5040 × f32>
-    %1 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 7.00000000 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg1: index):
       "affine.for"() ({
@@ -50,17 +50,17 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0 * 8 + d1)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (8)>
-#map3 = affine_map<() -> (7)>
-#map4 = affine_map<(d0, d1) -> (d0 + d1 * 8)>
-#map5 = affine_map<(d0, d1) -> (d0, d1)>
+
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<8 × 7 × f32>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<56 × f32>
-    %1 = "arith.constant"() {value = 7.000000e+00 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 7.00000000 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg1: index):
       "affine.for"() ({
@@ -85,9 +85,9 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0) -> (d0)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (100)>
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<100 × f32>, %arg1: memref<100 × f32>, %arg2: memref<100 × f32>):
@@ -108,16 +108,16 @@
 }) : () -> ()
 
 
-#map0 = affine_map<(d0, d1) -> (d0, d1)>
-#map1 = affine_map<() -> (0)>
-#map2 = affine_map<() -> (64)>
-#map3 = affine_map<() -> (1)>
-#map4 = affine_map<() -> (32)>
+
+
+
+
+
 "builtin.module"() ({
   "func.func"() ({
   ^bb0(%arg0: memref<64 × 64 × f32, 1>, %arg1: memref<1 × 64 × f32, 1>, %arg2: memref<1 × 64 × f32, 1>):
-    %0 = "arith.constant"() {value = 0.000000e+00 : f32} : () -> f32
-    %1 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
+    %1 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
     "affine.for"() ({
     ^bb0(%arg3: index):
       "affine.for"() ({

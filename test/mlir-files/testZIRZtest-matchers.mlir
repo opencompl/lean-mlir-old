@@ -12,7 +12,7 @@
   }) {function_type = (f32, f32, f32) -> (), sym_name = "test1"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: f32):
-    %0 = "arith.constant"() {value = 1.000000e+00 : f32} : () -> f32
+    %0 = "arith.constant"() {value = 1.00000000 : f32} : () -> f32
     %1 = "arith.addf"(%arg0, %0) : (f32, f32) -> f32
     %2 = "arith.mulf"(%arg0, %1) : (f32, f32) -> f32
     "func.return"(%2) : (f32) -> ()
