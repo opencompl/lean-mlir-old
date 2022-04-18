@@ -3,6 +3,7 @@ import MLIRSemantics.Fitree
 import MLIRSemantics.Verifier
 import MLIRSemantics.SSAEnv
 import MLIRSemantics.InvalidOp
+import MLIRSemantics.Util.Metagen
 
 import MLIR.AST
 import MLIR.EDSL
@@ -14,17 +15,22 @@ open MLIR.AST
 
 /- To be automatically generated -/
 
-inductive ToyOp: Type → Type _ :=
-  | Constant: /- (α: Type) → -/ (D: DimList) → (Hknown: D.known) →
-      (e: TensorElem) → (Hcompat: e.rankCompatibleWith D) →
-      ToyOp (RankedTensor Int D)
-  | Transpose: (α: Type) → (n m: Nat) →
-      RankedTensor α [Dimension.Known n, Dimension.Known m] →
-      ToyOp (RankedTensor α [Dimension.Known m, Dimension.Known n])
-  | Reshape: (α: Type) → (D D': DimList) → (H: D.known) → (H': D'.known) →
-      (Hprod: D'.prod = D.prod) →
-      RankedTensor α D →
-      ToyOp (RankedTensor α D')
+set_option hygiene false in
+genInductive ToyOp #[
+  OpSpec.mk "Constant" `(
+    (D: DimList) → (Hknown: D.known) →
+    (e: TensorElem) → (Hcompat: e.rankCompatibleWith D) →
+    ToyOp (RankedTensor Int D)),
+  OpSpec.mk "Transpose" `(
+    (α: Type) → (n m: Nat) →
+    RankedTensor α [Dimension.Known n, Dimension.Known m] →
+    ToyOp (RankedTensor α [Dimension.Known m, Dimension.Known n])),
+  OpSpec.mk "Reshape" `(
+    (α: Type) → (D D': DimList) → (H: D.known) → (H': D'.known) →
+    (Hprod: D'.prod = D.prod) →
+    RankedTensor α D →
+    ToyOp (RankedTensor α D'))
+]
 
 /- To be automatically generated (hopefully; basically this is the
    verification stuff) -/

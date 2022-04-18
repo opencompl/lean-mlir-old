@@ -7,13 +7,13 @@ open Lean
 
 -- Mock reproduction of MLIR.AST
 
-inductive SSAValue
+private inductive SSAValue
 | mk: String -> SSAValue
 
-def SSAValue.toString: SSAValue -> String
+private def SSAValue.toString: SSAValue -> String
 | SSAValue.mk a => a
 
-instance: ToString SSAValue where
+private instance: ToString SSAValue where
   toString := SSAValue.toString
 
 syntax "%" ident : term
@@ -22,15 +22,15 @@ macro_rules
     let name := Lean.quote (i.getId.toString)
     `(SSAValue.mk $name)
 
-inductive Op
+private inductive Op
 | Operand: Op
 | Op_: String -> List SSAValue -> Op
 
-def Op.toString: Op → String
+private def Op.toString: Op → String
   | Operand => "operand"
   | Op_ name xs => s!"op {name} {xs}"
 
-instance: ToString Op where
+private instance: ToString Op where
   toString := Op.toString
 
 inductive BB
@@ -109,32 +109,39 @@ mkRewriteThm myAmazingRewrite bb0 := by {
 
 structure OpSpec := mk ::
   name: String
-  args: List String -- TODO: to be expanded
+  args: CommandElabM Syntax
 
-set_option hygiene false in
 elab "genInductive" inductiveName:ident xs:term : command => do
   let xargs ← liftTermElabM `genInductive do
     let xs ← elabTerm xs none
-    let xsred ← instantiateMVars (← reduce xs)
+    let xsred ← instantiateMVars xs -- (← reduce xs)
     -- dbg_trace xsred
     let argType ← elabTerm (← `(Array OpSpec)) none
     let xsArray ← evalExprAnyTypeSafe (Array OpSpec) argType xsred
     -- dbg_trace xsArray
     return xsArray
 
-  -- TODO: Turn OpSpec arguments into syntax
-  let binder0 <- `((todo: Type) -> (y: todo) -> ToyOp Nat)
-  let expand: String × CommandElabM Syntax → CommandElabM (String × Syntax) :=
-    fun (name, stx) => return (name, ← stx)
-  let xargs: Array (String × Syntax) :=
-    xargs.map (fun spec => (spec.name, binder0))
+  /- This will be useful later
+  let make_ctor_signature (args: List String): CommandElabM Syntax := do
+    let args := args.map (Lean.mkIdent ∘ Name.mkSimple)
+    args.foldrM
+      (fun name stx => `(($name :Type) → $name → $stx))
+      (← `($inductiveName Nat))
 
-  let make_ctor (spec: String × Syntax) :=
+  let xargs: Array (String × Syntax) ← xargs.mapM (fun spec => do
+    return (spec.name, ← make_ctor_signature spec.args))
+  -/
+
+  let xargs: Array (String × Syntax) ← xargs.mapM (fun spec => do
+      return (spec.name, ← spec.args))
+
+  let make_ctor (spec: String × Syntax): CtorView :=
     let (name, stx) := spec
     let defaultCtorView : CtorView := default
-    { defaultCtorView with declName := name, type? := stx }
+    { defaultCtorView with
+        declName := inductiveName.getId ++ name,
+        type? := stx }
 
-  let ctors: Array CtorView := xargs.map make_ctor
   let indView : InductiveView := {
     ref := Syntax.missing,
     modifiers := default,
@@ -142,16 +149,17 @@ elab "genInductive" inductiveName:ident xs:term : command => do
     declName := inductiveName.getId,
     levelNames := [],
     binders := Syntax.missing,
-    type? := some (← `(Type → Type 1)),
-    ctors := ctors,
+    type? := some $ ← `(Type → Type 1),
+    ctors := xargs.map make_ctor,
     derivingClasses := #[]
   }
   elabInductiveViews #[indView]
 
 
-genInductive ToyOp #[
-  OpSpec.mk "Constant" ["x", "y"],
-  OpSpec.mk "Transpose" ["x", "y"],
-  OpSpec.mk "Reshape" ["x", "y"]
+set_option hygiene false in
+genInductive Test #[
+  OpSpec.mk "Constant" `(Unit → Test Nat),
+  OpSpec.mk "Transpose" `(Nat → Test Nat),
+  OpSpec.mk "Reshape" `(Nat → Test Bool)
 ]
-#print ToyOp
+#print Test
