@@ -58,7 +58,7 @@ Operations of PDL that we should partially or totally express:
 * `pdl.type`:
   Used as unification variable.
 
-Operations of PDL that we don't try to express (yet):
+Operations or features of PDL that we don't try to express (yet):
 
 * `pdl.operands`, `pdl.results`, `pdl.types`
   Anything related to ranges
@@ -67,140 +67,155 @@ Operations of PDL that we don't try to express (yet):
   to be rewritten in Lean, which is slightly inconvenient.
 * Use of native rewrite function in `pdl.rewrite`:
   Same as above
+* Using variadic arguments or matching operands with variadic arguments
 -/
 
 import MLIRSemantics.Types
 import MLIR.AST
+import MLIR.EDSL
+
 open MLIR.AST
+open MLIR.EDSL
 
 
 /-
 ### Syntax of the unification problem
 
 For this problem, we have different sorts: type, attributes, values (operands)
-and operations. TODO
+and operations. We could handle them with syntactically different terms, but
+each new type of term and each new type of variable would add new occurence
+check functions, substitution functions, fresh name tests, etc. So instead we
+use an untyped term structure (the sort of each variable can be determined by
+context anyway).
+
+Unlike usual first-order unification, we don't have any recursive structure,
+and instead mostly rely on independent equations.
+
+There is quite a lot of slack in the exact shape of the equations, leading to
+different versions of the problem. This is only one of the options.
 -/
 
-inductive UType :=
-  -- A type variable
-  | Var: String → UType
+inductive UTerm :=
+  -- A variable (either value or type, depending on context)
+  | Var: String → UTerm
   -- A constant type
-  | Const: MLIRTy → UType
-
-inductive UAttr :=
-  -- TODO: Unification with attributes
-
-inductive UValue :=
-  -- A value variable
-  | Var: SSAVal → UValue
+  | ConstType: MLIRTy → UTerm
   -- A constant value
-  | Const: (τ: MLIRTy) → τ.eval → UValue
+  | ConstVal: (τ: MLIRTy) → τ.eval → UTerm
+  -- An operation with a known mnemonic. The first list of pairs is arguments
+  -- with their types, the second is for the return values
+  | KnownOp: String → List (UTerm × UTerm) → List (UTerm × UTerm) → UTerm
+deriving Inhabited
 
-inductive UOp :=
-  -- An operation with a known mnemonic, unifiable arguments, and named return
-  -- values (TODO: Types on retun values of UOp ?)
-  | Known: String → List (UValue × UType) → List (UValue × UType) → UOp
+def UEq := UTerm × UTerm
 
-inductive UEq :=
-  | EqType: UType → UType → UEq
-  | EqValue: UValue → UValue → UEq
-  | EqOp: UOp → UOp → UEq
+mutual
+  def UTerm.free_vars: UTerm → List String
+    | Var s                 => [s]
+    | ConstType _           => []
+    | ConstVal _ _          => []
+    | KnownOp _ args rets   => free_vars_list args ++ free_vars_list rets
+  private def UTerm.free_vars_list: List (UTerm × UTerm) → List String
+    | []                    => []
+    | (v, t) :: l           => free_vars v ++ free_vars t ++ free_vars_list l 
+end
 
-structure Unification where mk::
+mutual
+  def UTerm.occurs (name: String): UTerm → Bool
+    | Var s                 => s = name
+    | ConstType _           => false
+    | ConstVal _ _          => false
+    | KnownOp op args rets  => occurs_list name args || occurs_list name rets
+  private def UTerm.occurs_list (name: String): List (UTerm × UTerm) → Bool
+    | []                    => false
+    | (v, t) :: l           => occurs name v || occurs name t ||
+                               occurs_list name l
+end
+
+def UEq.occurs: UEq → String → Bool
+  | (t₁, t₂), name => t₁.occurs name || t₂.occurs name
+
+mutual
+  def UTerm.subst (t: UTerm) (name: String) (t': UTerm): UTerm :=
+    match t with
+    | Var s                 => if s = name then t' else Var s
+    | ConstType _           => t
+    | ConstVal _ _          => t
+    | KnownOp op args rets  => KnownOp op (subst_list args name t')
+                                          (subst_list rets name t')
+  private def UTerm.subst_list (l: List (UTerm × UTerm)) name t' :=
+    match l with
+    | []                    => []
+    | (v, t) :: l           => (subst v name t', subst t name t') ::
+                               subst_list l name t'
+end
+
+def UTerm.subst_all (t: UTerm) (repl: List (String × UTerm)) :=
+  repl.foldl (fun t (name, t') => t.subst name t') t
+
+def UEq.subst (e: UEq) (name: String) (t': UTerm): UEq :=
+  match e with
+  | (t₁, t₂) => (t₁.subst name t', t₂.subst name t')
+
+structure Unification where mk ::
   -- Current set of equations
   eqns: List UEq
   -- Substitutions performed so far
   substs: List UEq
+  -- All variables defined so far (for fresh name generation)
+  allvars: List String
+  -- Typing judgements (to be inserted into operation terms)
+  judgements: List (String × UTerm)
+  -- Names of results for each operation, and their types
+  opresults: List (String × List (String × UTerm))
 deriving Inhabited
 
-/- Occurrence check and substitution -/
+def Unification.empty: Unification :=
+  { eqns        := [],
+    substs      := [],
+    allvars     := [],
+    judgements  := [],
+    opresults   := [], }
 
-def UType.occursType: UType → String → Bool
-  | Var s, s' => s = s'
-  | _, _ => false
+def Unification.find_judgement (u: Unification) (s: String): Option UTerm :=
+  u.judgements.findSome? (fun (v, t) => if v = s then some t else none)
 
-def UType.substType (t: UType) (n₁: String) (t₂: UType): UType :=
-  match t with
-  | Var s =>
-      if s = n₁ then t₂ else Var s
-  | t => t
+def Unification.find_judgements (u: Unification) (l: List String):
+    Option (List (String × UTerm)) :=
+  match l with
+  | [] => some []
+  | s :: l =>
+    (u.find_judgement s).bind fun t =>
+    (find_judgements u l).bind fun l =>
+    some $ (s, t) :: l
 
-def UValue.occursValue: UValue → SSAVal → Bool
-  | Var s, s' => s = s'
-  | _, _ => false
-
-def UValue.substValue (v: UValue) (n₁: SSAVal) (v₂: UValue): UValue :=
-  match v with
-  | Var s =>
-       if s = n₁ then v₂ else Var s
-  | v => v
-
-def UOp.occursValue: UOp → SSAVal → Bool
-  | Known _ vals _, x => vals.any (·.fst.occursValue x)
-
-def UOp.substValue (op: UOp) (n₁: SSAVal) (v₂: UValue): UOp :=
-  match op with
-  | Known name vals rets =>
-      Known name (vals.map fun (v,t) => (v.substValue n₁ v₂, t))
-                 (rets.map fun (v,t) => (v.substValue n₁ v₂, t))
-
-def UOp.occursType: UOp → String → Bool
-  | Known _ vals _, t => vals.any (·.snd.occursType t)
-
-def UOp.substType (op: UOp) (n₁: String) (t₂: UType): UOp :=
-  match op with
-  | Known name vals rets =>
-      Known name (vals.map fun (v,t) => (v, t.substType n₁ t₂))
-                 (rets.map fun (v,t) => (v, t.substType n₁ t₂))
-
-def UEq.occursValue: UEq → SSAVal → Bool
-  | EqType t₁ t₂, s => false
-  | EqValue v₁ v₂, s => v₁.occursValue s ∨ v₂.occursValue s
-  | EqOp op₁ op₂, s => op₁.occursValue s ∨ op₂.occursValue s
-
-def UEq.substValue (n₁: SSAVal) (v₂: UValue): UEq → UEq
-  | EqType t₁ t₂ => EqType t₁ t₂
-  | EqValue v₁ _v₂ => EqValue (v₁.substValue n₁ v₂) (_v₂.substValue n₁ v₂)
-  | EqOp op₁ op₂ => EqOp (op₁.substValue n₁ v₂) (op₂.substValue n₁ v₂)
-
-def UEq.occursType: UEq → String → Bool
-  | EqType t₁ t₂, s => t₁.occursType s ∨ t₂.occursType s
-  | EqValue v₁ v₂, s => false
-  | EqOp op₁ op₂, s => op₁.occursType s ∨ op₂.occursType s
-
-def UEq.substType (n₁: String) (t₂: UType): UEq → UEq
-  | EqType t₁ _t₂ => EqType (t₁.substType n₁ t₂) (_t₂.substType n₁ t₂)
-  | EqValue v₁ v₂ => EqValue v₁ v₂
-  | EqOp op₁ op₂ => EqOp (op₁.substType n₁ t₂) (op₂.substType n₁ t₂)
+def Unification.find_opresult (u: Unification) (op: String) (idx: Nat) :=
+  u.opresults.findSome? (fun (n, l) => if n = op then l.get? idx else none)
 
 
 /- String representations -/
 
-def UType.str: UType → String
-  | Var var => "!" ++ var
-  | Const τ => toString τ
+mutual
+  def UTerm.str: UTerm → String
+    | UTerm.Var s =>
+        s!"%{s}"
+    | UTerm.ConstType τ =>
+        toString τ
+    | UTerm.ConstVal τ v =>
+        s!"(TODO:{τ})"
+    | UTerm.KnownOp name vals rets =>
+        s!"{str_list rets} = \"{name}\"({str_list vals})"
 
-instance: ToString UType := ⟨UType.str⟩
+  private def UTerm.str_list: List (UTerm × UTerm) → String
+    | [] => ""
+    | [(v,t)] => str v ++ ":" ++ str t
+    | (v,t) :: l => str v ++ ":" ++ str t ++ ", " ++ str_list l
+end
 
--- TODO: String representation for any τ.eval
-def UValue.str: UValue → String
-  | Var var => toString var
-  | Const type const => s!"TODO:{type}"
-
-instance: ToString UValue := ⟨UValue.str⟩
-
-def UOp.str: UOp → String
-  | Known name vals rets =>
-      let rets := ", ".intercalate (rets.map fun (v,t) => s!"{v}:{t}")
-      let vals := ", ".intercalate (vals.map fun (v,t) => s!"{v}:{t}")
-      s!"{rets} = \"{name}\"({vals})"
-
-instance: ToString UOp := ⟨UOp.str⟩
+instance: ToString UTerm := ⟨UTerm.str⟩
 
 def UEq.str: UEq → String
-  | EqType t₁ t₂   => s!"{t₁} = {t₂}"
-  | EqValue v₁ v₂  => s!"{v₁} = {v₂}"
-  | EqOp o₁ o₂     => s!"[{o₁}]\n  = [{o₂}]"
+  | (t₁, t₂) => s!"{t₁} ≡ {t₂}"
 
 instance: ToString UEq := ⟨UEq.str⟩
 
@@ -209,39 +224,47 @@ def Unification.str: Unification → String := fun u =>
 
 instance: ToString Unification := ⟨Unification.str⟩
 
+def Unification.str_full: Unification → String := fun u =>
+  "Equations:\n" ++ (String.join $ u.eqns.map (s!"  {·}\n")) ++
+  "Substitutions:\n" ++ (String.join $ u.substs.map (s!"  {·}\n")) ++
+  "All variables:\n " ++ (String.join $ u.allvars.map (s!" %{·}")) ++
+  "\nTyping judgements:\n" ++ (String.join $ u.judgements.map
+    (fun (v,t) => s!"  %{v}: {t}\n")) ++
+  "Operation results:\n" ++ (String.join $ u.opresults.map
+    (fun (n,l) => s!"  %{n}: {l}\n"))
+
 
 /-
 ### Unification algorithm
 
 We use a naive unification algorithm. Given the size of the rewrites at play,
 we don't really care about performance, and instead prefer a more natural
-traveral of the structure that leads to more intuitive logs and error messages.
+traversal of the structure that leads to more intuitive logs and error
+messages.
 
 This is algorithm 1 of [1], which essentially normalizes the set of equations
 through a number of unifier-preserving transformations.
+
+TODO: Have "priorities" on variables so that automatically-named variables are
+      substituted first and user-name variables are kept instead!
 
 [1] Martelli, Alberto, and Ugo Montanari. "An efficient unification algorithm."
     ACM Transactions on Programming Languages and Systems (TOPLAS) 4.2 (1982):
     258-282.
 -/
 
-open UValue UType UOp UEq
+open UTerm
 
 -- Transformation (a): turn [t = x] (t not a variable) into [x = t]
 
 private def orient_one (eqn: UEq): IO (UEq × Bool) :=
   match eqn with
-  | EqType (UType.Var v₁) (UType.Var v₂) =>
-      return (eqn, false)
-  | EqType t₁ (UType.Var v₂) => do
+  | (Var v₁, Var v₂) =>
+      return (eqn, false) -- TODO: Variable priority
+  | (t₁, Var v₂) => do
       IO.print s!"Orient: {eqn}\n\n"
-      return (EqType (Var v₂) t₁, true)
-  | EqValue (UValue.Var v₁) (UValue.Var v₂) =>
-      return (eqn, false)
-  | EqValue t₂ (UValue.Var v₂) => do
-      IO.print s!"Orient: {eqn}\n\n"
-      return (EqValue (Var v₂) t₂, true)
-  | _ =>
+      return ((Var v₂, t₁), true)
+  |_ =>
       return (eqn, false)
 
 private def orient (eqns: List UEq): IO (List UEq × Bool) :=
@@ -254,9 +277,7 @@ private def orient (eqns: List UEq): IO (List UEq × Bool) :=
 -- Transformation (b): erase [x = x] (x a variable)
 
 private def erase_filter: UEq → Bool
-  | EqType (UType.Var v₁) (UType.Var v₂) =>
-      v₁ = v₂
-  | EqValue (UValue.Var v₁) (UValue.Var v₂) =>
+  | (Var v₁, Var v₂) =>
       v₁ = v₂
   | _ =>
       false
@@ -271,16 +292,15 @@ private def erase (eqns: List UEq): List UEq × Bool :=
 
 private def reduce_one (eqn: UEq): IO (Option (List UEq × Bool)) :=
   match eqn with
-  | EqOp (Known name₁ vals₁ rets₁) (Known name₂ vals₂ rets₂) => do
+  | (KnownOp name₁ vals₁ rets₁, KnownOp name₂ vals₂ rets₂) => do
       if name₁ = name₂
-       ∧ vals₁.length = vals₂.length
-       ∧ rets₁.length = rets₂.length then
+          ∧ vals₁.length = vals₂.length
+          ∧ rets₁.length = rets₂.length then
         IO.print s!"Reduce: {eqn}\n\n"
-        return some (
-          List.map₂ (fun (v₁,t₁) (v₂,t₂) => EqValue v₁ v₂) vals₁ vals₂ ++
-          List.map₂ (fun (v₁,t₁) (v₂,t₂) => EqType t₁ t₂) vals₁ vals₂ ++
-          List.map₂ (fun (v₁,t₁) (v₂,t₂) => EqValue v₁ v₂) rets₁ rets₂ ++
-          List.map₂ (fun (v₁,t₁) (v₂,t₂) => EqType t₁ t₂) rets₁ rets₂, true)
+        return some (List.join (
+            List.map₂ (fun (v₁,t₁) (v₂,t₂) => [(v₁,v₂),(t₁,t₂)]) vals₁ vals₂ ++
+            List.map₂ (fun (v₁,t₁) (v₂,t₂) => [(v₁,v₂),(t₁,t₂)]) rets₁ rets₂),
+          true)
       else
         return none
   | eq =>
@@ -306,22 +326,13 @@ private def elim_at (eqns: List UEq) (n: Nat):
     let others := (eqns.enum.filter (·.1 ≠ n)).map (·.snd)
 
     match eqn with
-    | EqType (UType.Var v₁) t₂ =>
-        if t₂.occursType v₁ then do
+    | (Var v₁, t₂) =>
+        if t₂.occurs v₁ then do
           IO.println s!"Equation {eqn} has a cycle!"
           return none -- cycle
-        else if eqns.enum.any (fun (j,eqn) => j ≠ n ∧ eqn.occursType v₁) then do
+        else if eqns.enum.any (fun (j,eqn) => j ≠ n ∧ eqn.occurs v₁) then do
           IO.print s!"Substitute: {eqn}\n\n"
-          return some (others.map (·.substType v₁ t₂), [eqn])
-        else
-          return some (eqns, [])
-    | EqValue (UValue.Var v₁) t₂ =>
-        if t₂.occursValue v₁ then do
-          IO.println s!"Equation {eqn} has a cycle!"
-          return none -- cycle
-        else if eqns.enum.any (fun (j,eqn) => j ≠ n ∧ eqn.occursValue v₁) then do
-          IO.print s!"Substitute: {eqn}\n\n"
-          return some (others.map (·.substValue v₁ t₂), [eqn])
+          return some (others.map (·.subst v₁ t₂), [eqn])
         else
           return some (eqns, [])
     | _ =>
@@ -343,6 +354,7 @@ private def elim (eqns: List UEq): IO (Option (List UEq × List UEq)) :=
           return none)
     $ some (eqns, [])
 
+
 -- Unification main loop: greedily applies each transformation in order
 
 def Unification.simplify: Unification → IO (Option (Unification × Bool)) :=
@@ -358,7 +370,7 @@ def Unification.simplify: Unification → IO (Option (Unification × Bool)) :=
         | some (eqns, b) => return some ({u with eqns := eqns}, b)
         | none => return none
     | some (eqns, substs) =>
-        return some ({ eqns := eqns, substs := u.substs ++ substs}, true)
+        return some ({ u with eqns := eqns, substs := u.substs ++ substs},true)
     | none =>
         return none
 
@@ -381,57 +393,327 @@ partial def Unification.solve (u: Unification) (n: Nat):
       IO.println s!"Problem has no solution!"
       return none
 
-def Unification.apply (solved_u: Unification): UOp → UOp := fun op =>
-  List.foldl (fun op eqn =>
+def Unification.apply (solved_u: Unification): UTerm → UTerm := fun t =>
+  List.foldl
+    (fun t eqn =>
       match eqn with
-      | EqType (UType.Var n₁) t₂ => op.substType n₁ t₂
-      | EqValue (UValue.Var n₁) v₂ => op.substValue n₁ v₂
-      | _ => op)
-    op (solved_u.substs ++ solved_u.eqns)
+      | (Var n₁, t₂) => t.subst n₁ t₂
+      | _ => t)
+    t (solved_u.substs ++ solved_u.eqns)
 
 
--- An example with a multiplication operation
 
-private def mul_pattern: UOp :=
-  ⟨"arith.mul", [(Var "op_x", Var "T"),
-                 (Var "op_y", Var "T")],
-                [(Var "op_res", Var "T")]⟩
+/-
+### Basic example
+
+Here, we consider an under-specified [x*2] pattern (ex_root) that we presumably
+want to turn into [x+x]. The pattern doesn't specify that x is an i32 as this
+is implicit, and we uncover this fact by unifying with the general shape of a
+multiplication operation (mul_pattern), supposedly obtained from IRDL.
+-/
+
+private def mul_pattern: UTerm :=
+  KnownOp "arith.mul"
+    [(Var "op_x", Var "T"), (Var "op_y", Var "T")]
+    [(Var "op_res", Var "T")]
 
 -- %two = pdl.value 2: i32
 private def ex_two: UEq :=
-  EqValue (Var "two") (Const (MLIRTy.int 32) 2)
+  (Var "two", ConstVal (MLIRTy.int 32) 2)
 
 -- %x = pdl.value
 -- %root = "arith.mul"(%x, %two)
 -- (%x is implicit, while %x_T, %_0 and %_0_T are automatically inserted)
-private def ex_root: UOp :=
-  ⟨"arith.mul", [(Var "x", Var "x_T"),
-                 (Var "two", Const (MLIRTy.int 32))],
-                [(Var "_0", Var "_0_T")]⟩
+private def ex_root: UTerm :=
+  KnownOp "arith.mul"
+    [(Var "x", Var "x_T"),
+     (Var "two", ConstType (MLIRTy.int 32))]
+    [(Var "_0", Var "_0_T")]
 
 private def mul_example: Unification :=
-  { eqns := [ex_two, EqOp mul_pattern ex_root],
-    substs := [] }
+  { Unification.empty with eqns := [ex_two, (mul_pattern, ex_root)] }
 
 #eval show IO Unit from do
   let u ← mul_example.solve 999
   let stmt := u.get!.apply ex_root
   IO.println s!"Theorem input:\n{stmt}"
 
-/- def substOne (identity: UEq): UEq → UEq :=
-  match identity with
-  | EqType (UType.Var n₁) t₂ => (·.substType n₁ t₂)
-  | EqValue (UValue.Var n₁) v₂ => (·.substValue n₁ v₂)
-  | _ => id
 
-def substAll (identity: UEq): List UEq → List UEq :=
-  List.map (substOne identity)
+/-
+### Conversion of PDL programs to Unification problems
+
+The interpretation of a PDL program as a unification problem is fairly
+straightforward; most PDL operations simply add new names or equations to the
+set. We still need to find a template to unify operations against.
+
+PDL has a *lot* of restrictions on what you can write; you can't use the same
+variable at two different places (implicit unification), you can't have a
+declaration operation (pdl.value, pdl.type, etc) without binding it to a
+variable, etc. This allows us to make assumptions on the shape of the input.
+-/
+
+def MLIR.AST.SSAVal.str: MLIR.AST.SSAVal → String
+  | SSAVal.SSAVal s => s
+
+-- Make up to [n] attempts at finding a fresh name by suffixing [s]
+def Unification.fresh_name_numbered (u: Unification) (s: String) (n p: Nat) :=
+  match n with
+  | 0 => s
+  | m+1 =>
+      let s' := s!"{s}{p}"
+      if u.allvars.all (· != s') then
+        s'
+      else
+        fresh_name_numbered u s m (p+1)
+
+-- Generate a new fresh name based on [name]; if not available, resort to
+-- adding numbered suffixes
+def Unification.fresh_name (u: Unification) (name: String): String :=
+  if u.allvars.all (· != name) then
+    name
+  else
+    u.fresh_name_numbered name (u.allvars.length+1) 0
+
+-- Generate [n] fresh names based on [name]
+def Unification.fresh_names (u: Unification) (name: String) (n: Nat):
+    List String × Unification :=
+  (List.range n).foldl
+    (fun (names, u) idx =>
+      let n' := u.fresh_name (name ++ toString idx)
+      (names ++ [n'], { u with allvars := u.allvars ++ [n'] }))
+    ([], u)
+
+-- Generate a copy of the term with the specified prefix and fresh names.
+-- Returns a pair with the new term and the list of all variables involved.
+def Unification.fresh_term (u: Unification) (prefix_: String) (t: UTerm) :=
+  let vars := t.free_vars
+  -- Remember generated names along the way to not generate them twice
+  let (repl, done, u) := vars.foldl
+    (fun (repl, done, u) var =>
+      if var ∈ done then
+        (repl, done, u)
+      else
+        let var' := u.fresh_name (prefix_ ++ var)
+        (repl ++ [(var, Var var')], done ++ [var],
+         {u with allvars := u.allvars ++ [var']}))
+    ([], [], u)
+  (t.subst_all repl, u)
+
+namespace PDL2U
+
+-- Get the n-th category of arguments from the specified variadic list by using
+-- the operand segment size attribute
+private def operand_segment (args: List SSAVal) (oss: TensorElem) (n: Nat) :=
+  -- Flatten segment sizes
+  let oss := match oss with
+  | TensorElem.nested l => l.map (
+      match · with | TensorElem.int i => i.toNat | _ => 0)
+  | _ => []
+  -- Accumulate
+  let (oss, _) := oss.foldl
+    (fun (segments, acc) size => (segments ++ [(acc, size)], acc + size))
+    ([], 0)
+  -- Get the segment for that argument
+  let (start, size) := oss.getD n (0,0)
+  (List.range size).filterMap (fun i => args.get? (i + start))
+
+private def handle_pdl_stmt (ins_patterns: List UTerm) (u: Unification)
+    (stmt: BasicBlockStmt): IO Unification :=
+  match stmt with
+  | BasicBlockStmt.StmtAssign name op => match op with
+
+    -- %name = pdl.type
+    | Op.mk "pdl.type" [] [] [] (AttrDict.mk [])
+          (MLIRTy.fn (MLIRTy.tuple [])
+                     (MLIRTy.user "pdl.type")) => do
+        IO.println s!"Found new type variable: {name}"
+        return { u with allvars := u.allvars ++ [name.str] }
+
+    -- %name = pdl.type: TYPE
+    | Op.mk "pdl.type" [] [] [] (AttrDict.mk [
+            AttrEntry.mk "type" (AttrVal.type τ)
+          ])
+          (MLIRTy.fn (MLIRTy.tuple [])
+                     (MLIRTy.user "pdl.type")) => do
+        IO.println s!"Found new type variable: {name} (= {τ})"
+        let eqn: UEq := (Var name.str, ConstType τ)
+        return { u with eqns := u.eqns ++ [eqn],
+                        allvars := u.allvars ++ [name.str] }
+
+    -- %name = pdl.operand
+    | Op.mk "pdl.operand" [] [] [] (AttrDict.mk [])
+          (MLIRTy.fn (MLIRTy.tuple [])
+                     (MLIRTy.user "pdl.value")) => do
+        let name_type := u.fresh_name (name.str ++ "_T")
+        let j := (name.str, Var name_type)
+        IO.println s!"Found new variable: {name} of type {name_type}"
+        return { u with judgements := u.judgements ++ [j],
+                        allvars := u.allvars ++ [name.str, name_type] }
+
+    -- %name = pdl.operand: %name_type
+    | Op.mk "pdl.operand" [name_type] [] [] (AttrDict.mk [])
+          (MLIRTy.fn (MLIRTy.tuple [MLIRTy.user "pdl.type"])
+                     (MLIRTy.user "pdl.value")) => do
+        IO.println s!"Found new variable: {name} of type {name_type}"
+        let j := (name.str, Var name_type.str)
+        return { u with judgements := u.judgements ++ [j],
+                        allvars := u.allvars ++ [name.str] }
+
+    -- %name = pdl.operation "OPNAME"(ARGS) -> TYPE
+    | Op.mk "pdl.operation" args [] [] attrs some_type => do
+        let (attributeNames, opname, operand_segment_sizes) :=
+          (attrs.find "attributeNames",
+           attrs.find "name",
+           attrs.find "operand_segment_sizes")
+
+        match attributeNames, opname, operand_segment_sizes with
+        | some (AttrVal.list attributeNames),
+          some (AttrVal.str opname),
+          some (AttrVal.dense oss (MLIRTy.vector _ _)) =>
+            let values := operand_segment args oss 0
+            let types  := operand_segment args oss 2
+            IO.println s!"Found new operation: {name} matching {opname}"
+
+            let valuesT := u.find_judgements (values.map (·.str))
+            if valuesT.isNone then
+              IO.println s!"→ Some of the values ({values}) are undeclared!"
+              return u
+            let valuesT := valuesT.get!
+
+            let (rets, u) := u.fresh_names (name.str ++ "_res") types.length
+
+            IO.println s!"→ Values: {values}, with types: {valuesT}"
+            IO.println s!"→ Return types: {types}, with names: {rets}"
+
+            let ins := ins_patterns.find? (fun t => match t with
+              | KnownOp n _ _ => n = opname
+              | _ => false)
+            match ins with
+            | some ins =>
+                IO.println s!"→ Using pattern: {ins}"
+                let (ins, u) := u.fresh_term s!"{name.str}_" ins
+                IO.println s!"→ Specialized pattern: {ins}"
+
+                let args  := valuesT.map (fun (v,t) => (Var v, t))
+                let rets1 := List.zip rets (types.map (Var ∘ (·.str)))
+                let rets2 := List.zip (rets.map Var) (types.map (Var ∘ (·.str)))
+                let eqn: UEq := (KnownOp opname args rets2, ins)
+                -- TODO: Lots of variables ignored?
+                return { u with eqns := u.eqns ++ [eqn],
+                                allvars := u.allvars ++ [name.str],
+                                opresults := u.opresults ++ [(name.str,rets1)]}
+            | _ =>
+                IO.println s!"No pattern known for instruction {opname}!"
+                return u
+        | _, _, _ =>
+            IO.println s!"unexpected attributes: {attrs}"
+            return u
+
+    -- %name = pdl.result INDEX of %op
+    | Op.mk "pdl.result" [arg] [] [] attrs
+          (MLIRTy.fn (MLIRTy.tuple [MLIRTy.user "pdl.operation"])
+                     (MLIRTy.user "pdl.value")) => do
+        let index := attrs.find "index"
+        match index with
+        | some (AttrVal.int index (MLIRTy.int _)) =>
+            IO.println (s!"Found new variable: {name} aliasing result " ++
+              s!"{index} of {arg}")
+            let result_info := u.find_opresult arg.str (index.toNat)
+            if result_info.isNone then
+              IO.println "→ No such result!"
+              return u
+
+            let (res_name, res_type) := result_info.get!
+            let eqn: UEq := (Var name.str, Var res_name)
+            let j := (name.str, res_type)
+            return { u with eqns := u.eqns ++ [eqn],
+                            allvars := u.allvars ++ [name.str],
+                            judgements := u.judgements ++ [j] }
+        | _ =>
+            IO.println s!"unexpected attributes on {op}: {attrs}"
+            return u
+
+    | _ => do
+        IO.println s!"unrecognized PDL operation {op}"
+        return u
+
+  | BasicBlockStmt.StmtOp op => match op with
+    -- TODO: pdl.rewrite ...
+    | _ => do
+        IO.println s!"unrecognized PDL operation {op}"
+        return u
+
+def convert (pattern: Op) (ins_patterns: List UTerm):
+    IO (Option Unification) :=
+  match pattern with
+  | Op.mk "pdl.pattern" [] [] [region] attrs ty =>
+      match region with
+      | Region.mk [BasicBlock.mk name [] stmts] =>
+          return some $ ← stmts.foldlM (handle_pdl_stmt ins_patterns)
+                          Unification.empty
+      | Region.mk _ => do
+          IO.println (s!"PDL2U.convert: expected only one BB with no " ++
+            "arguments in the pattern region")
+          return none
+  | Op.mk "pdl.pattern" _ _ _ attrs ty => do
+      IO.println (s!"PDL2U.convert: expected operation to have exactly one " ++
+        "argument (a region):\n{pattern}")
+      return none
+  | _ => do
+      IO.println s!"PDL2U.convert: not a PDL pattern: {pattern}"
+      return none
+
+end PDL2U
+
+
+/-
+### Example PDL program
+-/
+
+private def ex_pdl: Op := [mlir_op|
+  "pdl.pattern"() ({
+    -- %T0 = pdl.type
+    %T0 = "pdl.type"() : () -> !"pdl.type"
+    -- %T1 = pdl.type: i32
+    %T1 = "pdl.type"() {type = i32} : () -> !"pdl.type"
+    -- %v2 = pdl.operand
+    %v2 = "pdl.operand"() : () -> !"pdl.value"
+    -- %O3 = pdl.operation "foo.op1"(%v2) -> %T0
+    %O3 = "pdl.operation"(%v2, %T0) {attributeNames = [], name = "foo.op1", operand_segment_sizes = dense<[1, 0, 1]> : vector<x3:i32>} : (!"pdl.value", !"pdl.type") -> !"pdl.operation"
+    -- %v4 = pdl.result 0 of %O3
+    %v4 = "pdl.result"(%O3) {index = 0 : i32} : (!"pdl.operation") -> !"pdl.value"
+    -- %v5 = pdl.operand: %T0
+    %v5 = "pdl.operand"(%T0) : (!"pdl.type") -> !"pdl.value"
+    -- %O6 = pdl.operation "foo.op2"(%v4, %v5) -> %T1
+    %O6 = "pdl.operation"(%v4, %v5, %T1) {attributeNames = [], name = "foo.op2", operand_segment_sizes = dense<[2, 0, 1]> : vector<x3:i32>} : (!"pdl.value", !"pdl.value", !"pdl.type") -> !"pdl.operation"
+
+    -- TODO
+    "pdl.rewrite"(%O6) ({
+      "pdl.replace"(%O6, %v2) {operand_segment_sizes = dense<[1, 0, 1]> : vector<x3:i32>} : (!"pdl.operation", !"pdl.value") -> ()
+    }) {operand_segment_sizes = dense<[1, 0]> : vector<x2:i32>} : (!"pdl.operation") -> ()
+  }) {benefit = 1 : i16} : () -> ()
+]
+
+private def foo_op1_pattern: UTerm :=
+  KnownOp "foo.op1"
+    [(Var "x", Var "T")]
+    [(Var "res", Var "T")]
+
+#print foo_op1_pattern
+private def foo_op2_pattern: UTerm :=
+  KnownOp "foo.op2"
+    [(Var "x", Var "T"), (Var "y", ConstType (MLIRTy.int 32))]
+    [(Var "res", Var "T")]
+
+private def foo_dialect := [foo_op1_pattern, foo_op2_pattern]
 
 #eval show IO Unit from do
-  let s ← mul_example.solve 10
-  match s with
-  | some s =>
-      let u := List.foldl (fun u eqn => Unification.mk (substAll eqn u.eqns) []) mul_example s.eqns
-      IO.println s!"Theorem input:\n{u}"
+  let u? ← PDL2U.convert ex_pdl foo_dialect
+  match u? with
+  | some u =>
+      IO.println $ "\nFinal problem:\n--------------\n" ++ u.str_full
+      let u ← u.solve 999
+      -- let stmt := u.get!.apply ex_root
+      -- IO.println s!"Theorem input:\n{stmt}"
   | none =>
-      return () -/
+      IO.println "none"
