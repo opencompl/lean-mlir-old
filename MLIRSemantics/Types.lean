@@ -422,44 +422,17 @@ def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
       | _  => eval_τ × eval_l)
     τ
 
-@[reducible]
-def MLIR.AST.MLIRTy.evalList (l: List MLIRTy) : Type :=
-  @MLIRTy.rec_1
-    -- Same as above
-    (motive_1 := fun _ => Type)
-    (motive_2 := fun _ => Type)
-    (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => eval_τ₁ → eval_τ₂)
-    (fun bitsize => Int)
-    (fun bitsize => Float)
-    (fun _ ih => ih)
-    (fun D τ eval_τ => Unit)
-    (fun D τ eval_τ => RankedTensor eval_τ D)
-    (fun name => Unit)
-    Unit
-    (fun τ l eval_τ eval_l =>
-      match l with
-      | [] => eval_τ
-      | _  => eval_τ × eval_l)
-    l
-
-mutual
-  def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
-    match τ with
-    | MLIRTy.fn τ₁ τ₂ => (fun _ => τ₂.default)
-    | MLIRTy.int _ => (0:Int)
-    | MLIRTy.float _ => (0.0:Float)
-    | MLIRTy.tuple l => MLIRTy.defaultList l
-    | MLIRTy.vector _ _ => () /- todo -/
-    | MLIRTy.tensor D τ => @RankedTensor.default τ.eval D ⟨default τ⟩
-    | MLIRTy.user _ => () /- todo -/
-
-  protected def MLIR.AST.MLIRTy.defaultList (l: List MLIRTy):
-      MLIRTy.evalList l :=
-    match l with
-    | [] => ()
-    | [τ] => τ.default
-    | τ₁ :: τ₂ :: l => (τ₁.default, MLIRTy.defaultList (τ₂::l))
-end
+def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
+  match τ with
+  | MLIRTy.fn τ₁ τ₂ => (fun _ => τ₂.default)
+  | MLIRTy.int _ => (0:Int)
+  | MLIRTy.float _ => (0.0:Float)
+  | MLIRTy.tuple [] => ()
+  | MLIRTy.tuple [τ] => τ.default
+  | MLIRTy.tuple (τ₁::τ₂::l) => (τ₁.default, (MLIRTy.tuple (τ₂::l)).default)
+  | MLIRTy.vector _ _ => () /- todo -/
+  | MLIRTy.tensor D τ => @RankedTensor.default τ.eval D ⟨default τ⟩
+  | MLIRTy.user _ => () /- todo -/
 
 instance (τ: MLIRTy): Inhabited τ.eval where
   default := τ.default
