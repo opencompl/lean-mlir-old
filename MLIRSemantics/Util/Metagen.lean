@@ -16,9 +16,9 @@ private def SSAValue.toString: SSAValue -> String
 private instance: ToString SSAValue where
   toString := SSAValue.toString
 
-syntax "%" ident : term
+syntax "%%" ident : term
 macro_rules
-| `(% $i:ident) => do
+| `(%% $i:ident) => do
     let name := Lean.quote (i.getId.toString)
     `(SSAValue.mk $name)
 
@@ -83,7 +83,7 @@ elab "mkRewriteThm" name:ident x:term ":=" t:term : command => do
   let xbb <- liftTermElabM `mkRewriteThm do
     let x ← elabTerm x none
     let xred <- reduce x
-    dbg_trace xred
+    -- dbg_trace xred
     let xbb : BB <- evalExprSafe BB `BB xred
     return xbb
   let x <- `(def $name (argument: Nat): Nat := $t)
@@ -93,8 +93,8 @@ elab "mkRewriteThm" name:ident x:term ":=" t:term : command => do
 
 def bb0 := BB.mk
 [
-   (%v, Op.Operand),
-   (%op, Op.Op_ "operation_name" [%v])
+   (%%v, Op.Operand),
+   (%%op, Op.Op_ "operation_name" [%%v])
 ]
 
 mkRewriteThm myAmazingRewrite bb0 := by {
@@ -144,6 +144,7 @@ elab "genInductive" inductiveName:ident xs:term : command => do
 
   let indView : InductiveView := {
     ref := Syntax.missing,
+    declId := Syntax.missing,
     modifiers := default,
     shortDeclName := inductiveName.getId,
     declName := inductiveName.getId,

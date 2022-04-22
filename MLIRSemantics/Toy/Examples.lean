@@ -19,10 +19,10 @@ example: ∀ l s, SSAEnv.get "%1" (MLIRTy.int 32) (example_env l s) = some 7 :=
 def funcDoubleTranspose: Op := [mlir_op|
   "func"() ({
     ^bb0:
-      %t0 = "toy.const"() {value = dense<[1,2,3,4]>: i32}: () -> tensor<1×4:i32>
-      %t1 = "toy.transpose"(%t0): tensor<1×4:i32> -> tensor<4×1:i32>
-      %t2 = "toy.transpose"(%t1): tensor<4×1:i32> -> tensor<1×4:i32>
-     "std.return"(%t2): tensor<1×4:i32> -> ()
+      %t0 = "toy.const"() {value = dense<[1,2,3,4]>: i32}: () -> tensor<1×4×i32>
+      %t1 = "toy.transpose"(%t0): tensor<1×4×i32> -> tensor<4×1×i32>
+      %t2 = "toy.transpose"(%t1): tensor<4×1×i32> -> tensor<1×4×i32>
+     "std.return"(%t2): tensor<1×4×i32> -> ()
   }): () -> ()
 ]
 -- #reduce funcDoubleTranspose
@@ -92,18 +92,18 @@ def semantics: (x: String) → (a: argtype x) → rettype x a
 /- === Other ideas for constraints === -/
 
 def opConst_valid: Op := [mlir_op|
-  "toy.const"() {value = dense<[1,2,3,4]>: i32}: () -> tensor<1×4:i32>
+  "toy.const"() {value = dense<[1,2,3,4]>: i32}: () -> tensor<1×4×i32>
 ]
 def opConst_badValue: Op := [mlir_op|
-  "toy.const"() {value = dense<[[1],[2],[3,4],[5]]>: i32}: () -> tensor<1×4:i32>
+  "toy.const"() {value = dense<[[1],[2],[3,4],[5]]>: i32}: () -> tensor<1×4×i32>
 ]
 def opConst_badShape: Op := [mlir_op|
-  "toy.const"() {value = dense<[1,2,3]>: i32}: () -> tensor<3×5:i32>
+  "toy.const"() {value = dense<[1,2,3]>: i32}: () -> tensor<3×5×i32>
 ]
 def opConst_noValue: Op := [mlir_op|
-  "toy.const"(): () -> tensor<1×2:f32>
+  "toy.const"(): () -> tensor<1×2×f32>
 ]
 def opConst_hasArgs: Op := [mlir_op|
   "toy.const"(%t1) {value = dense<[[1],[3],[5]]>: i32}:
-    tensor<1×3:i32> -> tensor<3×1:i32>
+    tensor<1×3×i32> -> tensor<3×1×i32>
 ]

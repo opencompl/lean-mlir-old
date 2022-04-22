@@ -520,7 +520,7 @@ private def operand_segment (args: List SSAVal) (oss: TensorElem) (n: Nat) :=
 private def handle_pdl_stmt (ins_patterns: List UTerm) (u: Unification)
     (stmt: BasicBlockStmt): IO Unification :=
   match stmt with
-  | BasicBlockStmt.StmtAssign name op => match op with
+  | BasicBlockStmt.StmtAssign name _ op => match op with
 
     -- %name = pdl.type
     | Op.mk "pdl.type" [] [] [] (AttrDict.mk [])
@@ -569,7 +569,7 @@ private def handle_pdl_stmt (ins_patterns: List UTerm) (u: Unification)
         match attributeNames, opname, operand_segment_sizes with
         | some (AttrVal.list attributeNames),
           some (AttrVal.str opname),
-          some (AttrVal.dense oss (MLIRTy.vector _ _)) =>
+          some (AttrVal.dense oss (MLIRTy.vector _ _ _)) =>
             let values := operand_segment args oss 0
             let types  := operand_segment args oss 2
             IO.println s!"Found new operation: {name} matching {opname}"
@@ -679,18 +679,18 @@ private def ex_pdl: Op := [mlir_op|
     -- %v2 = pdl.operand
     %v2 = "pdl.operand"() : () -> !"pdl.value"
     -- %O3 = pdl.operation "foo.op1"(%v2) -> %T0
-    %O3 = "pdl.operation"(%v2, %T0) {attributeNames = [], name = "foo.op1", operand_segment_sizes = dense<[1, 0, 1]> : vector<x3:i32>} : (!"pdl.value", !"pdl.type") -> !"pdl.operation"
+    %O3 = "pdl.operation"(%v2, %T0) {attributeNames = [], name = "foo.op1", operand_segment_sizes = dense<[1, 0, 1]> : vector<3×i32>} : (!"pdl.value", !"pdl.type") -> !"pdl.operation"
     -- %v4 = pdl.result 0 of %O3
     %v4 = "pdl.result"(%O3) {index = 0 : i32} : (!"pdl.operation") -> !"pdl.value"
     -- %v5 = pdl.operand: %T0
     %v5 = "pdl.operand"(%T0) : (!"pdl.type") -> !"pdl.value"
     -- %O6 = pdl.operation "foo.op2"(%v4, %v5) -> %T1
-    %O6 = "pdl.operation"(%v4, %v5, %T1) {attributeNames = [], name = "foo.op2", operand_segment_sizes = dense<[2, 0, 1]> : vector<x3:i32>} : (!"pdl.value", !"pdl.value", !"pdl.type") -> !"pdl.operation"
+    %O6 = "pdl.operation"(%v4, %v5, %T1) {attributeNames = [], name = "foo.op2", operand_segment_sizes = dense<[2, 0, 1]> : vector<3×i32>} : (!"pdl.value", !"pdl.value", !"pdl.type") -> !"pdl.operation"
 
     -- TODO
     "pdl.rewrite"(%O6) ({
-      "pdl.replace"(%O6, %v2) {operand_segment_sizes = dense<[1, 0, 1]> : vector<x3:i32>} : (!"pdl.operation", !"pdl.value") -> ()
-    }) {operand_segment_sizes = dense<[1, 0]> : vector<x2:i32>} : (!"pdl.operation") -> ()
+      "pdl.replace"(%O6, %v2) {operand_segment_sizes = dense<[1, 0, 1]> : vector<3×i32>} : (!"pdl.operation", !"pdl.value") -> ()
+    }) {operand_segment_sizes = dense<[1, 0]> : vector<2×i32>} : (!"pdl.operation") -> ()
   }) {benefit = 1 : i16} : () -> ()
 ]
 

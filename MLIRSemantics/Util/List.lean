@@ -14,12 +14,6 @@ theorem all_nil {α} (P: α → Bool):
     all [] P = true := by
   simp [all, foldr]
 
-@[simp]
-theorem length_map (as : List α) (f : α → β) :
-    (as.map f).length = as.length := by
-  induction as with
-  | nil => simp [map]
-  | cons a as ih => simp [map, ih]
 
 -- getF
 
@@ -40,7 +34,7 @@ def extF {α} (l₁ l₂: List α) (h_len: l₁.length = l₂.length):
   | cons x₁ t₁ ih =>
       intros l₂ h_len; simp at h_len
       cases l₂; simp at h_len
-      case cons x₂ t₂ h' =>
+      case cons x₂ t₂ =>
         intros h_ext
         have h_x: x₁ = x₂ := by
           specialize (h_ext 0 (by simp; simp_arith));

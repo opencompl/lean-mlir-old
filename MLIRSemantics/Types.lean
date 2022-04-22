@@ -83,7 +83,7 @@ def hasShape: TensorElem → List Nat → Bool
       false
 
 -- Check whether a tensor literal has a particular data type
-def hasBaseType: TensorElem → MLIRTy → Bool
+def hasType: TensorElem → MLIRTy → Bool
   | TensorElem.int _, MLIRTy.int _ =>
       -- TODO: Check bounds
       true
@@ -94,23 +94,34 @@ def hasBaseType: TensorElem → MLIRTy → Bool
   | TensorElem.nested [], τ =>
       true
   | TensorElem.nested (e::l), τ =>
-      e.hasBaseType τ ∧ (TensorElem.nested l).hasBaseType τ
+      e.hasType τ ∧ (TensorElem.nested l).hasType τ
   | _, _ =>
       false
 
-def hasBaseType_list l τ:
-    hasBaseType (TensorElem.nested l) τ ↔ l.all (hasBaseType . τ) := by
-  constructor
-  . induction l; simp
-    case cons e l ih =>
-      simp [hasBaseType, List.all_cons]
-      intro h
-      simp [ih h.2, h.1]
-  . induction l; simp [hasBaseType]
-    case cons e l ih =>
-      simp [hasBaseType, List.all_cons]
-      intro h
-      simp [ih h.2, h.1]
+def hasType_list_1 {l τ}: hasType (.nested l) τ → l.all (hasType . τ) := by
+  induction l; simp
+  case cons e l ih =>
+    simp [hasType, List.all_cons]
+    intro h
+    simp [ih h.2, h.1]
+
+def hasType_list_2 {l τ}: l.all (hasType . τ) → hasType (.nested l) τ := by
+  induction l; simp [hasType]
+  case cons e l ih =>
+    simp [hasType, List.all_cons]
+    intro h
+    simp [ih h.2, h.1]
+
+def mapWithType {α τ} l (f: (e: TensorElem) → (h: e.hasType τ) → α)
+    (h: hasType (TensorElem.nested l) τ): List α :=
+  match l, h with
+  | [], h =>
+      []
+  | e::l, h =>
+      let h₁ := (by simp [hasType] at h; apply h.1)
+      let h₂ := (by simp [hasType] at h; apply h.2)
+      f e h₁ :: mapWithType l f h₂
+
 
 -- Shape inference function; this determines the unique shape that we allow a
 -- non-uniform tensor can have (hasShape is more liberal with empty lists, but
@@ -362,10 +373,6 @@ def RankedTensor.uniform {α} D (v: α): RankedTensor α D :=
 def RankedTensor.default α D [Inhabited α]: RankedTensor α D :=
   RankedTensor.uniform D Inhabited.default
 
-inductive MLIR.AST.TensorElem.rankCompatibleWith (D: DimList) (e:TensorElem) :=
-  | Uniform i: e = TensorElem.int i → rankCompatibleWith D e
-  | HasShape s: e.hasShape s → shape_refines s D → rankCompatibleWith D e
-
 instance {α D} [Inhabited α]: Inhabited (RankedTensor α D) where
   default := RankedTensor.default α D
 
@@ -534,63 +541,112 @@ instance (τ: MLIRTy): Inhabited τ.eval where
 -- TODO: RankedTensor.ofTensorElem: account for typing?
 -- Which allows us to flatten the term into a single array for a RankedTensor
 
-def flatten (e: TensorElem) (τ: MLIRTy) (h: e.hasBaseType τ): List τ.eval :=
-  match e, τ, h with
-  | TensorElem.int i, MLIRTy.int _, h =>
+namespace MLIR.AST.TensorElem
+
+def flatten {τ} (e: TensorElem) (h: e.hasType τ): List τ.eval :=
+  match e, τ with
+  | TensorElem.int i, MLIRTy.int _ =>
       [i]
-  | TensorElem.bool b, MLIRTy.int _, h =>
+  | TensorElem.bool b, MLIRTy.int _ =>
       [if b then 1 else 0]
-  | TensorElem.float f, MLIRTy.float _, h =>
+  | TensorElem.float f, MLIRTy.float _ =>
       [f]
-  | TensorElem.nested [] =>
+  | TensorElem.nested [], _ =>
       []
-  | TensorElem.nested (e::l) =>
-      flatten e ++ flatten (TensorElem.nested l)
+  | TensorElem.nested (e::l), τ =>
+      let h₁ := (by simp [hasType] at h; apply h.1)
+      let h₂ := (by simp [hasType] at h; apply h.2)
+      flatten e h₁ ++ flatten (TensorElem.nested l) h₂
+  | _, _ =>
+      [] -- TODO: Prove impossible
 
 -- Once again, we prove a more friendly version of the list case first
 
-theorem flatten_list:
-  ∀ (l: List TensorElem),
-    flatten (TensorElem.nested l) = (l.map flatten).join := by
-  intros l; induction l <;> simp
+theorem flatten_list {τ} (l: List TensorElem) (h: hasType (.nested l) τ):
+    flatten (.nested l) h = (mapWithType l flatten h).join := by
+  revert h
+  induction l <;> intros h
+  case nil =>
+    simp [flatten, mapWithType, List.join]
   case cons _ _ ih =>
-    simp [flatten, List.map, List.join, ih]
+    simp [flatten, mapWithType, List.join, ih]
 
-theorem flatten_size (e: TensorElem) (shape: List Nat):
-    e.hasShape shape → e.flatten.length = shape_prod shape := by
+theorem flatten_size {τ} (e: TensorElem) (shape: List Nat):
+    e.hasShape shape → (h: e.hasType τ) → (e.flatten h).length = shape_prod shape := by
   revert shape
   apply @TensorElem.recOn
     (motive_1 := fun e =>
-      ∀s, e.hasShape s → e.flatten.length = shape_prod s)
+      ∀s, e.hasShape s → (h: e.hasType τ) → (e.flatten h).length = shape_prod s)
     (motive_2 := fun l =>
-      ∀s, l.all (TensorElem.hasShape . s) →
-        (l.map TensorElem.flatten).join.length = l.length * shape_prod s)
+      ∀s, l.all (TensorElem.hasShape . s) → (h: l.all (hasType . τ)) →
+        (mapWithType l flatten (hasType_list_2 h)).join.length = l.length * shape_prod s)
     <;> simp <;> clear e
   case int =>
-    intros _ s H;
-    cases s <;> simp [TensorElem.flatten, TensorElem.hasShape] at *
+    intros i s Hshape Htype;
+    cases τ <;> simp [hasType] at Htype
+    cases s <;> simp [flatten, hasShape] at *
+  case float =>
+    intros i s Hshape Htype;
+    cases τ <;> simp [hasType] at Htype
+    cases s <;> simp [flatten, hasShape] at *
+  case bool =>
+    intros i s Hshape Htype;
+    cases τ <;> simp [hasType] at Htype
+    cases s <;> simp [flatten, hasShape] at *
   case nested =>
-    intros l motive_2 s H
-    cases s <;> simp [TensorElem.hasShape] at H
+    intros l motive_2 s Hshape Htype
+    cases s <;> simp [hasShape] at Hshape
     case cons s_head s_tail =>
     simp [TensorElem.flatten_list, shape_prod, List.foldr]
-    simp [motive_2 s_tail H.2, shape_prod, Nat.mul_comm, H.1]
+    simp [motive_2 s_tail Hshape.2 (hasType_list_1 Htype)]
+    simp [shape_prod, Nat.mul_comm, Hshape.1]
+  case empty =>
+    intros s Hshape Htype
+    simp [hasType] at Htype
+  case nil =>
+    intros _ Htype
+    simp [mapWithType, List.join]
   case cons =>
-    intros head tail motive_1 IH2 s H
-    simp [List.map, List.join, Nat.add_comm]
+    intros head tail motive_1 IH2 s Hshape Htype
+    simp [List.map, List.join]
+    rw [Nat.add_comm]
     simp [Nat.succ_eq_add_one, Nat.right_distrib]
-    simp [List.all_cons] at H
-    simp [IH2 s H.2]
-    rw [motive_1]
-    apply H.1
+    simp [List.all_cons] at Hshape
+    simp [List.all_cons] at Htype
+    simp [IH2 s Hshape.2 Htype.2]
+    rw [motive_1 s Hshape.1 Htype.1]
 
-def RankedTensor.ofTensorElem (D: DimList) (e: TensorElem)
-    (H: e.rankCompatibleWith D): RankedTensor Int D:=
-  match H with
-  | TensorElem.rankCompatibleWith.Uniform i Heq =>
+inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type :=
+  | UniformInt (i: Int) bitsize:
+      -- TODO: Check range of uniform tensor value
+      e = TensorElem.int i →
+      e.rankCompatibleWith D (MLIRTy.int bitsize)
+  | UniformBool (b: Bool):
+      e = TensorElem.bool b →
+      e.rankCompatibleWith D (MLIRTy.int 1)
+  | UniformFloat (f: Float) bitsize:
+      -- TODO: Check range of uniform tensor value
+      e = TensorElem.float f →
+      e.rankCompatibleWith D (MLIRTy.float bitsize)
+  | HasShape s τ:
+      e.hasShape s →
+      shape_refines s D →
+      e.rankCompatibleWith D τ
+
+end MLIR.AST.TensorElem
+
+def RankedTensor.ofTensorElem {τ} (D: DimList) (e: TensorElem)
+    (Htype: e.hasType τ) (Hcompat: e.rankCompatibleWith D τ):
+    RankedTensor τ.eval D:=
+  match Hcompat with
+  | .UniformInt i bitsize _ =>
       RankedTensor.uniform D i
-  | TensorElem.rankCompatibleWith.HasShape s Hshape Hrefines =>
+  | .UniformBool b _ =>
+      RankedTensor.uniform D (if b then 1 else 0)
+  | .UniformFloat f bitsize _ =>
+      RankedTensor.uniform D f
+  | .HasShape s τ Hshape Hrefines =>
       { shape       := s,
-        data        := e.flatten,
+        data        := e.flatten Htype,
         h_refines   := Hrefines,
-        h_data_size := TensorElem.flatten_size e s Hshape }
+        h_data_size := TensorElem.flatten_size e s Hshape Htype }
