@@ -9,6 +9,7 @@ theorem all_cons {α} (P: α → Bool) head tail:
     all (head::tail) P ↔ P head ∧ all tail P := by
   simp [all, foldr]
 
+@[simp]
 theorem all_nil {α} (P: α → Bool):
     all [] P = true := by
   simp [all, foldr]

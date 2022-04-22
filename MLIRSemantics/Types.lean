@@ -63,20 +63,66 @@ namespace MLIR.AST.TensorElem
 
 -- Check whether a tensor literal matches a concrete shape
 def hasShape: TensorElem → List Nat → Bool
+  | TensorElem.empty, _ =>
+      false
   | TensorElem.int _, [] =>
       true
-  | TensorElem.nested l, rank::size =>
-      l.length = rank ∧ l.all (hasShape . size)
   | TensorElem.int _, _::_ =>
       false
+  | TensorElem.bool _, [] =>
+      true
+  | TensorElem.bool _, _::_ =>
+      false
+  | TensorElem.float _, [] =>
+      true
+  | TensorElem.float _, _::_ =>
+      false
+  | TensorElem.nested l, rank::size =>
+      l.length = rank ∧ l.all (hasShape . size)
   | TensorElem.nested _, [] =>
       false
+
+-- Check whether a tensor literal has a particular data type
+def hasBaseType: TensorElem → MLIRTy → Bool
+  | TensorElem.int _, MLIRTy.int _ =>
+      -- TODO: Check bounds
+      true
+  | TensorElem.bool _, MLIRTy.int 1 =>
+      true
+  | TensorElem.float _, MLIRTy.float _ =>
+      true
+  | TensorElem.nested [], τ =>
+      true
+  | TensorElem.nested (e::l), τ =>
+      e.hasBaseType τ ∧ (TensorElem.nested l).hasBaseType τ
+  | _, _ =>
+      false
+
+def hasBaseType_list l τ:
+    hasBaseType (TensorElem.nested l) τ ↔ l.all (hasBaseType . τ) := by
+  constructor
+  . induction l; simp
+    case cons e l ih =>
+      simp [hasBaseType, List.all_cons]
+      intro h
+      simp [ih h.2, h.1]
+  . induction l; simp [hasBaseType]
+    case cons e l ih =>
+      simp [hasBaseType, List.all_cons]
+      intro h
+      simp [ih h.2, h.1]
 
 -- Shape inference function; this determines the unique shape that we allow a
 -- non-uniform tensor can have (hasShape is more liberal with empty lists, but
 -- the MLIR compiler is not)
 def inferredShape: TensorElem → Option (List Nat)
+  | TensorElem.empty =>
+      none
   | TensorElem.int _ =>
+      some []
+  | TensorElem.bool _ =>
+      some []
+  | TensorElem.float _ =>
       some []
   | TensorElem.nested [] =>
       some [0]
@@ -167,6 +213,10 @@ theorem hasShape_inferredShape_1:
         l.all (TensorElem.hasShape . s))
   case int =>
     intros _ s H; cases s <;> simp [inferredShape, hasShape] at *
+  case bool =>
+    intros _ s H; cases s <;> simp [inferredShape, hasShape] at *
+  case float =>
+    intros _ s H; cases s <;> simp [inferredShape, hasShape] at *
   case nested =>
     intros l motive_2 s H
     let H' := inferredShape_list_to_cons H
@@ -174,58 +224,13 @@ theorem hasShape_inferredShape_1:
       rw [Hs]; rw [Hs] at H; clear Hs H'
       let H' := inferredShape_list H
       simp [hasShape, motive_2 _ H'.2]
+  case empty =>
+    simp [inferredShape]
   case nil =>
     intros s H; simp [List.all_nil]
   case cons =>
     intros head tail motive_1 ih s H; simp [List.all_cons] at *
     simp [motive_1 _ H.1, ih _ H.2]
-
--- Which allows us to flatten the term into a single array for a RankedTensor
-
-def flatten: TensorElem → List Int
-  | TensorElem.int i =>
-      [i]
-  | TensorElem.nested [] =>
-      []
-  | TensorElem.nested (e::l) =>
-      flatten e ++ flatten (TensorElem.nested l)
-
--- Once again, we prove a more friendly version of the list case first
-
-theorem flatten_list:
-  ∀ (l: List TensorElem),
-    flatten (TensorElem.nested l) = (l.map flatten).join := by
-  intros l; induction l <;> simp
-  case cons _ _ ih =>
-    simp [flatten, List.map, List.join, ih]
-
-theorem flatten_size (e: TensorElem) (shape: List Nat):
-    e.hasShape shape → e.flatten.length = shape_prod shape := by
-  revert shape
-  apply @TensorElem.recOn
-    (motive_1 := fun e =>
-      ∀s, e.hasShape s → e.flatten.length = shape_prod s)
-    (motive_2 := fun l =>
-      ∀s, l.all (TensorElem.hasShape . s) →
-        (l.map TensorElem.flatten).join.length = l.length * shape_prod s)
-    <;> simp <;> clear e
-  case int =>
-    intros _ s H;
-    cases s <;> simp [TensorElem.flatten, TensorElem.hasShape] at *
-  case nested =>
-    intros l motive_2 s H
-    cases s <;> simp [TensorElem.hasShape] at H
-    case cons s_head s_tail =>
-    simp [TensorElem.flatten_list, shape_prod, List.foldr]
-    simp [motive_2 s_tail H.2, shape_prod, Nat.mul_comm, H.1]
-  case cons =>
-    intros head tail motive_1 IH2 s H
-    simp [List.map, List.join, Nat.add_comm]
-    simp [Nat.succ_eq_add_one, Nat.right_distrib]
-    simp [List.all_cons] at H
-    simp [IH2 s H.2]
-    rw [motive_1]
-    apply H.1
 
 end MLIR.AST.TensorElem
 
@@ -361,18 +366,6 @@ inductive MLIR.AST.TensorElem.rankCompatibleWith (D: DimList) (e:TensorElem) :=
   | Uniform i: e = TensorElem.int i → rankCompatibleWith D e
   | HasShape s: e.hasShape s → shape_refines s D → rankCompatibleWith D e
 
--- TODO: RankedTensor.ofTensorElem: account for typing?
-def RankedTensor.ofTensorElem (D: DimList) (e: TensorElem)
-    (H: e.rankCompatibleWith D): RankedTensor Int D:=
-  match H with
-  | TensorElem.rankCompatibleWith.Uniform i Heq =>
-      RankedTensor.uniform D i
-  | TensorElem.rankCompatibleWith.HasShape s Hshape Hrefines =>
-      { shape       := s,
-        data        := e.flatten,
-        h_refines   := Hrefines,
-        h_data_size := TensorElem.flatten_size e s Hshape }
-
 instance {α D} [Inhabited α]: Inhabited (RankedTensor α D) where
   default := RankedTensor.default α D
 
@@ -397,42 +390,207 @@ TODO: Not all MLIRTy types are correctly evaluated
 @[reducible, simp_itree]
 def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
   @MLIRTy.rec
-    (motive_1 := fun _ => Type)
-    (motive_2 := fun _ => Type)
+    (motive_1  := fun _ => Type) -- MemrefLayoutSpec
+    (motive_2  := fun _ => Type) -- MLIRTy
+    (motive_3  := fun _ => Type) -- AttrVal
+    (motive_4  := fun _ => Type) -- AttrEntry
+    (motive_5  := fun _ => Type) -- AttrDict
+    (motive_6  := fun _ => Type) -- List MLIRTy
+    (motive_7  := fun _ => Type) -- Option MemrefLayoutSpec
+    (motive_8  := fun _ => Type) -- Option AttrVal
+    (motive_9  := fun _ => Type) -- List AttrVal
+    (motive_10 := fun _ => Type) -- List AttrEntry
+
+    -- **MemrefLayoutSpec**
+
+    -- MemrefLayoutSpec.stride
+    (fun offset stride => Unit)
+    -- MemrefLayoutSpec.attr (this is the one which loops everything)
+    (fun attr eval_attr => Unit)
+
+    -- **MLIRTy**
+
     -- MLIRTy.fn
     (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => eval_τ₁ → eval_τ₂)
     -- MLIRTy.int
     (fun bitsize => Int)
     -- MLIRTy.float
     (fun bitsize => Float)
-    -- Mapping motive_2 to motive_1
+    -- MLIRTy.index
+    Nat
+    -- MLIRTy.tuple [Mapping motive_2 to motive_1]
     (fun _ ih => ih)
     -- MLIRTy.vector (todo)
-    (fun D τ eval_τ => Unit)
-    -- MLIRTy.tensor (todo)
+    (fun Dfixed Dscaled τ eval_τ => Unit)
+    -- MLIRTy.tensorRanked (todo)
     (fun D τ eval_τ => RankedTensor eval_τ D)
+    -- MLIRTy.tensorUnranked (todo)
+    (fun τ eval_τ => Unit)
+    -- MLIRTy.memrefRanked (todo)
+    (fun D τ eval_τ layout eval_layout memspace eval_memspace => Unit)
+    -- MLIRTy.memrefUnranked (todo)
+    (fun τ eval_τ memspace eval_memspace => Unit)
     -- MLIRTy.user (todo)
     (fun name => Unit)
-    -- MLIRTy.tuple []
+
+    -- **AttrVal**
+
+    -- AttrVal.symbol
+    (fun symbol => Unit)
+    -- AttrVal.str
+    (fun str => Unit)
+    -- AttrVal.int
+    (fun int τ eval_τ => Unit)
+    -- AttrVal.bool
+    (fun bool => Unit)
+    -- AttrVal.float
+    (fun float τ eval_τ => Unit)
+    -- AttrVal.type
+    (fun τ eval_τ => Unit)
+    -- AttrVal.dense
+    (fun el τ eval_τ => Unit)
+    -- AttrVal.affine
+    (fun affine_map => Unit)
+    -- AttrVal.list
+    (fun list eval_list => Unit)
+    -- AttrVal.nestedsymbol
+    (fun a₁ eval_a₁ a₂ eval_a₂ => Unit)
+    -- AttrVal.alias
+    (fun str => Unit)
+    -- AttrVal.dict
+    (fun dict eval_dict => Unit)
+    -- AttrVal.opaque
+    (fun dialect value => Unit)
+    -- AttrVal.opaqueElements
+    (fun dialect value τ eval_τ => Unit)
+    -- AttrVal.unit
     Unit
-    -- MLIRTy.tuple (τ::l)
+
+    -- **AttrEntry**
+
+    -- AttrEntry.mk
+    (fun key value eval_value => Unit)
+
+    -- **AttrDict**
+
+    -- AttrDict.mk
+    (fun list eval_list => Unit)
+
+    -- **List MLIRTy** (in MLIRTy.tuple)
+
+    -- []
+    Unit
+    -- (τ::l)
     (fun τ l eval_τ eval_l =>
       match l with
       | [] => eval_τ
       | _  => eval_τ × eval_l)
-    τ
+
+    -- **Option MemrefLayoutSpec**
+
+    Unit
+    (fun layout eval_layout => Unit)
+
+    -- **Option AttrVal**
+
+    Unit
+    (fun attr eval_attr => Unit)
+
+    -- **List AttrVal**
+
+    Unit
+    (fun head tail eval_head eval_tail => Unit)
+
+    -- **List AttrEntry**
+
+    Unit
+    (fun head tail eval_head eval_tail => Unit)
+
+  -- The subject of the induction
+  τ
 
 def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
   match τ with
   | MLIRTy.fn τ₁ τ₂ => (fun _ => τ₂.default)
-  | MLIRTy.int _ => (0:Int)
-  | MLIRTy.float _ => (0.0:Float)
+  | MLIRTy.int _ => 0
+  | MLIRTy.float _ => 0.0
+  | MLIRTy.index => 0
   | MLIRTy.tuple [] => ()
   | MLIRTy.tuple [τ] => τ.default
   | MLIRTy.tuple (τ₁::τ₂::l) => (τ₁.default, (MLIRTy.tuple (τ₂::l)).default)
-  | MLIRTy.vector _ _ => () /- todo -/
-  | MLIRTy.tensor D τ => @RankedTensor.default τ.eval D ⟨default τ⟩
+  | MLIRTy.vector _ _ _ => () /- todo -/
+  | MLIRTy.tensorRanked D τ => @RankedTensor.default τ.eval D ⟨default τ⟩
+  | MLIRTy.tensorUnranked τ => () /- todo -/
+  | MLIRTy.memrefRanked D τ _ _ => () /- todo -/
+  | MLIRTy.memrefUnranked τ _ => () /- todo -/
   | MLIRTy.user _ => () /- todo -/
 
 instance (τ: MLIRTy): Inhabited τ.eval where
   default := τ.default
+
+
+---
+
+-- TODO: RankedTensor.ofTensorElem: account for typing?
+-- Which allows us to flatten the term into a single array for a RankedTensor
+
+def flatten (e: TensorElem) (τ: MLIRTy) (h: e.hasBaseType τ): List τ.eval :=
+  match e, τ, h with
+  | TensorElem.int i, MLIRTy.int _, h =>
+      [i]
+  | TensorElem.bool b, MLIRTy.int _, h =>
+      [if b then 1 else 0]
+  | TensorElem.float f, MLIRTy.float _, h =>
+      [f]
+  | TensorElem.nested [] =>
+      []
+  | TensorElem.nested (e::l) =>
+      flatten e ++ flatten (TensorElem.nested l)
+
+-- Once again, we prove a more friendly version of the list case first
+
+theorem flatten_list:
+  ∀ (l: List TensorElem),
+    flatten (TensorElem.nested l) = (l.map flatten).join := by
+  intros l; induction l <;> simp
+  case cons _ _ ih =>
+    simp [flatten, List.map, List.join, ih]
+
+theorem flatten_size (e: TensorElem) (shape: List Nat):
+    e.hasShape shape → e.flatten.length = shape_prod shape := by
+  revert shape
+  apply @TensorElem.recOn
+    (motive_1 := fun e =>
+      ∀s, e.hasShape s → e.flatten.length = shape_prod s)
+    (motive_2 := fun l =>
+      ∀s, l.all (TensorElem.hasShape . s) →
+        (l.map TensorElem.flatten).join.length = l.length * shape_prod s)
+    <;> simp <;> clear e
+  case int =>
+    intros _ s H;
+    cases s <;> simp [TensorElem.flatten, TensorElem.hasShape] at *
+  case nested =>
+    intros l motive_2 s H
+    cases s <;> simp [TensorElem.hasShape] at H
+    case cons s_head s_tail =>
+    simp [TensorElem.flatten_list, shape_prod, List.foldr]
+    simp [motive_2 s_tail H.2, shape_prod, Nat.mul_comm, H.1]
+  case cons =>
+    intros head tail motive_1 IH2 s H
+    simp [List.map, List.join, Nat.add_comm]
+    simp [Nat.succ_eq_add_one, Nat.right_distrib]
+    simp [List.all_cons] at H
+    simp [IH2 s H.2]
+    rw [motive_1]
+    apply H.1
+
+def RankedTensor.ofTensorElem (D: DimList) (e: TensorElem)
+    (H: e.rankCompatibleWith D): RankedTensor Int D:=
+  match H with
+  | TensorElem.rankCompatibleWith.Uniform i Heq =>
+      RankedTensor.uniform D i
+  | TensorElem.rankCompatibleWith.HasShape s Hshape Hrefines =>
+      { shape       := s,
+        data        := e.flatten,
+        h_refines   := Hrefines,
+        h_data_size := TensorElem.flatten_size e s Hshape }
