@@ -164,7 +164,7 @@ syntax "[escape|" term "]" : docLeaf
 
 --- | string
 macro_rules 
-| `([docLeaf| $x:strLit ]) => do 
+| `([docLeaf| $x:str ]) => do 
     `(Doc.Text $x)
 
 def testDocStr : Doc := [docLeaf|"x"]
