@@ -187,7 +187,6 @@ inductive Module where
       ->  Module
 
 
--- | TODO: either remove or fix.
 def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
   match t1, t2 with
   | MLIRTy.fn a1 b1, MLIRTy.fn a2 b2 =>
@@ -196,18 +195,33 @@ def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
       n1 == n2
   | MLIRTy.float n1, MLIRTy.float n2 =>
       n1 == n2
+  | MLIRTy.index, MLIRTy.index =>
+      true
   | MLIRTy.tuple [], MLIRTy.tuple [] =>
       true
   | MLIRTy.tuple (t1::l1), MLIRTy.tuple (t2::l2) =>
       beq t1 t2 && beq (MLIRTy.tuple l1) (MLIRTy.tuple l2)
-  | MLIRTy.vector l1 f1 s1, MLIRTy.vector l2 f2 s2 =>
-    false
+  | MLIRTy.vector fixed1 scaled1 t1, MLIRTy.vector fixed2 scaled2 t2 =>
+      fixed1 = fixed2 && scaled1 = scaled2 && beq t1 t2
   | MLIRTy.tensorRanked l1 t1, MLIRTy.tensorRanked l2 t2 =>
       l1 == l2 && beq t1 t2
+  | MLIRTy.tensorUnranked t1, MLIRTy.tensorUnranked t2 =>
+      beq t1 t2
+  | MLIRTy.memrefRanked dims1 t1 _ _, MLIRTy.memrefRanked dims2 t2 _ _ =>
+      -- | TODO: MLIRTy.beq: Also compare memref settings?
+      dims1 == dims2 && beq t1 t2
+  | MLIRTy.memrefUnranked t1 _, MLIRTy.memrefUnranked t2 _ =>
+      beq t1 t2
   | MLIRTy.user n1, MLIRTy.user n2 =>
       n1 == n2
   | _, _ =>
       false
+
+def MLIRTy.decEq (t1 t2: MLIRTy): Decidable (Eq t1 t2) :=
+  if MLIRTy.beq t1 t2 then isTrue sorry else isFalse sorry
+
+instance: DecidableEq MLIRTy :=
+  MLIRTy.decEq
 
 
 instance : Pretty Dimension where
