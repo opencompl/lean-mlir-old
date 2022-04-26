@@ -614,6 +614,7 @@ macro_rules
         let initList <- `([])
         let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_val| $x]]) 
         `(AttrVal.list $vals)
+  | `([mlir_attr_val| $i:ident]) => `(AttrVal.type [mlir_type| $i:ident])
   | `([mlir_attr_val| $ty:mlir_type]) => `(AttrVal.type [mlir_type| $ty])
 
 
@@ -654,6 +655,9 @@ def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 
 def attrVal1Ty : AttrVal := [mlir_attr_val| (i32, i64) -> i32]
 #reduce attrVal1Ty
+
+def attrVal1bTy : AttrVal := [mlir_attr_val| i32]
+#reduce attrVal1bTy
 
 def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
 #reduce attrVal2List
