@@ -158,18 +158,16 @@ syntax "{{" term "}}" : mlir_type
 syntax "!" str : mlir_type
 syntax "!" ident : mlir_type
 syntax ident: mlir_type
-syntax "index" : mlir_type
-
-
-macro_rules
-| `([mlir_type| index ]) =>  `(MLIRTy.index) -- antiquot type
 
 
 set_option hygiene false in -- allow i to expand 
 macro_rules
   | `([mlir_type| $x:ident ]) => do
         let xstr := x.getId.toString
-        if xstr.front == 'i' || xstr.front == 'f'
+        if xstr == "index"
+        then
+          `(MLIRTy.index)
+        else if xstr.front == 'i' || xstr.front == 'f'
         then do 
           let xstr' := xstr.drop 1
           match xstr'.toInt? with
@@ -187,6 +185,9 @@ macro_rules
 
 macro_rules
 | `([mlir_type| ! $x:ident ]) => `(MLIRTy.user $(Lean.quote x.getId.toString))
+
+def tyIndex : MLIRTy := [mlir_type| index]
+#eval tyIndex
 
 def tyUser : MLIRTy := [mlir_type| !"lz.int"]
 #eval tyUser
