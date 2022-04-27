@@ -145,8 +145,9 @@
     "builtin.module"() ({
       "pdl_interp.func"() ({
       ^bb0(%arg0: !pdl.operation):
-        %0 = "pdl_interp.apply_rewrite"() {name = "type_creator"} : () -> !pdl.type
-        %1 = "pdl_interp.create_operation"(%0) {inputAttributeNames = [], name = "test.success", operand_segment_sizes = dense<[0, 0, 1]> : vector<3 × i32>} : (!pdl.type) -> !pdl.operation
+        %0 = "pdl_interp.apply_rewrite"() {name = "str_creator"} : () -> !pdl.attribute
+        %1 = "pdl_interp.apply_rewrite"() {name = "type_creator"} : () -> !pdl.type
+        %2 = "pdl_interp.create_operation"(%0, %1) {inputAttributeNames = ["attr"], name = "test.success", operand_segment_sizes = dense<[0, 1, 1]> : vector<3 × i32>} : (!pdl.attribute, !pdl.type) -> !pdl.operation
         "pdl_interp.erase"(%arg0) : (!pdl.operation) -> ()
         "pdl_interp.finalize"() : () -> ()
       }) {function_type = (!pdl.operation) -> (), sym_name = "success"} : () -> ()

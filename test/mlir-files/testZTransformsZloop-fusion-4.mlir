@@ -7,7 +7,7 @@
 
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<7x8x9x10xf32>):
+  ^bb0(%arg0: memref<7 × 8 × 9 × 10 × f32>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<5040 × f32>
     %1 = "arith.constant"() {value = 7.00000000 : f32} : () -> f32
     "affine.for"() ({
@@ -36,7 +36,7 @@
           "affine.for"() ({
           ^bb0(%arg4: index):
             %2 = "affine.load"(%0, %arg1, %arg2, %arg3, %arg4) {map = #map0} : (memref<5040 × f32>, index, index, index, index) -> f32
-            "affine.store"(%2, %arg0, %arg1, %arg2, %arg3, %arg4) {map = #map6} : (f32, memref<7x8x9x10xf32>, index, index, index, index) -> ()
+            "affine.store"(%2, %arg0, %arg1, %arg2, %arg3, %arg4) {map = #map6} : (f32, memref<7 × 8 × 9 × 10 × f32>, index, index, index, index) -> ()
             "affine.yield"() : () -> ()
           }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
           "affine.yield"() : () -> ()
@@ -46,7 +46,7 @@
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map5} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<7x8x9x10xf32>) -> (), sym_name = "unflatten4d"} : () -> ()
+  }) {function_type = (memref<7 × 8 × 9 × 10 × f32>) -> (), sym_name = "unflatten4d"} : () -> ()
 }) : () -> ()
 
 

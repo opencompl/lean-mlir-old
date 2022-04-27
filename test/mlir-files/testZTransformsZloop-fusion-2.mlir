@@ -439,7 +439,7 @@
 
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<4x4x16x1xf32>, %arg1: memref<144 × 9 × f32>, %arg2: memref<9 × f32>):
+  ^bb0(%arg0: memref<4 × 4 × 16 × 1 × f32>, %arg1: memref<144 × 9 × f32>, %arg2: memref<9 × f32>):
     %0 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<144 × 4 × f32>
     %1 = "arith.constant"() {value = 0.00000000 : f32} : () -> f32
     "affine.for"() ({
@@ -475,7 +475,7 @@
       "affine.yield"() : () -> ()
     }) {lower_bound = #map2, step = 1 : index, upper_bound = #map5} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<4x4x16x1xf32>, memref<144 × 9 × f32>, memref<9 × f32>) -> (), sym_name = "fuse_across_dim_mismatch"} : () -> ()
+  }) {function_type = (memref<4 × 4 × 16 × 1 × f32>, memref<144 × 9 × f32>, memref<9 × f32>) -> (), sym_name = "fuse_across_dim_mismatch"} : () -> ()
 }) : () -> ()
 
 

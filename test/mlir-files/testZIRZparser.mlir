@@ -44,13 +44,13 @@
   "func.func"() ({
   }) {function_type = (vector<f32>, vector<1 × f32>, vector<2 × 4 × f32>) -> (), sym_name = "vectors", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (tensor<* × f32>, tensor<*xvector<2 × 4 × f32>>, tensor<1x?x4x?x?xi32>, tensor<i8>) -> (), sym_name = "tensors", sym_visibility = "private"} : () -> ()
+  }) {function_type = (tensor<* × f32>, tensor<*xvector<2 × 4 × f32>>, tensor<1 × ? × 4 × ? × ? × i32>, tensor<i8>) -> (), sym_name = "tensors", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (tensor<16 × 32 × f64, "sparse">) -> (), sym_name = "tensor_encoding", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (tensor<9223372036854775807 × f32>) -> (), sym_name = "large_shape_dimension", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = ((memref<1x?x4x?x?xi32, #map0>, memref<8 × i8>) -> (), () -> ()) -> (), sym_name = "functions", sym_visibility = "private"} : () -> ()
+  }) {function_type = ((memref<1 × ? × 4 × ? × ? × i32, #map0>, memref<8 × i8>) -> (), () -> ()) -> (), sym_name = "functions", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (memref<2 × 4 × 8 × i8, 1>) -> (), sym_name = "memrefs2", sym_visibility = "private"} : () -> ()
   "func.func"() ({
@@ -74,9 +74,9 @@
   "func.func"() ({
   }) {function_type = (memref<5 × 6 × 7 × f32, #map1, "private">) -> (), sym_name = "memrefs_map_strspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, {memSpace = "special", subIndex = 1 : i64}>) -> (), sym_name = "memrefs_nomap_dictspace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, {memSpace = "special", subInde ×  = 1 : i64}>) -> (), sym_name = "memrefs_nomap_dictspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
-  }) {function_type = (memref<5x6x7xf32, #map1, {memSpace = "special", subIndex = 3 : i64}>) -> (), sym_name = "memrefs_map_dictspace", sym_visibility = "private"} : () -> ()
+  }) {function_type = (memref<5 × 6 × 7 × f32, #map1, {memSpace = "special", subInde ×  = 3 : i64}>) -> (), sym_name = "memrefs_map_dictspace", sym_visibility = "private"} : () -> ()
   "func.func"() ({
   }) {function_type = (complex<i1>) -> complex<f32>, sym_name = "complex_types", sym_visibility = "private"} : () -> ()
   "func.func"() ({
@@ -650,7 +650,7 @@
   }) {function_type = () -> (), sym_name = "f32_potential_precision_loss"} : () -> ()
   "func.func"() ({
     "foo"() {bar = dense<0 × FFFFFFFF> : tensor<4 × 4 × f32>} : () -> ()
-    "foo"() {bar = dense<[[0xFFFFFFFF, 0x7F800000], [0x7FBFFFFF, 0x7F800001]]> : tensor<2 × 2 × f32>} : () -> ()
+    "foo"() {bar = dense<[[0 × FFFFFFFF, 0 × 7F800000], [0 × 7FBFFFFF, 0 × 7F800001]]> : tensor<2 × 2 × f32>} : () -> ()
     "foo"() {bar = dense<[0 × FFFFFFFF, 0.00000000]> : tensor<2 × f32>} : () -> ()
     "foo"() {bar = sparse<[[1, 1, 0], [0, 1, 1]], [0 × FFFFFFFF, 0 × 7F800001]> : tensor<2 × 2 × 2 × f32>} : () -> ()
   }) {function_type = () -> (), sym_name = "special_float_values_in_tensors"} : () -> ()

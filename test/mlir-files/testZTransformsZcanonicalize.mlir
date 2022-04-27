@@ -303,22 +303,22 @@
     %2 = "arith.constant"() {value = 1024 : index} : () -> index
     %3 = "arith.constant"() {value = 512 : index} : () -> index
     %4 = "memref.alloc"(%arg0, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × f32>
-    %5 = "memref.alloc"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<4x?x8x?x?xf32>
+    %5 = "memref.alloc"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<4 × ? × 8 × ? × ? × f32>
     %6 = "memref.alloc"(%3, %2) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × i32>
     %7 = "memref.alloc"(%1, %1) {operand_segment_sizes = dense<[2, 0]> : vector<2 × i32>} : (index, index) -> memref<? × ? × f32>
-    %8 = "memref.alloca"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<4x?x8x?x?xf32>
+    %8 = "memref.alloca"(%2, %3, %arg1) {operand_segment_sizes = dense<[3, 0]> : vector<2 × i32>} : (index, index, index) -> memref<4 × ? × 8 × ? × ? × f32>
     "affine.for"(%arg0) ({
     ^bb0(%arg2: index):
       "affine.for"() ({
       ^bb0(%arg3: index):
         %9 = "memref.load"(%4, %arg2, %arg3) : (memref<? × ? × f32>, index, index) -> f32
-        "memref.store"(%9, %5, %0, %0, %arg2, %arg3, %0) : (f32, memref<4x?x8x?x?xf32>, index, index, index, index, index) -> ()
+        "memref.store"(%9, %5, %0, %0, %arg2, %arg3, %0) : (f32, memref<4 × ? × 8 × ? × ? × f32>, index, index, index, index, index) -> ()
         "affine.yield"() : () -> ()
       }) {lower_bound = #map1, step = 1 : index, upper_bound = #map2} : () -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map1, step = 1 : index, upper_bound = #map3} : (index) -> ()
-    "func.return"(%5, %6, %7, %8) : (memref<4x?x8x?x?xf32>, memref<? × ? × i32>, memref<? × ? × f32>, memref<4x?x8x?x?xf32>) -> ()
-  }) {function_type = (index, index) -> (memref<4x?x8x?x?xf32>, memref<? × ? × i32>, memref<? × ? × f32>, memref<4x?x8x?x?xf32>), sym_name = "dyn_shape_fold"} : () -> ()
+    "func.return"(%5, %6, %7, %8) : (memref<4 × ? × 8 × ? × ? × f32>, memref<? × ? × i32>, memref<? × ? × f32>, memref<4 × ? × 8 × ? × ? × f32>) -> ()
+  }) {function_type = (index, index) -> (memref<4 × ? × 8 × ? × ? × f32>, memref<? × ? × i32>, memref<? × ? × f32>, memref<4 × ? × 8 × ? × ? × f32>), sym_name = "dyn_shape_fold"} : () -> ()
   "func.func"() ({
   ^bb0(%arg0: index, %arg1: index, %arg2: index, %arg3: memref<? × i8>, %arg4: index, %arg5: index, %arg6: index):
     %0 = "arith.constant"() {value = 0 : index} : () -> index

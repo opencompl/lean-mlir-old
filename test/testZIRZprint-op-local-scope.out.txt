@@ -1,6 +1,0 @@
-
-"builtin.module"()(
- {
-  ^entry:
-   %0="foo.op"():() -> memref<?xf32,#map>
- }):() -> ()

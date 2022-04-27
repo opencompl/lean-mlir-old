@@ -312,15 +312,7 @@ macro_rules
 | `([static_dim_list| $[ $ns:numLit ]×* ]) => do
       quoteMList ns.toList (<- `(Int))
 
-def staticDimList0 : List Int := [static_dim_list| 1]
-#reduce staticDimList0
-
-def staticDimList1 : List Int := [static_dim_list| 1 × 2]
-#reduce staticDimList1
-
-
 -- vector-dim-list := (static-dim-list `x`)? (`[` static-dim-list `]` `x`)?
--- | WTF, the whole of vector-dim-list can be empty...
 declare_syntax_cat vector_dim_list
 syntax (static_dim_list "×" ("[" static_dim_list "]" "×")? )? : vector_dim_list
 -- vector-element-type ::= float-type | integer-type | index-type
@@ -337,6 +329,14 @@ macro_rules
         | some (some s) => `([static_dim_list| $s])
         | _ => `((@List.nil Int))
       `(MLIRTy.vector $fixedDims $scaledDims [mlir_type| $t])
+
+def staticDimList0 : List Int := [static_dim_list| 1]
+#reduce staticDimList0
+
+def staticDimList1 : List Int := [static_dim_list| 1 × 2]
+#reduce staticDimList1
+
+
 
 def vectorTy0 := [mlir_type| vector<i32>]
 #print vectorTy0

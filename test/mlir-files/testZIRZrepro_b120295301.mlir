@@ -1,6 +1,6 @@
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: tensor<1x224x224x3xf32>):
+  ^bb0(%arg0: tensor<1 × 224 × 224 × 3 × f32>):
     %0 = "arith.constant"() {value = dense<1.000000e-01> : tensor<1 × f32>} : () -> tensor<1 × f32>
     %1 = "arith.constant"() {value = dense<1.000000e-01> : tensor<2 × f32>} : () -> tensor<2 × f32>
     %2 = "arith.constant"() {value = dense<1.000000e-01> : tensor<3 × f32>} : () -> tensor<3 × f32>
@@ -104,7 +104,7 @@
     %100 = "arith.constant"() {value = dense<1.000000e-01> : tensor<101 × f32>} : () -> tensor<101 × f32>
     %101 = "arith.constant"() {value = dense<1.000000e-01> : tensor<102 × f32>} : () -> tensor<102 × f32>
     "func.return"(%95) : (tensor<96 × f32>) -> ()
-  }) {function_type = (tensor<1x224x224x3xf32>) -> tensor<96 × f32>, sym_name = "testType"} : () -> ()
+  }) {function_type = (tensor<1 × 224 × 224 × 3 × f32>) -> tensor<96 × f32>, sym_name = "testType"} : () -> ()
 }) : () -> ()
 
 

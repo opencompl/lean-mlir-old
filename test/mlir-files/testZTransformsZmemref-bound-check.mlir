@@ -216,7 +216,7 @@
 
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: memref<4x4x16x1xf32>):
+  ^bb0(%arg0: memref<4 × 4 × 16 × 1 × f32>):
     %0 = "arith.constant"() {value = 0 : index} : () -> index
     %1 = "memref.alloc"() {operand_segment_sizes = dense<0> : vector<2 × i32>} : () -> memref<1x2x3x3x16x1xf32>
     "affine.for"() ({
@@ -226,13 +226,13 @@
         %2 = "affine.apply"(%arg1, %arg2) {map = #map0} : (index, index) -> index
         %3 = "affine.apply"(%arg1, %arg2) {map = #map1} : (index, index) -> index
         %4 = "affine.apply"(%arg1, %arg2) {map = #map2} : (index, index) -> index
-        %5 = "affine.load"(%arg0, %2, %0, %4) {map = #map3} : (memref<4x4x16x1xf32>, index, index, index) -> f32
+        %5 = "affine.load"(%arg0, %2, %0, %4) {map = #map3} : (memref<4 × 4 × 16 × 1 × f32>, index, index, index) -> f32
         "affine.yield"() : () -> ()
       }) {lower_bound = #map4, step = 1 : index, upper_bound = #map5} : () -> ()
       "affine.yield"() : () -> ()
     }) {lower_bound = #map4, step = 1 : index, upper_bound = #map6} : () -> ()
     "func.return"() : () -> ()
-  }) {function_type = (memref<4x4x16x1xf32>) -> (), sym_name = "test_complex_mod_floordiv"} : () -> ()
+  }) {function_type = (memref<4 × 4 × 16 × 1 × f32>) -> (), sym_name = "test_complex_mod_floordiv"} : () -> ()
 }) : () -> ()
 
 

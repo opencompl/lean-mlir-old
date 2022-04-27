@@ -25,22 +25,113 @@ macro_rules
   
 -- | write an op into the path
 def o: List Op := [mlir_ops|
+"builtin.module"() ({
+  "func.func"() ({
+  ^bb0(%arg0: f32):
+    %0 = "foo"() {interrupt_before_all = true} : () -> f32
+    %1 = "arith.addf"(%0, %arg0) : (f32, f32) -> f32
+    "func.return"(%1) : (f32) -> ()
+  }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
+}) : () -> ()
+
 
 "builtin.module"() ({
   "func.func"() ({
-  ^bb0(%arg0: i1, %arg1: i32):
-    %0 = "arith.constant"() {value = true} : () -> i1
-    %1 = "arith.constant"() {value = -10 : i32} : () -> i32
-    %2 = "arith.constant"() {value = 31 : i32} : () -> i32
-    %3 = "arith.andi"(%arg0, %0) : (i1, i1) -> i1
-    %4 = "arith.andi"(%arg1, %1) : (i32, i32) -> i32
-    %5 = "arith.andi"(%4, %2) : (i32, i32) -> i32
-    "func.return"(%3, %5) : (i1, i32) -> ()
-  }) {function_type = (i1, i32) -> (i1, i32), sym_name = "simple_and"} : () -> ()
+  ^bb0(%arg0: f32):
+    %0 = "foo"() ({
+      "bar"() : () -> ()
+    }) {interrupt_after_all = true} : () -> f32
+    %1 = "arith.addf"(%0, %arg0) : (f32, f32) -> f32
+    "func.return"(%1) : (f32) -> ()
+  }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
 }) : () -> ()
+
+
+"builtin.module"() ({
+  "func.func"() ({
+  ^bb0(%arg0: f32):
+    %0 = "foo"() ({
+      "bar0"() : () -> ()
+    }, {
+      "bar1"() : () -> ()
+    }) {interrupt_after_region = 0 : i64} : () -> f32
+    %1 = "arith.addf"(%0, %arg0) : (f32, f32) -> f32
+    "func.return"(%1) : (f32) -> ()
+  }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
+}) : () -> ()
+
+
+"builtin.module"() ({
+  "func.func"() ({
+    "foo"() : () -> ()
+    "test.two_region_op"() ({
+      "work"() : () -> ()
+    }, {
+      "work"() : () -> ()
+    }) {interrupt_after_all = true} : () -> ()
+    "func.return"() : () -> ()
+  }) {function_type = () -> (), sym_name = "main"} : () -> ()
+}) : () -> ()
+
+
+"builtin.module"() ({
+  "func.func"() ({
+    "foo"() : () -> ()
+    "test.two_region_op"() ({
+      "work"() : () -> ()
+    }, {
+      "work"() : () -> ()
+    }) {interrupt_after_region = 0 : i64} : () -> ()
+    "func.return"() : () -> ()
+  }) {function_type = () -> (), sym_name = "main"} : () -> ()
+}) : () -> ()
+
+
+"builtin.module"() ({
+  "func.func"() ({
+  ^bb0(%arg0: f32):
+    %0 = "foo"() ({
+      "bar0"() : () -> ()
+    }, {
+      "bar1"() : () -> ()
+    }) {skip_before_all = true} : () -> f32
+    %1 = "arith.addf"(%0, %arg0) : (f32, f32) -> f32
+    "func.return"(%1) : (f32) -> ()
+  }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
+}) : () -> ()
+
+
+"builtin.module"() ({
+  "func.func"() ({
+  ^bb0(%arg0: f32):
+    %0 = "foo"() ({
+      "bar0"() : () -> ()
+    }, {
+      "bar1"() : () -> ()
+    }) {skip_after_all = true} : () -> f32
+    %1 = "arith.addf"(%0, %arg0) : (f32, f32) -> f32
+    "func.return"(%1) : (f32) -> ()
+  }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
+}) : () -> ()
+
+
+"builtin.module"() ({
+  "func.func"() ({
+  ^bb0(%arg0: f32):
+    %0 = "foo"() ({
+      "bar0"() : () -> ()
+    }, {
+      "bar1"() : () -> ()
+    }) {skip_after_region = 0 : i64} : () -> f32
+    %1 = "arith.addf"(%0, %arg0) : (f32, f32) -> f32
+    "func.return"(%1) : (f32) -> ()
+  }) {function_type = (f32) -> f32, sym_name = "main"} : () -> ()
+}) : () -> ()
+
+
 
 ] 
 -- | main program
 def main : IO Unit :=
     let str := Doc.VGroup (o.map Pretty.doc)
-    FS.writeFile "testZTransformsZconstant-fold.out.txt" str
+    FS.writeFile "testZIRZgeneric-visitors-interrupt.out.txt" str
