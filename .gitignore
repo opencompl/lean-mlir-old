@@ -28,3 +28,4 @@ build/
 examples/.lit_test_times.txt
 examples/Output
 temp.mlir
+tags
