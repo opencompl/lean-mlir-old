@@ -12,7 +12,6 @@
 ;; (sb-ext:restrict-compiler-policy 'debug 3 3)
 ;;(ql:quickload `clouseau) ;; lisp inspector with (clouseau:inspect ...)
 (ql:quickload 'str)
-(ql:quickload 'iterate)
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 
 ;; parinfer and rainbow delimiters interact poorly!
@@ -94,18 +93,20 @@
          (parts (if (search "-split-input-file" contents)
                      (remove-if #'str:emptyp (mapcar #'str:trim (str:split "// -----" contents)))
                      (list contents))))
-    (loop for i from 0 for part in parts do 
-          (make-mlir-file-part :path file-path :split-index i :contents part))))
+    (format t "......found ~d parts ~%" (length parts))
+    (loop for i from 0 for part in parts 
+          collect (make-mlir-file-part :path file-path :split-index i :contents part))))
 
 (defun main ()
   (let ((nsucc 0) (nfail 0) (out-parts nil))
-    (iter:iterate (iter:for (name path-root) in *tests*)
+    (loop for (name path-root) in *tests* do
           (format t "collecting path |~d|~%" path-root)
           (let* ((paths (directory path-root)))
-            (format t "...found |~d| files~%" (length paths))
-            (iter:iterate (iter:for path in paths)
-                          (format t "reading path |~d|~%" path)
-                          (nconc out-parts (read-mlir-file path)))))
+            (format t "..found |~d| files~%" (length paths))
+            (loop for path in paths do
+                          (format t "....reading path |~d|~%" path)
+                          (setf out-parts (append out-parts  (read-mlir-file path))))))
+    (format t "found total |~d| parts |~d| ~%" (length out-parts) out-parts)
     (iter:iterate (iter:for part in out-parts)
                   (format t "processing |~d:~d|~%" 
                           (mlir-file-part-path part)
