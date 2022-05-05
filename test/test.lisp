@@ -218,12 +218,11 @@ def main : IO Unit :=
 ;; creates LEAN file correspnoding to part and compiles/runs it.
 ;; returns success/failure of compilation.
 (defun make-and-run-lean-file (part)
-  (str:to-file "TestCanonicalizer.lean" (make-lean-file-contents part))
-  (format t "lake build |~d:~d|...~%"
-	  (mlir-file-part-path part)
-	  (mlir-file-part-partix part))
+  (let ((outpath (mlir-file-part-make-filepath part "1-gen/" "lean")))
+    (str:to-file outpath (make-lean-file-contents part))
+    (setf (uiop:getenv "LEAN_PATH") "../build/lib/")
   (multiple-value-bind (out err retval)
-      (uiop:run-program (list "lake" "build")
+      (uiop:run-program (list "lean" (namestring outpath))
 			:output :string
 			:error-output :string
 			:ignore-error-status t)
@@ -231,9 +230,8 @@ def main : IO Unit :=
       (if (/= retval 0)
 	  ;; vvv error vvv
 	  (progn
-	    (format t "ERROR: lake build |~d:~d| failed. error:~%~d~%~d~%"
-		    (mlir-file-part-path part)
-		    (mlir-file-part-partix part)
+	    (format t "..ERROR: |~d| failed. error:~%~d~%~d~%"
+		    outpath
 		    out
 		    err)
 	    (str:to-file
@@ -243,11 +241,20 @@ def main : IO Unit :=
 	    (incf *nfail-run*))
 	  ;; vvv no errror vvv
 	  (progn
-	    (format t "SUCCESSS: lake build |~d:~d| succeeded"
-		    (mlir-file-part-path part)
-		    (mlir-file-part-partix part))
+	    (format t "..SUCCESSS: |~d| succeeded~%" outpath)
 	    (incf (stats-nsucc-run s))
-	    (incf *nsucc-run*))))))
+	    (incf *nsucc-run*)))))))
+
+
+
+;; canonicalized MLIR parts
+(defparameter *canon-mlir-parts* nil)
+
+;; number of files successfully canonicalized
+(defparameter *nsucc-canon* 0)
+
+;; number of files failed to canonicalize
+(defparameter *nfail-canon* 0)
 
 ;; canonializes an MLIR part and sets the slot.
 ;; returns success / failure of canonicalization.
@@ -262,20 +269,23 @@ def main : IO Unit :=
 			:ignore-error-status t)
     (setf (mlir-file-part-canon-error part) err)
     (setf (mlir-file-part-canon-contents part) out)
-    (= retval 0))) ;; indicate success or failure based on status code
+    (if (= retval 0)
+   	(progn
+	  (format t "..SUCCESS: canonicalized |~d:~d|~%"
+		  (mlir-file-part-path part) (mlir-file-part-partix part))
+	  (incf *nsucc-canon*)
+	  (push part *canon-mlir-parts*))
+	(progn
+	  (format t "..ERROR: unable to canonicalize |~d:~d|~%~d"
+		  (mlir-file-part-path part)
+		  (mlir-file-part-partix part)
+		  (mlir-file-part-canon-error part))
+	  (incf *nfail-canon*))))) ;; indicate success or failure based on status code
 
 
 ;; raw MLIR parts that are read from disk
 (defparameter *raw-mlir-parts* nil)
 
-;; canonicalized MLIR parts
-(defparameter *canon-mlir-parts* nil)
-
-;; number of files successfully canonicalized
-(defparameter *nsucc-canon* 0)
-
-;; number of files failed to canonicalize
-(defparameter *nfail-canon* 0)
 
 
 (defun main ()
@@ -295,18 +305,7 @@ def main : IO Unit :=
     (format t "processing |~d:~d|~%" 
 	    (mlir-file-part-path part)
 	    (mlir-file-part-partix part))
-    (if (canonicalize-mlir-part part)
-	(progn
-	  (format t "SUCCESS: canonicalized |~d:~d|~%"
-		  (mlir-file-part-path part) (mlir-file-part-partix part))
-	  (incf *nsucc-canon*)
-	  (push part *canon-mlir-parts*))
-	(progn
-	  (format t "ERROR: unable to canonicalize |~d:~d|~%~d"
-		  (mlir-file-part-path part)
-		  (mlir-file-part-partix part)
-		  (mlir-file-part-canon-error part))
-	  (incf *nfail-canon*))))
+    (canonicalize-mlir-part part))
   ;; create lean files
   (loop for part in *canon-mlir-parts* for i from 0 do
     (format t "===[~d/~d]===~%" i (length *canon-mlir-parts*))

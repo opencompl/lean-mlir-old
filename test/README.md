@@ -1,3 +1,5 @@
-- `TestCanonicalizer.lean` lists the canonical form of the IR.
+- `1-gen/` contains the generated Lean files
+- `1-failures/` contains the Lean files that fail canonicalization.
+
 
 
