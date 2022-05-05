@@ -1,0 +1,12 @@
+{
+  "STATS": {
+    "LLVMIR": {
+      "NSUCC-RUN": 0,
+      "NFAIL-RUN": 12
+    },
+    "IR": {
+      "NSUCC-RUN": 10,
+      "NFAIL-RUN": 53
+    }
+  }
+}

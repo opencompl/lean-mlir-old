@@ -323,6 +323,9 @@ def main : IO Unit :=
 	    (stats-nsucc-run v)
 	    (stats-nfail-run v)
 	    (+ (stats-nsucc-run v) (stats-nfail-run v))))
+  (setf shasht:*write-alist-as-object* t)
+  (uiop:with-output-file (outf #P"./test.json")
+    (shasht:write-json (list (cons :stats  *stats*)) outf))
   )
 
 (main)
