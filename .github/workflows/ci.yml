@@ -104,7 +104,7 @@ jobs:
 
     - name: Check Lean
       run: lean --version
-        - name: Build package
+    - name: Build package
       run: |
         lake build
         # leanpkg build bin
