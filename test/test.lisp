@@ -310,7 +310,7 @@ def main : IO Unit :=
   (loop for part in *canon-mlir-parts* for i from 0 do
     (format t "===[~d/~d]===~%" i (length *canon-mlir-parts*))
     (str:to-file
-     (mlir-file-part-make-filepath part "mlir-files/" "mlir")
+     (mlir-file-part-make-filepath part "1-canon/" "mlir")
      (mlir-file-part-canon-contents part))
     (make-and-run-lean-file part))
   (format t "hash table: |~d|~%" *stats*)
