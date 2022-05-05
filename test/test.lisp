@@ -249,8 +249,6 @@ def main : IO Unit :=
 	    (incf (stats-nsucc-run s))
 	    (incf *nsucc-run*))))))
 
-;;(uiop:with-temporary-file (:pathname p)
-
 ;; canonializes an MLIR part and sets the slot.
 ;; returns success / failure of canonicalization.
 (defun canonicalize-mlir-part (part)
@@ -324,7 +322,7 @@ def main : IO Unit :=
 	    (stats-nfail-run v)
 	    (+ (stats-nsucc-run v) (stats-nfail-run v))))
   (setf shasht:*write-alist-as-object* t)
-  (uiop:with-output-file (outf #P"./test.json")
+  (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
     (shasht:write-json (list (cons :stats  *stats*)) outf))
   )
 
