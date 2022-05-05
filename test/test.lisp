@@ -86,9 +86,10 @@
 ;; a canonicalized part of an MLIR file
 ;; contents will be MLIR generic.
 (defstruct mlir-file-part
+  guid ;; global unique ID
   category ;; category of file (SPIRV, Shape, etc.)
   path ;; path of file
-  index ;; index of data
+  partix ;; partix of data
   contents ;; contents of file
   canon-contents ;; canonicalized contents of file
   canon-error ;; error when trying to canonicalize file
@@ -99,29 +100,24 @@
 ;; mlir::splitAndProcessBuffer
 ;; 
 ;; returns a list of mlir-file-part from a file path
+(defparameter *mlir-file-part-guid* 0)
 (defun read-mlir-file (category file-path)
   (declare (type pathname file-path))
   (let* ((contents (uiop:read-file-string file-path))
          ;; parts: list of parts
          (parts (if (search "-split-input-file" contents)
-		    (remove-if #'str:emptyp (mapcar #'str:trim (str:split "// -----" contents)))
+		    (remove-if #'str:emptyp
+			       (mapcar #'str:trim (str:split "// -----" contents)))
 		    (list contents))))
     (format t "......found ~d parts ~%" (length parts))
     (loop for i from 0 for part in parts 
-          collect (make-mlir-file-part :category category :path file-path :index i :contents part))))
+          collect (make-mlir-file-part
+		   :guid (incf *mlir-file-part-guid*)
+		   :category category
+		   :path file-path
+		   :partix i
+		   :contents part))))
 
-
-;; raw MLIR parts that are read from disk
-(defparameter *raw-mlir-parts* nil)
-
-;; canonicalized MLIR parts
-(defparameter *canon-mlir-parts* nil)
-
-;; number of files successfully canonicalized
-(defparameter *nsucc-canon* 0)
-
-;; number of files failed to canonicalize
-(defparameter *nfail-canon* 0)
 
 
 ;; statistics associated to each folder
@@ -133,7 +129,7 @@
 (defun make-default-stats ()  (make-stats :nsucc-run 0 :nfail-run 0))
 
 ;; statistics per content.
-(defparameter *stats* (make-hash-table))
+(defparameter *stats* (make-hash-table :test 'equal))
 
 ;; number of files that lake builded successfully.
 (defparameter *nsucc-run* 0)
@@ -193,10 +189,12 @@ def main : IO Unit :=
 	 (fname (pathname-name p)) ; filename 
 	 (relative-dir (enough-namestring dir *llvm-project-path*)) ; relative to llvm path
 	 (outname-raw (str:concat
+		       (write-to-string (mlir-file-part-guid part))
+		       "-"
 		       relative-dir
 		       fname
 		       "-"
-		       (write-to-string (mlir-file-part-index part))
+		       (write-to-string (mlir-file-part-partix part))
 		       "."
 		       extension)) ; full path
 	 (outname-mangle (str:replace-all "/" "Z" outname-raw)) ; mangled
@@ -210,8 +208,12 @@ def main : IO Unit :=
   (format nil *lean-file-template*
 	  (mlir-file-part-canon-contents part)
 	  "out.txt"))
-	  ;; (make-lean-file-path-str part)))
 
+;; get value from hash table, ensuring existence
+(defun ensure-gethash (key table default-value)
+  (multiple-value-bind (value exists-p)
+      (gethash key table)
+    (if exists-p value (setf (gethash key table) default-value))))
 
 ;; creates LEAN file correspnoding to part and compiles/runs it.
 ;; returns success/failure of compilation.
@@ -219,29 +221,31 @@ def main : IO Unit :=
   (str:to-file "TestCanonicalizer.lean" (make-lean-file-contents part))
   (format t "lake build |~d:~d|...~%"
 	  (mlir-file-part-path part)
-	  (mlir-file-part-index part))
+	  (mlir-file-part-partix part))
   (multiple-value-bind (out err retval)
       (uiop:run-program (list "lake" "build")
 			:output :string
 			:error-output :string
 			:ignore-error-status t)
-    (let ((s (gethash (mlir-file-part-category part) *stats* (make-default-stats))))
+    (let ((s (ensure-gethash (mlir-file-part-category part) *stats* (make-default-stats))))
       (if (/= retval 0)
 	  ;; vvv error vvv
 	  (progn
 	    (format t "ERROR: lake build |~d:~d| failed. error:~%~d~%~d~%"
 		    (mlir-file-part-path part)
-		    (mlir-file-part-index part)
+		    (mlir-file-part-partix part)
 		    out
 		    err)
-	    (str:to-file (mlir-file-part-make-filepath part "1-failures/" "lean") (make-lean-file-contents part))
+	    (str:to-file
+	     (mlir-file-part-make-filepath part "1-failures/" "lean")
+	     (make-lean-file-contents part))
 	    (incf (stats-nfail-run s))
 	    (incf *nfail-run*))
 	  ;; vvv no errror vvv
 	  (progn
 	    (format t "SUCCESSS: lake build |~d:~d| succeeded"
 		    (mlir-file-part-path part)
-		    (mlir-file-part-index part))
+		    (mlir-file-part-partix part))
 	    (incf (stats-nsucc-run s))
 	    (incf *nsucc-run*))))))
 
@@ -263,6 +267,17 @@ def main : IO Unit :=
     (= retval 0))) ;; indicate success or failure based on status code
 
 
+;; raw MLIR parts that are read from disk
+(defparameter *raw-mlir-parts* nil)
+
+;; canonicalized MLIR parts
+(defparameter *canon-mlir-parts* nil)
+
+;; number of files successfully canonicalized
+(defparameter *nsucc-canon* 0)
+
+;; number of files failed to canonicalize
+(defparameter *nfail-canon* 0)
 
 
 (defun main ()
@@ -281,24 +296,35 @@ def main : IO Unit :=
   (loop for part in *raw-mlir-parts* do
     (format t "processing |~d:~d|~%" 
 	    (mlir-file-part-path part)
-	    (mlir-file-part-index part))
+	    (mlir-file-part-partix part))
     (if (canonicalize-mlir-part part)
 	(progn
 	  (format t "SUCCESS: canonicalized |~d:~d|~%"
-		  (mlir-file-part-path part) (mlir-file-part-index part))
+		  (mlir-file-part-path part) (mlir-file-part-partix part))
 	  (incf *nsucc-canon*)
 	  (push part *canon-mlir-parts*))
 	(progn
 	  (format t "ERROR: unable to canonicalize |~d:~d|~%~d"
 		  (mlir-file-part-path part)
-		  (mlir-file-part-index part)
+		  (mlir-file-part-partix part)
 		  (mlir-file-part-canon-error part))
 	  (incf *nfail-canon*))))
   ;; create lean files
   (loop for part in *canon-mlir-parts* for i from 0 do
     (format t "===[~d/~d]===~%" i (length *canon-mlir-parts*))
-    (str:to-file (mlir-file-part-make-filepath part "mlir-files/" "mlir") (mlir-file-part-canon-contents part))
-    (make-and-run-lean-file part)))
+    (str:to-file
+     (mlir-file-part-make-filepath part "mlir-files/" "mlir")
+     (mlir-file-part-canon-contents part))
+    (make-and-run-lean-file part))
+  (format t "hash table: |~d|~%" *stats*)
+  (loop for k being the hash-keys of *stats* using (hash-value v) do
+    (format t "~a => (SUCC ~a | FAIL ~a)/~a~%"
+	    k
+	    (stats-nsucc-run v)
+	    (stats-nfail-run v)
+	    (+ (stats-nsucc-run v) (stats-nfail-run v))))
+  )
 
 (main)
+
 
