@@ -14,6 +14,7 @@
 (ql:quickload 'shasht)
 (ql:quickload 'str)
 (ql:quickload 'lparallel)
+(ql:quickload 'bordeaux-threads)
 (ql:quickload 'cl-cram)
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
@@ -128,8 +129,12 @@
 ;; default stats (success/fail at zero)
 (defun make-default-stats ()  (make-stats :nsucc-run 0 :nfail-run 0))
 
+
+;; lock for running
+(defparameter *run-lock* (bordeaux-threads:make-lock))
+
 ;; statistics per content.
-(defparameter *stats* (make-hash-table :test 'equal))
+(defparameter *run-stats* (make-hash-table :test 'equal))
 
 ;; number of files that lake builded successfully.
 (defparameter *nsucc-run* 0)
@@ -218,7 +223,7 @@ def main : IO Unit :=
 ;; creates LEAN file correspnoding to part and compiles/runs it.
 ;; returns success/failure of compilation.
 (defun make-and-run-lean-file (part)
-  (let ((outpath (mlir-file-part-make-filepath part "1-gen/" "lean")))
+  (let ((outpath (mlir-file-part-make-filepath part "1-gen/" "lean")))    
     (str:to-file outpath (make-lean-file-contents part))
     (setf (uiop:getenv "LEAN_PATH") "../build/lib/")
   (multiple-value-bind (out err retval)
@@ -226,7 +231,8 @@ def main : IO Unit :=
 			:output :string
 			:error-output :string
 			:ignore-error-status t)
-    (let ((s (ensure-gethash (mlir-file-part-category part) *stats* (make-default-stats))))
+    (bordeaux-threads:acquire-lock *run-lock*)
+    (let ((s (ensure-gethash (mlir-file-part-category part) *run-stats* (make-default-stats))))
       (if (/= retval 0)
 	  ;; vvv error vvv
 	  (progn
@@ -243,9 +249,15 @@ def main : IO Unit :=
 	  (progn
 	    (format t "..SUCCESSS: |~d| succeeded~%" outpath)
 	    (incf (stats-nsucc-run s))
-	    (incf *nsucc-run*)))))))
+	    (incf *nsucc-run*)))))
+    (bordeaux-threads:release-lock *run-lock*)
+    ))
 
 
+
+
+;; lock for canonicalization phase
+(defparameter *canon-lock* (bordeaux-threads:make-lock))
 
 ;; canonicalized MLIR parts
 (defparameter *canon-mlir-parts* nil)
@@ -259,6 +271,9 @@ def main : IO Unit :=
 ;; canonializes an MLIR part and sets the slot.
 ;; returns success / failure of canonicalization.
 (defun canonicalize-mlir-part (part)
+  (format t "canonicalizing |~d:~d|~%" 
+	  (mlir-file-part-path part)
+	  (mlir-file-part-partix part))  
   (multiple-value-bind (out err retval)
       (uiop:run-program (list "mlir-opt"
 			      (namestring (mlir-file-part-path part))
@@ -269,6 +284,7 @@ def main : IO Unit :=
 			:ignore-error-status t)
     (setf (mlir-file-part-canon-error part) err)
     (setf (mlir-file-part-canon-contents part) out)
+    (bordeaux-threads:acquire-lock *canon-lock*)
     (if (= retval 0)
    	(progn
 	  (format t "..SUCCESS: canonicalized |~d:~d|~%"
@@ -280,13 +296,17 @@ def main : IO Unit :=
 		  (mlir-file-part-path part)
 		  (mlir-file-part-partix part)
 		  (mlir-file-part-canon-error part))
-	  (incf *nfail-canon*))))) ;; indicate success or failure based on status code
+	  (incf *nfail-canon*)))
+    (bordeaux-threads:release-lock *canon-lock*)
+    (when (= retval 0)
+      (format t "===[~d/~d]===~%" (mlir-file-part-guid part) (length *raw-mlir-parts*))
+      (str:to-file
+       (mlir-file-part-make-filepath part "1-canon/" "mlir")
+       (mlir-file-part-canon-contents part)))))
 
 
 ;; raw MLIR parts that are read from disk
 (defparameter *raw-mlir-parts* nil)
-
-
 
 (defun main ()
   (loop for (category path-root) in *tests* do
@@ -301,20 +321,11 @@ def main : IO Unit :=
   (format t "found total |~d| parts |~d| ~%"
 	  (length *raw-mlir-parts*) *raw-mlir-parts*)
   ;; try to canonicalize
-  (loop for part in *raw-mlir-parts* do
-    (format t "processing |~d:~d|~%" 
-	    (mlir-file-part-path part)
-	    (mlir-file-part-partix part))
-    (canonicalize-mlir-part part))
+  (lparallel:pmap nil #'canonicalize-mlir-part *raw-mlir-parts*)
   ;; create lean files
-  (loop for part in *canon-mlir-parts* for i from 0 do
-    (format t "===[~d/~d]===~%" i (length *canon-mlir-parts*))
-    (str:to-file
-     (mlir-file-part-make-filepath part "1-canon/" "mlir")
-     (mlir-file-part-canon-contents part))
-    (make-and-run-lean-file part))
-  (format t "hash table: |~d|~%" *stats*)
-  (loop for k being the hash-keys of *stats* using (hash-value v) do
+  (lparallel:pmap nil #'make-and-run-lean-file *canon-mlir-parts*)
+  (format t "hash table: |~d|~%" *run-stats*)
+  (loop for k being the hash-keys of *run-stats* using (hash-value v) do
     (format t "~a => (SUCC ~a | FAIL ~a)/~a~%"
 	    k
 	    (stats-nsucc-run v)
@@ -322,9 +333,10 @@ def main : IO Unit :=
 	    (+ (stats-nsucc-run v) (stats-nfail-run v))))
   (setf shasht:*write-alist-as-object* t)
   (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
-    (shasht:write-json (list (cons :stats  *stats*)) outf))
+    (shasht:write-json (list (cons :stats  *run-stats*)) outf))
   )
 
 (main)
+
 
 
