@@ -1,6 +1,6 @@
 import MLIR.AST
 import MLIR.EDSL
-import MLIR.PDL
+import MLIR.Dialects.PDL
 
 open MLIR.AST
 open MLIR.EDSL

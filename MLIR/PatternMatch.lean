@@ -4,7 +4,7 @@ import Std.Data.AssocList
 import Lean.Meta
 import MLIR.EDSL
 import MLIR.Doc
-import MLIR.PDL
+import MLIR.Dialects.PDL
 import MLIR.P
 import MLIR.MLIRParser
 

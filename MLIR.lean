@@ -5,11 +5,10 @@ import MLIR.AST
 import MLIR.P
 import MLIR.MLIRParser
 import MLIR.EDSL
-import MLIR.StdDialect
 import MLIR.PatternMatch
-import MLIR.Linalg
-import MLIR.PatternMatch
-import MLIR.PDL
+import MLIR.Dialects.Builtin
+import MLIR.Dialects.Linalg
+import MLIR.Dialects.PDL
 import MLIR.Examples.EndToEndLinalg
 import MLIR.Examples.EndToEndLz
 import MLIR.Examples.EndToEndDiff

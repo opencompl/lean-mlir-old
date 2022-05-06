@@ -11,16 +11,21 @@
 ├── LLVM_COMMIT -- hardcoded LLVM commit for CI
 ├── makefile -- common targets to `build`, `debug`, `test`.
 ├── MLIR
+│   ├── Dialects
+│   │   ├── Builtin.lean -- Encoding of MLIR's `std` dialect via EDSL
+│   │   ├── Linalg.lean -- Encoding of MLIR's `linalg` dialect via EDSL
+│   │   └── PDL.lean -- Encoding of MLIR's `pdl` dialect via EDSL
+│   ├── Examples
+│   │     TODO
 │   ├── AST.lean -- Core AST data structure.
-│   ├── CombBasic.lean -- Encoding of CIRCT's Comb dialect via EDSL.
+│   ├── CParser.lean -- ANSI C Parser. (EXPERIMENTAL)
 │   ├── Doc.lean -- Lightweight pretty printer.
 │   ├── EDSL.lean -- Macro embedding of MLIR-generic syntax.
-│   ├── Main.lean -- Main file of executable that exposes our MLIR generic parser.
+│   ├── FFI.lean -- Foreign Function Interface to call MLIR. (EXPERIMENTAL)
 │   ├── MLIRParser.lean -- MLIR parser built from P.lean
-│   ├── PatternMatch.lean -- Tactics to build pattern matchers in LEAN.
 │   ├── P.lean -- lightweight text parser.
-│   ├── Semantics.lean -- Monadic semantics.
-│   └── StdDialect.lean -- Encoding of MLIR's `std` dialect via EDSL
+│   ├── PatternMatch.lean -- Tactics to build pattern matchers in LEAN.
+│   └── TAST.lean -- Typed AST with a richer structure than AST.
 ├── MLIR.lean -- toplevel module file.
 ├── NOTES.md -- research notes
 ├── playground -- experiments

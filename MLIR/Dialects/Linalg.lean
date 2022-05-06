@@ -1,12 +1,11 @@
 import MLIR.AST
 import MLIR.EDSL
 import MLIR.Doc
-import MLIR.StdDialect
+import MLIR.Dialects.Builtin
 
 open MLIR.AST
 open MLIR.EDSL
 open MLIR.Doc
--- open MLIR.StdDialect
 open Std
 
 -- LINALG

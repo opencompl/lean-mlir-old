@@ -1,5 +1,5 @@
-import MLIR.Linalg
-import MLIR.StdDialect 
+import MLIR.Dialects.Builtin
+import MLIR.Dialects.Linalg
 
 open MLIR.Doc
 open MLIR.AST

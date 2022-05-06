@@ -1,4 +1,4 @@
-import MLIR.StdDialect 
+import MLIR.Dialects.Builtin
 import MLIR.TAST
 open MLIR.Doc
 open MLIR.AST

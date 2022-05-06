@@ -1,6 +1,5 @@
-import MLIR.StdDialect 
 import MLIR.EDSL 
-import MLIR.StdDialect
+import MLIR.Dialects.Builtin
 
 open MLIR.Doc
 open MLIR.AST
@@ -24,7 +23,7 @@ def complex0 := [mlir_op|
 ]
 
 
--- | TODO: this should be in StdDialect or something
+-- | TODO: this should be in Dialects.Builtin or something
 syntax "constant" num ":" mlir_type : mlir_op
 syntax "return" mlir_op_operand ":" mlir_type : mlir_op
 
