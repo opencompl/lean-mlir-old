@@ -1,8 +1,112 @@
 {
   "STATS": {
-    "ALL": {
-      "NSUCC-RUN": 82,
-      "NFAIL-RUN": 1869
+    "Affine": {
+      "NSUCC-RUN": 204,
+      "NFAIL-RUN": 0
+    },
+    "Linalg": {
+      "NSUCC-RUN": 568,
+      "NFAIL-RUN": 0
+    },
+    "IR": {
+      "NSUCC-RUN": 239,
+      "NFAIL-RUN": 0
+    },
+    "MemRef": {
+      "NSUCC-RUN": 54,
+      "NFAIL-RUN": 0
+    },
+    "Quant": {
+      "NSUCC-RUN": 68,
+      "NFAIL-RUN": 0
+    },
+    "Vector": {
+      "NSUCC-RUN": 132,
+      "NFAIL-RUN": 0
+    },
+    "Tensor": {
+      "NSUCC-RUN": 87,
+      "NFAIL-RUN": 0
+    },
+    "Arith": {
+      "NSUCC-RUN": 51,
+      "NFAIL-RUN": 0
+    },
+    "PDL": {
+      "NSUCC-RUN": 15,
+      "NFAIL-RUN": 0
+    },
+    "LLVMIR": {
+      "NSUCC-RUN": 67,
+      "NFAIL-RUN": 0
+    },
+    "SparseTensor": {
+      "NSUCC-RUN": 44,
+      "NFAIL-RUN": 0
+    },
+    "Shape": {
+      "NSUCC-RUN": 118,
+      "NFAIL-RUN": 0
+    },
+    "Async": {
+      "NSUCC-RUN": 28,
+      "NFAIL-RUN": 0
+    },
+    "GPU": {
+      "NSUCC-RUN": 21,
+      "NFAIL-RUN": 0
+    },
+    "OpenACC": {
+      "NSUCC-RUN": 21,
+      "NFAIL-RUN": 0
+    },
+    "Bufferization": {
+      "NSUCC-RUN": 17,
+      "NFAIL-RUN": 0
+    },
+    "PDLInterp": {
+      "NSUCC-RUN": 5,
+      "NFAIL-RUN": 0
+    },
+    "Complex": {
+      "NSUCC-RUN": 2,
+      "NFAIL-RUN": 0
+    },
+    "Math": {
+      "NSUCC-RUN": 4,
+      "NFAIL-RUN": 0
+    },
+    "OpenMP": {
+      "NSUCC-RUN": 1,
+      "NFAIL-RUN": 0
+    },
+    "ArmSVE": {
+      "NSUCC-RUN": 2,
+      "NFAIL-RUN": 0
+    },
+    "EmitC": {
+      "NSUCC-RUN": 3,
+      "NFAIL-RUN": 0
+    },
+    "X86Vector": {
+      "NSUCC-RUN": 2,
+      "NFAIL-RUN": 0
+    },
+    "ArmNeon": {
+      "NSUCC-RUN": 1,
+      "NFAIL-RUN": 0
+    },
+    "Builtin": {
+      "NSUCC-RUN": 2,
+      "NFAIL-RUN": 0
+    },
+    "AMX": {
+      "NSUCC-RUN": 2,
+      "NFAIL-RUN": 0
+    },
+    "DTLI": {
+      "NSUCC-RUN": 1,
+      "NFAIL-RUN": 0
     }
   }
 }

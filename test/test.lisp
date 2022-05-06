@@ -61,7 +61,7 @@
 
 
 
-(defparameter *tests* (list (list "ALL" (merge-pathnames #P"mlir/test/**/*.mlir" *llvm-project-path*))))
+;; (defparameter *tests* (list (list "ALL" (merge-pathnames #P"mlir/test/**/*.mlir" *llvm-project-path*))))
 
 (defparameter *total* 0)
 
@@ -262,7 +262,7 @@ def main : IO Unit :=
 ;; returns success / failure of canonicalization.
 (defun canonicalize-mlir-part (part)
   (let ((canon-path (mlir-file-part-make-filepath part "1-canon/" "mlir")))
-   ;; (format t "===[~d/~d]===~%" (mlir-file-part-guid part) (length *raw-mlir-parts*))
+   (format t "===[~d/~d]===~%" (mlir-file-part-guid part) (length *raw-mlir-parts*))
     (str:to-file canon-path (mlir-file-part-canon-contents part))
     (format t "canonicalizing |~d:~d| at |~d|~%" 
 	  (mlir-file-part-path part)
@@ -270,7 +270,7 @@ def main : IO Unit :=
 	  canon-path)  
     (multiple-value-bind (out err retval)
 	(uiop:run-program (list "mlir-opt"
-				(namestring canon-path))
+				(namestring canon-path)
 				"--mlir-print-op-generic"
 				"--allow-unregistered-dialect")
 			  :output :string
@@ -287,13 +287,14 @@ def main : IO Unit :=
 	      (incf *nsucc-canon*)
 	      (push part *canon-mlir-parts*)))
 	  (progn
-	    (format t "..ERROR: unable to canonicalize |~d:~d|at~d ~%~d~%"
+	    (format t "..ERROR: unable to canonicalize |~d:~d| at |~d|~%"
 		    (mlir-file-part-path part)
 		    (mlir-file-part-partix part)
-		    (mlir-file-part-canon-error part))
+		    canon-path)
 	    (bordeaux-threads:with-lock-held (*canon-lock*)
 	      (incf *nfail-canon*))))
       (when (= retval 0)
+	(str:to-file canon-path out)
 	;; perform further canonicalization
 	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
 	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g")
