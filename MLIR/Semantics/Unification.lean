@@ -8,8 +8,8 @@ the instructions targeted by the rewrite, in order to propagate operations
 invariants that are implicit in PDL.
 -/
 
-import MLIRSemantics.Types
-import MLIRSemantics.Matching
+import MLIR.Semantics.Types
+import MLIR.Semantics.Matching
 import MLIR.AST
 open MLIR.AST
 

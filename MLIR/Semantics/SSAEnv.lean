@@ -25,8 +25,8 @@ accessing out-of-scope values (in the case of an isolated region), but we only
 care when proving the correction of transformations.
 -/
 
-import MLIRSemantics.Fitree
-import MLIRSemantics.Types
+import MLIR.Semantics.Fitree
+import MLIR.Semantics.Types
 
 import MLIR.AST
 open MLIR.AST

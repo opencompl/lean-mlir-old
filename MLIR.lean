@@ -13,6 +13,10 @@ import MLIR.Examples.EndToEndLinalg
 import MLIR.Examples.EndToEndLz
 import MLIR.Examples.EndToEndDiff
 
+-- Testing imports for semantics
+import MLIR.Dialects.ToySemantics
+import MLIR.Dialects.PDLSemantics
+
 open MLIR.MLIRParser
 open MLIR.P
 open MLIR.Doc

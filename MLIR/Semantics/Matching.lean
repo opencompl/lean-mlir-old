@@ -9,7 +9,7 @@ constraints, it simplifies the most common ones a great deal.
 TODO: Provide the matcher
 -/
 
-import MLIRSemantics.Types
+import MLIR.Semantics.Types
 import MLIR.AST
 open MLIR.AST
 

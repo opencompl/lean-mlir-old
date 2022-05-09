@@ -31,7 +31,7 @@ only model programs that always terminate.
 [1]: https://github.com/vellvm/vellvm
 -/
 
-import MLIRSemantics.SimpItree
+import MLIR.Semantics.SimpItree
 
 /- Extendable effect families -/
 

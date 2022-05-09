@@ -28,9 +28,9 @@ Types that need improvements or refinements:
   TODO: Model user types
 -/
 
-import MLIRSemantics.Util.Arith
-import MLIRSemantics.Util.List
-import MLIRSemantics.Fitree
+import MLIR.Util.Arith
+import MLIR.Util.List
+import MLIR.Semantics.Fitree
 
 import MLIR.AST
 open MLIR.AST

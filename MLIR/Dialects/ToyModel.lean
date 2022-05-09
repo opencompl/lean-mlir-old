@@ -1,7 +1,7 @@
 /- A toy dialect with basic tensor computations. -/
 
-import MLIRSemantics.Types
-import MLIRSemantics.Util.List
+import MLIR.Semantics.Types
+import MLIR.Util.List
 
 /-
 ### Tensor reshaping operation

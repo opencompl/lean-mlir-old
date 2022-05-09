@@ -1,4 +1,4 @@
-import MLIRSemantics.Util.Arith
+import MLIR.Util.Arith
 import Init.Data.List
 
 namespace List

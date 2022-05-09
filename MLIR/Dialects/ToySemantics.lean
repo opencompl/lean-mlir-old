@@ -1,9 +1,9 @@
-import MLIRSemantics.Toy.Toy
-import MLIRSemantics.Fitree
-import MLIRSemantics.Verifier
-import MLIRSemantics.SSAEnv
-import MLIRSemantics.InvalidOp
-import MLIRSemantics.Util.Metagen
+import MLIR.Dialects.ToyModel
+import MLIR.Semantics.Fitree
+import MLIR.Semantics.Verifier
+import MLIR.Semantics.SSAEnv
+import MLIR.Semantics.InvalidOp
+import MLIR.Util.Metagen
 
 import MLIR.AST
 import MLIR.EDSL

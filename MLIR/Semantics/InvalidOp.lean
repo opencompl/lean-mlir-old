@@ -12,7 +12,7 @@ that these events go away automatically when programs are well-formed, but
 still prevent malformed programs from being studied by accident.
 -/
 
-import MLIRSemantics.Fitree
+import MLIR.Semantics.Fitree
 
 inductive InvalidOpE: Type → Type :=
   | InvalidOp: InvalidOpE Unit

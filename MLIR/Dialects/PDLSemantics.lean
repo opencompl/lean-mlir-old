@@ -71,9 +71,9 @@ Operations or features of PDL that we don't try to express (yet):
 * Using variadic arguments or matching operands with variadic arguments
 -/
 
-import MLIRSemantics.Types
-import MLIRSemantics.Matching
-import MLIRSemantics.Unification
+import MLIR.Semantics.Types
+import MLIR.Semantics.Matching
+import MLIR.Semantics.Unification
 import MLIR.AST
 import MLIR.EDSL
 import Lean.Exception
