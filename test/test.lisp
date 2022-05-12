@@ -65,6 +65,12 @@
 
 (defparameter *total* 0)
 
+(defun log-command-execution (args)
+  (format t "sh$ |~d|~%" args)
+  args)
+
+
+
 ;; a canonicalized part of an MLIR file
 ;; contents will be MLIR generic.
 (defstruct mlir-file-part
@@ -203,7 +209,7 @@ def main : IO Unit :=
 
 (defun run-sed (path command)
   (uiop:run-program
-   (list "sed" "-i" "-r" command (namestring path))
+   (log-command-execution (list "sed" "-i" "-r" command (namestring path)))
    :output :string))
 
 
@@ -215,7 +221,7 @@ def main : IO Unit :=
     (str:to-file outpath (make-lean-file-contents part))
     (setf (uiop:getenv "LEAN_PATH") "../build/lib/")
   (multiple-value-bind (out err retval)
-      (uiop:run-program (list "lean" (namestring outpath))
+      (uiop:run-program (log-command-execution (list "lean" (namestring outpath)))
 			:output :string
 			:error-output :string
 			:ignore-error-status t)
@@ -224,7 +230,7 @@ def main : IO Unit :=
       (if (/= retval 0)
 	  ;; vvv error vvv
 	  (progn
-	    (format t "..ERROR: |~d| failed. error:~%~d~%~d~%"
+	    (format t "..ERROR: |lean~d| failed. error:~%~d~%~d~%"
 		    outpath
 		    out
 		    err)
@@ -261,52 +267,54 @@ def main : IO Unit :=
 ;; canonializes an MLIR part and sets the slot.
 ;; returns success / failure of canonicalization.
 (defun canonicalize-mlir-part (part)
-  (let ((canon-path (mlir-file-part-make-filepath part "1-canon/" "mlir")))
-   (format t "===[~d/~d]===~%" (mlir-file-part-guid part) (length *raw-mlir-parts*))
-    (str:to-file canon-path (mlir-file-part-canon-contents part))
-    (format t "canonicalizing |~d:~d| at |~d|~%" 
-	  (mlir-file-part-path part)
-	  (mlir-file-part-partix part)
-	  canon-path)  
-    (multiple-value-bind (out err retval)
-	(uiop:run-program (list "mlir-opt"
-				(namestring canon-path)
-				"--mlir-print-op-generic"
-				"--allow-unregistered-dialect")
-			  :output :string
-			  :error-output :string
-			  :ignore-error-status t)
-      (setf (mlir-file-part-canon-error part) err)
-      (setf (mlir-file-part-canon-contents part) out)
-      (if (= retval 0)
-   	  (progn
-	    (format t "..SUCCESS: canonicalized |~d:~d| at |~d| ~%"
-		    (mlir-file-part-path part) (mlir-file-part-partix part)
-		    canon-path)
-	    (bordeaux-threads:with-lock-held (*canon-lock*)
-	      (incf *nsucc-canon*)
-	      (push part *canon-mlir-parts*)))
-	  (progn
-	    (format t "..ERROR: unable to canonicalize |~d:~d| at |~d|~%"
-		    (mlir-file-part-path part)
-		    (mlir-file-part-partix part)
-		    canon-path)
-	    (bordeaux-threads:with-lock-held (*canon-lock*)
-	      (incf *nfail-canon*))))
-      (when (= retval 0)
-	(str:to-file canon-path out)
-	;; perform further canonicalization
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5 × \6>/g")
-	(run-sed canon-path "s/^#.*//") ;; remove attribute aliases
-	(run-sed canon-path "s/e\+//g") ;; remove floating point 0e+0 with 0e0
-	(run-sed canon-path "s-//.*--g") ;; remove comments
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
-	(setf (mlir-file-part-canon-contents part) (str:from-file canon-path))))))
+   (let ((canon-path (mlir-file-part-make-filepath part "1-canon/" "mlir")))
+     (format t "===[~d/~d]===~%" (mlir-file-part-guid part) (length *raw-mlir-parts*))
+     ;; write the contents into the filex
+     (str:to-file canon-path (mlir-file-part-contents part))
+     (format t "canonicalizing |~d:~d| at |~d|~%" 
+	     (mlir-file-part-path part)
+	     (mlir-file-part-partix part)
+	     canon-path)  
+     (multiple-value-bind (out err retval)
+	 (uiop:run-program (log-command-execution
+			    (list "mlir-opt"
+				  (namestring canon-path)
+				  "--mlir-print-op-generic"
+				  "--allow-unregistered-dialect"))
+			   :output :string
+			   :error-output :string
+			   :ignore-error-status t)
+       (setf (mlir-file-part-canon-error part) err)
+       (setf (mlir-file-part-canon-contents part) out)
+       (if (= retval 0)
+   	   (progn
+	     (format t "..SUCCESS: canonicalized |~d:~d| at |~d| ~%"
+		     (mlir-file-part-path part) (mlir-file-part-partix part)
+		     canon-path)
+	     (bordeaux-threads:with-lock-held (*canon-lock*)
+	       (incf *nsucc-canon*)
+	       (push part *canon-mlir-parts*)))
+	   (progn
+	     (format t "..ERROR: unable to canonicalize |~d:~d| at |~d|~%"
+		     (mlir-file-part-path part)
+		     (mlir-file-part-partix part)
+		     canon-path)
+	     (bordeaux-threads:with-lock-held (*canon-lock*)
+	       (incf *nfail-canon*))))
+       (when (= retval 0)
+	 (str:to-file canon-path out)
+	 ;; perform further canonicalization
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g")
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g")
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5>/g")
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5 × \6>/g")
+	 (run-sed canon-path "s/^#.*//") ;; remove attribute aliases
+	 ;; (run-sed canon-path "s/e\+//g") ;; remove floating point 0e+0 with 0e0
+	 (run-sed canon-path "s-//.*--g") ;; remove comments
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
+	 (run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
+	 (setf (mlir-file-part-canon-contents part) (str:from-file canon-path))))))
 
 ;; raw MLIR parts that are read from disk
 (defparameter *raw-mlir-parts* nil)
