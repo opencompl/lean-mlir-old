@@ -75,18 +75,22 @@
 ;; a canonicalized part of an MLIR file
 ;; contents will be MLIR generic.
 (defstruct mlir-file-part
-  guid ;; global unique ID
-  category ;; category of file (SPIRV, Shape, etc.)
-  path ;; path of file
-  partix ;; partix of data
-  raw-contents ;; raw contents of file before caonicalization
-  canon-contents ;; canonicalized contents of file
-  canon-error ;; error when trying to canonicalize file
-  canon-successp ;; whether canonicalization succeeded
-  compile-error ;; errors after round tripping
+  guid		   ;; global unique ID
+  category	   ;; category of file (SPIRV, Shape, etc.)
+  path		   ;; path of file
+  partix	   ;; partix of data
+  raw-contents	   ;; raw contents of file before caonicalization
+  canon-contents   ;; canonicalized contents of file
+  canon-error	   ;; error when trying to canonicalize file
+  canon-successp   ;; whether canonicalization succeeded
+  compile-error	   ;; errors after round tripping
   compile-successp ;; whether compilation succeeded
-  run-out ;; stdout when running
-   )
+  run-out	   ;; stdout when running
+  run-canon-successp ;; whether we successfully canonicalized the run output
+  run-canon-out	     ;; stdout when canonicalizing run output
+  run-canon-err	     ; stderr when canonicalizing run output
+  roundtrip-successp ; whether the file round-trips correctly
+  )
 
 ;; returns file
 ;; https://github.com/llvm/llvm-project/blob/860eabb3953a104b2b85398c705cd32e33d86689/mlir/lib/Support/ToolUtilities.cpp#L22
@@ -96,7 +100,7 @@
 (defparameter *mlir-file-part-guid* 0)
 (defun read-mlir-file (category file-path)
   (declare (type pathname file-path))
-  (let* ((contents (uiop:read-file-string file-path))
+  (let* ((contents (str:from-file file-path))
 	 ;; parts: list of parts
 	 (parts (if (search "-split-input-file" contents)
 		    (remove-if #'str:emptyp
@@ -215,12 +219,37 @@ def main : IO Unit :=
    (log-command-execution (list "sed" "-i" "-r" command (namestring path)))
    :output :string))
 
+
+
+;;  canonicalize the output of the leanfile.
+;;  TODO: move this back in?
+;; TODO: can this be refactored to directly set the slots of mlir-file-part?
+(defun canonicalize-lean-file-output (part filepath)
+  (multiple-value-bind (out err retval)
+      (uiop:run-program (log-command-execution
+			 (list "mlir-opt" (namestring filepath) "--allow-unregistered-dialect" "--mlir-print-op-generic"))
+			:output :string
+			:error :string
+			:ignore-error-status t)
+    (setf (mlir-file-part-run-canon-successp part) (= retval 0))
+    (setf (mlir-file-part-run-canon-out part) out)
+    (setf (mlir-file-part-run-canon-err part) err)))
+
 ;; run lean file corresponding to part <part> stored at filepath <filepath>
+;; and canonicalize the corresponding output
 (defun run-lean-file (part filepath)
-  (let ((out
-	(uiop:run-program (log-command-execution (list "lean" (namestring filepath) "--run"))
-			     :output :string)))
-    (setf (mlir-file-part-run-out part) out)))
+  (let ((outpath (mlir-file-part-make-filepath part "1-runout/" "mlir"))
+	(out
+	  (uiop:run-program (log-command-execution (list "lean" (namestring filepath) "--run"))
+			    :output :string)))
+    (str:to-file outpath out)
+    (setf (mlir-file-part-run-out part) out)
+    (canonicalize-lean-file-output part outpath)
+    ;;  file round trips successfuly?
+    (setf (mlir-file-part-roundtrip-successp part)
+	  (equal (mlir-file-part-run-canon-out part)
+		 (mlir-file-part-canon-contents part)))))
+
 
 ;;;  compiles lean file.
 (defun compile-lean-file (part filepath)
@@ -276,6 +305,7 @@ def main : IO Unit :=
 ;; raw MLIR parts that are read from disk
 (defparameter *raw-mlir-parts* nil)
 
+
 ;; canonializes an MLIR part and sets the slot.
 ;; returns success / failure of canonicalization.
 (defun canonicalize-mlir-part (part)
@@ -330,6 +360,45 @@ def main : IO Unit :=
 	(setf (mlir-file-part-canon-contents part) (str:from-file canon-path))))))
 
 
+(defstruct stat nsucc nfail)
+
+
+(defun print-compile-stats ()
+  (let ((stats (make-hash-table :test 'equal)))
+    (loop for part in *canon-mlir-parts* do
+      (let ((s (ensure-gethash (mlir-file-part-category part)
+			       stats
+			       (make-stat :nsucc 0 :nfail 0))))
+	(if (mlir-file-part-compile-successp part)
+	    (incf (stat-nsucc s))
+	    (incf (stat-nfail s))
+	    )))
+    (format t "compile stats: |~d|~%" stats)
+    (loop for k being the hash-keys of stats using (hash-value v) do
+      (format t "~a => (SUCC a | FAIL ~a)~a~%"
+	      k
+	      (stat-nsucc k)
+	      (stat-nfail k)))))
+
+;;  TODO: canonicalize output of running 
+(defun print-run-stats ()
+  (let ((stats (make-hash-table :test 'equal)))
+    (loop for part in *canon-mlir-parts* do
+      (let ((s (ensure-gethash (mlir-file-part-category part)
+			       stats
+			       (make-stat :nsucc 0 :nfail 0))))
+	(if (mlir-file-part-run-canon-successp part)
+	    (incf (stat-nsucc s))
+	    (incf (stat-nfail s))
+	    )))
+    (format t "run canon stats: |~d|~%" stats)
+    (loop for k being the hash-keys of stats using (hash-value v) do
+      (format t "~a => (SUCC a | FAIL ~a)~a~%"
+	      k
+	      (stat-nsucc k)
+	      (stat-nfail k)))))
+
+
 (defun main ()
   (setf lparallel:*kernel* (lparallel:make-kernel 32))
   (loop for (category path-root) in *tests* do
@@ -349,14 +418,8 @@ def main : IO Unit :=
   ;; TODO: reindex the guid based on the new array length after filtering.
   ;; create lean files
   (lparallel:pmap nil #'make-and-run-lean-file *canon-mlir-parts*)
-  (format t "hash table: |~d|~%" *run-stats*)
-  (loop for k being the hash-keys of *run-stats* using (hash-value v) do
-    (format t "~a => (SUCC ~a | FAIL ~a)/~a~%"
-	    k
-	    (stats-nsucc-run v)
-	    (stats-nfail-run v)
-	    (+ (stats-nsucc-run v) (stats-nfail-run v))))
-  (setf shasht:*write-alist-as-object* t)
+  (print-compile-stats)
+  (print-run-stats)
   (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
     (shasht:write-json (list (cons :stats *run-stats*)) outf)))
 
