@@ -363,40 +363,32 @@ def main : IO Unit :=
 (defstruct stat nsucc nfail)
 
 
-(defun print-compile-stats ()
+;;  print statistics over data, gathered by running stat-successp on each
+;; element of data-list
+(defun print-stats (data-list stat-successp)
   (let ((stats (make-hash-table :test 'equal)))
-    (loop for part in *canon-mlir-parts* do
+    (loop for part in data-list do
       (let ((s (ensure-gethash (mlir-file-part-category part)
 			       stats
 			       (make-stat :nsucc 0 :nfail 0))))
-	(if (mlir-file-part-compile-successp part)
+	(if (funcall stat-successp part)
 	    (incf (stat-nsucc s))
 	    (incf (stat-nfail s))
 	    )))
     (format t "compile stats: |~d|~%" stats)
     (loop for k being the hash-keys of stats using (hash-value v) do
-      (format t "~a => (SUCC a | FAIL ~a)~a~%"
+      (format t "~a => (SUCC ~a | FAIL ~a)/~a~%"
 	      k
-	      (stat-nsucc k)
-	      (stat-nfail k)))))
+	      (stat-nsucc v)
+	      (stat-nfail v)
+	      (+ (stat-nsucc v) (stat-nfail v))))))
+
+(defun print-compile-stats ()
+  (print-stats *canon-mlir-parts* #'mlir-file-part-compile-successp))
 
 ;;  TODO: canonicalize output of running 
 (defun print-run-stats ()
-  (let ((stats (make-hash-table :test 'equal)))
-    (loop for part in *canon-mlir-parts* do
-      (let ((s (ensure-gethash (mlir-file-part-category part)
-			       stats
-			       (make-stat :nsucc 0 :nfail 0))))
-	(if (mlir-file-part-run-canon-successp part)
-	    (incf (stat-nsucc s))
-	    (incf (stat-nfail s))
-	    )))
-    (format t "run canon stats: |~d|~%" stats)
-    (loop for k being the hash-keys of stats using (hash-value v) do
-      (format t "~a => (SUCC a | FAIL ~a)~a~%"
-	      k
-	      (stat-nsucc k)
-	      (stat-nfail k)))))
+  (print-stats *canon-mlir-parts* #'mlir-file-part-run-canon-successp))
 
 
 (defun main ()
