@@ -181,10 +181,10 @@ macro_rules
         else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
 
 macro_rules
-| `([mlir_type| ! $x:str ]) => `(MLIRTy.user $x)
+| `([mlir_type| ! $x:str ]) => `(MLIRTy.undefined $x)
 
 macro_rules
-| `([mlir_type| ! $x:ident ]) => `(MLIRTy.user $(Lean.quote x.getId.toString))
+| `([mlir_type| ! $x:ident ]) => `(MLIRTy.undefined $(Lean.quote x.getId.toString))
 
 def tyIndex : MLIRTy := [mlir_type| index]
 #eval tyIndex

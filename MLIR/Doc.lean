@@ -26,7 +26,7 @@ inductive Doc : Type where
 
 
 
-class Pretty (a : Type) where
+class Pretty (a : Type u) where
   doc : a -> Doc
 
 open Pretty

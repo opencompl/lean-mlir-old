@@ -10,13 +10,23 @@ open Char
 
 namespace MLIR.P
 
-inductive Result (e : Type) (a : Type) : Type where 
+inductive Result (e : Type) (a : Type u) : Type _ where
 | ok: a -> Result e a
 | err: e -> Result e a
 | debugfail : e -> Result e a
 
 instance [Inhabited e] : Inhabited (Result e a) where
    default := Result.err (Inhabited.default) 
+
+def Result.bind {e : Type} {a : Type u} {b : Type v} (r : Result e a) (f : a -> Result e b) : Result e b :=
+  match r with
+  | ok a => f a
+  | err e => err e
+  | debugfail e => debugfail e
+
+instance {e}: Monad (Result e) where
+  pure := Result.ok
+  bind := Result.bind
 
 
 inductive ErrKind : Type where
@@ -77,7 +87,7 @@ instance : Pretty Note where
 
 
 -- | TODO: enable notes, refactor type into Loc x String x [Note] x (Result ParseError a)
-structure P (a: Type) where 
+structure P (a: Type u): Type _ where
    runP: Loc -> List Note -> String ->  (Loc × (List Note) × String × (Result Note a))
 
 
@@ -93,25 +103,26 @@ def pmap (f : a -> b) (pa: P a): P b := {
 
 
 -- https://github.com/leanprover/lean4/blob/d0996fb9450dc37230adea9d10ecfdf10330ef67/tests/playground/flat_parser.lean
-def ppure {a: Type} (v: a): P a := { runP :=  λ loc ns s =>  (loc, ns, s, Result.ok v) }
+def ppure {a: Type _} (v: a): P a := { runP :=  λ loc ns s =>  (loc, ns, s, Result.ok v) }
 
-def pbind {a b: Type} (pa: P a) (a2pb : a -> P b): P b := 
+def pbind {a b: Type _} (pa: P a) (a2pb : a -> P b): P b :=
    { runP := λloc ns s => match pa.runP loc ns s with 
             | (l, ns, s, Result.ok a) => (a2pb a).runP l ns  s
             | (l, ns, s, Result.err e) => (l, ns, s, Result.err e)
             | (l, ns, s, Result.debugfail e) => (l, ns, s, Result.debugfail e)
    }
 
-instance : Monad P := {
+universe u in
+instance : Monad P.{u} := {
   pure := ppure,
   bind := pbind
 }
 
 
-def pnote [Pretty α] (a: α): P Unit := {
+def pnote [Pretty α] (a: α): P.{u} PUnit := {
   runP := λ loc ns s => 
     let n := { left := loc, right := loc, kind := doc a }
-    (loc, ns ++ [n], s, Result.ok ())
+    (loc, ns ++ [n], s, Result.ok PUnit.unit)
 }
 
 def perror [Pretty e] (err: e) :  P a := {
@@ -183,37 +194,40 @@ partial def eat_whitespace_ (l: Loc) (s: String) : Loc × String :=
 
 
 -- | never fails.
-def ppeek : P (Option Char) := { 
+def ppeek : P.{u} (Option (ULift Char)) := {
   runP := λ loc ns haystack =>
     if isEmpty haystack
     then (loc, ns, haystack, Result.ok none)
     else
      let (loc, haystack) := eat_whitespace_ loc haystack
-     (loc, ns, haystack, Result.ok ∘ some ∘ front $ haystack)
+     (loc, ns, haystack, Result.ok ∘ some ∘ ULift.up ∘ front $ haystack)
   }
 
-def padvance_char_INTERNAL (c: Char) : P Unit := {
-  runP := λ loc ns haystack => (advance1 loc c, ns, drop haystack 1, Result.ok ())
+def padvance_char_INTERNAL (c: Char) : P.{u} PUnit := {
+  runP := λ loc ns haystack => (advance1 loc c, ns, drop haystack 1, Result.ok PUnit.unit)
 }
 
-def pconsume(c: Char) : P Unit := do
+def pconsume (c: Char) : P.{u} PUnit := do
   let cm <- ppeek
   match cm with 
-  | some c' => 
+  | some (ULift.up c') =>
      if c == c' then padvance_char_INTERNAL c
      else perror ("pconsume: expected character |" ++ toString c ++ "|. Found |" ++ toString c' ++ "|.")
   | none =>  perror ("pconsume: expected character |" ++ toString c ++ "|. Found EOF")
 
 
-def ppeek?(c: Char) : P Bool := do
+def ppeek? (c: Char) : P.{u} (ULift Bool) := do
   let cm <- ppeek
-  return (cm == some c)
+  return ULift.up $
+    match cm with
+    | some (ULift.up c') => c' == c
+    | none => false
 
 
-def eat_whitespace : P Unit := {
+def eat_whitespace : P.{u} PUnit := {
   runP := λ loc ns s =>
     let (l', s') := eat_whitespace_ loc s
-    (l', ns, s', Result.ok ())
+    (l', ns, s', Result.ok PUnit.unit)
   }
 
 
@@ -232,45 +246,45 @@ partial def takeWhile (predicate: Char -> Bool)
         then takeWhile predicate startloc (advance1 loc c) (s.drop 1) (out.push c)
         else (loc, s, Result.ok out)
 
-partial def ptakewhile (predicateWhile: Char -> Bool) : P String :=
+partial def ptakewhile (predicateWhile: Char -> Bool) : P.{u} (ULift String) :=
 { runP := λ startloc ns haystack => 
-      let (loc, s) := takeWhile predicateWhile startloc startloc haystack ""
-      (loc, ns, s)
+      let (loc, s, r) := takeWhile predicateWhile startloc startloc haystack ""
+      (loc, ns, s, r.bind (pure ∘ ULift.up))
 }
 
 
 
 -- | take an identifier. TODO: ban symbols
-def pident : P String := do
+def pident : P.{u} (ULift String) := do
   eat_whitespace 
   ptakewhile (fun c => (c != ' ' && c != '\t' && c != '\n') && (isAlphanum c || c == '_'))
 
-def pident? (s: String) : P Unit := do
-   let i <- pident
+def pident? (s: String) : P.{u} PUnit := do
+   let i := (<- pident).down
    pnote $ "pident? looking for ident: " ++ s ++ " | found: |" ++ i ++ "|"
    if i == s
-   then psuccess ()
+   then psuccess PUnit.unit
    else perror $ "expected |" ++ s ++ "| but found |" ++ i ++ "|"
 
 
-def pnat : P Nat := do
+def pnat : P.{u} (ULift Nat) := do
   eat_whitespace
   let name <- ptakewhile (fun c => c.isDigit)
-  match name.toNat? with
-   | some num => return num
-   | none => perror $ "expected natural, found |" ++ name ++ "|."
+  match name.down.toNat? with
+   | some num => return ULift.up num
+   | none => perror $ "expected natural, found |" ++ name.down ++ "|."
 
-def pnumber : P Int := do
+def pnumber : P.{u} (ULift Int) := do
   eat_whitespace
   let name <- ptakewhile (fun c => c.isDigit)
-  match name.toInt? with
-   | some num => return num
-   | none => perror $ "expected number, found |" ++ name ++ "|."
+  match name.down.toInt? with
+   | some num => return ULift.up num
+   | none => perror $ "expected number, found |" ++ name.down ++ "|."
 
 -- | pstar p delim is either (i) a `delim` or (ii) a  `p` followed by (pmany p delim)
 partial def pstarUntil (p: P a) (d: Char) : P (List a) := do
    eat_whitespace
-   if (<- ppeek? d)
+   if (<- ULift.down <$> ppeek? d)
    then do 
      pconsume d
      return []
@@ -290,7 +304,7 @@ partial def pdelimited (l: Char) (p: P a) (r: Char) : P (List a) := do
 partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
   eat_whitespace
   match (<- ppeek) with
-   | some c => -- perror ("intercalate: I see |" ++ c.toString ++ "|")
+   | some (ULift.up c) => -- perror ("intercalate: I see |" ++ c.toString ++ "|")
                if c == r
                then do pconsume r; return []
                else if c == i
@@ -305,11 +319,12 @@ partial def pintercalated_ (p: P a) (i: Char) (r: Char) : P (List a) := do
 
 
 -- | parse things starting with a <l>, followed by <p> intercalated by <i>, ending with <r>
-partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) := do
+partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P.{u} (List a) := do
   eat_whitespace
   pconsume l
   match (<- ppeek) with
-   | some c => if c == r
+   | some (ULift.up c) =>
+               if c == r
                then do pconsume r; return []
                else do
                   let a <- p
@@ -318,7 +333,7 @@ partial def pintercalated (l: Char) (p: P a) (i: Char) (r: Char) : P (List a) :=
    | _ => perror "expected either ')' or a term to be parsed. Found EOF"
 
 
-partial def pstr : P String :=  do
+partial def pstr : P.{u} (ULift String) :=  do
    eat_whitespace
    pconsume '"'
    let s <- ptakewhile (fun c => c != '"')
@@ -331,7 +346,7 @@ partial def pstr : P String :=  do
 -- |(ii) If it does not find `l`, it retrns []
 partial def ppeekstar (l: Char) (p: P a) : P (List a) := do
   let proceed <- ppeek? l
-  if proceed then do 
+  if proceed.down then do
         let a <- p
         let as <- ppeekstar l p
         return (a :: as)

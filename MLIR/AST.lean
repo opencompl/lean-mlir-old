@@ -68,35 +68,73 @@ inductive TensorElem :=
 | nested: List TensorElem -> TensorElem
 | empty: TensorElem
 
-mutual
+/-
+MLIR types can be extended at runtime with dialect-provided types. We support
+this through the MLIRTypeInterface typeclass.
+-/
 
-inductive MemrefLayoutSpec : Type where 
-| stride: (offset: Dimension) -> (stride: List Dimension) -> MemrefLayoutSpec
-| attr: AttrVal -> MemrefLayoutSpec
+class TypeIntf (α: Type) where
+  deq: DecidableEq α
+  str: ToString α
 
-inductive MLIRTy : Type where
+class TypeFamilyIntf (name: String) (σ: Type u) where
+  α: σ → Type
+  compare: DecidableEq σ
+  str: ToString σ
+  eval: (s: σ) → TypeIntf (α s)
+  elim (s: σ) {motive: σ → Type} (f: (s: σ) → motive s): motive s := f s
+
+-- TODO: Axiom relies on TypeFamilyIntf being used in specific safe ways
+axiom TypeFamilyIntf.nameUnique.{u} {name₁ name₂: String} {σ₁ σ₂: Type u}
+    (f₁: TypeFamilyIntf name₁ σ₁) (f₂: TypeFamilyIntf name₂ σ₂):
+  name₁ = name₂ → HEq f₁ f₂ ∧ σ₁ = σ₂
+
+inductive MLIRTy :=
 | fn : MLIRTy -> MLIRTy -> MLIRTy
 | int : Int -> MLIRTy
 | float: Int -> MLIRTy
 | index:  MLIRTy
 | tuple : List MLIRTy -> MLIRTy
 | vector: (fixed: (List Int)) -> (scaled: (List Int)) -> MLIRTy -> MLIRTy
-| tensorRanked: List Dimension -> MLIRTy -> MLIRTy
+| generic (name: String) {σ: Type u} (sig: σ) [TypeFamilyIntf name σ]
+/-| tensorRanked: List Dimension -> MLIRTy -> MLIRTy
 | tensorUnranked: MLIRTy -> MLIRTy
 | memrefRanked: (dims: List Dimension) -> (t: MLIRTy) -> 
   (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
 | memrefUnranked:  (t: MLIRTy) ->  (memspace: Option AttrVal) -> MLIRTy
-| user: String -> MLIRTy -- user defined type
+| user: String -> MLIRTy -- user defined type -/
 
+-- We provide a default generic-type family that represents named types "!T"
+-- that are currently undefined. This allows us to parse any program while
+-- retaining a fairly rich MLIRTy.generic constructor.
+
+structure MLIRTy.undefinedType (name: String) where
+  -- No value associated with objects of that type!
+deriving DecidableEq
+
+instance {name}: TypeIntf (MLIRTy.undefinedType name) where
+  deq := inferInstance
+  str := ⟨fun value => s!"<value of undefined type !{name}>"⟩
+
+def MLIRTy.mkUndefinedType (name: String): TypeFamilyIntf name PUnit.{u+1} :=
+  { α         := fun _ => MLIRTy.undefinedType name,
+    compare   := inferInstance,
+    str       := ⟨fun _ => name⟩,
+    eval      := fun _ => inferInstance }
+
+def MLIRTy.undefined (name: String) :=
+  @MLIRTy.generic name _ .unit (mkUndefinedType name)
+
+mutual
 
 -- | TODO: factor Symbol out from AttrVal
-inductive AttrVal : Type where
+inductive AttrVal: Type (u+1) :=
 | symbol: String -> AttrVal -- symbol ref attr
 | str : String -> AttrVal
-| int : Int -> MLIRTy -> AttrVal
+| int : Int -> MLIRTy.{u} -> AttrVal
 | bool : Bool -> AttrVal
 | float : Float -> MLIRTy -> AttrVal
-| type :MLIRTy -> AttrVal
+| type : MLIRTy.{u} -> AttrVal
 | dense: TensorElem -> MLIRTy -> AttrVal -- dense<10> : vector<i32>
 | affine: AffineMap -> AttrVal
 | list: List AttrVal -> AttrVal
@@ -111,39 +149,44 @@ inductive AttrVal : Type where
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
-inductive AttrEntry : Type where
+inductive AttrEntry: Type (u+1) :=
   | mk: (key: String) 
       -> (value: AttrVal)
       -> AttrEntry
 
-inductive AttrDict : Type := 
+inductive AttrDict: Type (u+1) :=
 | mk: List AttrEntry -> AttrDict
+
 end
+
+inductive MemrefLayoutSpec: Type (u+1) where
+| stride: (offset: Dimension) -> (stride: List Dimension) -> MemrefLayoutSpec
+| attr: AttrVal -> MemrefLayoutSpec
 
 
 mutual
 -- | TODO: make this `record` when mutual records are allowed?
 -- | TODO: make these arguments optional?
-inductive Op : Type where 
+inductive Op : Type (u+1) where
  | mk: (name: String) 
       -> (args: List SSAVal)
       -> (bbs: List BBName)
       -> (regions: List Region) 
-      -> (attrs: AttrDict)
+      -> (attrs: AttrDict.{u})
       -> (ty: MLIRTy)
       -> Op
 
-inductive BasicBlockStmt : Type where
+inductive BasicBlockStmt : Type (u+1) where
 | StmtAssign : SSAVal -> (ix: Option Int) -> Op ->BasicBlockStmt
 | StmtOp : Op -> BasicBlockStmt
 
 
-inductive BasicBlock: Type where
+inductive BasicBlock: Type (u+1) where
 | mk: (name: String)
       -> (args: List (SSAVal × MLIRTy))
       -> (ops: List BasicBlockStmt) -> BasicBlock
 
-inductive Region: Type where
+inductive Region: Type (u+1) where
 | mk: (bbs: List BasicBlock) -> Region
 
 end
@@ -187,7 +230,7 @@ inductive Module where
       ->  Module
 
 
-def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
+/- def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
   match t1, t2 with
   | MLIRTy.fn a1 b1, MLIRTy.fn a2 b2 =>
       beq a1 a2 && beq b1 b2
@@ -221,7 +264,7 @@ def MLIRTy.decEq (t1 t2: MLIRTy): Decidable (Eq t1 t2) :=
   if MLIRTy.beq t1 t2 then isTrue sorry else isFalse sorry
 
 instance: DecidableEq MLIRTy :=
-  MLIRTy.decEq
+  MLIRTy.decEq -/
 
 
 instance : Pretty Dimension where
@@ -250,11 +293,10 @@ match spec with
 | MemrefLayoutSpec.stride offset strides => [doc| "offset:" offset ", strides: " "[" (strides),* "]"] 
 |  MemrefLayoutSpec.attr v => docAttrVal v
 
-
 partial def docMlirTy(ty: MLIRTy) : Doc := 
     let rec  go (ty: MLIRTy) :=  
     match ty with
-    | MLIRTy.user k => [doc| "!"k]
+    | @MLIRTy.generic name σ sig family => let h := family.str; toString sig
     | MLIRTy.int k => [doc| "i"k]
     | MLIRTy.float k => [doc| "f"k]
     | MLIRTy.index => [doc| "index"]
@@ -268,7 +310,7 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
         | [] => ""
         | _ => (intercalate_doc fixed "×") ++ "×"
       [doc| "vector<" (docFixed) (docScaling) (go ty) ">"]
-    | MLIRTy.memrefRanked dims ty layout? memspace? => 
+/-    | MLIRTy.memrefRanked dims ty layout? memspace? =>
       let docLayout := match layout? with | some x => [doc| "," (docMemrefLayoutSpec x)] | none => ""
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" (intercalate_doc dims "x") "x" (go ty) (docLayout)  (docMemspace) ">"]
@@ -276,7 +318,7 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" "*x" (go ty) (docMemspace) ">"]
     | MLIRTy.tensorRanked dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
-    | MLIRTy.tensorUnranked ty => "tensor<" ++ "*x" ++ go ty ++ ">"
+    | MLIRTy.tensorUnranked ty => "tensor<" ++ "*x" ++ go ty ++ ">" -/
     go ty
 
 partial def docAttrVal (v: AttrVal) := 
@@ -387,7 +429,7 @@ instance : Coe  Region (List BasicBlock) where
   coe (rgn: Region) := match rgn with | Region.mk bbs => bbs
 
 instance : Pretty SSAVal where
-   doc (val: SSAVal) := 
+   doc (val: SSAVal) :=
      match val with
      | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
 
@@ -621,29 +663,32 @@ def Op.mutateSingletonRegion (o: Op) (f: Region -> Region): Op :=
 
 
 mutual
+-- u is the universe level of Op/Region/BasicBlock/etc
+universe u
+
 -- | TODO: how the fuck do we run this lens?!
-inductive ValLens: Type _ -> Type _ where
+inductive ValLens: Type (u+1) -> Type _ where
 | id: ValLens (ULift SSAVal)
-| op: (opKind: String) -> (lens: OpLens (o: Type u)) -> ValLens o
+| op: (opKind: String) -> (lens: OpLens (o: Type (u+1))) -> ValLens o
 
-inductive OpLens: Type _ -> Type _ where
-| region: Nat -> RegionLens (o: Type u) -> OpLens o
-| id: OpLens (ULift Op)
-| arg: Nat -> ValLens (o: Type u) -> OpLens o
+inductive OpLens: Type (u+1) -> Type _ where
+| region: Nat -> RegionLens (o: Type (u+1)) -> OpLens o
+| id: OpLens Op
+| arg: Nat -> ValLens (o: Type (u+1)) -> OpLens o
 
-inductive RegionLens: Type _ -> Type _ where
-| block: Nat -> BasicBlockLens (o: Type u) -> RegionLens o
-| id: RegionLens (ULift Region)
+inductive RegionLens: Type (u+1) -> Type _ where
+| block: Nat -> BasicBlockLens (o: Type (u+1)) -> RegionLens o
+| id: RegionLens Region
 
-inductive BasicBlockLens: Type _ -> Type _ where
-| op: Nat -> OpLens (o: Type u) -> BasicBlockLens o
-| id: BasicBlockLens (ULift BasicBlock)
+inductive BasicBlockLens: Type (u+1) -> Type _ where
+| op: Nat -> OpLens (o: Type (u+1)) -> BasicBlockLens o
+| id: BasicBlockLens BasicBlock
 end 
 
 
 -- | defunctionalized lens where `s` is lensed by `l t` to produce a `t`
 class Lensed (s: Type _) (l: Type _ -> Type _) where
-  lensId: l (ULift s) -- create the identity lens for this source
+  lensId: l s -- create the identity lens for this source
   -- view: s -> l t -> t -- view using the lens at the target
   update: [Applicative f] -> l t -> (t -> f t) -> (s -> f s)
 
@@ -692,20 +737,20 @@ def Lensed.mapM [Lensed s l]  [Monad m] (lens: l t) (sval: s) (tfun: t -> m t): 
 -- | TODO: for now, when lens fails, we just return.
 mutual
 -- | how can this lens ever be run? Very interesting...
-def vallens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: ValLens t) (transform: t -> f t) (src: SSAVal) : f SSAVal := 
+def vallens_update {f: Type _ -> Type _} {t: Type _} [Applicative f] (lens: ValLens t) (transform: t -> f t) (src: SSAVal) : f (ULift SSAVal) :=
     match lens with
-    | ValLens.id => Functor.map ULift.down $ transform (ULift.up src)
-    | ValLens.op kind oplens => Pure.pure src -- TODO: how do we encode this?
+    | ValLens.id => transform (ULift.up src)
+    | ValLens.op kind oplens => Pure.pure (ULift.up src) -- TODO: how do we encode this?
 
-def oplens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: OpLens t) (transform: t -> f t) (src: Op) : f Op := 
+def oplens_update {f: Type _ -> Type _} {t: Type _} [Applicative f] (lens: OpLens t) (transform: t -> f t) (src: Op) : f Op :=
     match lens with
-    | OpLens.id => Functor.map ULift.down $ transform (ULift.up src)
+    | OpLens.id => transform src
     | OpLens.arg ix vlens => 
         match src with
         | Op.mk name args bbs regions attrs ty => 
         match args.get? ix with
         | none => Pure.pure src 
-        | some v => Functor.map (fun v => Op.mk name (args.set ix v) bbs regions attrs ty)
+        | some v => Functor.map (fun v => Op.mk name (args.set ix (ULift.down v)) bbs regions attrs ty)
                                (vallens_update vlens transform v)
     | OpLens.region ix rlens => 
       match src with 
@@ -715,9 +760,9 @@ def oplens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: OpLens t) (
       | some r =>  Functor.map (fun r => Op.mk name args bbs (regions.set ix r) attrs ty)
                                (regionlens_update rlens transform r) 
   
-def regionlens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: RegionLens t) (transform: t -> f t) (src: Region) : f Region := 
+def regionlens_update {f: Type _ -> Type _} {t: Type _} [Applicative f] (lens: RegionLens t) (transform: t -> f t) (src: Region) : f Region :=
     match lens with
-    | RegionLens.id => Functor.map ULift.down $ transform (ULift.up src)
+    | RegionLens.id => transform src
     | RegionLens.block ix bblens =>
       match src with 
       | Region.mk bbs => 
@@ -726,9 +771,9 @@ def regionlens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: RegionL
         | some bb =>  Functor.map (fun bb => Region.mk (bbs.set ix bb)) (blocklens_update bblens transform bb) 
 
 
-def blocklens_update {f: Type -> Type} {t: Type}[Applicative f] (lens: BasicBlockLens t) (transform: t -> f t) (src: BasicBlock) : f BasicBlock := 
+def blocklens_update {f: Type _ -> Type _} {t: Type _}[Applicative f] (lens: BasicBlockLens t) (transform: t -> f t) (src: BasicBlock) : f BasicBlock :=
     match lens with
-    | BasicBlockLens.id => Functor.map ULift.down $ transform (ULift.up src)
+    | BasicBlockLens.id => transform src
     | BasicBlockLens.op ix oplens => 
       match src with 
       | BasicBlock.mk name args ops => 
