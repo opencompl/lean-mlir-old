@@ -412,6 +412,8 @@ def main : IO Unit :=
   (lparallel:pmap nil #'make-and-run-lean-file *canon-mlir-parts*)
   (print-compile-stats)
   (print-run-stats)
+  (uiop:with-output-file (outf #P"./test.csv" :if-exists :supersede)
+    (cl-csv:write-csv *canon-mlir-parts* :stream outf))
   (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
     (shasht:write-json (list (cons :stats *run-stats*)) outf)))
 
