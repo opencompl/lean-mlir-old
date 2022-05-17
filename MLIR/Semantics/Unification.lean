@@ -18,6 +18,8 @@ open MLIR.AST
 
 These are simply typed equalities which make up the core of a unification
 problem.
+
+TODO: We must also have a unification equality for MLIR attributes.
 -/
 
 inductive UEq :=
