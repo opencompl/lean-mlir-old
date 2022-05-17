@@ -38,6 +38,7 @@ import MLIR.Semantics.SimpItree
 section events
 universe u v
 
+-- | Polymorphic to and sum.
 def pto (E: Type → Type u) (F: Type → Type v) :=
   ∀ T, E T → F T
 def psum (E: Type → Type u) (F: Type → Type v) :=
