@@ -15,7 +15,7 @@ inductive OpVerifier where
 
 
 
-inductive InteractM (α: Type)
+inductive InteractM (α: Type _)
 | ok: (val: α) ->  InteractM α
 | error: (val: α) -> (err: String) -> InteractM α
 
@@ -137,7 +137,7 @@ class DialectOps (Ops : Type) where
 -- end
 
 -- | proof carrying typed operations
-structure OpT (Ops: Type) [Coe Ops String] [DialectOps Ops]: Type where
+structure OpT (Ops: Type _) [Coe Ops String] [DialectOps Ops]: Type _ where
     (kind: Ops)
     (args: List SSAVal)
     (bbs: List BBName)

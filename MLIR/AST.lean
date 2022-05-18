@@ -74,7 +74,8 @@ this through the MLIRTypeInterface typeclass.
 -/
 
 class TypeIntf (α: Type) where
-  deq: DecidableEq α
+  inhabited: Inhabited α
+  eq: DecidableEq α
   str: ToString α
 
 class TypeFamilyIntf (name: String) (σ: Type u) where
@@ -95,25 +96,19 @@ inductive MLIRTy :=
 | float: Int -> MLIRTy
 | index:  MLIRTy
 | tuple : List MLIRTy -> MLIRTy
-| vector: (fixed: (List Int)) -> (scaled: (List Int)) -> MLIRTy -> MLIRTy
 | generic (name: String) {σ: Type u} (sig: σ) [TypeFamilyIntf name σ]
-/-| tensorRanked: List Dimension -> MLIRTy -> MLIRTy
-| tensorUnranked: MLIRTy -> MLIRTy
-| memrefRanked: (dims: List Dimension) -> (t: MLIRTy) -> 
-  (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
-| memrefUnranked:  (t: MLIRTy) ->  (memspace: Option AttrVal) -> MLIRTy
-| user: String -> MLIRTy -- user defined type -/
 
 -- We provide a default generic-type family that represents named types "!T"
 -- that are currently undefined. This allows us to parse any program while
 -- retaining a fairly rich MLIRTy.generic constructor.
 
 structure MLIRTy.undefinedType (name: String) where
-  -- No value associated with objects of that type!
-deriving DecidableEq
+  value: Unit
+deriving DecidableEq, Inhabited
 
 instance {name}: TypeIntf (MLIRTy.undefinedType name) where
-  deq := inferInstance
+  eq := inferInstance
+  inhabited := inferInstance
   str := ⟨fun value => s!"<value of undefined type !{name}>"⟩
 
 def MLIRTy.mkUndefinedType (name: String): TypeFamilyIntf name PUnit.{u+1} :=
@@ -230,43 +225,6 @@ inductive Module where
       ->  Module
 
 
-/- def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
-  match t1, t2 with
-  | MLIRTy.fn a1 b1, MLIRTy.fn a2 b2 =>
-      beq a1 a2 && beq b1 b2
-  | MLIRTy.int n1, MLIRTy.int n2 =>
-      n1 == n2
-  | MLIRTy.float n1, MLIRTy.float n2 =>
-      n1 == n2
-  | MLIRTy.index, MLIRTy.index =>
-      true
-  | MLIRTy.tuple [], MLIRTy.tuple [] =>
-      true
-  | MLIRTy.tuple (t1::l1), MLIRTy.tuple (t2::l2) =>
-      beq t1 t2 && beq (MLIRTy.tuple l1) (MLIRTy.tuple l2)
-  | MLIRTy.vector fixed1 scaled1 t1, MLIRTy.vector fixed2 scaled2 t2 =>
-      fixed1 = fixed2 && scaled1 = scaled2 && beq t1 t2
-  | MLIRTy.tensorRanked l1 t1, MLIRTy.tensorRanked l2 t2 =>
-      l1 == l2 && beq t1 t2
-  | MLIRTy.tensorUnranked t1, MLIRTy.tensorUnranked t2 =>
-      beq t1 t2
-  | MLIRTy.memrefRanked dims1 t1 _ _, MLIRTy.memrefRanked dims2 t2 _ _ =>
-      -- | TODO: MLIRTy.beq: Also compare memref settings?
-      dims1 == dims2 && beq t1 t2
-  | MLIRTy.memrefUnranked t1 _, MLIRTy.memrefUnranked t2 _ =>
-      beq t1 t2
-  | MLIRTy.user n1, MLIRTy.user n2 =>
-      n1 == n2
-  | _, _ =>
-      false
-
-def MLIRTy.decEq (t1 t2: MLIRTy): Decidable (Eq t1 t2) :=
-  if MLIRTy.beq t1 t2 then isTrue sorry else isFalse sorry
-
-instance: DecidableEq MLIRTy :=
-  MLIRTy.decEq -/
-
-
 instance : Pretty Dimension where
   doc dim := 
   match dim with
@@ -302,7 +260,8 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
     | MLIRTy.index => [doc| "index"]
     | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
-    | MLIRTy.vector fixed scaled ty => 
+-- FIXME: Text representation of non-trivial MLIR types
+/-    | MLIRTy.vector fixed scaled ty => 
       let docFixed := match fixed with 
         | [] => "" 
         | _ => (intercalate_doc fixed "×") ++ "×"
@@ -310,7 +269,7 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
         | [] => ""
         | _ => (intercalate_doc fixed "×") ++ "×"
       [doc| "vector<" (docFixed) (docScaling) (go ty) ">"]
-/-    | MLIRTy.memrefRanked dims ty layout? memspace? =>
+    | MLIRTy.memrefRanked dims ty layout? memspace? =>
       let docLayout := match layout? with | some x => [doc| "," (docMemrefLayoutSpec x)] | none => ""
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" (intercalate_doc dims "x") "x" (go ty) (docLayout)  (docMemspace) ">"]
@@ -391,14 +350,6 @@ instance : Coe Int AttrVal where
 
 instance : Coe MLIRTy AttrVal where 
   coe (t: MLIRTy) := AttrVal.type t
-
-
--- | create a dense vector with values 'xs' and type vector<len(xs)xity>
-def AttrVal.dense_vector (xs: List Int) (ity: MLIRTy := MLIRTy.int 32): AttrVal :=
-  let fixedShape := [Int.ofNat xs.length]
-  let scaledShape := []
-  let vty := MLIRTy.vector fixedShape scaledShape ity 
-  AttrVal.dense xs vty
 
 instance : Coe (String × AttrVal) AttrEntry where 
   coe (v: String × AttrVal) := AttrEntry.mk v.fst v.snd

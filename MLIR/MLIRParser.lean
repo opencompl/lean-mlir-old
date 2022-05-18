@@ -1,6 +1,7 @@
 import MLIR.AST
 import MLIR.Doc
 import MLIR.P
+import MLIR.Dialects.BuiltinModel
 
 open MLIR.AST
 open MLIR.Doc

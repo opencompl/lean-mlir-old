@@ -26,7 +26,7 @@ open MLIR.AST
 
 universe u
 
-def Verifier (α: Type u): Type u := Op → Option α
+def Verifier (α: Type u): Type _ := Op → Option α
 
 def Verifier.ok {α} (v: Verifier α) (o: Op) := Option.isSome (v o)
 

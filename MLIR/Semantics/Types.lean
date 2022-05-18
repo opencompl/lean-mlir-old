@@ -1,31 +1,35 @@
 /-
 ## MLIR types
 
-This file implements support for builtin MLIR types, as well as conversion to
-concrete Lean types and values.
+This file implements general properties of MLIR types, including decidable
+equality of both types and values, Inhabited instances, and concretization of
+MLIR types to standard Lean types.
 
-In order to support the untyped SSA environment (which doesn't require name
-definitions/uses to match as this is proven later), every concrete MLIR type
-should be Inhabited so that `SSAEnvE.Get` can pretend to return default values.
+Only the types explicitly laid out in MLIRTy are considered here; non-trivial
+types like tensors and user-defined types provide similar properties through
+the generic type interface.
+
+We require every concrete MLIR type to be Inhabited so that we can keep the
+`SSAEnv` untyped and have `SSAEnvE.Get` return default values in case of a
+dynamic type mismatch (which is provably impossible but extremely impractical
+to use as a guarantee).
 
 Current properly-supported MLIR built-in types:
 
-* Function type [τ₁ → τ₂]: Lean function
 * Tuple type [(τ₁, ..., τₙ)]: n-ary product of underlying types
-* Tensors [tensor<DxDx?xDx?xτ>]: RankedTensor type
+* Index type: infinite precision Int
+* Generic type: via type interface
 
 Types that need improvements or refinements:
 
+* Function type [τ₁ → τ₂]
+  Resolves to program symbols, lacks testing
+* Integer types [i32, etc]
+  TODO: Model i32/etc with finite precision, probably restarting from Fin
 * Unsigned finite integer types [u32, etc]
   TODO: Model u32/etc with lean's Uint{8/16/32/64} or restart with Fin
-* Integer types [i32, etc]: currently use Int
-  TODO: Model i32/etc properly, probably restarting from Fin
-* Float types [f16, f32, f64, f80, f128]. todo
-  No idea how to model floats of different precisions in Lean?
-* Vectors: could expand on tensors. todo
-* Unranked tensors: todo
-* User types: should use a typeclass
-  TODO: Model user types
+* Float types [f16, f32, f64, f80, f128]
+  Good luck with these
 -/
 
 import MLIR.Util.Arith
@@ -35,18 +39,134 @@ import MLIR.Semantics.Fitree
 import MLIR.AST
 open MLIR.AST
 
-def shape_prod: List Nat → Nat :=
-  List.foldr (·*·) 1
 
-theorem shape_prod_nil: shape_prod (0::l) = 0 := by
-  induction l <;> simp [shape_prod, List.foldr]
+/-
+### Decidable equality for MLIRTy
+-/
 
-instance: OfNat Dimension (n: Nat) where
-  ofNat := Dimension.Known n
+mutual
+def MLIRTy.eq (τ₁ τ₂: MLIRTy): Decidable (τ₁ = τ₂) := by
+  cases τ₁ <;> cases τ₂
+  <;> try (simp; exact inferInstance)
+  <;> try apply isFalse MLIRTy.noConfusion
+
+  case fn.fn a₁ b₁ a₂ b₂ =>
+    match eq a₁ a₂, eq b₁ b₂ with
+    | isTrue ha, isTrue hb => exact isTrue $ by rw [ha, hb]
+    | isFalse ha, _ => exact isFalse fun h => by cases h; cases ha rfl
+    | _, isFalse hb => exact isFalse fun h => by cases h; cases hb rfl
+
+  case tuple.tuple l₁ l₂ =>
+    match eqList l₁ l₂ with
+    | isTrue h => exact isTrue $ by rw [h]
+    | isFalse h => exact isFalse fun h' => by cases h'; cases h rfl
+
+  case generic.generic name₁ σ₁ sig₁ f₁ name₂ σ₂ sig₂ f₂ => exact
+    if h: name₁ = name₂ then
+      have ⟨h₁,h₂⟩ := TypeFamilyIntf.nameUnique f₁ f₂ h
+      match (f₂.compare _ (cast h₂ sig₁) sig₂) with
+      | isTrue h' => isTrue (by
+          simp
+          exact ⟨h, h₂, by simp [←h']; apply HEq.symm; apply cast_heq, h₁⟩)
+      | isFalse h' => isFalse fun h' => by cases h'; cases h' (cast_eq _ _)
+    else
+      isFalse $ fun h' => by cases h'; cases h rfl
+
+private def MLIRTy.eqList (l₁ l₂: List MLIRTy): Decidable (l₁ = l₂) :=
+  match l₁, l₂ with
+  | [], [] => isTrue rfl
+  | τ₁::l₁, τ₂::l₂ =>
+      match eq τ₁ τ₂, eqList l₁ l₂ with
+      | isTrue hτ, isTrue hl => isTrue $ by rw [hτ,hl]
+      | isFalse hτ, _ => isFalse fun h => by cases h; cases hτ rfl
+      | _, isFalse hl => isFalse fun h => by cases h; cases hl rfl
+  | [], _::_ => isFalse List.noConfusion
+  | _::_, [] => isFalse List.noConfusion
+end
+
+instance: DecidableEq MLIRTy := MLIRTy.eq
 
 
 /-
-## Shape inference on literal tensors
+### Evaluation into concrete Lean types
+-/
+
+/- MLIRTy is a nested inductive type. Recursive functions on such types are
+   compiled to well-founded recursion. This prevents it from being reduced by
+   the elaborator, so instead we define it manually with the recursor.
+   See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
+
+@[reducible, simp_itree]
+def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
+  @MLIRTy.recOn τ
+    (motive_1 := fun _ => Type) -- MLIRTy
+    (motive_2 := fun _ => Type) -- List MLIRTy
+    -- MLIRTy.fn (the only functions we can materialize are symbols)
+    (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => String)
+    -- MLIRTy.int
+    (fun bitsize => Int)
+    -- MLIRTy.float
+    (fun bitsize => Float)
+    -- MLIRTy.index
+    Nat
+    -- MLIRTy.tuple [Mapping motive_2 to motive_1]
+    (fun _ ih => ih)
+    -- MLIRTy.generic
+    (fun name σ sig family => family.α name sig)
+    -- [] (in MLIRTy.tuple)
+    Unit
+    -- (τ::l) (in MLIRTy.tuple)
+    (fun τ l eval_τ eval_l =>
+      match l with
+      | [] => eval_τ
+      | _  => eval_τ × eval_l)
+
+
+/-
+### Properties of evaluated types
+
+The requirements from the type interface allow us to prove that MLIR types have
+inhabitants and a decidable equality.
+-/
+
+def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
+  match τ with
+  | MLIRTy.fn τ₁ τ₂ => ""
+  | MLIRTy.int _ => 0
+  | MLIRTy.float _ => 0.0
+  | MLIRTy.index => 0
+  | MLIRTy.tuple [] => ()
+  | MLIRTy.tuple [τ] => τ.default
+  | MLIRTy.tuple (τ₁::τ₂::l) => (τ₁.default, (MLIRTy.tuple (τ₂::l)).default)
+  | @MLIRTy.generic name σ sig family => (family.eval sig).inhabited.1
+
+instance (τ: MLIRTy): Inhabited τ.eval where
+  default := τ.default
+
+def MLIRTy.eval.eq {τ: MLIRTy} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
+  match τ with
+  | MLIRTy.fn τ₁ τ₂ => inferInstance
+  | MLIRTy.int _ => inferInstance
+  | MLIRTy.float _ =>
+      -- FIXME: Equality of floats
+      if v₁ == v₂ then isTrue sorry else isFalse sorry
+  | MLIRTy.index => inferInstance
+  | MLIRTy.tuple [] => inferInstance
+  | MLIRTy.tuple [τ] => @eq τ v₁ v₂
+  | MLIRTy.tuple (τ₁::τ₂::τs) =>
+      let (v₁, l₁) := v₁
+      let (v₂, l₂) := v₂
+      match eq v₁ v₂, @eq (MLIRTy.tuple (τ₂::τs)) l₁ l₂ with
+      | isTrue h₁, isTrue h₂ => isTrue $ by rw [h₁,h₂]
+      | isFalse h₁, _ => isFalse fun h => by cases h; cases h₁ rfl
+      | _, isFalse h₂ => isFalse fun h => by cases h; cases h₂ rfl
+  | @MLIRTy.generic name σ sig family => (family.eval sig).eq v₁ v₂
+
+instance {τ: MLIRTy}: DecidableEq τ.eval := MLIRTy.eval.eq
+
+
+/-
+## Shape inference on TensorElem
 
 This section defines shape verification and shape inference for TensorElem
 (tensor literals), *excluding the case of uniform tensor literals*. The shape
@@ -58,6 +178,15 @@ ranked tensors and properly handle uniform tensor literals.
 
 TODO: Integrate TensorElem invariants into the verifier
 -/
+
+def shape_prod: List Nat → Nat :=
+  List.foldr (·*·) 1
+
+theorem shape_prod_nil: shape_prod (0::l) = 0 := by
+  induction l <;> simp [shape_prod, List.foldr]
+
+instance: OfNat Dimension (n: Nat) where
+  ofNat := Dimension.Known n
 
 namespace MLIR.AST.TensorElem
 
@@ -103,14 +232,16 @@ def hasType_list_1 {l τ}: hasType (.nested l) τ → l.all (hasType . τ) := by
   case cons e l ih =>
     simp [hasType, List.all_cons]
     intro h
-    simp [ih h.2, h.1]
+    simp [h.1]
+    apply ih h.2
 
 def hasType_list_2 {l τ}: l.all (hasType . τ) → hasType (.nested l) τ := by
   induction l; simp [hasType]
   case cons e l ih =>
     simp [hasType, List.all_cons]
     intro h
-    simp [ih h.2, h.1]
+    simp [h.1]
+    apply ih h.2
 
 def mapWithType {α τ} l (f: (e: TensorElem) → (h: e.hasType τ) → α)
     (h: hasType (TensorElem.nested l) τ): List α :=
@@ -247,13 +378,7 @@ end MLIR.AST.TensorElem
 
 
 /-
-### Vector types
-TODO: Not modeled fully by lean-mlir right now
--/
-
-
-/-
-### Ranked tensors
+### Tools for generation of ranked tensors
 TODO: Consider a different type KnownRankedTensor that we could project to if
 TODO| we have known dimensions. Everything is conditioned by DimList.known...
 -/
@@ -268,6 +393,8 @@ def shape_refines: List Nat → List Dimension → Bool
 
 @[inline]
 def DimList := List Dimension
+
+deriving instance DecidableEq for DimList
 
 @[simp]
 def DimList.prod: DimList → Nat
@@ -338,208 +465,6 @@ theorem default_refinement_refines (D: DimList):
   case cons head _ ih =>
     cases head <;> simp <;> apply ih
 
--- Ranked tensors have known rank but possibly unknown dimensions. At runtime,
--- the size is fully determined. We store the visible type information in the
--- parameters of RankedTensor, and collect the fully-specified runtime data in
--- the structure fields.
---
--- We add an intermediate [size] parameter so that we can separate data
--- manipulation and proofs about the product of the dimensions, which would
--- otherwise be tricky due to [Fin] constantly carrying proofs.
-structure RankedTensor (α: Type) (D: DimList) where
-  -- Actual dimensions
-  shape: List Nat
-  -- Contents; we use a function for brevity
-  -- TODO: RankedTensor: Consider a more computable data storage method
-  data: List α
-  -- Invariants: shape/dimension must be compatible, shape/size must match
-  h_refines: shape_refines shape D
-  h_data_size: data.length = shape_prod shape
-
-theorem RankedTensor.eq_of_fields_eq (α D): ∀ (t₁ t₂: RankedTensor α D),
-  t₁.shape = t₂.shape →
-  t₁.data = t₂.data →
-    t₁ = t₂ := by
-  intros t₁ t₂ Hshape Hdata
-  cases t₁; cases t₂; simp at *
-  trivial
-
-def RankedTensor.uniform {α} D (v: α): RankedTensor α D :=
-  { shape       := D.default_refinement,
-    data        := List.uniform v (shape_prod D.default_refinement),
-    h_refines   := default_refinement_refines _,
-    h_data_size := List.uniform_length _ _ }
-
-def RankedTensor.default α D [Inhabited α]: RankedTensor α D :=
-  RankedTensor.uniform D Inhabited.default
-
-instance {α D} [Inhabited α]: Inhabited (RankedTensor α D) where
-  default := RankedTensor.default α D
-
-
-/-
-### Unranked tensors
-TODO: Unranked tensors?
--/
-
-
-/-
-### Evaluation of MLIR types
-TODO: Not all MLIRTy types are correctly evaluated
--/
-
-/- MLIRTy is a nested inductive type, thus defined with well-founded recursion.
-   This prevents it from being reduced by the elaborator, so instead we define
-   it manually with the recursor.
-   See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/
-   reduction.20of.20dependent.20return.20type/near/276044057 -/
-
-@[reducible, simp_itree]
-def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
-  @MLIRTy.rec
-    (motive_1  := fun _ => Type) -- MemrefLayoutSpec
-    (motive_2  := fun _ => Type) -- MLIRTy
-    (motive_3  := fun _ => Type) -- AttrVal
-    (motive_4  := fun _ => Type) -- AttrEntry
-    (motive_5  := fun _ => Type) -- AttrDict
-    (motive_6  := fun _ => Type) -- List MLIRTy
-    (motive_7  := fun _ => Type) -- Option MemrefLayoutSpec
-    (motive_8  := fun _ => Type) -- Option AttrVal
-    (motive_9  := fun _ => Type) -- List AttrVal
-    (motive_10 := fun _ => Type) -- List AttrEntry
-
-    -- **MemrefLayoutSpec**
-
-    -- MemrefLayoutSpec.stride
-    (fun offset stride => Unit)
-    -- MemrefLayoutSpec.attr (this is the one which loops everything)
-    (fun attr eval_attr => Unit)
-
-    -- **MLIRTy**
-
-    -- MLIRTy.fn
-    (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => eval_τ₁ → eval_τ₂)
-    -- MLIRTy.int
-    (fun bitsize => Int)
-    -- MLIRTy.float
-    (fun bitsize => Float)
-    -- MLIRTy.index
-    Nat
-    -- MLIRTy.tuple [Mapping motive_2 to motive_1]
-    (fun _ ih => ih)
-    -- MLIRTy.vector (todo)
-    (fun Dfixed Dscaled τ eval_τ => Unit)
-    -- MLIRTy.tensorRanked (todo)
-    (fun D τ eval_τ => RankedTensor eval_τ D)
-    -- MLIRTy.tensorUnranked (todo)
-    (fun τ eval_τ => Unit)
-    -- MLIRTy.memrefRanked (todo)
-    (fun D τ eval_τ layout eval_layout memspace eval_memspace => Unit)
-    -- MLIRTy.memrefUnranked (todo)
-    (fun τ eval_τ memspace eval_memspace => Unit)
-    -- MLIRTy.user (todo)
-    (fun name => Unit)
-
-    -- **AttrVal**
-
-    -- AttrVal.symbol
-    (fun symbol => Unit)
-    -- AttrVal.str
-    (fun str => Unit)
-    -- AttrVal.int
-    (fun int τ eval_τ => Unit)
-    -- AttrVal.bool
-    (fun bool => Unit)
-    -- AttrVal.float
-    (fun float τ eval_τ => Unit)
-    -- AttrVal.type
-    (fun τ eval_τ => Unit)
-    -- AttrVal.dense
-    (fun el τ eval_τ => Unit)
-    -- AttrVal.affine
-    (fun affine_map => Unit)
-    -- AttrVal.list
-    (fun list eval_list => Unit)
-    -- AttrVal.nestedsymbol
-    (fun a₁ eval_a₁ a₂ eval_a₂ => Unit)
-    -- AttrVal.alias
-    (fun str => Unit)
-    -- AttrVal.dict
-    (fun dict eval_dict => Unit)
-    -- AttrVal.opaque
-    (fun dialect value => Unit)
-    -- AttrVal.opaqueElements
-    (fun dialect value τ eval_τ => Unit)
-    -- AttrVal.unit
-    Unit
-
-    -- **AttrEntry**
-
-    -- AttrEntry.mk
-    (fun key value eval_value => Unit)
-
-    -- **AttrDict**
-
-    -- AttrDict.mk
-    (fun list eval_list => Unit)
-
-    -- **List MLIRTy** (in MLIRTy.tuple)
-
-    -- []
-    Unit
-    -- (τ::l)
-    (fun τ l eval_τ eval_l =>
-      match l with
-      | [] => eval_τ
-      | _  => eval_τ × eval_l)
-
-    -- **Option MemrefLayoutSpec**
-
-    Unit
-    (fun layout eval_layout => Unit)
-
-    -- **Option AttrVal**
-
-    Unit
-    (fun attr eval_attr => Unit)
-
-    -- **List AttrVal**
-
-    Unit
-    (fun head tail eval_head eval_tail => Unit)
-
-    -- **List AttrEntry**
-
-    Unit
-    (fun head tail eval_head eval_tail => Unit)
-
-  -- The subject of the induction
-  τ
-
-def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
-  match τ with
-  | MLIRTy.fn τ₁ τ₂ => (fun _ => τ₂.default)
-  | MLIRTy.int _ => 0
-  | MLIRTy.float _ => 0.0
-  | MLIRTy.index => 0
-  | MLIRTy.tuple [] => ()
-  | MLIRTy.tuple [τ] => τ.default
-  | MLIRTy.tuple (τ₁::τ₂::l) => (τ₁.default, (MLIRTy.tuple (τ₂::l)).default)
-  | MLIRTy.vector _ _ _ => () /- todo -/
-  | MLIRTy.tensorRanked D τ => @RankedTensor.default τ.eval D ⟨default τ⟩
-  | MLIRTy.tensorUnranked τ => () /- todo -/
-  | MLIRTy.memrefRanked D τ _ _ => () /- todo -/
-  | MLIRTy.memrefUnranked τ _ => () /- todo -/
-  | MLIRTy.user _ => () /- todo -/
-
-instance (τ: MLIRTy): Inhabited τ.eval where
-  default := τ.default
-
-
----
-
--- TODO: RankedTensor.ofTensorElem: account for typing?
--- Which allows us to flatten the term into a single array for a RankedTensor
 
 namespace MLIR.AST.TensorElem
 
@@ -616,7 +541,7 @@ theorem flatten_size {τ} (e: TensorElem) (shape: List Nat):
     simp [IH2 s Hshape.2 Htype.2]
     rw [motive_1 s Hshape.1 Htype.1]
 
-inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type :=
+inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type _ :=
   | UniformInt (i: Int) bitsize:
       -- TODO: Check range of uniform tensor value
       e = TensorElem.int i →
@@ -634,19 +559,3 @@ inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type :=
       e.rankCompatibleWith D τ
 
 end MLIR.AST.TensorElem
-
-def RankedTensor.ofTensorElem {τ} (D: DimList) (e: TensorElem)
-    (Htype: e.hasType τ) (Hcompat: e.rankCompatibleWith D τ):
-    RankedTensor τ.eval D:=
-  match Hcompat with
-  | .UniformInt i bitsize _ =>
-      RankedTensor.uniform D i
-  | .UniformBool b _ =>
-      RankedTensor.uniform D (if b then 1 else 0)
-  | .UniformFloat f bitsize _ =>
-      RankedTensor.uniform D f
-  | .HasShape s τ Hshape Hrefines =>
-      { shape       := s,
-        data        := e.flatten Htype,
-        h_refines   := Hrefines,
-        h_data_size := TensorElem.flatten_size e s Hshape Htype }

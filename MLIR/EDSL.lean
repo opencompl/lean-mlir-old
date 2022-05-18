@@ -1,7 +1,7 @@
 import MLIR.AST
+import MLIR.Dialects.BuiltinModel
 import Lean.Parser
 import Lean.Parser.Extra
--- import Lean.Init.Meta
 
 
 open Lean
@@ -363,7 +363,7 @@ syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
 macro_rules
 | `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
     let (dims, ty) <- parseTensorDimensionList dims 
-    `(MLIRTy.tensorRanked $dims $ty)
+    `(MLIRTy.tensorRanked $ty $dims)
 
 -- | TODO: this is a huge hack.
 -- | TODO: I should be able to use the lower level parser to parse this cleanly?

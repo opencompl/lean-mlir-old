@@ -7,6 +7,7 @@ import MLIR.Doc
 import MLIR.Dialects.PDL
 import MLIR.P
 import MLIR.MLIRParser
+import MLIR.Dialects.BuiltinModel
 
 open MLIR.Doc
 open Lean.PrettyPrinter

@@ -29,7 +29,7 @@ syntax "return" mlir_op_operand ":" mlir_type : mlir_op
 
 
 macro_rules
-| `([mlir_op| constant $x:numLit : $t:mlir_type]) => 
+| `([mlir_op| constant $x:num : $t:mlir_type]) => 
         `([mlir_op| "TODO_constant" () : () ])
 
 macro_rules
@@ -113,7 +113,7 @@ def runGenM (g: GenM α) (name: String := "entry") (args: List (SSAVal ×MLIRTy)
 def appendOp (op: Op): GenM SSAVal :=
   { gen := fun (x, stmts) => 
        let name := SSAVal.SSAVal ("v" ++ toString x)
-       let stmt := BasicBlockStmt.StmtAssign name op
+       let stmt := BasicBlockStmt.StmtAssign name none op
        (name, x + 1,  stmts ++ [stmt])
   }
 
@@ -126,7 +126,7 @@ def appendOp_ (op: Op): GenM Unit :=
 
 
 macro_rules
-| `([complex| $x:numLit + $y:numLit i]) => 
+| `([complex| $x:num + $y:num i]) => 
     `(do
         let k <- appendOp [mlir_op| constant $x : i32]
         let l <- appendOp [mlir_op| constant $y : i32]

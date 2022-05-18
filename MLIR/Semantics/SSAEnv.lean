@@ -93,9 +93,9 @@ instance: LE SSAEnv where
 
 -- Interactions manipulating the environment
 
-inductive SSAEnvE: Type → Type _ where
-  | Get: (τ: MLIRTy) → [Inhabited τ.eval] → SSAVal → SSAEnvE τ.eval
-  | Set: (τ: MLIRTy) → SSAVal → τ.eval → SSAEnvE Unit
+inductive SSAEnvE: Type u → Type _ where
+  | Get: (τ: MLIRTy) → [Inhabited τ.eval] → SSAVal → SSAEnvE (ULift τ.eval)
+  | Set: (τ: MLIRTy) → SSAVal → τ.eval → SSAEnvE PUnit
 
 @[simp_itree]
 def SSAEnvE.handle {E}: SSAEnvE ~> StateT SSAEnv (Fitree E) :=
@@ -103,10 +103,10 @@ def SSAEnvE.handle {E}: SSAEnvE ~> StateT SSAEnv (Fitree E) :=
     match e with
     | Get τ name =>
         match env.get name τ with
-        | some v => return (v, env)
-        | none => return (default, env)
+        | some v => return (ULift.up v, env)
+        | none => return (ULift.up default, env)
     | Set τ name v =>
-        return ((), env.set name τ v)
+        return (.unit, env.set name τ v)
 
 @[simp_itree]
 def SSAEnv.set? {E} [Member SSAEnvE E]

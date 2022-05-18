@@ -1,4 +1,5 @@
 import MLIR.Dialects.ToyModel
+import MLIR.Dialects.BuiltinModel
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.Verifier
 import MLIR.Semantics.SSAEnv
@@ -21,16 +22,16 @@ genInductive ToyOp #[
     (D: DimList) → (Hknown: D.known) →
     (e: TensorElem) → (τ: MLIRTy) → (Htype: e.hasType τ) →
     (Hcompat: e.rankCompatibleWith D τ) →
-    ToyOp (RankedTensor τ.eval D)),
+    ToyOp (RankedTensor τ D)),
   OpSpec.mk "Transpose" `(
-    (α: Type) → (n m: Nat) →
-    RankedTensor α [Dimension.Known n, Dimension.Known m] →
-    ToyOp (RankedTensor α [Dimension.Known m, Dimension.Known n])),
+    (τ: MLIRTy) → (n m: Nat) →
+    RankedTensor τ [Dimension.Known n, Dimension.Known m] →
+    ToyOp (RankedTensor τ [Dimension.Known m, Dimension.Known n])),
   OpSpec.mk "Reshape" `(
-    (α: Type) → (D D': DimList) → (H: D.known) → (H': D'.known) →
+    (τ: MLIRTy) → (D D': DimList) → (H: D.known) → (H': D'.known) →
     (Hprod: D'.prod = D.prod) →
-    RankedTensor α D →
-    ToyOp (RankedTensor α D'))
+    RankedTensor τ D →
+    ToyOp (RankedTensor τ D'))
 ]
 
 /- To be automatically generated (hopefully; basically this is the
@@ -40,7 +41,7 @@ def toy_semantics_op (ret_name: Option SSAVal):
       Op → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
 
   | Op.mk "toy.constant" [] [] [] attrs
-        (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tensorRanked D₁ τ₁)) =>
+        (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tensorRanked τ₁ D₁)) =>
       match AttrDict.find attrs "value" with
       | some (AttrVal.dense elem (MLIRTy.tensorRanked D₂ τ₂)) =>
           if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then

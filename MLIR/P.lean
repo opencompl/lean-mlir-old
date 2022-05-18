@@ -1,6 +1,7 @@
 -- parser combinator library
 import MLIR.AST
 import MLIR.Doc
+import MLIR.Util.HBind
 
 open MLIR.AST
 open MLIR.Doc
@@ -117,6 +118,10 @@ instance : Monad P.{u} := {
   pure := ppure,
   bind := pbind
 }
+
+instance : HBind P.{u} P.{v} where
+  hBind := pbind
+
 
 
 def pnote [Pretty α] (a: α): P.{u} PUnit := {

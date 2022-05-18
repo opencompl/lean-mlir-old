@@ -1,6 +1,6 @@
 /- A toy dialect with basic tensor computations. -/
 
-import MLIR.Semantics.Types
+import MLIR.Dialects.BuiltinModel
 import MLIR.Util.List
 
 /-
