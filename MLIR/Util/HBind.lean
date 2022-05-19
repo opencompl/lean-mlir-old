@@ -1664,10 +1664,8 @@ private def mkMonadAlias (m : Expr) : TermElabM Syntax := do
 
 -- HDO: Variation with additional information for testing
 @[termElab «hdo_2»] def elabHDo2 : TermElab := fun stx expectedType? => do
-  -- TODO: How to match nodes in antiquotes? Simply `(hdo _ ... _) fails
   match stx with
-  | .node _ «hdo_2» #[.atom _ "hdo", .atom _ "(", .atom _ "monad",
-                      .atom _ ":=", stx_monad, .atom _ ")", stx_seq] =>
+  | `(hdo (monad := $stx_monad:term) $stx_seq) =>
       let stx ← `(hdo $stx_seq)
 
       -- We get an expression for the universe polymorphic monad as parameter
