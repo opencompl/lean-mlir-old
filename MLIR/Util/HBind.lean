@@ -1,4 +1,5 @@
 import Lean.Elab.Do
+import Lean.Util.CollectLevelParams
 
 /-
 ## HBind definition
@@ -1637,13 +1638,12 @@ end ToCodeBlock
 -- HDO: Metavariables can't be universe polymorphic, so we instead hack and
 -- create a quantified external definition, then return the name of that
 -- definition as Syntax instead of ?m
-set_option hygiene false in
 private def mkMonadAlias (m : Expr) : TermElabM Syntax := do
+  let levelParams := collectLevelParams {} m |>.params
   let mType ← inferType m
-  let name ← mkFreshUserName `_tmp
+  let name ← mkFreshUserName `_hdo
   let decl := Declaration.defnDecl {
-      -- HACK: Hardcoded universe parameter `u
-      name := name, levelParams := [`u], type := mType,
+      name := name, levelParams := levelParams.toList, type := mType,
       value := m, hints := ReducibilityHints.opaque,
       safety := DefinitionSafety.unsafe
   }
@@ -1720,6 +1720,7 @@ def test_IO: IO Unit := hdo
   IO.println "Lean4"
   IO.println "hBind"
   return ()
+#print test_IO
 
 def get_0: Id Nat :=
   pure 0
@@ -1727,16 +1728,6 @@ def get_1: Id ((α: Type) → α → α) :=
   pure @id
 def get_any: Id PUnit.{u+1} :=
   pure .unit
-
-example: Id Unit :=
-  Bind.bind get_0 fun n =>
-  Bind.bind get_1 fun f => -- Normal bind fails due to different universes
-  pure ()
-
-example: Id Unit := do
-  let n ← get_0
-  let f ← get_1 -- Normal do fails due to different universes
-  pure ()
 
 example: Id Unit :=
   HBind.hBind get_0 fun n =>
