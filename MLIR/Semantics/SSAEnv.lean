@@ -128,3 +128,60 @@ private def stateT_defaultHandler E: E ~> StateT SSAEnv (Fitree E) :=
 def interp_ssa {E R} (t: Fitree (SSAEnvE +' E) R):
     StateT SSAEnv (Fitree E) R :=
   interp_state (case_ SSAEnvE.handle (stateT_defaultHandler E)) t
+
+structure WriterT (m: Type -> Type _) (a: Type) where
+  val: m (a × String)
+
+instance [Functor m]: Functor (WriterT m) where
+  map f w := { val := Functor.map (fun (a, log) => (f a, log)) w.val }
+
+instance [Pure m]: Pure (WriterT m) where
+  pure x := { val := pure (x, "") }
+
+instance [Monad m]: Seq (WriterT m) where
+   seq mx my :=
+     { val := do
+        let wx <- mx.val
+        let wy <- (my ()).val
+        let wb := wx.fst wy.fst
+        return (wb, wx.snd ++ wy.snd) }
+
+instance [Monad m] : SeqLeft (WriterT m) where
+   seqLeft mx my :=
+     { val := do
+        let wx <- mx.val
+        let wy <- (my ()).val
+        return (wx.fst, wx.snd ++ wy.snd) }
+
+instance [Monad m] : SeqRight (WriterT m) where
+   seqRight mx my :=
+     { val := do
+        let wx <- mx.val
+        let wy <- (my ()).val
+        return (wy.fst, wx.snd  ++ wy.snd ) }
+
+instance [Bind m] [Pure m]: Bind (WriterT m) where
+  bind wma a2wmb :=
+    let v := do
+      let (va, loga) <- wma.val
+      let wb <- (a2wmb va).val
+      let (vb, logb) := wb
+      return (vb, loga ++ logb)
+    { val := v }
+
+
+-- instance [Applicative m] : Applicative (WriterT m) where
+
+-- instance [Monad m] : Monad (WriterM m) where
+
+-- instance [Monad m] : MonadLiftT m (WriterT m) where
+  -- monadLift x := x
+
+
+-- instance [Monad m] : Monad (WriterT m) where
+
+
+-- def interp_ssa_logged {E R} (t: Fitree (SSAEnvE +' E) R):
+--     WriterT (StateT SSAEnv (Fitree E)) R :=
+--   interp_state (case_ SSAEnvE.handle (stateT_defaultHandler E)) t
+
