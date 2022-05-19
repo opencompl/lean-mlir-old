@@ -178,6 +178,22 @@ def Region.bbs (r: Region): List BasicBlock :=
 inductive AttrDefn where
 | mk: (name: String) -> (val: AttrVal) -> AttrDefn
 
+def BasicBlockStmt.op: BasicBlockStmt->  Op
+| BasicBlockStmt.StmtAssign val ix op => op
+| BasicBlockStmt.StmtOp op => op
+
+def BasicBlock.name (bb: BasicBlock): BBName :=
+  match bb with
+  | BasicBlock.mk name args stmts => BBName.mk name
+
+
+def BasicBlock.stmts (bb: BasicBlock): List BasicBlockStmt :=
+  match bb with
+  | BasicBlock.mk name args stmts => stmts
+
+def Region.getBasicBlock (r: Region) (name: BBName): Option BasicBlock :=
+  r.bbs.find? (fun bb => bb.name == name)
+
 
 
 -- | TODO: this seems like a weird exception. Is this really true?

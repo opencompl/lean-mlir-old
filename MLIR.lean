@@ -16,6 +16,7 @@ import MLIR.Examples.EndToEndDiff
 -- Testing imports for semantics
 import MLIR.Dialects.ToySemantics
 import MLIR.Dialects.PDLSemantics
+import MLIR.Dialects.ControlFlowSemantics
 
 open MLIR.MLIRParser
 open MLIR.P
