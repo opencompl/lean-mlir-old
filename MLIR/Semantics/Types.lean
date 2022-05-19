@@ -35,9 +35,17 @@ Types that need improvements or refinements:
 import MLIR.Util.Arith
 import MLIR.Util.List
 import MLIR.Semantics.Fitree
-
 import MLIR.AST
+
+import Lean
+import Lean.Elab.Term
+import Lean.Elab.Exception
+
 open MLIR.AST
+open Lean
+open Lean.Elab
+open Lean.Elab.Term
+open Lean.Parser.Term
 
 
 /-
@@ -164,6 +172,65 @@ def MLIRTy.eval.eq {τ: MLIRTy} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
 
 instance {τ: MLIRTy}: DecidableEq τ.eval := MLIRTy.eval.eq
 
+/-
+## Custom pattern matching for generic MLIRTy types
+
+This section extends the syntax of match to also supports pattern of the form
+
+   !<ident> => ...
+   !<ident> <pattern> => ...
+
+which catch instances of MLIRTy.generic for the specified named type, and also
+interprets their arguments. For instance:
+
+   match τ with
+   | .int 32 => ...
+   | !builtin.vector (D, τ) => ...
+
+For this mechanism to work, the type family *must* be use the type name in its
+identifier, eg.
+
+   instance MLIRTy.builtin.vector: TypeFamilyIntf "builtin.vector" ...
+
+since the elaborator doesn't actually resolve the typeclass and instead uses
+the name (which allows the signature type to be inferred accurately).
+-/
+
+-- Custom pattern syntax to represent MLIR generic types, eg. !builtin.tensor
+syntax "!" ident: term
+
+private def parseCustomPattern (pat: Syntax): Option (String × Syntax) :=
+  match pat with
+  | `(! $i:ident) =>
+      some (i.getId.toString, mkHole .missing)
+  | `(! $i:ident $args:term) =>
+      some (i.getId.toString, args)
+  | _ => none
+
+@[termElab «match»] def elabMatchMLIRTy: TermElab := fun stx expectedType? => do
+  match stx with
+  | `(match $discr:term with $[| $pat => $rhs]*) =>
+      -- Fall back to normal match on the second pass
+      if pat.all (parseCustomPattern · |>.isNone) then
+        throwUnsupportedSyntax
+
+      let alts ← Array.zip pat rhs |>.mapM fun (pat, rhs) => show TermElabM Syntax from
+        match parseCustomPattern pat with
+        | some (name, args) =>
+            let strLit := Syntax.mkStrLit name
+            let family := mkIdent ("MLIRTy." ++ name).toName
+            dbg_trace s!"MLIRTy pattern for {name} {args} ({family})"
+            `(matchAltExpr| | @MLIRTy.generic $strLit σ sig family =>
+              let ⟨h₁, h₂⟩ := TypeFamilyIntf.nameUnique family $family rfl
+              @TypeFamilyIntf.elim _ _ $family (cast h₂ sig) (fun _ => _)
+              (fun $args => $rhs))
+        | none => `(matchAltExpr| | $pat => $rhs)
+
+      let stx ← `(match $discr:term with $alts:matchAlt*)
+      let t ← elabTerm stx none
+      return t
+  | _ =>
+      throwUnsupportedSyntax
 
 /-
 ## Shape inference on TensorElem

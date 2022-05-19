@@ -16,23 +16,21 @@ open MLIR.AST
 
 /- To be automatically generated -/
 
-set_option hygiene false in
-genInductive ToyOp #[
-  OpSpec.mk "Constant" `(
-    (D: DimList) → (Hknown: D.known) →
-    (e: TensorElem) → (τ: MLIRTy) → (Htype: e.hasType τ) →
-    (Hcompat: e.rankCompatibleWith D τ) →
-    ToyOp (RankedTensor τ D)),
-  OpSpec.mk "Transpose" `(
-    (τ: MLIRTy) → (n m: Nat) →
-    RankedTensor τ [Dimension.Known n, Dimension.Known m] →
-    ToyOp (RankedTensor τ [Dimension.Known m, Dimension.Known n])),
-  OpSpec.mk "Reshape" `(
-    (τ: MLIRTy) → (D D': DimList) → (H: D.known) → (H': D'.known) →
-    (Hprod: D'.prod = D.prod) →
-    RankedTensor τ D →
-    ToyOp (RankedTensor τ D'))
-]
+inductive ToyOp: Type u → Type _ :=
+  | Constant:
+      (D: DimList) → (Hknown: D.known) →
+      (e: TensorElem) → (τ: MLIRTy) → (Htype: e.hasType τ) →
+      (Hcompat: e.rankCompatibleWith D τ) →
+      ToyOp (ULift $ RankedTensor τ D)
+  | Transpose:
+      (τ: MLIRTy) → (n m: Nat) →
+      RankedTensor τ [Dimension.Known n, Dimension.Known m] →
+      ToyOp (ULift $ RankedTensor τ [Dimension.Known m, Dimension.Known n])
+  | Reshape:
+      (τ: MLIRTy) → (D D': DimList) → (H: D.known) → (H': D'.known) →
+      (Hprod: D'.prod = D.prod) →
+      RankedTensor τ D →
+      ToyOp (ULift $ RankedTensor τ D')
 
 /- To be automatically generated (hopefully; basically this is the
    verification stuff) -/
@@ -40,59 +38,74 @@ genInductive ToyOp #[
 def toy_semantics_op (ret_name: Option SSAVal):
       Op → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
 
-  | Op.mk "toy.constant" [] [] [] attrs
-        (MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tensorRanked τ₁ D₁)) =>
-      match AttrDict.find attrs "value" with
-      | some (AttrVal.dense elem (MLIRTy.tensorRanked D₂ τ₂)) =>
-          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
-            match Heq: elem, τ₁ with
-            | TensorElem.int i, MLIRTy.int 32 => do
-                let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
-                  (MLIRTy.int 32) (by simp [Heq, H.2.2.2])
-                  (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));
-                SSAEnv.set? (MLIRTy.tensorRanked D₁ (MLIRTy.int 32)) ret_name t
-            | elem, τ₁ => do
-                if Hshape: elem.hasShape (DimList.default_refinement D₁) then
-                  let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem τ₁
-                    H.2.2.2 (TensorElem.rankCompatibleWith.HasShape
-                     (DimList.default_refinement D₁) _ Hshape
-                     (default_refinement_refines D₁)));
-                  SSAEnv.set? (MLIRTy.tensorRanked D₁ τ₁) ret_name t
-                else
-                  Fitree.trigger InvalidOpE.InvalidOp
-          else
+  | Op.mk "toy.constant" [] [] [] attrs (MLIRTy.fn (MLIRTy.tuple []) τ_ret) =>
+      match τ_ret with
+      | !builtin.tensor (τ₁, D₁) =>
+          match AttrDict.find attrs "value" with
+          | some (AttrVal.dense elem τ₂) =>
+              match τ₂ with
+              | !builtin.tensor (τ₂, D₂) =>
+                  if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
+                    match Heq: elem, τ₁ with
+                    | TensorElem.int i, MLIRTy.int 32 => do
+                        let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
+                          (MLIRTy.int 32) (by simp [Heq, H.2.2.2])
+                          (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));
+                        SSAEnv.set? (MLIRTy.tensorRanked (MLIRTy.int 32) D₁) ret_name t.down
+                    | elem, τ₁ => do
+                        if Hshape: elem.hasShape (DimList.default_refinement D₁) then
+                          let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem τ₁
+                            H.2.2.2 (TensorElem.rankCompatibleWith.HasShape
+                            (DimList.default_refinement D₁) _ Hshape
+                            (default_refinement_refines D₁)));
+                          SSAEnv.set? (MLIRTy.tensorRanked τ₁ D₁) ret_name t.down
+                        else
+                          Fitree.trigger InvalidOpE.InvalidOp
+                  else
+                    Fitree.trigger InvalidOpE.InvalidOp
+              | _ =>
+                Fitree.trigger InvalidOpE.InvalidOp
+          | _ =>
             Fitree.trigger InvalidOpE.InvalidOp
       | _ =>
           Fitree.trigger InvalidOpE.InvalidOp
 
   | Op.mk "toy.transpose" [t_name] [] [] _ (MLIRTy.fn τ₁ τ₂) =>
       match τ₁ with
-      | MLIRTy.tensorRanked [Dimension.Known n, Dimension.Known m] τ => do
-          let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensorRanked
-                  [Dimension.Known n, Dimension.Known m] τ) _ t_name);
-          let t' ← Fitree.trigger (ToyOp.Transpose τ.eval n m t);
-          SSAEnv.set? (MLIRTy.tensorRanked [Dimension.Known m,
-                       Dimension.Known n] τ)
-            ret_name t'
+      | !builtin.tensor (τ, D) => do
+          match D with
+          | [Dimension.Known n, Dimension.Known m] =>
+              let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensorRanked
+                      τ [Dimension.Known n, Dimension.Known m]) _ t_name);
+              let t' ← Fitree.trigger (ToyOp.Transpose τ n m t.down);
+              SSAEnv.set? (MLIRTy.tensorRanked τ [Dimension.Known m,
+                          Dimension.Known n])
+                ret_name t'.down
+          | _ =>
+              Fitree.trigger InvalidOpE.InvalidOp
       | _ =>
           Fitree.trigger InvalidOpE.InvalidOp
 
   | Op.mk "toy.reshape" [t_name] [] [] _ (MLIRTy.fn τ₁ τ₂) =>
-      match τ₁, τ₂ with
-      | MLIRTy.tensorRanked D σ₁, MLIRTy.tensorRanked D' σ₂ =>
-          if H: σ₁ = σ₂
-             ∧ DimList.known D
-             ∧ DimList.known D'
-             ∧ DimList.prod D' = DimList.prod D then do
-            let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensorRanked D σ₁) _
-                    t_name);
-            let t' ← Fitree.trigger (ToyOp.Reshape σ₁.eval D D'
-                     H.2.1 H.2.2.1 H.2.2.2 t);
-            let t': RankedTensor σ₂.eval D' := cast (by rw [H.1]) t';
-            SSAEnv.set? (MLIRTy.tensorRanked D' σ₂) ret_name t'
-          else
-            Fitree.trigger InvalidOpE.InvalidOp
-      | _, _ =>
+      match τ₁ with
+      | !builtin.tensor (σ₁, D) =>
+          match τ₂ with
+          | !builtin.tensor (σ₂, D') =>
+              if H: σ₁ = σ₂
+                ∧ DimList.known D
+                ∧ DimList.known D'
+                ∧ DimList.prod D' = DimList.prod D then do
+                let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensorRanked σ₁ D)
+                        _ t_name);
+                let t' ← Fitree.trigger (ToyOp.Reshape σ₁ D D'
+                        H.2.1 H.2.2.1 H.2.2.2 t.down);
+                let t': RankedTensor σ₂ D' := cast (by rw [H.1]) t'.down;
+                SSAEnv.set? (MLIRTy.tensorRanked σ₂ D') ret_name t'
+              else
+                Fitree.trigger InvalidOpE.InvalidOp
+          | _ =>
+              Fitree.trigger InvalidOpE.InvalidOp
+      | _ =>
           Fitree.trigger InvalidOpE.InvalidOp
 
   | _ =>
@@ -121,11 +134,11 @@ def toy_semantics_bb:
 def ToyOp.handle {E}: ToyOp ~> Fitree E :=
   fun _ e => match e with
   | ToyOp.Constant D Hknown elem τ Htype Hcompat =>
-      return RankedTensor.ofTensorElem D elem Htype Hcompat
+      return ULift.up $ RankedTensor.ofTensorElem D elem Htype Hcompat
   | ToyOp.Transpose α n m t =>
-      return transpose t
+      return ULift.up $ transpose t
   | ToyOp.Reshape α D D' H H' Hprod t =>
-      return reshape D' H H' Hprod t
+      return ULift.up $ reshape D' H H' Hprod t
 
 -- Interpretation in context
 

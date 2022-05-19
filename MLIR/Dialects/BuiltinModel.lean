@@ -77,7 +77,7 @@ instance {τ D}: Inhabited (RankedTensor τ D) where
 
 -- Conversion from TensorElem
 
-/- def RankedTensor.ofTensorElem {τ} (D: DimList) (e: TensorElem)
+def RankedTensor.ofTensorElem {τ} (D: DimList) (e: TensorElem)
     (Htype: e.hasType τ) (Hcompat: e.rankCompatibleWith D τ):
     RankedTensor τ D:=
   match Hcompat with
@@ -92,7 +92,6 @@ instance {τ D}: Inhabited (RankedTensor τ D) where
         data        := e.flatten Htype,
         h_refines   := Hrefines,
         h_data_size := TensorElem.flatten_size e s Hshape Htype }
--/
 
 -- Type interface for registration with MLIRTy
 -- TODO: String representation of tensors (same for unranked tensors)
@@ -100,14 +99,12 @@ instance {τ D}: Inhabited (RankedTensor τ D) where
 instance MLIRTy.rankedTensorType {τ D}: TypeIntf (RankedTensor τ D) where
   eq := inferInstance
   inhabited := inferInstance
-  str := sorry
+  str := ⟨fun t =>
+    let dims := "×".intercalate (D.map (MLIR.Doc.Pretty.doc ·))
+    s!"<a tensor of size {dims} and base type {τ}>"⟩
 
-private abbrev TensorSig := MLIRTy × DimList
-
-deriving instance DecidableEq for TensorSig
-
-instance MLIRTy.rankedTensorFamily:
-    TypeFamilyIntf "builtin.tensor" TensorSig where
+instance MLIRTy.builtin.tensor:
+    TypeFamilyIntf "builtin.tensor" (MLIRTy × DimList) where
   α := fun (τ, D) => RankedTensor τ D
   compare := inferInstance
   str := ⟨fun (τ, D) =>
@@ -116,7 +113,7 @@ instance MLIRTy.rankedTensorFamily:
   eval := fun (τ, D) => inferInstance
 
 def MLIRTy.tensorRanked τ D :=
-  @MLIRTy.generic "builtin.tensor" _ (τ, D) MLIRTy.rankedTensorFamily
+  @MLIRTy.generic "builtin.tensor" _ (τ, D) MLIRTy.builtin.tensor
 
 
 /-
@@ -130,10 +127,10 @@ abbrev UnrankedTensor := Tensor
 instance MLIRTy.unrankedTensorType {τ}: TypeIntf (UnrankedTensor τ) where
   eq := inferInstance
   inhabited := inferInstance
-  str := sorry
+  str := ⟨fun t => s!"<an unranked tensor of base type {τ}>"⟩
 
 -- TODO: Ranked and unranked tensors do not share the same name
-instance MLIRTy.unrankedTensorFamily:
+instance MLIRTy.builtin.unranked_tensor:
     TypeFamilyIntf "builtin.unranked_tensor" MLIRTy where
   α := UnrankedTensor
   compare := inferInstance
@@ -141,7 +138,7 @@ instance MLIRTy.unrankedTensorFamily:
   eval := fun τ => inferInstance
 
 def MLIRTy.tensorUnranked τ :=
-  @MLIRTy.generic "builtin.unranked_tensor" _ τ MLIRTy.unrankedTensorFamily
+  @MLIRTy.generic "builtin.unranked_tensor" _ τ MLIRTy.builtin.unranked_tensor
 
 
 /-

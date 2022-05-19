@@ -83,7 +83,11 @@ class TypeFamilyIntf (name: String) (σ: Type u) where
   compare: DecidableEq σ
   str: ToString σ
   eval: (s: σ) → TypeIntf (α s)
-  elim (s: σ) {motive: σ → Type} (f: (s: σ) → motive s): motive s := f s
+
+-- This elimination scheme is used to enforce the type of the signature as σ
+-- after is was infered from another family.
+def TypeFamilyIntf.elim {name σ} [TypeFamilyIntf name σ]
+  (s: σ) {motive: σ → Type v} (f: (s: σ) → motive s): motive s := f s
 
 -- TODO: Axiom relies on TypeFamilyIntf being used in specific safe ways
 axiom TypeFamilyIntf.nameUnique.{u} {name₁ name₂: String} {σ₁ σ₂: Type u}
