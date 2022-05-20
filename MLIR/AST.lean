@@ -13,17 +13,17 @@ inductive AffineExpr
 
 instance : Pretty AffineExpr where
   doc e := match e with
-  | AffineExpr.Var v => doc v 
+  | AffineExpr.Var v => doc v
 
 deriving instance DecidableEq for AffineExpr
 
-inductive AffineTuple 
+inductive AffineTuple
 | mk: List AffineExpr -> AffineTuple
 
 instance : Pretty AffineTuple where
   doc t := match t with
-  | AffineTuple.mk es => [doc| "(" (es),*  ")"] 
- 
+  | AffineTuple.mk es => [doc| "(" (es),*  ")"]
+
 deriving instance DecidableEq for AffineTuple
 
 inductive AffineMap
@@ -32,10 +32,10 @@ inductive AffineMap
  instance : Pretty AffineMap where
   doc t := match t with
   | AffineMap.mk xs ys => doc xs ++ " -> " ++ doc ys
- 
+
 deriving instance DecidableEq for AffineMap
 
- 
+
 
 -- EMBEDDING
 -- ==========
@@ -44,7 +44,7 @@ inductive BBName
 | mk: String -> BBName
 
 instance : Pretty BBName where
-  doc name := match name with 
+  doc name := match name with
               | BBName.mk s => [doc| "^" s]
 
 deriving instance DecidableEq for BBName
@@ -61,7 +61,17 @@ inductive SSAVal : Type where
 
 deriving instance DecidableEq for SSAVal
 
-inductive TensorElem := 
+#check SSAVal
+
+
+def SSAValToString (s: SSAVal): String :=
+  match s with
+  | SSAVal.SSAVal str => str
+
+instance : ToString SSAVal where
+  toString := SSAValToString
+
+inductive TensorElem :=
 | int: Int -> TensorElem
 | float: Float -> TensorElem
 | bool: Bool -> TensorElem
@@ -70,7 +80,7 @@ inductive TensorElem :=
 
 mutual
 
-inductive MemrefLayoutSpec : Type where 
+inductive MemrefLayoutSpec : Type where
 | stride: (offset: Dimension) -> (stride: List Dimension) -> MemrefLayoutSpec
 | attr: AttrVal -> MemrefLayoutSpec
 
@@ -83,7 +93,7 @@ inductive MLIRTy : Type where
 | vector: (fixed: (List Int)) -> (scaled: (List Int)) -> MLIRTy -> MLIRTy
 | tensorRanked: List Dimension -> MLIRTy -> MLIRTy
 | tensorUnranked: MLIRTy -> MLIRTy
-| memrefRanked: (dims: List Dimension) -> (t: MLIRTy) -> 
+| memrefRanked: (dims: List Dimension) -> (t: MLIRTy) ->
   (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
 | memrefUnranked:  (t: MLIRTy) ->  (memspace: Option AttrVal) -> MLIRTy
 | user: String -> MLIRTy -- user defined type
@@ -102,7 +112,7 @@ inductive AttrVal : Type where
 | list: List AttrVal -> AttrVal
 -- | guaranteee: both components will be AttrVal.Symbol.
 -- | TODO: factor symbols out.
-| nestedsymbol: AttrVal -> AttrVal -> AttrVal 
+| nestedsymbol: AttrVal -> AttrVal -> AttrVal
 | alias: String -> AttrVal
 | dict: AttrDict -> AttrVal
 | opaque: (dialect: String) -> (value: String) -> AttrVal
@@ -112,11 +122,11 @@ inductive AttrVal : Type where
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
 inductive AttrEntry : Type where
-  | mk: (key: String) 
+  | mk: (key: String)
       -> (value: AttrVal)
       -> AttrEntry
 
-inductive AttrDict : Type := 
+inductive AttrDict : Type :=
 | mk: List AttrEntry -> AttrDict
 end
 
@@ -124,11 +134,11 @@ end
 mutual
 -- | TODO: make this `record` when mutual records are allowed?
 -- | TODO: make these arguments optional?
-inductive Op : Type where 
- | mk: (name: String) 
+inductive Op : Type where
+ | mk: (name: String)
       -> (args: List SSAVal)
       -> (bbs: List BBName)
-      -> (regions: List Region) 
+      -> (regions: List Region)
       -> (attrs: AttrDict)
       -> (ty: MLIRTy)
       -> Op
@@ -198,8 +208,8 @@ def Region.getBasicBlock (r: Region) (name: BBName): Option BasicBlock :=
 
 -- | TODO: this seems like a weird exception. Is this really true?
 inductive Module where
-| mk: (functions: List Op) 
-      -> (attrs: List AttrDefn) 
+| mk: (functions: List Op)
+      -> (attrs: List AttrDefn)
       ->  Module
 
 
@@ -241,20 +251,20 @@ instance: DecidableEq MLIRTy :=
 
 
 instance : Pretty Dimension where
-  doc dim := 
+  doc dim :=
   match dim with
   | Dimension.Unknown => "?"
   | Dimension.Known i => doc i
 
 
 partial instance : Pretty TensorElem where
-  doc (t: TensorElem) := 
-    let rec go (t: TensorElem) := 
+  doc (t: TensorElem) :=
+    let rec go (t: TensorElem) :=
       match t with
        | TensorElem.int i => doc i
        | TensorElem.bool b => doc b
        | TensorElem.float f => doc f
-       | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ] 
+       | TensorElem.nested ts => [doc| "["  (ts.map go),* "]" ]
        | TensorElem.empty => ""
     go t
 
@@ -263,12 +273,12 @@ mutual
 
 partial def docMemrefLayoutSpec(spec: MemrefLayoutSpec) : Doc :=
 match spec with
-| MemrefLayoutSpec.stride offset strides => [doc| "offset:" offset ", strides: " "[" (strides),* "]"] 
+| MemrefLayoutSpec.stride offset strides => [doc| "offset:" offset ", strides: " "[" (strides),* "]"]
 |  MemrefLayoutSpec.attr v => docAttrVal v
 
 
-partial def docMlirTy(ty: MLIRTy) : Doc := 
-    let rec  go (ty: MLIRTy) :=  
+partial def docMlirTy(ty: MLIRTy) : Doc :=
+    let rec  go (ty: MLIRTy) :=
     match ty with
     | MLIRTy.user k => [doc| "!"k]
     | MLIRTy.int k => [doc| "i"k]
@@ -276,54 +286,54 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
     | MLIRTy.index => [doc| "index"]
     | MLIRTy.tuple ts => [doc| "(" (ts.map go),* ")" ]
     | MLIRTy.fn dom codom => (go dom) ++ " -> " ++ (go codom)
-    | MLIRTy.vector fixed scaled ty => 
-      let docFixed := match fixed with 
-        | [] => "" 
+    | MLIRTy.vector fixed scaled ty =>
+      let docFixed := match fixed with
+        | [] => ""
         | _ => (intercalate_doc fixed "×") ++ "×"
-      let docScaling := match scaled with 
+      let docScaling := match scaled with
         | [] => ""
         | _ => (intercalate_doc fixed "×") ++ "×"
       [doc| "vector<" (docFixed) (docScaling) (go ty) ">"]
-    | MLIRTy.memrefRanked dims ty layout? memspace? => 
+    | MLIRTy.memrefRanked dims ty layout? memspace? =>
       let docLayout := match layout? with | some x => [doc| "," (docMemrefLayoutSpec x)] | none => ""
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" (intercalate_doc dims "x") "x" (go ty) (docLayout)  (docMemspace) ">"]
-    | MLIRTy.memrefUnranked ty memspace? => 
+    | MLIRTy.memrefUnranked ty memspace? =>
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" "*x" (go ty) (docMemspace) ">"]
     | MLIRTy.tensorRanked dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
     | MLIRTy.tensorUnranked ty => "tensor<" ++ "*x" ++ go ty ++ ">"
     go ty
 
-partial def docAttrVal (v: AttrVal) := 
+partial def docAttrVal (v: AttrVal) :=
    match v with
    | AttrVal.symbol s => "@" ++ doc_surround_dbl_quot s
    | AttrVal.nestedsymbol s t => (docAttrVal s) ++ "::" ++ (docAttrVal t)
-   | AttrVal.str str => doc_surround_dbl_quot str 
+   | AttrVal.str str => doc_surround_dbl_quot str
    | AttrVal.type ty => docMlirTy ty
    | AttrVal.int i ty => doc i ++ " : " ++ docMlirTy ty
    | AttrVal.bool b => if b then "true" else "false"
    | AttrVal.float f ty => doc f ++ " : " ++ docMlirTy ty
    | AttrVal.dense elem ty => "dense<" ++ doc elem ++ ">" ++ ":" ++ docMlirTy ty
-   | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">" 
+   | AttrVal.affine aff => "affine_map<" ++ doc aff ++ ">"
    | AttrVal.list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map docAttrVal) ", ") ++ "]"
    | AttrVal.alias a => "#" ++ a
-   | AttrVal.dict d => docAttrDict d 
+   | AttrVal.dict d => docAttrDict d
    | AttrVal.opaque dialect val => [doc| "#" (dialect) "<"  (val) ">"]
    | AttrVal.opaqueElements dialect val ty => [doc| "#opaque<" (dialect) ","  (val) ">" ":" (docMlirTy ty)]
    | AttrVal.unit => "()"
 
-partial def docAttrEntry (a: AttrEntry) := 
+partial def docAttrEntry (a: AttrEntry) :=
     match a with
     | AttrEntry.mk k v => k ++ " = " ++ (docAttrVal v)
 
 
 partial def docAttrDict (v: AttrDict) :=
    match v with
-   | AttrDict.mk attrs => 
+   | AttrDict.mk attrs =>
         if List.isEmpty attrs
         then Doc.Text ""
-        else "{" ++ Doc.Nest (vintercalate_doc (attrs.map docAttrEntry)  ", ")  ++ "}" 
+        else "{" ++ Doc.Nest (vintercalate_doc (attrs.map docAttrEntry)  ", ")  ++ "}"
 end
 
 partial instance : Pretty MemrefLayoutSpec where
@@ -336,34 +346,34 @@ partial instance : Pretty AttrVal where
  doc (v: AttrVal) := docAttrVal v
 
 instance : Pretty AttrEntry where
-  doc (a: AttrEntry) := docAttrEntry a 
+  doc (a: AttrEntry) := docAttrEntry a
 
 
  instance : Pretty AttrDict where
    doc v := docAttrDict v
 
 instance : Pretty AttrDefn where
-  doc (v: AttrDefn) := 
+  doc (v: AttrDefn) :=
   match v with
   | AttrDefn.mk name val => "#" ++ name ++ " := " ++ (doc val)
- 
+
 
 instance: Coe String SSAVal where
   coe (s: String) := SSAVal.SSAVal s
 
-instance : Coe Int TensorElem where 
+instance : Coe Int TensorElem where
   coe (i: Int) := TensorElem.int i
 
-instance : Coe  (List Int) TensorElem where 
-  coe (xs: List Int) := TensorElem.nested (xs.map TensorElem.int) 
+instance : Coe  (List Int) TensorElem where
+  coe (xs: List Int) := TensorElem.nested (xs.map TensorElem.int)
 
-instance : Coe String AttrVal where 
+instance : Coe String AttrVal where
   coe (s: String) := AttrVal.str s
 
-instance : Coe Int AttrVal where 
+instance : Coe Int AttrVal where
   coe (i: Int) := AttrVal.int i (MLIRTy.int 64)
 
-instance : Coe MLIRTy AttrVal where 
+instance : Coe MLIRTy AttrVal where
   coe (t: MLIRTy) := AttrVal.type t
 
 
@@ -371,39 +381,39 @@ instance : Coe MLIRTy AttrVal where
 def AttrVal.dense_vector (xs: List Int) (ity: MLIRTy := MLIRTy.int 32): AttrVal :=
   let fixedShape := [Int.ofNat xs.length]
   let scaledShape := []
-  let vty := MLIRTy.vector fixedShape scaledShape ity 
+  let vty := MLIRTy.vector fixedShape scaledShape ity
   AttrVal.dense xs vty
 
-instance : Coe (String × AttrVal) AttrEntry where 
+instance : Coe (String × AttrVal) AttrEntry where
   coe (v: String × AttrVal) := AttrEntry.mk v.fst v.snd
 
-instance : Coe (String × MLIRTy) AttrEntry where 
+instance : Coe (String × MLIRTy) AttrEntry where
   coe (v: String × MLIRTy) := AttrEntry.mk v.fst (AttrVal.type v.snd)
 
-instance : Coe  AttrEntry (String × AttrVal) where 
-  coe (v: AttrEntry) := 
+instance : Coe  AttrEntry (String × AttrVal) where
+  coe (v: AttrEntry) :=
   match v with
   | AttrEntry.mk key val => (key, val)
 
 
-instance : Coe (List AttrEntry) AttrDict where 
+instance : Coe (List AttrEntry) AttrDict where
   coe (v: List AttrEntry) := AttrDict.mk v
 
- instance : Coe AttrDict (List AttrEntry) where 
+ instance : Coe AttrDict (List AttrEntry) where
   coe (v: AttrDict) := match v with | AttrDict.mk as => as
 
 
-instance : Coe (BasicBlock) Region where 
+instance : Coe (BasicBlock) Region where
   coe (bb: BasicBlock) := Region.mk [bb]
 
-instance : Coe (List BasicBlock) Region where 
+instance : Coe (List BasicBlock) Region where
   coe (bbs: List BasicBlock) := Region.mk bbs
 
-instance : Coe  Region (List BasicBlock) where 
+instance : Coe  Region (List BasicBlock) where
   coe (rgn: Region) := match rgn with | Region.mk bbs => bbs
 
 instance : Pretty SSAVal where
-   doc (val: SSAVal) := 
+   doc (val: SSAVal) :=
      match val with
      | SSAVal.SSAVal name => Doc.Text ("%" ++ name)
 
@@ -413,21 +423,21 @@ instance : ToFormat SSAVal where
 
 
 -- | TODO: allow mutual definition of typeclass instances. This code
--- | would be so much nicer if I could pretend that these had real instances. 
+-- | would be so much nicer if I could pretend that these had real instances.
 mutual
 
-partial instance : Pretty Op where 
-  doc := op_to_doc 
+partial instance : Pretty Op where
+  doc := op_to_doc
 
-partial instance : Pretty BasicBlock where 
+partial instance : Pretty BasicBlock where
   doc := bb_to_doc
 
-partial instance : Pretty Region where 
+partial instance : Pretty Region where
   doc := rgn_to_doc
 
-partial def op_to_doc (op: Op): Doc := 
+partial def op_to_doc (op: Op): Doc :=
     match op with
-    | (Op.mk name args bbs rgns attrs ty) => 
+    | (Op.mk name args bbs rgns attrs ty) =>
         /- v3: macros + if stuff-/
         [doc|
           "\"" name "\""
@@ -450,18 +460,18 @@ partial def op_to_doc (op: Op): Doc :=
           ty
         ]
         -/
-        
+
         /- v1: no macros
-        let doc_name := doc_surround_dbl_quot name 
+        let doc_name := doc_surround_dbl_quot name
         let doc_bbs := if bbs.isEmpty
                        then doc ""
                        else "[" ++ intercalate_doc bbs ", " ++ "]"
-        let doc_rgns := 
+        let doc_rgns :=
             if rgns.isEmpty
             then Doc.Text ""
             else " (" ++ nest_vgroup (rgns.map rgn_to_doc) ++ ")"
         let doc_args := "(" ++ intercalate_doc args ", " ++ ")"
-        
+
         doc_name ++ doc_args ++  doc_bbs ++ doc_rgns ++ doc attrs ++ " : " ++ doc ty
         -/
 -- partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
@@ -471,19 +481,19 @@ partial def op_to_doc (op: Op): Doc :=
 
 partial def bb_stmt_to_doc (stmt: BasicBlockStmt): Doc :=
   match stmt with
-  | BasicBlockStmt.StmtAssign lhs none rhs => 
+  | BasicBlockStmt.StmtAssign lhs none rhs =>
       [doc| lhs "="  (op_to_doc rhs) ]
-  | BasicBlockStmt.StmtAssign lhs (some ix) rhs => 
+  | BasicBlockStmt.StmtAssign lhs (some ix) rhs =>
       [doc| lhs ":" ix "="  (op_to_doc rhs) ]
   | BasicBlockStmt.StmtOp rhs => (op_to_doc rhs)
 
 
 -- | TODO: fix the dugly syntax
 partial def bb_to_doc(bb: BasicBlock): Doc :=
-  let doc_arg (arg: SSAVal × MLIRTy) := 
+  let doc_arg (arg: SSAVal × MLIRTy) :=
         match arg with | (ssaval, ty) => [doc| ssaval ":" ty]
   match bb with
-  | (BasicBlock.mk name args stmts) => 
+  | (BasicBlock.mk name args stmts) =>
     [doc|
       {
         (ifdoc args.isEmpty
@@ -501,34 +511,34 @@ partial def rgn_to_doc(rgn: Region): Doc :=
 end
 
 def AttrEntry.key (a: AttrEntry): String :=
-match a with 
+match a with
 | AttrEntry.mk k v => k
 
 def AttrEntry.value (a: AttrEntry): AttrVal :=
-match a with 
+match a with
 | AttrEntry.mk k v => v
 
 
 def MLIRTy.unit : MLIRTy := MLIRTy.tuple []
 def AttrDict.empty : AttrDict := AttrDict.mk []
 
-def Op.empty (name: String) : Op := 
+def Op.empty (name: String) : Op :=
   Op.mk name [] [] [] AttrDict.empty (MLIRTy.fn MLIRTy.unit MLIRTy.unit)
 -- | TODO: needs to happen in a monad to ensure that ty has the right type!
-def Op.addArg (o: Op) (a: SSAVal) (t: MLIRTy): Op := 
+def Op.addArg (o: Op) (a: SSAVal) (t: MLIRTy): Op :=
   match o with
-  | Op.mk name args bbs regions attrs ty => 
+  | Op.mk name args bbs regions attrs ty =>
     let ty' := match ty with
-               | MLIRTy.fn (MLIRTy.tuple ins) outs => 
+               | MLIRTy.fn (MLIRTy.tuple ins) outs =>
                            MLIRTy.fn (MLIRTy.tuple $ ins ++ [t]) outs
                | _ => MLIRTy.fn (MLIRTy.tuple [t]) (MLIRTy.unit)
     Op.mk name (args ++ [a]) bbs regions attrs ty'
-       
+
 def Op.addResult (o: Op) (t: MLIRTy): Op :=
  match o with
- | Op.mk name args bbs regions attrs ty => 
+ | Op.mk name args bbs regions attrs ty =>
     let ty' := match ty with
-               | MLIRTy.fn ins (MLIRTy.tuple outs) => 
+               | MLIRTy.fn ins (MLIRTy.tuple outs) =>
                            MLIRTy.fn ins (MLIRTy.tuple $ outs ++ [t])
                | _ => MLIRTy.fn (MLIRTy.tuple []) (MLIRTy.tuple [t])
     Op.mk name args bbs regions attrs ty'
@@ -545,7 +555,7 @@ def AttrDict.add (attrs: AttrDict) (entry: AttrEntry): AttrDict :=
 
 def AttrDict.find (attrs: AttrDict) (name: String): Option AttrVal :=
   match attrs with
-  | AttrDict.mk entries => 
+  | AttrDict.mk entries =>
       match entries.find? (fun entry => entry.key == name) with
       | some v => v.value
       | none => none
@@ -560,21 +570,21 @@ def AttrDict.addType (attrs: AttrDict) (k: String) (v: MLIRTy): AttrDict :=
 -- | Note: AttrEntry can be given as String × AttrVal
 def Op.addAttr (o: Op) (k: String) (v: AttrVal): Op :=
  match o with
- | Op.mk name args bbs regions attrs ty => 
+ | Op.mk name args bbs regions attrs ty =>
     Op.mk name args bbs regions (attrs.add (k, v)) ty
 
 def BasicBlock.empty (name: String): BasicBlock := BasicBlock.mk name [] []
-def BasicBlock.appendStmt (bb: BasicBlock) (stmt: BasicBlockStmt): BasicBlock := 
+def BasicBlock.appendStmt (bb: BasicBlock) (stmt: BasicBlockStmt): BasicBlock :=
   match bb with
   | BasicBlock.mk name args bbs => BasicBlock.mk name args (bbs ++ [stmt])
 
-def BasicBlock.appendStmts (bb: BasicBlock) (stmts: List BasicBlockStmt): BasicBlock := 
+def BasicBlock.appendStmts (bb: BasicBlock) (stmts: List BasicBlockStmt): BasicBlock :=
   match bb with
   | BasicBlock.mk name args bbs => BasicBlock.mk name args (bbs ++ stmts)
 
-def Region.empty: Region := Region.mk [] 
+def Region.empty: Region := Region.mk []
 
-def Region.appendBasicBlock (r: Region) (bb: BasicBlock) : Region := 
+def Region.appendBasicBlock (r: Region) (bb: BasicBlock) : Region :=
   Coe.coe (Coe.coe r ++ [bb])
 
 instance : Pretty Op where
@@ -597,7 +607,7 @@ instance : ToFormat Op where
 
 
 instance : Inhabited Op where
-  default := Op.empty "INHABITANT" 
+  default := Op.empty "INHABITANT"
 
 instance : Inhabited BasicBlock where
   default := BasicBlock.empty "INHABITANT"
@@ -610,12 +620,12 @@ instance : Pretty Module where
     match m with
     | Module.mk fs attrs =>
       Doc.VGroup (attrs.map doc ++ fs.map doc)
-      
+
 instance : Coe Op BasicBlockStmt where
    coe := BasicBlockStmt.StmtOp
 
 def Region.fromBlock (bb: BasicBlock): Region := Region.mk [bb]
-def BasicBlock.fromOps (os: List Op) (name: String := "entry") := 
+def BasicBlock.fromOps (os: List Op) (name: String := "entry") :=
   BasicBlock.mk name [] (os.map BasicBlockStmt.StmtOp)
 
 def BasicBlock.setArgs (bb: BasicBlock) (args: List (SSAVal × MLIRTy)) : Region :=
@@ -625,7 +635,7 @@ match bb with
 def Region.fromOps (os: List Op): Region := Region.mk [BasicBlock.fromOps os]
 
 -- | return the only region in the block
-def Op.singletonRegion (o: Op): Region := 
+def Op.singletonRegion (o: Op): Region :=
   match o.regions with
   | (r :: []) => r
   | _ => panic! "expected op with single region: " ++ (doc o)
@@ -654,7 +664,7 @@ inductive RegionLens: Type _ -> Type _ where
 inductive BasicBlockLens: Type _ -> Type _ where
 | op: Nat -> OpLens (o: Type u) -> BasicBlockLens o
 | id: BasicBlockLens (ULift BasicBlock)
-end 
+end
 
 
 -- | defunctionalized lens where `s` is lensed by `l t` to produce a `t`
@@ -666,93 +676,93 @@ class Lensed (s: Type _) (l: Type _ -> Type _) where
 
 -- | ignore the x
 structure PointedConst (t: Type) (v: t) (x: Type) where
-  (val: t) 
+  (val: t)
 
 
-instance : Coe (PointedConst t v x) (PointedConst t v y) where 
+instance : Coe (PointedConst t v x) (PointedConst t v y) where
   coe a := { val := a.val }
 
-instance: Functor (PointedConst t v) where 
+instance: Functor (PointedConst t v) where
   map f p := p
 
-instance: Pure (PointedConst t v) where 
+instance: Pure (PointedConst t v) where
   pure x := PointedConst.mk v
 
-instance: SeqLeft (PointedConst t v) where 
+instance: SeqLeft (PointedConst t v) where
   seqLeft pc _ := pc
 
-instance: SeqRight (PointedConst t v) where 
+instance: SeqRight (PointedConst t v) where
   seqRight pc _ := pc
 
-instance: Seq (PointedConst t v) where 
+instance: Seq (PointedConst t v) where
   seq f pc := pc ()
 
-instance : Applicative (PointedConst t v) where 
+instance : Applicative (PointedConst t v) where
   map      := fun x y => Seq.seq (pure x) fun _ => y
   seqLeft  := fun a b => Seq.seq (Functor.map (Function.const _) a) b
   seqRight := fun a b => Seq.seq (Functor.map (Function.const _ id) a) b
 
 
-def Lensed.get [Lensed s l] (lens: l t) (sval: s) (default_t: t): t := 
+def Lensed.get [Lensed s l] (lens: l t) (sval: s) (default_t: t): t :=
   (Lensed.update lens (fun t => @PointedConst.mk _ default_t _ t) sval).val
 
-def Lensed.set [Lensed s l] (lens: l t) (sval: s) (tnew: t): s := 
+def Lensed.set [Lensed s l] (lens: l t) (sval: s) (tnew: t): s :=
   Lensed.update (f := Id) lens (fun t => tnew) sval
 
-def Lensed.map [Lensed s l] (lens: l t) (sval: s) (tfun: t -> t): s := 
-  Lensed.update (f := Id) lens tfun sval 
+def Lensed.map [Lensed s l] (lens: l t) (sval: s) (tfun: t -> t): s :=
+  Lensed.update (f := Id) lens tfun sval
 
-def Lensed.mapM [Lensed s l]  [Monad m] (lens: l t) (sval: s) (tfun: t -> m t): m s := 
-  Lensed.update lens tfun sval 
+def Lensed.mapM [Lensed s l]  [Monad m] (lens: l t) (sval: s) (tfun: t -> m t): m s :=
+  Lensed.update lens tfun sval
 
 -- | TODO: for now, when lens fails, we just return.
 mutual
 -- | how can this lens ever be run? Very interesting...
-def vallens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: ValLens t) (transform: t -> f t) (src: SSAVal) : f SSAVal := 
+def vallens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: ValLens t) (transform: t -> f t) (src: SSAVal) : f SSAVal :=
     match lens with
     | ValLens.id => Functor.map ULift.down $ transform (ULift.up src)
     | ValLens.op kind oplens => Pure.pure src -- TODO: how do we encode this?
 
-def oplens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: OpLens t) (transform: t -> f t) (src: Op) : f Op := 
+def oplens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: OpLens t) (transform: t -> f t) (src: Op) : f Op :=
     match lens with
     | OpLens.id => Functor.map ULift.down $ transform (ULift.up src)
-    | OpLens.arg ix vlens => 
+    | OpLens.arg ix vlens =>
         match src with
-        | Op.mk name args bbs regions attrs ty => 
+        | Op.mk name args bbs regions attrs ty =>
         match args.get? ix with
-        | none => Pure.pure src 
+        | none => Pure.pure src
         | some v => Functor.map (fun v => Op.mk name (args.set ix v) bbs regions attrs ty)
                                (vallens_update vlens transform v)
-    | OpLens.region ix rlens => 
-      match src with 
-      | Op.mk name args bbs  regions attrs ty => 
+    | OpLens.region ix rlens =>
+      match src with
+      | Op.mk name args bbs  regions attrs ty =>
       match regions.get? ix with
-      | none => Pure.pure src 
+      | none => Pure.pure src
       | some r =>  Functor.map (fun r => Op.mk name args bbs (regions.set ix r) attrs ty)
-                               (regionlens_update rlens transform r) 
-  
-def regionlens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: RegionLens t) (transform: t -> f t) (src: Region) : f Region := 
+                               (regionlens_update rlens transform r)
+
+def regionlens_update {f: Type -> Type} {t: Type} [Applicative f] (lens: RegionLens t) (transform: t -> f t) (src: Region) : f Region :=
     match lens with
     | RegionLens.id => Functor.map ULift.down $ transform (ULift.up src)
     | RegionLens.block ix bblens =>
-      match src with 
-      | Region.mk bbs => 
+      match src with
+      | Region.mk bbs =>
         match bbs.get? ix with
-        | none => Pure.pure src 
-        | some bb =>  Functor.map (fun bb => Region.mk (bbs.set ix bb)) (blocklens_update bblens transform bb) 
+        | none => Pure.pure src
+        | some bb =>  Functor.map (fun bb => Region.mk (bbs.set ix bb)) (blocklens_update bblens transform bb)
 
 
-def blocklens_update {f: Type -> Type} {t: Type}[Applicative f] (lens: BasicBlockLens t) (transform: t -> f t) (src: BasicBlock) : f BasicBlock := 
+def blocklens_update {f: Type -> Type} {t: Type}[Applicative f] (lens: BasicBlockLens t) (transform: t -> f t) (src: BasicBlock) : f BasicBlock :=
     match lens with
     | BasicBlockLens.id => Functor.map ULift.down $ transform (ULift.up src)
-    | BasicBlockLens.op ix oplens => 
-      match src with 
-      | BasicBlock.mk name args ops => 
+    | BasicBlockLens.op ix oplens =>
+      match src with
+      | BasicBlock.mk name args ops =>
         match ops.get? ix with
-        | none => Pure.pure src 
-        | some stmt => 
-            let stmt := match stmt with 
-            | BasicBlockStmt.StmtAssign lhs ix op => (BasicBlockStmt.StmtAssign lhs ix) <$> (oplens_update oplens transform op)  
+        | none => Pure.pure src
+        | some stmt =>
+            let stmt := match stmt with
+            | BasicBlockStmt.StmtAssign lhs ix op => (BasicBlockStmt.StmtAssign lhs ix) <$> (oplens_update oplens transform op)
             | BasicBlockStmt.StmtOp op => BasicBlockStmt.StmtOp <$> (oplens_update oplens transform op)
             (fun stmt => BasicBlock.mk name args (ops.set ix stmt)) <$> stmt
 end
@@ -769,13 +779,13 @@ instance : Lensed BasicBlock BasicBlockLens where
   lensId := BasicBlockLens.id
   update := blocklens_update
 
-def Region.singletonBlock (r: Region): BasicBlock := 
+def Region.singletonBlock (r: Region): BasicBlock :=
   match r.bbs with
   | (bb :: []) => bb
   | _ => panic! "expected region with single bb: " ++ (doc r)
 
 -- | Ensure that region has an entry block.
-def Region.ensureEntryBlock (r: Region): Region := 
+def Region.ensureEntryBlock (r: Region): Region :=
 match r with
 | (Region.mk bbs) =>
   match bbs with
