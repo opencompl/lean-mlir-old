@@ -16,103 +16,84 @@ open MLIR.AST
 
 /- To be automatically generated -/
 
-inductive ToyOp: Type u → Type _ :=
+inductive ToyOp: Type → Type :=
   | Constant:
       (D: DimList) → (Hknown: D.known) →
       (e: TensorElem) → (τ: MLIRTy) → (Htype: e.hasType τ) →
       (Hcompat: e.rankCompatibleWith D τ) →
-      ToyOp (ULift $ RankedTensor τ D)
+      ToyOp (RankedTensor D τ)
   | Transpose:
       (τ: MLIRTy) → (n m: Nat) →
-      RankedTensor τ [Dimension.Known n, Dimension.Known m] →
-      ToyOp (ULift $ RankedTensor τ [Dimension.Known m, Dimension.Known n])
+      RankedTensor [Dimension.Known n, Dimension.Known m] τ →
+      ToyOp (RankedTensor [Dimension.Known m, Dimension.Known n] τ)
   | Reshape:
       (τ: MLIRTy) → (D D': DimList) → (H: D.known) → (H': D'.known) →
       (Hprod: D'.prod = D.prod) →
-      RankedTensor τ D →
-      ToyOp (ULift $ RankedTensor τ D')
+      RankedTensor D τ →
+      ToyOp (RankedTensor D' τ)
 
 /- To be automatically generated (hopefully; basically this is the
    verification stuff) -/
 
 def toy_semantics_op (ret_name: Option SSAVal):
-      Op → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
+      Op builtin → Fitree (InvalidOpE +' SSAEnvE builtin +' ToyOp) Unit
 
-  | Op.mk "toy.constant" [] [] [] attrs (MLIRTy.fn (MLIRTy.tuple []) τ_ret) =>
-      match τ_ret with
-      | !builtin.tensor (τ₁, D₁) =>
-          match AttrDict.find attrs "value" with
-          | some (AttrVal.dense elem τ₂) =>
-              match τ₂ with
-              | !builtin.tensor (τ₂, D₂) =>
-                  if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
-                    match Heq: elem, τ₁ with
-                    | TensorElem.int i, MLIRTy.int 32 => do
-                        let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
-                          (MLIRTy.int 32) (by simp [Heq, H.2.2.2])
-                          (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));
-                        SSAEnv.set? (MLIRTy.tensorRanked (MLIRTy.int 32) D₁) ret_name t.down
-                    | elem, τ₁ => do
-                        if Hshape: elem.hasShape (DimList.default_refinement D₁) then
-                          let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem τ₁
-                            H.2.2.2 (TensorElem.rankCompatibleWith.HasShape
-                            (DimList.default_refinement D₁) _ Hshape
-                            (default_refinement_refines D₁)));
-                          SSAEnv.set? (MLIRTy.tensorRanked τ₁ D₁) ret_name t.down
-                        else
-                          Fitree.trigger InvalidOpE.InvalidOp
-                  else
-                    Fitree.trigger InvalidOpE.InvalidOp
-              | _ =>
-                Fitree.trigger InvalidOpE.InvalidOp
-          | _ =>
+  | Op.mk "toy.constant" [] [] [] attrs
+        (.fn (.tuple []) (builtin.tensor D₁ τ₁)) =>
+      match AttrDict.find attrs "value" with
+      | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
+          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
+            match Heq: elem, τ₁ with
+            | TensorElem.int i, .int 32 => do
+                let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
+                  (.int 32) (by simp [Heq, H.2.2.2])
+                  (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));
+                SSAEnv.set? (builtin.tensor D₁ (.int 32)) ret_name t
+            | elem, τ₁ => do
+                if Hshape: elem.hasShape (DimList.default_refinement D₁) then
+                  let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem τ₁
+                    H.2.2.2 (TensorElem.rankCompatibleWith.HasShape
+                    (DimList.default_refinement D₁) _ Hshape
+                    (default_refinement_refines D₁)));
+                  SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
+                else
+                  Fitree.trigger InvalidOpE.InvalidOp
+          else
             Fitree.trigger InvalidOpE.InvalidOp
       | _ =>
           Fitree.trigger InvalidOpE.InvalidOp
 
-  | Op.mk "toy.transpose" [t_name] [] [] _ (MLIRTy.fn τ₁ τ₂) =>
-      match τ₁ with
-      | !builtin.tensor (τ, D) => do
-          match D with
-          | [Dimension.Known n, Dimension.Known m] =>
-              let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensorRanked
-                      τ [Dimension.Known n, Dimension.Known m]) _ t_name);
-              let t' ← Fitree.trigger (ToyOp.Transpose τ n m t.down);
-              SSAEnv.set? (MLIRTy.tensorRanked τ [Dimension.Known m,
-                          Dimension.Known n])
-                ret_name t'.down
-          | _ =>
-              Fitree.trigger InvalidOpE.InvalidOp
+  | Op.mk "toy.transpose" [t_name] [] [] _ (.fn (builtin.tensor D τ) τ₂) =>
+      match D with
+      | [Dimension.Known n, Dimension.Known m] => do
+          let t ← Fitree.trigger (SSAEnvE.Get (builtin.tensor
+                  [Dimension.Known n, Dimension.Known m] τ) t_name);
+          let t' ← Fitree.trigger (ToyOp.Transpose τ n m t);
+          SSAEnv.set? (builtin.tensor [Dimension.Known m, Dimension.Known n] τ)
+            ret_name t'
       | _ =>
           Fitree.trigger InvalidOpE.InvalidOp
 
-  | Op.mk "toy.reshape" [t_name] [] [] _ (MLIRTy.fn τ₁ τ₂) =>
-      match τ₁ with
-      | !builtin.tensor (σ₁, D) =>
-          match τ₂ with
-          | !builtin.tensor (σ₂, D') =>
-              if H: σ₁ = σ₂
-                ∧ DimList.known D
-                ∧ DimList.known D'
-                ∧ DimList.prod D' = DimList.prod D then do
-                let t ← Fitree.trigger (@SSAEnvE.Get (MLIRTy.tensorRanked σ₁ D)
-                        _ t_name);
-                let t' ← Fitree.trigger (ToyOp.Reshape σ₁ D D'
-                        H.2.1 H.2.2.1 H.2.2.2 t.down);
-                let t': RankedTensor σ₂ D' := cast (by rw [H.1]) t'.down;
-                SSAEnv.set? (MLIRTy.tensorRanked σ₂ D') ret_name t'
-              else
-                Fitree.trigger InvalidOpE.InvalidOp
-          | _ =>
-              Fitree.trigger InvalidOpE.InvalidOp
-      | _ =>
-          Fitree.trigger InvalidOpE.InvalidOp
+  | Op.mk "toy.reshape" [t_name] [] [] _
+        (.fn (builtin.tensor D τ₁) (builtin.tensor D' τ₂)) =>
+      if H: τ₁ = τ₂
+        ∧ DimList.known D
+        ∧ DimList.known D'
+        ∧ DimList.prod D' = DimList.prod D then do
+        let t ← Fitree.trigger (SSAEnvE.Get (builtin.tensor D τ₁) t_name);
+        let t' ← Fitree.trigger (ToyOp.Reshape τ₁ D D'
+                H.2.1 H.2.2.1 H.2.2.2 t);
+        let t': RankedTensor D' τ₂ := cast (by rw [H.1]) t';
+        SSAEnv.set? (builtin.tensor D' τ₂) ret_name t'
+      else
+        Fitree.trigger InvalidOpE.InvalidOp
 
   | _ =>
       Fitree.trigger InvalidOpE.InvalidOp
 
 def toy_semantics_bbstmt:
-      BasicBlockStmt → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
+      BasicBlockStmt builtin →
+      Fitree (InvalidOpE +' (SSAEnvE builtin) +' ToyOp) Unit
   | BasicBlockStmt.StmtAssign val _ op =>
       toy_semantics_op (some val) op
   | BasicBlockStmt.StmtOp op =>
@@ -121,7 +102,8 @@ def toy_semantics_bbstmt:
 -- TODO: toy_semantics_bb: handle basic block arguments
 @[simp]
 def toy_semantics_bb:
-      BasicBlock → Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit
+      BasicBlock builtin →
+      Fitree (InvalidOpE +' (SSAEnvE builtin) +' ToyOp) Unit
   | BasicBlock.mk name args [] =>
       Fitree.ret ()
   | BasicBlock.mk name args (op1::ops) =>
@@ -134,11 +116,11 @@ def toy_semantics_bb:
 def ToyOp.handle {E}: ToyOp ~> Fitree E :=
   fun _ e => match e with
   | ToyOp.Constant D Hknown elem τ Htype Hcompat =>
-      return ULift.up $ RankedTensor.ofTensorElem D elem Htype Hcompat
+      return RankedTensor.ofTensorElem D elem Htype Hcompat
   | ToyOp.Transpose α n m t =>
-      return ULift.up $ transpose t
+      return transpose t
   | ToyOp.Reshape α D D' H H' Hprod t =>
-      return ULift.up $ reshape D' H H' Hprod t
+      return reshape D' H H' Hprod t
 
 -- Interpretation in context
 
@@ -146,8 +128,8 @@ def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
   interp (case_ ToyOp.handle (fun T => @Fitree.trigger E E T _)) t
 
 @[simp]
-def run_toy (t: Fitree (InvalidOpE +' SSAEnvE +' ToyOp) Unit) (env: SSAEnv):
-    Fitree PVoid (Unit × SSAEnv) :=
+def run_toy (t: Fitree (InvalidOpE +' SSAEnvE builtin +' ToyOp) Unit)
+    (env: SSAEnv builtin): Fitree PVoid (Unit × SSAEnv builtin) :=
   interp ToyOp.handle (interp_ssa (interp_invalid t sorry) env)
 
 /-
@@ -191,18 +173,19 @@ elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> f
 
 ---
 
-def transpose_stmt := [mlir_bb_stmt|
+-- TODO: Can we infer the builtin in there?
+def transpose_stmt: BasicBlockStmt builtin := [mlir_bb_stmt|
   %t2 = "toy.transpose"(%t1): tensor<2×4×i32> -> tensor<4×2×i32>
 ]
 
-def constant_stmt := [mlir_bb_stmt|
+def constant_stmt: BasicBlockStmt builtin := [mlir_bb_stmt|
   %t = "toy.constant"() {value=dense<[[1,2],[3,4]]>: tensor<2×2×i32>}:
     () -> tensor<2×2×i32>
 ]
 
 #reduce constant_stmt
 
-def double_transpose := [mlir_bb|
+def double_transpose: BasicBlock builtin := [mlir_bb|
   ^dbl:
     %t2 = "toy.transpose"(%t1): tensor<2×4×i32> -> tensor<4×2×i32>
     %t3 = "toy.transpose"(%t2): tensor<4×2×i32> -> tensor<2×4×i32>
@@ -218,15 +201,15 @@ def double_transpose := [mlir_bb|
   run_toy (toy_semantics_bbstmt constant_stmt) [[]]
 
 theorem double_transpose_correct:
-  ∀ (t1: RankedTensor Int [2,4]),
+  ∀ (t1: RankedTensor [.Known 2, .Known 4] (.int 32)),
     run_toy (toy_semantics_bb double_transpose)
-      [[("t1", ⟨MLIRTy.tensorRanked [2,4] (MLIRTy.int 32), t1⟩)]]
+      [[("t1", ⟨builtin.tensor [.Known 2, .Known 4] (.int 32), t1⟩)]]
     =
     Fitree.ret ((), [[
-      (SSAVal.SSAVal "t1", ⟨MLIRTy.tensorRanked [2,4] (MLIRTy.int 32), t1⟩),
-      (SSAVal.SSAVal "t2", ⟨MLIRTy.tensorRanked [4,2] (MLIRTy.int 32),
+      (SSAVal.SSAVal "t1", ⟨builtin.tensor [.Known 2, .Known 4] (.int 32), t1⟩),
+      (SSAVal.SSAVal "t2", ⟨builtin.tensor [.Known 4, .Known 2] (.int 32),
                            transpose t1⟩),
-      (SSAVal.SSAVal "t3", ⟨MLIRTy.tensorRanked [2,4] (MLIRTy.int 32), t1⟩)
+      (SSAVal.SSAVal "t3", ⟨builtin.tensor [.Known 2, .Known 4] (.int 32), t1⟩)
     ]]) := by
   intros t1
   unfold double_transpose
@@ -235,4 +218,3 @@ theorem double_transpose_correct:
   simp [interp_invalid]; simp_itree
   simp [interp_ssa]; simp_itree
   rw [transpose_involutive]
-  rfl

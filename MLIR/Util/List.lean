@@ -68,7 +68,7 @@ def uniform {α} (v: α): Nat → List α
   | 0 => []
   | n+1 => v :: uniform v n
 
-theorem uniform_length {α} (v: α) n: (uniform v n).length = n := by
+theorem length_uniform {α} (v: α) n: (uniform v n).length = n := by
   induction n <;> simp [uniform]; assumption
 
 -- rangeF

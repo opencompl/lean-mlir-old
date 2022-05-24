@@ -7,7 +7,6 @@
 import MLIR.AST
 open MLIR.AST
 
-
 /- === Generic verification without changing types ===
 
    One of the simpler ways to carry the result of verification, without
@@ -24,13 +23,11 @@ open MLIR.AST
    Then a function that has H as parameter can run [Verifier.get H] to access
    the data. -/
 
-universe u
+def Verifier {α σ ε} (δ: Dialect α σ ε) (R: Type u): Type _ := Op δ → Option R
 
-def Verifier (α: Type u): Type _ := Op → Option α
+def Verifier.ok {R} (v: Verifier δ R) (o: Op δ): Bool := Option.isSome (v o)
 
-def Verifier.ok {α} (v: Verifier α) (o: Op) := Option.isSome (v o)
-
-def Verifier.get {α} {v: Verifier α} {o: Op}: Verifier.ok v o → α :=
+def Verifier.get {R} {v: Verifier δ R} {o: Op δ}: Verifier.ok v o → R :=
   λ (H: Option.isSome (v o)) =>
     match v o, H with
     | some val, _ => val
@@ -57,20 +54,20 @@ instance {α} (o: Option α): Decidable (Option.isSome o) :=
 
    The number of arguments can also be specified at the same time. -/
 
-private def zip_args_types (args: List SSAVal) (ty: MLIRTy) :=
+private def zip_args_types {α σ ε} {δ: Dialect α σ ε} (args: List SSAVal) (ty: MLIRType δ) :=
   match args, ty with
-  | [], MLIRTy.tuple [] =>
+  | [], MLIRType.tuple [] =>
       some []
-  | a::args, MLIRTy.tuple (t::tys) =>
-      Option.map ((a,t) :: .) (zip_args_types args (MLIRTy.tuple tys))
+  | a::args, MLIRType.tuple (t::tys) =>
+      Option.map ((a,t) :: .) (zip_args_types args (MLIRType.tuple tys))
   | [a], t =>
       some [(a,t)]
   | _, _ =>
       none
 
 -- This is the verifier function
-def vArgTypeArity: Verifier (List (SSAVal × MLIRTy)) :=
-  λ op =>
+def vArgTypeArity: Verifier δ (List (SSAVal × MLIRType δ)) :=
+  fun (op: Op δ) =>
     match op with
-    | Op.mk _ args _ _ _ (MLIRTy.fn ty _) => zip_args_types args ty
+    | Op.mk _ args _ _ _ (MLIRType.fn ty _) => zip_args_types args ty
     | _ => none

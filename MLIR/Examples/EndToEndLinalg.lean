@@ -30,7 +30,7 @@ def matmul_linalg := [mlir_op|
 -- | create a rewrite which rewrite %x + %x^T = 0 for known pattern.
 -- | This shows compositionality of our rewrite system.
 -- | we declare ops %x, %y as variable bindings.
--- def rewrite_antisym_sum (x: Pattern) := 
+-- def rewrite_antisym_sum (x: Pattern) :=
 -- [rewrite| %x %y | [ein| x_ij + y_ij] -> [mlir_op| std.constant 0]]
 
 -- | rewrite A^2 = A for known pattern A

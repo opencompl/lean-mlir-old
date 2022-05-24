@@ -20,33 +20,33 @@ inductive InteractM (α: Type _)
 | error: (val: α) -> (err: String) -> InteractM α
 
 
-inductive OpValid: OpVerifier -> Op -> Prop where
-| MinArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length >= n),
+inductive OpValid: OpVerifier -> Op builtin -> Prop where
+| MinArgs: ∀ (o: Op builtin) (n: Nat) (PRF: (Op.args o).length >= n),
     OpValid (OpVerifier.MinArgs n) o
-| MaxArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length <= n),
+| MaxArgs: ∀ (o: Op builtin) (n: Nat) (PRF: (Op.args o).length <= n),
     OpValid (OpVerifier.MaxArgs n) o
-| ExactArgs: ∀ (o: Op) (n: Nat) (PRF: (Op.args o).length = n),
+| ExactArgs: ∀ (o: Op builtin) (n: Nat) (PRF: (Op.args o).length = n),
     OpValid (OpVerifier.ExactArgs n) o
 -- | And: ∀ (op: Op) (l: OpVerifier) (r: OpVerifier)
 --     (PRFL: OpValid l op) (PRFR: OpValid r op), OpValid (OpVerifier.And l r) op
 -- | MinRegions: ∀ (o: Op) (n: Nat) (PRF: (Op.regions o).length >= n),
 --    OpValid (OpVerifier.MinRegions n) o
-| True: ∀ (o: Op), OpValid OpVerifier.T o
+| True: ∀ (o: Op builtin), OpValid OpVerifier.T o
 
 
 @[simp, reducible]
-def OpVerifier.run (v: OpVerifier) (o: Op): InteractM Op :=
+def OpVerifier.run (v: OpVerifier) (o: Op builtin): InteractM (Op builtin) :=
 match v with
 | OpVerifier.T => InteractM.ok o
-| OpVerifier.MinArgs n => 
+| OpVerifier.MinArgs n =>
   if (Op.args o).length >= n
   then InteractM.ok  o
   else InteractM.error o ("expected >= " ++ toString n ++ "args")
-| OpVerifier.MaxArgs n => 
+| OpVerifier.MaxArgs n =>
    if (Op.args o).length <= n
    then InteractM.ok o
-   else InteractM.error o ("expected <=" ++ toString n ++ "args") 
-| OpVerifier.ExactArgs n => 
+   else InteractM.error o ("expected <=" ++ toString n ++ "args")
+| OpVerifier.ExactArgs n =>
    if (Op.args o).length = n
    then InteractM.ok o
    else InteractM.error o ("expected ==" ++ toString n ++ "args")
@@ -106,13 +106,13 @@ theorem OpValid_implies_opValid:
 -/
 
 theorem opValid_implies_OpValid:
-  ∀ (o : Op) (v: OpVerifier), (v.run o = InteractM.ok o) → OpValid v o :=  sorry
+  ∀ (o : Op builtin) (v: OpVerifier), (v.run o = InteractM.ok o) → OpValid v o :=  sorry
 
 theorem OpValid_implies_opValid:
-  ∀ (o : Op) (v: OpVerifier), OpValid v o → (v.run o = InteractM.ok o) :=  sorry
+  ∀ (o : Op builtin) (v: OpVerifier), OpValid v o → (v.run o = InteractM.ok o) :=  sorry
 
-theorem reflect_OpValid_opValid (o : Op) (v: OpVerifier) :
-  OpValid v o ↔ (v.run o = InteractM.ok o) := 
+theorem reflect_OpValid_opValid (o : Op builtin) (v: OpVerifier) :
+  OpValid v o ↔ (v.run o = InteractM.ok o) :=
    ⟨OpValid_implies_opValid o v, opValid_implies_OpValid o v⟩
 
 
@@ -124,16 +124,16 @@ class DialectOps (Ops : Type) where
 
 
 
--- def Region.recursivelyVerify (r: Region) (DO: Type) [Coe DO String] [DialectOps DO]: Bool := 
+-- def Region.recursivelyVerify (r: Region) (DO: Type) [Coe DO String] [DialectOps DO]: Bool :=
 
 
 -- def Op.recursivelyVerify (op: Op) (DO: Type) [Coe DO String] [DialectOps DO]: Bool :=
---   let opKinds : List DO := DialectOps.enumerate 
+--   let opKinds : List DO := DialectOps.enumerate
 --   let valid := match opKinds.find? (fun k => coe k == op.name) with
 --                | some k =>  (DialectOps.verifier k).run op
 --                | none => true
 --   op.regions.all (fun r => r.recursivelyVerify DO)
--- 
+--
 -- end
 
 -- | proof carrying typed operations
@@ -141,8 +141,8 @@ structure OpT (Ops: Type _) [Coe Ops String] [DialectOps Ops]: Type _ where
     (kind: Ops)
     (args: List SSAVal)
     (bbs: List BBName)
-    (regions: List Region) 
-    (attrs: AttrDict)
+    (regions: List (Region builtin))
+    (attrs: (AttrDict builtin))
     (ty: MLIRTy)
     (VALID: OpValid (DialectOps.verifier kind) (Op.mk kind args bbs regions attrs ty))
 
@@ -168,16 +168,16 @@ instance : DialectOps DiffOps where
 
 
 -- | diff operation, with num. args checked.
-def varOpTRaw : InteractM Op :=
+def varOpTRaw : InteractM (Op builtin) :=
     (DialectOps.verifier DiffOps.var).run [mlir_op| "var"(%x) : i32]
 -- #reduce varOpTRaw
- 
 
- syntax ident "(" mlir_op_operand,* ")" 
+
+ syntax ident "(" mlir_op_operand,* ")"
   ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  ("{" mlir_attr_entry,* "}")? ":" mlir_type : mlir_op
 
-macro_rules 
-  | `([mlir_op| $x:ident 
+macro_rules
+  | `([mlir_op| $x:ident
         ( $operands,* )
         $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
@@ -187,11 +187,11 @@ macro_rules
         let succList <- match succ with
                 | none => `([])
                 | some xs => xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_successor_arg| $x] ])
-        let attrsList <- match attrs with 
-                          | none => `([]) 
+        let attrsList <- match attrs with
+                          | none => `([])
                           | some attrs => attrs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_entry| $x]])
-        let rgnsList <- match rgns with 
-                          | none => `([]) 
+        let rgnsList <- match rgns with
+                          | none => `([])
                           | some rgns => rgns.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_region| $x]])
         `({ kind := $x -- name
             , args := $operandsList -- operands
@@ -201,7 +201,7 @@ macro_rules
             , ty := [mlir_type| $ty]
             , VALID := opValid_implies_OpValid _ _ rfl })
 
-def varOpTPretty : OpT DiffOps := 
+def varOpTPretty : OpT DiffOps :=
   [mlir_op| DiffOps.var () : i32]
 #check varOpTPretty
 
@@ -213,31 +213,31 @@ inductive RewriterT (Ops: Type) where
 | result: (op: SSAVal) -> (ix: Nat) -> (SSAVal -> RewriterT  Ops) -> RewriterT Ops
 | operand:  (SSAVal -> RewriterT Ops) -> RewriterT Ops -- fresh operand
 | rewrite: RewriterT Ops -> RewriterT Ops -- begin a rewrite block
-| replace: (old: SSAVal) -> (new: SSAVal) 
+| replace: (old: SSAVal) -> (new: SSAVal)
    -> RewriterT Ops -> RewriterT Ops
-| done: RewriterT Ops 
+| done: RewriterT Ops
 
 
 
 -- | d(x, add(p, q)) = add(d(x, p), d(x, q))
-def DiffOpsPushAddRewriter: RewriterT DiffOps  := 
-  RewriterT.op DiffOps.var [] $ λ x => 
-  RewriterT.op DiffOps.var [] $ λ p => 
-  RewriterT.op DiffOps.var [] $ λ q => 
+def DiffOpsPushAddRewriter: RewriterT DiffOps  :=
+  RewriterT.op DiffOps.var [] $ λ x =>
+  RewriterT.op DiffOps.var [] $ λ p =>
+  RewriterT.op DiffOps.var [] $ λ q =>
   RewriterT.op DiffOps.add [p, q] $ λ add =>
   RewriterT.op DiffOps.d [x, add] $ λ diff =>
-  RewriterT.rewrite $ 
+  RewriterT.rewrite $
   RewriterT.op DiffOps.d [x, p] $ λ dxp =>
   RewriterT.op DiffOps.d [x, q] $ λ dxq =>
-  RewriterT.op DiffOps.add [dxp, dxq] $ λ add' => 
+  RewriterT.op DiffOps.add [dxp, dxq] $ λ add' =>
   RewriterT.replace add add' $
   RewriterT.done
-  
+
 
 -- | pattern match on the left
 -- | TODO: is there some convenient way to avoid the final id lens?
-def lensPushAddLHS : List (OpLens (ULift SSAVal)) := 
-  [OpLens.arg 0 (ValLens.id), 
+def lensPushAddLHS : List (OpLens builtin SSAVal) :=
+  [OpLens.arg 0 (ValLens.id),
    OpLens.arg 1 (ValLens.op "add" (OpLens.arg 0 ValLens.id)),
    OpLens.arg 1 (ValLens.op "add" (OpLens.arg 1 ValLens.id))]
 
@@ -250,7 +250,7 @@ inductive Proxy {t: Type} (v: t) where
 | proxy: Proxy v
 
   --  (RewriterT Ops Verifier) -> Type where
-| op: (ty: Ops) -> (args: List SSAVal) -> 
+| op: (ty: Ops) -> (args: List SSAVal) ->
       (rest: @Proxy (RewriterT Ops) (RewriterT.op ty args (fun _ => RewriterT.done))
              -> SSAVal
              -> RewriterTBuilderProxy Ops Verifier)
@@ -276,7 +276,7 @@ inductive RewriterTBuilderIndexed (Ops: Type) (Verifier: Ops -> OpVerifier):
       -> (args: List SSAVal)
       -> (rest: SSAVal -> RewriterTBuilderIndexed
       -> RewriterTBuilderIndexed Ops Verifier RewriterT.done
-               
+
  -- | using framework
 def DiffOpsPushAddIndexed: Σ r, RewriterTBuilderIndexed DiffOps DiffVerifier r  := by {
   apply RewriterTBuilderIndexed.op DiffOps.add [];
@@ -286,7 +286,7 @@ def DiffOpsPushAddIndexed: Σ r, RewriterTBuilderIndexed DiffOps DiffVerifier r 
   sorry;
 }
 -/
-                                 
+
 def main_end_to_end_diff: IO Unit := do
   IO.eprintln "DIFF TEST\n=======\n"
   -- IO.eprintln matmul_ein

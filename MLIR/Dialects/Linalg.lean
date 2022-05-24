@@ -17,14 +17,14 @@ open Std
 --   affine_map<(m, n, k) -> (k, n)>,
 --   affine_map<(m, n, k) -> (m, n)>
 -- ]
--- 
+--
 -- #matmul_trait = {
 --   doc = "C(m, n) += A(m, k) * B(k, n)",
 --   indexing_maps = #matmul_accesses,
 --   library_call = "linalg_matmul",
 --   iterator_types = ["parallel", "parallel", "reduction"]
 -- }
--- 
+--
 -- func @main(%A:memref<?x?xf32>, %B: memref<?x?xf32>, %C:memref<?x?xf32>) {
 --   linalg.generic #matmul_trait
 --     ins(%A, %B : memref<?x?xf32>,
@@ -52,9 +52,9 @@ open Std
 --       %0 = "std.mulf"(%arg3, %arg4) : (f32, f32) -> f32
 --       %1 = "std.addf"(%arg5, %0) : (f32, f32) -> f32
 --       "linalg.yield"(%1) : (f32) -> ()
---     }) {  doc = "C(m, n) += A(m, k) * B(k, n)", 
+--     }) {  doc = "C(m, n) += A(m, k) * B(k, n)",
 --           indexing_maps = [#map0, #map1, #map2],
---           iterator_types = ["parallel", "parallel", "reduction"], 
+--           iterator_types = ["parallel", "parallel", "reduction"],
 --           library_call = "linalg_matmul", operand_segment_sizes = dense<[2, 1]> : vector<2xi32>
 --        } : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
 --     "std.return"() : () -> ()
@@ -64,7 +64,7 @@ open Std
 
 
 namespace affine_syntax
- 
+
 
 end affine_syntax
 
@@ -79,12 +79,12 @@ macro_rules
     `([mlir_op| "linalg.yield" ($arg) : ($ty) -> ()])
 
 -- https://mlir.llvm.org/docs/Dialects/Linalg/#linalggeneric-mlirlinalggenericop
-declare_syntax_cat linalg_arglist 
+declare_syntax_cat linalg_arglist
 -- declare_syntax_cat linalg_arglist_ops
 -- declare_syntax_cat linalg_arglist_tys
 -- syntax mlir_op_operand : linalg_arglist_ops
 -- syntax mlir_op_type : linalg_arglist_tys
-syntax  "(" sepBy(mlir_op_operand, ",") ":" 
+syntax  "(" sepBy(mlir_op_operand, ",") ":"
   sepBy(mlir_op_operand, ",") ")"  : linalg_arglist
 
 -- | TODO: create an MLIR trait attribute in parser
@@ -102,25 +102,25 @@ macro_rules
    let initList <- `([])
    let argsList <- (invs.getElems ++ outvs.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
    let tysList <- (intys.getElems ++ outtys.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_type| $x]])
-   `(Op.mk "linalg_generic" 
-        $argsList 
+   `(Op.mk "linalg_generic"
+        $argsList
         []
         [[mlir_region| $rgn]]
-        [mlir_attr_dict| $attrs] (MLIRTy.fn (MLIRTy.tuple $tysList) (MLIRTy.tuple [])))
-    
+        [mlir_attr_dict| $attrs] (MLIRType.fn (MLIRType.tuple $tysList) (MLIRType.tuple [])))
+
 
 
 #check [affine_map| affine_map<(x, y, z) -> (x, y)>]
 
 
 def linalgGeneric0 :=  [mlir_op|
-   linalg.generic { 
+   linalg.generic {
        indexing_maps = [ affine_map<(m, n, k) -> (m, k)>,
          affine_map<(m, n, k) -> (k, n)>,
          affine_map<(m, n, k) -> (m, n)>
-      ],                   
+      ],
       library_call = "linalg_matmul",
-      iterator_types = ["parallel", "parallel", "reduction"] 
+      iterator_types = ["parallel", "parallel", "reduction"]
    } ins(%A, %B : ) outs (%C :) {
      ^entry(%a: i32, %b: i32, %c: i32) :
        %d = mulf %a, %b: f32
@@ -153,26 +153,26 @@ syntax ident : ein_leaf
 syntax ein_leaf "^"  ident : ein_leaf
 syntax "[ein_leaf|" ein_leaf "]" : term
 
-macro_rules 
-| `([ein_leaf| $xraw:ident ]) => do 
+macro_rules
+| `([ein_leaf| $xraw:ident ]) => do
   let xstr := xraw.getId.toString
   let splits := xstr.split $ fun c => c == '_'
-  match splits with 
-  | x::xs => do 
+  match splits with
+  | x::xs => do
     let fst <- `(EinLeaf.Sym $(Lean.quote x))
     xs.foldlM (fun e ix => `(EinLeaf.Lower $e $(Lean.quote ix))) fst
   | _ => `(EinLeaf.Sym "will never reach ein_leaf")
 
 
 macro_rules
-| `([ein_leaf| $x:ein_leaf ^ $ixsraw:ident]) => do 
+| `([ein_leaf| $x:ein_leaf ^ $ixsraw:ident]) => do
   let splits := ixsraw.getId.toString.split $ fun c => c == '_'
-  match splits with 
+  match splits with
   | ix::ixs => do
       let fst <- `(EinLeaf.Upper [ein_leaf| $x] $(Lean.quote ix))
       ixs.foldlM (fun e ixcur => `(EinLeaf.Lower $e $(Lean.quote ixcur))) fst
   | _ => `(Ein.Sym "will never reach ein_leaf")
-  
+
 def leaf0 : EinLeaf := [ein_leaf| x]
 #print leaf0
 
@@ -188,14 +188,14 @@ def leafdd : EinLeaf := [ein_leaf| x_i_j ]
 
 def leafdu : EinLeaf := [ein_leaf| x_i^j ]
 #print leafdu
--- 
+--
 def leafud : EinLeaf := [ein_leaf| x^i_j ]
 #print leafud
--- 
+--
 def leafuu : EinLeaf := [ein_leaf| x^j^k ]
 #print leafuu
 
--- 
+--
 declare_syntax_cat ein_factor
 syntax ein_leaf : ein_factor
 syntax ein_factor ein_leaf : ein_factor -- multiplication by juxtaposition
@@ -203,9 +203,9 @@ syntax "[ein_factor|" ein_factor "]"  : term
 
 macro_rules
 | `([ein_factor| $x:ein_leaf ]) => `([ein_leaf| $x])
-| `([ein_factor| $x:ein_leaf $y:ein_leaf]) => 
+| `([ein_factor| $x:ein_leaf $y:ein_leaf]) =>
   `(EinFactor.Mul [ein_leaf| $x]  [ein_leaf| $y])
-  
+
 def facu := [ein_factor| x^k]
 #print facu
 
@@ -223,10 +223,10 @@ def facud := [ein_factor| x^j x_j]
 -- | `([ein_leaf| ( $x:ein_term) ]) => `([ein| $x ])
 
 -- def tbrack1 : Ein := [ein| (x + y)_j^k ]
--- #print tbrack1 
--- 
+-- #print tbrack1
+--
 -- def tbrack2 : Ein := [ein| (x_j + y_j)^k_l ]
--- #print tbrack2 
+-- #print tbrack2
 
 
 -- | this is really only defined for factors.
@@ -237,25 +237,25 @@ match e with
 | EinLeaf.Lower e ix => get_ixs_inorder e ++ [ix]
 
 -- | get lower and upper indexes of einstein summation term.
-def EinLeaf.get_low_up_ixs(e: EinLeaf): List String × List String := 
+def EinLeaf.get_low_up_ixs(e: EinLeaf): List String × List String :=
   match e with
   | EinLeaf.Sym _ => ([], [])
-  | EinLeaf.Upper e ix => 
-      let (low, up) := get_low_up_ixs e 
+  | EinLeaf.Upper e ix =>
+      let (low, up) := get_low_up_ixs e
       (low, ix::up)
-  | EinLeaf.Lower e ix => 
-      let (low, up) := get_low_up_ixs e 
+  | EinLeaf.Lower e ix =>
+      let (low, up) := get_low_up_ixs e
       (ix::low, up)
 
 def EinFactor.get_low_up_ixs(e: EinFactor): List String × List String :=
 match e with
-| EinFactor.Mul x y => 
+| EinFactor.Mul x y =>
     let (l, u) := EinLeaf.get_low_up_ixs x
     let (l', u') := EinLeaf.get_low_up_ixs y
     (l ++ l', u ++ u')
 
 
-def EinLeaf.get_sym (e: EinLeaf): String := 
+def EinLeaf.get_sym (e: EinLeaf): String :=
 match e with
 | EinLeaf.Sym s => s
 | EinLeaf.Upper e _ => get_sym e
@@ -272,22 +272,22 @@ def EinFactor.left (e: EinFactor): EinLeaf :=
 
 
 -- | safe way to construct iterator types.
-    inductive iterator_types := 
+    inductive iterator_types :=
     | parallel | reduction
 
     macro_rules
-    | `([mlir_attr_val| iterator_types.parallel]) => `(AttrVal.str "parallel")
-    | `([mlir_attr_val| iterator_types.reduction]) => `(AttrVal.str "reduction")
-      
+    | `([mlir_attr_val| iterator_types.parallel]) => `(AttrValue.str "parallel")
+    | `([mlir_attr_val| iterator_types.reduction]) => `(AttrValue.str "reduction")
 
-partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op := 
+
+partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op builtin :=
   let (ls, us) := EinFactor.get_low_up_ixs e
   -- | partition indexes into repeated and unrepeated indexes.
   -- | generate loop for each repeated index.
   -- | generate array indexing for each unrepated index.
   let (repeated, _):= List.partition (fun ix => us.contains ix) ls
   let repeated := List.eraseDups  repeated
-  
+
   let iteration_vars := ls ++ us
   let iteration_vars := List.eraseDups iteration_vars
 
@@ -305,31 +305,31 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op :=
       linalg.yield %out : f32
   }]
 
-  let indexing_maps := 
-    AttrVal.list [
-                   AttrVal.affine (AffineMap.mk input_tuple leaf0_tuple)
-                 , AttrVal.affine (AffineMap.mk input_tuple leaf1_tuple)
-                 , AttrVal.affine (AffineMap.mk input_tuple output_tuple)]
-  let attrdict := [mlir_attr_dict| { 
+  let indexing_maps :=
+    AttrValue.list [
+                   AttrValue.affine (AffineMap.mk input_tuple leaf0_tuple)
+                 , AttrValue.affine (AffineMap.mk input_tuple leaf1_tuple)
+                 , AttrValue.affine (AffineMap.mk input_tuple output_tuple)]
+  let attrdict := [mlir_attr_dict| {
       indexing_maps = $(indexing_maps),
       library_call = "linalg_matmul",
       iterator_types = [iterator_types.parallel,
                         iterator_types.parallel,
-                        iterator_types.reduction] 
+                        iterator_types.reduction]
       }] -- input iter1 , input access 2, output access
 
   let leaf0_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.left e)
   let leaf1_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.right e)
-  (Op.mk "linalg_generic" [leaf0_arg, leaf1_arg, out] [] [rgn] attrdict (MLIRTy.int 31))
-  
+  (Op.mk "linalg_generic" [leaf0_arg, leaf1_arg, out] [] [rgn] attrdict (MLIRType.int 31))
+
 
 syntax ein_factor "(" mlir_op_operand ")" : mlir_op
 
 macro_rules
 | `([mlir_op|   $e:ein_factor ( $rand:mlir_op_operand  ) ]) => `(EinFactor.codegen [ein_factor| $e]  [mlir_op_operand| $rand ])
 
-def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({ 
-   ^entry: 
+def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({
+   ^entry:
       x_i x^ik (%y)
 --      -- | use einstein summation convention inside
 --      -- the `[mlir_op|` DSL as we build a `scf.while` op:
@@ -386,7 +386,7 @@ def einAsMlirOp0 := [mlir_op| "scf.while" (%x) ({
 --                        ...,
 --                        x[N-1] * strides[N-1] + dilation_rate[N-1] * z[N-1],
 --                        q]
--- 
+--
 
 -- mlir/include/mlir/Dialect/Linalg/IR/LinalgNamedStructuredOps.yaml
 -- matvec, vecmat, matmul, batch_matmul

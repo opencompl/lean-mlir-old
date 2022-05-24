@@ -10,9 +10,9 @@ This operation can reshape (retype) tensors with fully-known dimensions,
 provided that the number of elements doesn't change.
 -/
 
-def reshape {α} {D: DimList} (D': DimList)
+def reshape {τ} {D: DimList} (D': DimList)
     (H: D.known) (H': D'.known) (Hprod: D'.prod = D.prod):
-    RankedTensor α D → RankedTensor α D' :=
+    RankedTensor D τ → RankedTensor D' τ :=
   fun t =>
     { shape       := D'.project,
       data        := t.data
@@ -21,15 +21,15 @@ def reshape {α} {D: DimList} (D': DimList)
                         rw [dim_known_prod_refines H]
                         apply t.h_refines }
 
-theorem reshape_reshape {α} {D: DimList} (D₁ D₂: DimList)
+theorem reshape_reshape {τ} {D: DimList} (D₁ D₂: DimList)
     (H: D.known) (H₁: D₁.known) (H₂: D₂.known)
     (Hprod₁: D₁.prod = D.prod) (Hprod₂: D₂.prod = D₁.prod)
-    (t: RankedTensor α D):
+    (t: RankedTensor D τ):
       reshape D₂ H₁ H₂ Hprod₂ (reshape D₁ H H₁ Hprod₁ t) =
       reshape D₂ H H₂ (Eq.trans Hprod₂ Hprod₁) t :=
   rfl
 
-theorem reshape_self {α} D H₁ H₂ Hprod (t: RankedTensor α D):
+theorem reshape_self {τ} D H₁ H₂ Hprod (t: RankedTensor D τ):
     reshape D H₁ H₂ Hprod t = t := by
   simp [reshape, dim_known_project_eq H₁ t.h_refines]
 
@@ -57,10 +57,10 @@ theorem transpose_remap_involutive (n m):
   sorry /- = (i/n)*n + i%n -/
 
 @[inline]
-def Matrix α n m :=
-  RankedTensor α [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m]
+def Matrix n m τ :=
+  RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
 
-def transpose {α n m} (t: Matrix α n m): Matrix α m n :=
+def transpose (t: Matrix n m τ): Matrix m n τ :=
   { shape := [m, n],
     data := List.remap t.data (transpose_remap n m)
         (by intro i h

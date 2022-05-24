@@ -9,202 +9,208 @@ open MLIR.P
 
 
 namespace MLIR.MLIRParser
+
+-- We can parse any dialect at least as large as builtin
+section
+variable {α σ ε} [δ: Dialect α σ ε] [CoeDialect builtin δ]
+
 -- | ^ <name>
-def pbbname : P.{u} (ULift BBName) := do
+def pbbname : P BBName := do
   pconsume '^'
   let name <- pident
-   return ULift.up (BBName.mk name.down)
+   return (BBName.mk name)
 
 -- | % <name>
-partial def pssaval : P.{u} (ULift SSAVal) := do
+partial def pssaval : P SSAVal := do
   eat_whitespace
   pconsume '%'
   let name <- pident
-  return ULift.up $ SSAVal.SSAVal name.down
+  return (SSAVal.SSAVal name)
 
 
 mutual
 
 -- | mh, needs to be mutual. Let's see if LEAN lets me do this.
-partial def pregion (u: Unit) : P.{u+1} Region := do
+partial def pregion (u: Unit) : P (Region δ) :=  do
   pconsume '{'
   -- HACK: entry block need not print block header. See: examples/region-with-no-args.mlir
-  let b <- (if (<- ppeek? '^').down
-           then pblock u 
+  let b <- (if (<- ppeek? '^')
+           then pblock u
            else pentryblock_no_label u)
 
-  let bs <- (if (<- ppeek? '^').down
+  let bs <- (if (<- ppeek? '^')
             then pmany1 (pblock u)
             else ppure [])
   pconsume '}'
   return (Region.mk (b::bs))
 
 
-partial def pdim : P.{u+1} (ULift Dimension) := do
-  if (<- ppeek? '?').down
-  then return ULift.up Dimension.Unknown
-  else do 
+partial def pdim : P Dimension := do
+  if (<- ppeek? '?')
+  then return Dimension.Unknown
+  else do
     let sz <- pnat
-    return ULift.up $ Dimension.Known sz.down
+    return Dimension.Known sz
 
-partial def ptype_vector : P.{u+1} MLIRTy := do
+partial def ptype_vector : P (MLIRType builtin) := do
   pident? "vector"
   pconsume '<'
-  let sz <- pnumber
+  let sz <- pnat
   pconsume 'x'
   let ty <- ptype ()
   pconsume '>'
-  return MLIRTy.vector [sz.down] [] ty
+  return builtin.vector [sz] [] ty
 
--- !<ident>.<ident>  
-partial def puser (u: Unit): P.{u+1} MLIRTy := do
+-- !<ident>.<ident>
+partial def puser (u: Unit): P MLIRTy := do
     pconsume '!'
     let dialect <- pident
     pconsume '.'
     let ty <- pident
-    let name := dialect.down ++ "." ++ ty.down
-    return MLIRTy.undefined name
+    return MLIRType.undefined (dialect ++ "." ++ ty)
 
-partial def ptype (u: Unit) : P.{u+1} MLIRTy := do
+partial def ptype (u: Unit) : P MLIRTy := do
   eat_whitespace
   let dom <- (match (<- ppeek) with
-             | some (ULift.up '(') => do
+             | some '(' => do
                 let args <- pintercalated '(' (ptype u) ',' ')'
-                return MLIRTy.tuple args
-             | some (ULift.up 'i') => do
+                return MLIRType.tuple args
+             | some 'i' => do
                  pconsume 'i'
                  let num <- pnumber
-                 return MLIRTy.int num.down
-             | some (ULift.up '!') => do
+                 return MLIRType.int num
+             | some '!' => do
                   puser ()
              | other => do
                 perror ("uknown type starting with |" ++ toString other ++ "|."))
   eat_whitespace
-  match (<- ppeek? '-').down  with
+  match (<- ppeek? '-')  with
   | true => do
         pconsume '-'
         pconsume '>' -- consume arrow
         let codom <- (ptype u)
-        return MLIRTy.fn dom codom
+        return MLIRType.fn dom codom
   | false => do
      return dom
 
-partial def pblockoperand : P.{u+1} (SSAVal × MLIRTy) := do
+partial def pblockoperand : P (SSAVal × MLIRTy) := do
   eat_whitespace
   let operand <- pssaval
   pconsume ':'
   let ty <- (ptype ())
-  return (operand.down, ty)
+  return (operand, ty)
 
 
 -- | either a string, or a type. Can be others.
 
-partial def pattrvalue_int : P.{u+1} AttrVal := do
+partial def pattrvalue_int : P AttrVal := do
   let num <- pnumber
   pconsume ':'
   let ty <- ptype ()
-  return AttrVal.int num.down ty
+  return AttrValue.int num ty
 
-partial def ptensorelem (u: Unit): P.{u+1} (ULift TensorElem) := do
-  if (<- ppeek? '[').down then
+partial def ptensorelem (u: Unit): P TensorElem := do
+  if (<- ppeek? '[') then
     let ts <- pintercalated '[' (ptensorelem ()) ','  ']'
-    return ULift.up $ TensorElem.nested (ts.map (·.down))
-  else 
+    return TensorElem.nested ts
+  else
     let n <- pnumber
-    return ULift.up $ TensorElem.int n.down
+    return TensorElem.int n
 
-partial def pattrvalue_dense (u: Unit): P.{u+1} AttrVal := do
+partial def pattrvalue_dense (u: Unit): P (AttrValue δ) := do
   pident? "dense"
   pconsume '<'
   let v <- ptensorelem ()
   pconsume '>'
   pconsume ':'
   let ty <- ptype_vector
-  return AttrVal.dense v.down ty
+  return builtin.denseWithType v ty
 
 
-partial def pattrvalue_list (u: Unit): P.{u+1} AttrVal := do
+partial def pattrvalue_list (u: Unit): P (AttrValue δ) := do
   let ts <- pintercalated '[' (pattrvalue ()) ','  ']'
-  return AttrVal.list ts
+  return AttrValue.list ts
 
-partial def pattrvalue (u: Unit): P.{u+1} AttrVal := do
+partial def pattrvalue (u: Unit): P (AttrValue δ) := do
  pnote "hunting for attribute value"
- por pattrvalue_int $ 
- por (pmap AttrVal.str (ULift.down <$> pstr)) $
- por (pmap AttrVal.type (ptype ())) $
+ por pattrvalue_int $
+ por (pmap AttrValue.str pstr) $
+ por (pmap AttrValue.type (ptype ())) $
  por (pattrvalue_list ()) $
  (pattrvalue_dense ())
 
-partial def pattr : P.{u+1} AttrEntry := do
+partial def pattr : P (AttrEntry δ) := do
   eat_whitespace
   let name <- pident
   eat_whitespace
   pconsume '='
   let value <- pattrvalue ()
-  return (AttrEntry.mk name.down value)
+  return (AttrEntry.mk name value)
 
-  
 
-partial def pop (u: Unit) : P.{u+1} Op := do
+
+partial def pop (u: Unit) : P (Op δ) := do
   eat_whitespace
-  match (<- ppeek) with 
-  | some (ULift.up '\"') => do
+  match (<- ppeek) with
+  | some '\"' => do
     let name <- pstr
     let args <- pintercalated '(' pssaval ',' ')'
-    let bbs <- (if (<- ppeek? '[' ).down
+    let bbs <- (if (<- ppeek? '[' )
                 then pintercalated '[' pbbname ','  ']'
                 else return [])
     let hasRegion <- ppeek? '('
-    let regions <- (if hasRegion.down
+    let regions <- (if hasRegion
                       then pintercalated '(' (pregion ()) ',' ')'
                       else pure [])
     -- | parse attributes
     let hasAttrs <- ppeek? '{'
-    let attrs <- (if hasAttrs.down
-              then  pintercalated '{' pattr ',' '}' 
+    let attrs <- (if hasAttrs
+              then  pintercalated '{' pattr ',' '}'
               else pure [])
     pconsume ':'
     let ty <- ptype u
-    return (Op.mk  name.down (args.map (·.down)) (bbs.map (·.down)) regions attrs ty)
-  | some (ULift.up '%') => perror "found %, don't know how to parse ops yet"
+    return (Op.mk  name args bbs regions attrs ty)
+  | some '%' => perror "found %, don't know how to parse ops yet"
   | other => perror ("expected '\"' or '%' to begin operation definition. found: " ++ toString other)
 
-partial def popcall (u: Unit) : P.{u+1} BasicBlockStmt := do
-   let x := (← pssaval)
+
+partial def popcall (u: Unit) : P (BasicBlockStmt δ) := do
    eat_whitespace
-   if (<- ppeek? '%').down
+   if (<- ppeek? '%')
    then do
      let val <- pssaval
      pconsume '='
      let op <- pop u
      let index := none -- for syntax %val:ix = ...
-     return (BasicBlockStmt.StmtAssign val.down index op)
+     return (BasicBlockStmt.StmtAssign val index op)
    else do
      let op <- pop u
      return (BasicBlockStmt.StmtOp op)
 
 -- | parse a sequence of ops, with no label
-partial def pentryblock_no_label (u: Unit) : P.{u+1} BasicBlock := do
+partial def pentryblock_no_label (u: Unit) : P (BasicBlock δ) := do
    let ops <- pmany1 (popcall u)
    pnote $ "pentry ops: " ++ List.toString ops
    return (BasicBlock.mk "entry" [] ops)
 
 
-   
-partial def pblock (u: Unit) : P.{u+1} BasicBlock := do
+
+partial def pblock (u: Unit) : P (BasicBlock δ) := do
    pconsume '^'
    let name <- pident
-   let args <-  (if (<- ppeek? '(').down
+   let args <-  (if (<- ppeek? '(')
                 then pintercalated '(' pblockoperand ',' ')'
                 else return [])
    pconsume ':'
    let ops <- pmany1 (popcall u)
    -- pnote $ "pblock ops: " ++ List.toString ops
-   return (BasicBlock.mk name.down args ops)
+   return (BasicBlock.mk name args ops)
 
 end   -- end the mutual block
 
-theorem parse_of_print_id: 
-  ∀ (o: Op), ((pop ()).runP locbegin [] (Pretty.doc o)).snd.snd.snd = Result.ok o := sorry
+theorem parse_of_print_id:
+  ∀ (o: Op δ), ((pop ()).runP locbegin [] (Pretty.doc o)).snd.snd.snd = Result.ok o := sorry
+
+end   -- end of the section defining δ
 
 end MLIR.MLIRParser

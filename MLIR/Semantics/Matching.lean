@@ -10,6 +10,7 @@ TODO: Provide the matcher
 -/
 
 import MLIR.Semantics.Types
+import MLIR.Dialects.BuiltinModel
 import MLIR.AST
 open MLIR.AST
 
@@ -37,13 +38,13 @@ inductive MValue :=
   -- A value variable
   | ValueVar (priority: Nat := 0) (name: String)
   -- A constant value
-  | ValueConst (τ: MLIRTy) (const: τ.eval)
+  | ValueConst (τ: MLIRType builtin) (const: τ.eval)
 
 inductive MType :=
   -- A type variable
   | TypeVar (priority: Nat := 0) (name: String)
   -- A constant type
-  | TypeConst (τ: MLIRTy)
+  | TypeConst (τ: MLIRType builtin)
 
 inductive MOp :=
   -- An operation with a known mnemonic. The first list of pairs is arguments

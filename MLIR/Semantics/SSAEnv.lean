@@ -3,7 +3,7 @@
 
 This file implements the SSA environment which maps variables names from
 different scopes to explicitly-typed values. It is, conceptually, a map
-`SSAVal → (α: MLIRTy) × α` for each scope.
+`SSAVal → (α: MLIRType δ) × α` for each scope.
 
 The main concern with such state is the definition, maintainance and use of the
 property that the values are defined only once, allowing us to study sections
@@ -31,14 +31,17 @@ import MLIR.Semantics.Types
 import MLIR.AST
 open MLIR.AST
 
+section
+variable {α σ: Type} {ε: σ → Type}
 
 -- SSAScope
 
-def SSAScope :=
-  List (SSAVal × (τ: MLIRTy) × τ.eval)
+def SSAScope (δ: Dialect α σ ε) :=
+  List (SSAVal × (τ: MLIRType δ) × τ.eval)
 
 @[simp]
-def SSAScope.get (name: SSAVal): SSAScope → (τ: MLIRTy) → Option τ.eval
+def SSAScope.get {δ: Dialect α σ ε} (name: SSAVal):
+  SSAScope δ → (τ: MLIRType δ) → Option τ.eval
   | [], _ => none
   | ⟨name', τ', v'⟩ :: l, τ =>
       if H: name' = name && τ' = τ then
@@ -46,8 +49,8 @@ def SSAScope.get (name: SSAVal): SSAScope → (τ: MLIRTy) → Option τ.eval
       else get name l τ
 
 @[simp]
-def SSAScope.set (name: SSAVal) (τ: MLIRTy) (v: τ.eval):
-      SSAScope → SSAScope
+def SSAScope.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
+  SSAScope δ → SSAScope δ
   | [] => [⟨name, τ, v⟩]
   | ⟨name', τ', v'⟩ :: l =>
       if name' = name
@@ -67,11 +70,12 @@ def SSAScope.maps (l: SSAScope) (name: SSAVal) (τ: MLIRTy) (v: τ.eval) :=
 
 -- SSAEnv
 
-def SSAEnv :=
-  List SSAScope
+def SSAEnv (δ: Dialect α σ ε) :=
+  List (SSAScope δ)
 
 @[simp]
-def SSAEnv.get (name: SSAVal) (τ: MLIRTy): SSAEnv → Option τ.eval
+def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
+  SSAEnv δ → Option τ.eval
   | [] => none
   | l :: s =>
       match l.get name τ with
@@ -79,7 +83,8 @@ def SSAEnv.get (name: SSAVal) (τ: MLIRTy): SSAEnv → Option τ.eval
       | some v => v
 
 @[simp]
-def SSAEnv.set (name: SSAVal) (τ: MLIRTy) (v: τ.eval): SSAEnv → SSAEnv
+def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
+  SSAEnv δ → SSAEnv δ
   | [] => [] -- cannot happen in practice
   | l :: s => l.set name τ v :: s
 
@@ -93,24 +98,25 @@ instance: LE SSAEnv where
 
 -- Interactions manipulating the environment
 
-inductive SSAEnvE: Type u → Type _ where
-  | Get: (τ: MLIRTy) → [Inhabited τ.eval] → SSAVal → SSAEnvE (ULift τ.eval)
-  | Set: (τ: MLIRTy) → SSAVal → τ.eval → SSAEnvE PUnit
+inductive SSAEnvE (δ: Dialect α σ ε): Type → Type where
+  | Get: (τ: MLIRType δ) → [Inhabited τ.eval] → SSAVal → SSAEnvE δ τ.eval
+  | Set: (τ: MLIRType δ) → SSAVal → τ.eval → SSAEnvE δ Unit
 
 @[simp_itree]
-def SSAEnvE.handle {E}: SSAEnvE ~> StateT SSAEnv (Fitree E) :=
+def SSAEnvE.handle {E} {δ: Dialect α σ ε}:
+    SSAEnvE δ ~> StateT (SSAEnv δ) (Fitree E) :=
   fun _ e env =>
     match e with
     | Get τ name =>
         match env.get name τ with
-        | some v => return (ULift.up v, env)
-        | none => return (ULift.up default, env)
+        | some v => return (v, env)
+        | none => return (default, env)
     | Set τ name v =>
         return (.unit, env.set name τ v)
 
 @[simp_itree]
-def SSAEnv.set? {E} [Member SSAEnvE E]
-    (τ: MLIRTy) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
+def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
+    (τ: MLIRType δ) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
   match name? with
   | some name =>
       Fitree.trigger (SSAEnvE.Set τ name v)
@@ -120,11 +126,12 @@ def SSAEnv.set? {E} [Member SSAEnvE E]
 -- In-context handler interpreting (SSAEnvE +' E ~> E)
 
 @[simp_itree]
-private def stateT_defaultHandler E: E ~> StateT SSAEnv (Fitree E) :=
+private def stateT_defaultHandler (E) (δ: Dialect α σ ε):
+    E ~> StateT (SSAEnv δ) (Fitree E) :=
   fun _ e m => do
     let r <- Fitree.trigger e;
     return (r, m)
 
-def interp_ssa {E R} (t: Fitree (SSAEnvE +' E) R):
-    StateT SSAEnv (Fitree E) R :=
-  interp_state (case_ SSAEnvE.handle (stateT_defaultHandler E)) t
+def interp_ssa {E R} {δ: Dialect α σ ε} (t: Fitree (SSAEnvE δ +' E) R):
+    StateT (SSAEnv δ) (Fitree E) R :=
+  interp_state (case_ SSAEnvE.handle (stateT_defaultHandler E δ)) t

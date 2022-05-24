@@ -5,7 +5,7 @@ This file implements general properties of MLIR types, including decidable
 equality of both types and values, Inhabited instances, and concretization of
 MLIR types to standard Lean types.
 
-Only the types explicitly laid out in MLIRTy are considered here; non-trivial
+Only the types explicitly laid out in MLIRType are considered here; non-trivial
 types like tensors and user-defined types provide similar properties through
 the generic type interface.
 
@@ -47,16 +47,19 @@ open Lean.Elab
 open Lean.Elab.Term
 open Lean.Parser.Term
 
+section
+variable {α σ ε} [δ: Dialect α σ ε]
 
 /-
-### Decidable equality for MLIRTy
+### Decidable equality for MLIRType
 -/
 
 mutual
-def MLIRTy.eq (τ₁ τ₂: MLIRTy): Decidable (τ₁ = τ₂) := by
+
+def MLIRType.eq (τ₁ τ₂: MLIRType δ): Decidable (τ₁ = τ₂) := by
   cases τ₁ <;> cases τ₂
   <;> try (simp; exact inferInstance)
-  <;> try apply isFalse MLIRTy.noConfusion
+  <;> try apply isFalse MLIRType.noConfusion
 
   case fn.fn a₁ b₁ a₂ b₂ =>
     match eq a₁ a₂, eq b₁ b₂ with
@@ -69,18 +72,7 @@ def MLIRTy.eq (τ₁ τ₂: MLIRTy): Decidable (τ₁ = τ₂) := by
     | isTrue h => exact isTrue $ by rw [h]
     | isFalse h => exact isFalse fun h' => by cases h'; cases h rfl
 
-  case generic.generic name₁ σ₁ sig₁ f₁ name₂ σ₂ sig₂ f₂ => exact
-    if h: name₁ = name₂ then
-      have ⟨h₁,h₂⟩ := TypeFamilyIntf.nameUnique f₁ f₂ h
-      match (f₂.compare _ (cast h₂ sig₁) sig₂) with
-      | isTrue h' => isTrue (by
-          simp
-          exact ⟨h, h₂, by simp [←h']; apply HEq.symm; apply cast_heq, h₁⟩)
-      | isFalse h' => isFalse fun h' => by cases h'; cases h' (cast_eq _ _)
-    else
-      isFalse $ fun h' => by cases h'; cases h rfl
-
-private def MLIRTy.eqList (l₁ l₂: List MLIRTy): Decidable (l₁ = l₂) :=
+private def MLIRType.eqList (l₁ l₂: List (MLIRType δ)): Decidable (l₁ = l₂) :=
   match l₁, l₂ with
   | [], [] => isTrue rfl
   | τ₁::l₁, τ₂::l₂ =>
@@ -92,38 +84,41 @@ private def MLIRTy.eqList (l₁ l₂: List MLIRTy): Decidable (l₁ = l₂) :=
   | _::_, [] => isFalse List.noConfusion
 end
 
-instance: DecidableEq MLIRTy := MLIRTy.eq
+instance: DecidableEq (MLIRType δ) :=
+  MLIRType.eq
 
 
 /-
 ### Evaluation into concrete Lean types
 -/
 
-/- MLIRTy is a nested inductive type. Recursive functions on such types are
+/- MLIRType is a nested inductive type. Recursive functions on such types are
    compiled to well-founded recursion. This prevents it from being reduced by
    the elaborator, so instead we define it manually with the recursor.
    See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
 
 @[reducible, simp_itree]
-def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
-  @MLIRTy.recOn τ
-    (motive_1 := fun _ => Type) -- MLIRTy
-    (motive_2 := fun _ => Type) -- List MLIRTy
-    -- MLIRTy.fn (the only functions we can materialize are symbols)
+def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
+  MLIRType.recOn τ
+    (motive_1 := fun _ => Type) -- MLIRType
+    (motive_2 := fun _ => Type) -- List MLIRType
+    -- .fn (the only functions we can materialize are symbols)
     (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => String)
-    -- MLIRTy.int
+    -- .int
     (fun bitsize => Int)
-    -- MLIRTy.float
+    -- .float
     (fun bitsize => Float)
-    -- MLIRTy.index
+    -- .index
     Nat
-    -- MLIRTy.tuple [Mapping motive_2 to motive_1]
+    -- .tuple [Mapping motive_2 to motive_1]
     (fun _ ih => ih)
-    -- MLIRTy.generic
-    (fun name σ sig family => family.α name sig)
-    -- [] (in MLIRTy.tuple)
+    -- .undefined
+    (fun name => Unit)
+    -- .generic
+    ε
+    -- [] (in .tuple)
     Unit
-    -- (τ::l) (in MLIRTy.tuple)
+    -- (τ::l) (in .tuple)
     (fun τ l eval_τ eval_l =>
       match l with
       | [] => eval_τ
@@ -137,100 +132,81 @@ The requirements from the type interface allow us to prove that MLIR types have
 inhabitants and a decidable equality.
 -/
 
-def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
+def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
   match τ with
-  | MLIRTy.fn τ₁ τ₂ => ""
-  | MLIRTy.int _ => 0
-  | MLIRTy.float _ => 0.0
-  | MLIRTy.index => 0
-  | MLIRTy.tuple [] => ()
-  | MLIRTy.tuple [τ] => τ.default
-  | MLIRTy.tuple (τ₁::τ₂::l) => (τ₁.default, (MLIRTy.tuple (τ₂::l)).default)
-  | @MLIRTy.generic name σ sig family => (family.eval sig).inhabited.1
+  | .fn τ₁ τ₂ => ""
+  | .int _ => 0
+  | .float _ => 0.0
+  | .index => 0
+  | .tuple [] => ()
+  | .tuple [τ] => τ.default
+  | .tuple (τ₁::τ₂::l) => (τ₁.default, default $ .tuple (τ₂::l))
+  | .undefined name => ()
+  | .extended s => DialectTypeIntf.inhabited s
 
-instance (τ: MLIRTy): Inhabited τ.eval where
+instance (τ: MLIRType δ): Inhabited τ.eval where
   default := τ.default
 
-def MLIRTy.eval.eq {τ: MLIRTy} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
+def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
   match τ with
-  | MLIRTy.fn τ₁ τ₂ => inferInstance
-  | MLIRTy.int _ => inferInstance
-  | MLIRTy.float _ =>
+  | .fn τ₁ τ₂ => inferInstance
+  | .int _ => inferInstance
+  | .float _ =>
       -- FIXME: Equality of floats
       if v₁ == v₂ then isTrue sorry else isFalse sorry
-  | MLIRTy.index => inferInstance
-  | MLIRTy.tuple [] => inferInstance
-  | MLIRTy.tuple [τ] => @eq τ v₁ v₂
-  | MLIRTy.tuple (τ₁::τ₂::τs) =>
+  | .index => inferInstance
+  | .tuple [] => inferInstance
+  | .tuple [τ] => @eq τ v₁ v₂
+  | .tuple (τ₁::τ₂::τs) =>
       let (v₁, l₁) := v₁
       let (v₂, l₂) := v₂
-      match eq v₁ v₂, @eq (MLIRTy.tuple (τ₂::τs)) l₁ l₂ with
+      match eq v₁ v₂, @eq (.tuple (τ₂::τs)) l₁ l₂ with
       | isTrue h₁, isTrue h₂ => isTrue $ by rw [h₁,h₂]
       | isFalse h₁, _ => isFalse fun h => by cases h; cases h₁ rfl
       | _, isFalse h₂ => isFalse fun h => by cases h; cases h₂ rfl
-  | @MLIRTy.generic name σ sig family => (family.eval sig).eq v₁ v₂
+  | .undefined _ => inferInstance
+  | .extended s => DialectTypeIntf.eq s v₁ v₂
 
-instance {τ: MLIRTy}: DecidableEq τ.eval := MLIRTy.eval.eq
+instance {τ: MLIRType δ}: DecidableEq τ.eval :=
+  MLIRType.eval.eq
+
+end
+
 
 /-
-## Custom pattern matching for generic MLIRTy types
-
-This section extends the syntax of match to also supports pattern of the form
-
-   !<ident> => ...
-   !<ident> <pattern> => ...
-
-which catch instances of MLIRTy.generic for the specified named type, and also
-interprets their arguments. For instance:
-
-   match τ with
-   | .int 32 => ...
-   | !builtin.vector (D, τ) => ...
-
-For this mechanism to work, the type family *must* be use the type name in its
-identifier, eg.
-
-   instance MLIRTy.builtin.vector: TypeFamilyIntf "builtin.vector" ...
-
-since the elaborator doesn't actually resolve the typeclass and instead uses
-the name (which allows the signature type to be inferred accurately).
+## Decidable equality for TensorElem
 -/
 
--- Custom pattern syntax to represent MLIR generic types, eg. !builtin.tensor
-syntax "!" ident: term
+mutual
+def TensorElem.eq (e₁ e₂: TensorElem): Decidable (e₁ = e₂) := by
+  cases e₁ <;> cases e₂
+  <;> try (simp; exact inferInstance)
+  <;> try apply isFalse TensorElem.noConfusion
 
-private def parseCustomPattern (pat: Syntax): Option (String × Syntax) :=
-  match pat with
-  | `(! $i:ident) =>
-      some (i.getId.toString, mkHole .missing)
-  | `(! $i:ident $args:term) =>
-      some (i.getId.toString, args)
-  | _ => none
+  case float.float f₁ f₂ =>
+    -- FIXME: We shouldn't have DecidableEq on floats o(x_x)o
+    exact if f₁ == f₂ then isTrue sorry else isFalse sorry
 
-@[termElab «match»] def elabMatchMLIRTy: TermElab := fun stx expectedType? => do
-  match stx with
-  | `(match $discr:term with $[| $pat => $rhs]*) =>
-      -- Fall back to normal match on the second pass
-      if pat.all (parseCustomPattern · |>.isNone) then
-        throwUnsupportedSyntax
+  case nested.nested l₁ l₂ =>
+    match eqList l₁ l₂ with
+    | isTrue h => exact isTrue $ by rw [h]
+    | isFalse h => exact isFalse fun h' => by cases h'; cases h rfl
 
-      let alts ← Array.zip pat rhs |>.mapM fun (pat, rhs) => show TermElabM Syntax from
-        match parseCustomPattern pat with
-        | some (name, args) =>
-            let strLit := Syntax.mkStrLit name
-            let family := mkIdent ("MLIRTy." ++ name).toName
-            dbg_trace s!"MLIRTy pattern for {name} {args} ({family})"
-            `(matchAltExpr| | @MLIRTy.generic $strLit σ sig family =>
-              let ⟨h₁, h₂⟩ := TypeFamilyIntf.nameUnique family $family rfl
-              @TypeFamilyIntf.elim _ _ $family (cast h₂ sig) (fun _ => _)
-              (fun $args => $rhs))
-        | none => `(matchAltExpr| | $pat => $rhs)
+private def TensorElem.eqList (l₁ l₂: List TensorElem): Decidable (l₁ = l₂) :=
+  match l₁, l₂ with
+  | [], [] => isTrue rfl
+  | e₁::l₁, e₂::l₂ =>
+      match eq e₁ e₂, eqList l₁ l₂ with
+      | isTrue hτ, isTrue hl => isTrue $ by rw [hτ,hl]
+      | isFalse hτ, _ => isFalse fun h => by cases h; cases hτ rfl
+      | _, isFalse hl => isFalse fun h => by cases h; cases hl rfl
+  | [], _::_ => isFalse List.noConfusion
+  | _::_, [] => isFalse List.noConfusion
+end
 
-      let stx ← `(match $discr:term with $alts:matchAlt*)
-      let t ← elabTerm stx none
-      return t
-  | _ =>
-      throwUnsupportedSyntax
+instance: DecidableEq TensorElem :=
+  TensorElem.eq
+
 
 /-
 ## Shape inference on TensorElem
@@ -251,9 +227,6 @@ def shape_prod: List Nat → Nat :=
 
 theorem shape_prod_nil: shape_prod (0::l) = 0 := by
   induction l <;> simp [shape_prod, List.foldr]
-
-instance: OfNat Dimension (n: Nat) where
-  ofNat := Dimension.Known n
 
 namespace MLIR.AST.TensorElem
 
@@ -279,13 +252,13 @@ def hasShape: TensorElem → List Nat → Bool
       false
 
 -- Check whether a tensor literal has a particular data type
-def hasType: TensorElem → MLIRTy → Bool
-  | TensorElem.int _, MLIRTy.int _ =>
+def hasType: TensorElem → MLIRType δ → Bool
+  | TensorElem.int _, .int _ =>
       -- TODO: Check bounds
       true
-  | TensorElem.bool _, MLIRTy.int 1 =>
+  | TensorElem.bool _, .int 1 =>
       true
-  | TensorElem.float _, MLIRTy.float _ =>
+  | TensorElem.float _, .float _ =>
       true
   | TensorElem.nested [], τ =>
       true
@@ -294,7 +267,8 @@ def hasType: TensorElem → MLIRTy → Bool
   | _, _ =>
       false
 
-def hasType_list_1 {l τ}: hasType (.nested l) τ → l.all (hasType . τ) := by
+def hasType_list_1 {l} {τ: MLIRType δ}:
+    hasType (.nested l) τ → l.all (hasType . τ) := by
   induction l; simp
   case cons e l ih =>
     simp [hasType, List.all_cons]
@@ -302,7 +276,8 @@ def hasType_list_1 {l τ}: hasType (.nested l) τ → l.all (hasType . τ) := by
     simp [h.1]
     apply ih h.2
 
-def hasType_list_2 {l τ}: l.all (hasType . τ) → hasType (.nested l) τ := by
+def hasType_list_2 {l} {τ: MLIRType δ}:
+    l.all (hasType . τ) → hasType (.nested l) τ := by
   induction l; simp [hasType]
   case cons e l ih =>
     simp [hasType, List.all_cons]
@@ -310,7 +285,7 @@ def hasType_list_2 {l τ}: l.all (hasType . τ) → hasType (.nested l) τ := by
     simp [h.1]
     apply ih h.2
 
-def mapWithType {α τ} l (f: (e: TensorElem) → (h: e.hasType τ) → α)
+def mapWithType {α} {τ: MLIRType δ} l (f: (e: TensorElem) → (h: e.hasType τ) → α)
     (h: hasType (TensorElem.nested l) τ): List α :=
   match l, h with
   | [], h =>
@@ -535,13 +510,16 @@ theorem default_refinement_refines (D: DimList):
 
 namespace MLIR.AST.TensorElem
 
-def flatten {τ} (e: TensorElem) (h: e.hasType τ): List τ.eval :=
+section
+variable {α σ ε} {δ: Dialect α σ ε}
+
+def flatten {τ: MLIRType δ} (e: TensorElem) (h: e.hasType τ): List τ.eval :=
   match e, τ with
-  | TensorElem.int i, MLIRTy.int _ =>
+  | TensorElem.int i, .int _ =>
       [i]
-  | TensorElem.bool b, MLIRTy.int _ =>
+  | TensorElem.bool b, .int _ =>
       [if b then 1 else 0]
-  | TensorElem.float f, MLIRTy.float _ =>
+  | TensorElem.float f, .float _ =>
       [f]
   | TensorElem.nested [], _ =>
       []
@@ -554,7 +532,7 @@ def flatten {τ} (e: TensorElem) (h: e.hasType τ): List τ.eval :=
 
 -- Once again, we prove a more friendly version of the list case first
 
-theorem flatten_list {τ} (l: List TensorElem) (h: hasType (.nested l) τ):
+theorem flatten_list {τ: MLIRType δ} (l: List TensorElem) (h: hasType (.nested l) τ):
     flatten (.nested l) h = (mapWithType l flatten h).join := by
   revert h
   induction l <;> intros h
@@ -563,7 +541,7 @@ theorem flatten_list {τ} (l: List TensorElem) (h: hasType (.nested l) τ):
   case cons _ _ ih =>
     simp [flatten, mapWithType, List.join, ih]
 
-theorem flatten_size {τ} (e: TensorElem) (shape: List Nat):
+theorem flatten_size {τ: MLIRType δ} (e: TensorElem) (shape: List Nat):
     e.hasShape shape → (h: e.hasType τ) → (e.flatten h).length = shape_prod shape := by
   revert shape
   apply @TensorElem.recOn
@@ -608,21 +586,22 @@ theorem flatten_size {τ} (e: TensorElem) (shape: List Nat):
     simp [IH2 s Hshape.2 Htype.2]
     rw [motive_1 s Hshape.1 Htype.1]
 
-inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type _ :=
+inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRType δ → Type :=
   | UniformInt (i: Int) bitsize:
       -- TODO: Check range of uniform tensor value
       e = TensorElem.int i →
-      e.rankCompatibleWith D (MLIRTy.int bitsize)
+      e.rankCompatibleWith D (.int bitsize)
   | UniformBool (b: Bool):
       e = TensorElem.bool b →
-      e.rankCompatibleWith D (MLIRTy.int 1)
+      e.rankCompatibleWith D (.int 1)
   | UniformFloat (f: Float) bitsize:
       -- TODO: Check range of uniform tensor value
       e = TensorElem.float f →
-      e.rankCompatibleWith D (MLIRTy.float bitsize)
+      e.rankCompatibleWith D (.float bitsize)
   | HasShape s τ:
       e.hasShape s →
       shape_refines s D →
       e.rankCompatibleWith D τ
 
+end
 end MLIR.AST.TensorElem

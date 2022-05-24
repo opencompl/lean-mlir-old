@@ -11,7 +11,7 @@ import Init.Data.String.Basic
 import Init.Data.Repr
 import Init.Data.ToString.Basic
 
--- | TODO: Consider adopting flutter rendering model: 
+-- | TODO: Consider adopting flutter rendering model:
 -- linear time, flexbox, one walk up and one walk down tree.
 -- https://www.youtube.com/watch?v=UUfXWzp0-DU
 
@@ -55,7 +55,7 @@ instance : Pretty Bool where
 
 
 instance : Pretty Float where
-  doc f := Doc.Text (toString (repr f)) 
+  doc f := Doc.Text (toString (repr f))
 
 instance : Pretty Char where
   doc := Doc.Text ∘ toString
@@ -67,24 +67,24 @@ instance : Inhabited Doc where
 instance : Coe String Doc where
   coe := Doc.Text
 
-instance : Append Doc where 
+instance : Append Doc where
   append := Doc.Concat
 
 
-instance : HAppend Doc String Doc where 
+instance : HAppend Doc String Doc where
   hAppend d s := Doc.Concat d (Doc.Text s)
 
-instance : HAppend String Doc Doc where 
+instance : HAppend String Doc Doc where
   hAppend s d:= Doc.Concat (Doc.Text s) d
 
 
 def doc_dbl_quot : Doc :=  doc '"'
 
-def doc_surround_dbl_quot [Pretty a] (v: a): Doc := 
+def doc_surround_dbl_quot [Pretty a] (v: a): Doc :=
     doc_dbl_quot ++ doc v ++ doc_dbl_quot
-  
 
-def doc_concat (ds: List Doc): Doc := ds.foldl Doc.Concat (Doc.Text "") 
+
+def doc_concat (ds: List Doc): Doc := ds.foldl Doc.Concat (Doc.Text "")
 
 partial def intercalate_doc_rec_ [Pretty d] (ds: List d) (i: Doc): Doc :=
   match ds with
@@ -96,7 +96,7 @@ partial def  intercalate_doc [Pretty d] (ds: List d) (i: Doc): Doc := match ds w
  | [d] => doc d
  | (d::ds) => (doc d) ++ intercalate_doc_rec_ ds i
 
- 
+
 partial def vintercalate_doc_rec_ [Pretty d] (ds: List d) (i: String): List Doc :=
   match ds with
   | [] => [Doc.Text ""]
@@ -106,10 +106,10 @@ partial def  vintercalate_doc [Pretty d] (ds: List d) (i: String): Doc := match 
  | [] => Doc.Text ""
  | [d] => doc d
  | (d::ds) => Doc.VGroup $ (doc d)::vintercalate_doc_rec_ ds i
-             
 
 
-partial def layout 
+
+partial def layout
   (d: Doc)
   (indent: Int) -- indent
   (width: Int) -- width
@@ -122,12 +122,12 @@ partial def layout
          let s := layout d1 indent width leftover newline
          s ++ layout d2 indent width (leftover - (s.length + 1)) false
     | (Doc.Nest d) => layout d (indent+1) width leftover newline
-    | (Doc.VGroup ds) => 
-       let ssInline := layout (doc_concat ds) indent width leftover newline 
+    | (Doc.VGroup ds) =>
+       let ssInline := layout (doc_concat ds) indent width leftover newline
        if false then ssInline -- ssInline.length <= leftover then ssInline
-       else  
+       else
          let width' := width - indent
-         -- TODO: don't make 
+         -- TODO: don't make
          String.join (ds.map (fun d => layout d indent width width True))
 
 
@@ -141,7 +141,7 @@ open Lean.Parser
 
 declare_syntax_cat docLeaf
 declare_syntax_cat docstx
-syntax str : docLeaf 
+syntax str : docLeaf
 syntax ident : docLeaf
 
 -- | conditionals
@@ -163,15 +163,15 @@ syntax "[doc|" docstx "]" : term -- translator
 syntax "[escape|" term "]" : docLeaf
 
 --- | string
-macro_rules 
-| `([docLeaf| $x:str ]) => do 
+macro_rules
+| `([docLeaf| $x:str ]) => do
     `(Doc.Text $x)
 
 def testDocStr : Doc := [docLeaf|"x"]
 #reduce testDocStr
 
 -- | identifier
-macro_rules 
+macro_rules
 | `([docLeaf| $x:ident ]) => do
   `(Pretty.doc $x)
 
@@ -181,10 +181,10 @@ def testDocIdent : Doc := let x := "foo"; [docLeaf| x ]
 -- | doc of doclean
 macro_rules
 | `([doc|  $x:docLeaf ]) => `([docLeaf| $x])
-    
+
 -- | concat
 macro_rules
-| `([doc|  $x:docLeaf $xs:docstx ]) => do 
+| `([doc|  $x:docLeaf $xs:docstx ]) => do
     let initDoc <- `([docLeaf| $x])
     let restDoc <- `([doc| $xs])
     `(Doc.Concat $initDoc $restDoc)
@@ -193,28 +193,28 @@ def testDocConcat : Doc := let x := "foo"; [doc| "^" x ":" ]
 #reduce testDocConcat
 
 -- | escape
-macro_rules 
+macro_rules
 | `([docLeaf| [escape| $x ] ]) => return x
 
 -- | escape
-macro_rules 
+macro_rules
 | `([docLeaf| ( $x ) ]) => return x
 
 -- | if
 macro_rules
-| `([docLeaf| (ifdoc  $x:term then  $t:docstx else $e: docstx ) ]) =>  
+| `([docLeaf| (ifdoc  $x:term then  $t:docstx else $e: docstx ) ]) =>
     `(if $x then [doc| $t] else [doc| $e])
 
 
 -- | vertical
 macro_rules
--- | `([doc|  { $[| $xs ]* } ]) => do 
-| `([doc|  { $[ $xs ;]* } ]) => do 
+-- | `([doc|  { $[| $xs ]* } ]) => do
+| `([doc|  { $[ $xs ;]* } ]) => do
   let initDoc <- `([])
   let docs <- xs.foldlM (init := initDoc) (fun accum doc => `($accum ++ [ [doc| $doc] ]))
   `(Doc.VGroup $docs)
 macro_rules
-| `([doc|  {nest $[ $xs ;]* } ]) => do 
+| `([doc|  {nest $[ $xs ;]* } ]) => do
   let initDoc <- `([])
   let docs <- xs.foldlM (init := initDoc) (fun accum doc => `($accum ++ [ [doc| $doc] ]))
   `(Doc.Nest (Doc.VGroup $docs))
@@ -223,9 +223,9 @@ macro_rules
 -- | vertical spread
 macro_rules
 | `([docLeaf| ( $x:term );*]) => do
-    `(Doc.VGroup (($x).map doc))    
+    `(Doc.VGroup (($x).map doc))
 
-def testDocVSpread0 : Doc := 
+def testDocVSpread0 : Doc :=
     let xs := ["foo", "bar", "baz"]
     [doc| (xs);*]
 #reduce testDocVSpread0
@@ -235,9 +235,9 @@ def testDocVSpread0 : Doc :=
 -- | vertical spread with nesting
 macro_rules
 | `([docLeaf| (nest $x:term );*]) => do
-    `(Doc.Nest (Doc.VGroup (($x).map doc)))    
+    `(Doc.Nest (Doc.VGroup (($x).map doc)))
 
-def testDocVSpreadNest0 : Doc := 
+def testDocVSpreadNest0 : Doc :=
     let xs := ["nest0-foo", "nest0-bar", "baz"]
     [doc| (nest xs);*]
 #reduce testDocVSpreadNest0
@@ -254,7 +254,7 @@ macro_rules
 | `([docLeaf| ( $x:term ),*]) => do
     `(intercalate_doc (($x).map doc) ",")
 
-def testDocIntercalate0 : Doc := 
+def testDocIntercalate0 : Doc :=
     let xs := ["foo", "bar", "baz"]
     [docLeaf| (xs),*]
 #reduce testDocIntercalate0
@@ -264,17 +264,17 @@ macro_rules
 | `([docLeaf| (nest $x:docstx )]) => `(Doc.Nest [doc| $x])
 
 
-def testDocNest0 : Doc := 
+def testDocNest0 : Doc :=
     [doc| (nest "foo")]
 
-def testDocNest1 : Doc := 
+def testDocNest1 : Doc :=
     [doc| (nest "foo" "bar")]
 
-def testDocNest2 : Doc := 
+def testDocNest2 : Doc :=
     [doc| {nest
             "foo" "bar";
             {
-            "baz" "foo"; 
+            "baz" "foo";
             "quux";
             };
     }]
@@ -297,18 +297,18 @@ syntax "|" pipes: pipes
 
 declare_syntax_cat docline
 syntax pipes docstx : docline
- 
+
 declare_syntax_cat doclines
 syntax (ws docline ws)* : doclines
 
 syntax "[docLine|" docline "]" : term
 
 macro_rules
-| `([docLine| $p:pipes  $x:docstx]) => do 
+| `([docLine| $p:pipes  $x:docstx]) => do
       let str := p.reprint
-      match str with 
+      match str with
       | some str => do
-          let x := Lean.quote str 
+          let x := Lean.quote str
           `([doc| "SUCCESS"])
       | none => `([doc| "ERROR"])
 

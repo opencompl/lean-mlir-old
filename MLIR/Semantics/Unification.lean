@@ -315,7 +315,7 @@ private def mul_pattern: MOp :=
 -- The following equality could be derived from PDL:
 --   %two = pdl.value 2: i32
 private def ex_two: UEq :=
-  EqValue (ValueVar 0 "two") (ValueConst (MLIRTy.int 32) 2)
+  EqValue (ValueVar 0 "two") (ValueConst (MLIRType.int 32) 2)
 
 -- The following matching pattern could be derived from PDL:
 --   %x = pdl.value
@@ -324,7 +324,7 @@ private def ex_two: UEq :=
 private def ex_root: MOp :=
   OpKnown "arith.mul"
     [(ValueVar 0 "x", TypeVar 1 "x_T"),
-     (ValueVar 0 "two", TypeConst (MLIRTy.int 32))]
+     (ValueVar 0 "two", TypeConst (MLIRType.int 32))]
     [(ValueVar 1 "_res0", TypeVar 1 "_res0_T")]
 
 private def mul_example: Unification :=

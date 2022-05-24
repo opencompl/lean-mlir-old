@@ -43,7 +43,7 @@ declare_syntax_cat enumerator
 declare_syntax_cat type_qualifier
 declare_syntax_cat declarator
 declare_syntax_cat direct_declarator
-declare_syntax_cat pointer     
+declare_syntax_cat pointer
 declare_syntax_cat type_qualifier_list
 declare_syntax_cat parameter_type_list
 declare_syntax_cat parameter_list
@@ -107,7 +107,7 @@ syntax "~": unary_operator
 syntax "!" : unary_operator
 
 -- cast expression
-syntax unary_expression: cast_expression 
+syntax unary_expression: cast_expression
 syntax "(" type_name ")" : cast_expression
 
 -- multiplicative expression
@@ -130,7 +130,7 @@ syntax shift_expression ">>" additive_expression : shift_expression
 syntax shift_expression : relational_expression
 syntax relational_expression "<" shift_expression : relational_expression
 syntax relational_expression ">" shift_expression : relational_expression
-syntax relational_expression "<=" shift_expression :relational_expression                  
+syntax relational_expression "<=" shift_expression :relational_expression
 syntax relational_expression ">=" shift_expression : relational_expression
 
 -- equality_expression
@@ -142,13 +142,13 @@ syntax  equality_expression "!=" relational_expression : equality_expression
 syntax equality_expression : and_expression
 syntax and_expression "&" equality_expression : and_expression
 
--- exclusive_or_expression 
-syntax and_expression : exclusive_or_expression 
-syntax exclusive_or_expression "^" and_expression : exclusive_or_expression 
+-- exclusive_or_expression
+syntax and_expression : exclusive_or_expression
+syntax exclusive_or_expression "^" and_expression : exclusive_or_expression
 
 -- inclusive_or_expression
 syntax exclusive_or_expression : inclusive_or_expression
-syntax inclusive_or_expression "|" exclusive_or_expression : inclusive_or_expression 
+syntax inclusive_or_expression "|" exclusive_or_expression : inclusive_or_expression
 
 -- logical_and_expression
 syntax inclusive_or_expression : logical_and_expression
@@ -280,7 +280,7 @@ syntax "const" : type_qualifier
 syntax "volatile" :type_qualifier
 
 -- declarator
-syntax pointer direct_declarator :declarator 
+syntax pointer direct_declarator :declarator
 syntax direct_declarator : declarator
 
 -- direct_declarator
@@ -394,11 +394,11 @@ syntax "for" "(" expression_statement expression_statement ")" statement : itera
 syntax "for" "(" expression_statement expression_statement expression ")" statement : iteration_statement
 
 -- jump_statement
-syntax "goto" ident ";" : jump_statement 
-syntax "continue" ";" : jump_statement 
-syntax "break" ";" : jump_statement 
-syntax "return" ";" : jump_statement 
-syntax "return" expression ";" : jump_statement 
+syntax "goto" ident ";" : jump_statement
+syntax "continue" ";" : jump_statement
+syntax "break" ";" : jump_statement
+syntax "return" ";" : jump_statement
+syntax "return" expression ";" : jump_statement
 
 -- translation_unit
 syntax external_declaration : translation_unit

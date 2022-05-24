@@ -3,7 +3,6 @@ import MLIR.Dialects.BuiltinModel
 import Lean.Parser
 import Lean.Parser.Extra
 
-
 open Lean
 open Lean.Parser
 
@@ -22,25 +21,25 @@ instance : Quote Int := ⟨fun n => Syntax.mkNumLit <| n.repr⟩
 
 def quoteMDimension (d: Dimension): MacroM Syntax :=
   match d with
-  | Dimension.Known n => do 
+  | Dimension.Known n => do
     `(Dimension.Known $(quote n))
   | Dimension.Unknown => `(Dimension.Unknown)
 
 
 def quoteMList (k: List Syntax) (ty: Syntax): MacroM Syntax :=
-  match k with 
+  match k with
   | [] => `(@List.nil $ty)
   | (k::ks) => do
       let sks <- quoteMList ks ty
-      `([$k] ++ $sks)
+      `($k :: $sks)
 
 
 -- AFFINE SYTAX
 -- ============
- 
+
 declare_syntax_cat affine_expr
 declare_syntax_cat affine_tuple
-declare_syntax_cat affine_map 
+declare_syntax_cat affine_map
 
 
 syntax ident : affine_expr
@@ -48,30 +47,30 @@ syntax "(" sepBy(affine_expr, ",") ")" : affine_tuple
 syntax "affine_map<" affine_tuple "->" affine_tuple ">" : affine_map
 
 syntax "[affine_expr|" affine_expr "]" : term
-syntax "[affine_tuple|" affine_tuple "]" : term 
-syntax "[affine_map|" affine_map "]" : term  
--- syntax "[affine_map|" affine_map "]" : term  
+syntax "[affine_tuple|" affine_tuple "]" : term
+syntax "[affine_map|" affine_map "]" : term
+-- syntax "[affine_map|" affine_map "]" : term
 
-macro_rules 
-| `([affine_expr| $xraw:ident ]) => do 
+macro_rules
+| `([affine_expr| $xraw:ident ]) => do
   let xstr := xraw.getId.toString
   `(AffineExpr.Var $(Lean.quote xstr))
 
 macro_rules
 | `([affine_tuple| ( $xs,* ) ]) => do
    let initList  <- `(@List.nil MLIR.AST.AffineExpr)
-   let argsList <- xs.getElems.foldlM
-    (init := initList) 
-    (fun xs x => `($xs ++ [[affine_expr| $x]]))
+   let argsList <- xs.getElems.foldrM
+    (init := initList)
+    (fun x xs => `([affine_expr| $x] :: $xs))
    `(AffineTuple.mk $argsList)
-   
-  
+
+
 macro_rules
 | `([affine_map| affine_map< $xs:affine_tuple -> $ys:affine_tuple >]) => do
   let xs' <- `([affine_tuple| $xs])
   let ys' <- `([affine_tuple| $ys])
   `(AffineMap.mk $xs' $ys' )
- 
+
 
 -- EDSL
 -- ====
@@ -90,7 +89,7 @@ declare_syntax_cat mlir_op_operand
 declare_syntax_cat mlir_type
 
 -- syntax strLit mlir_op_args ":" mlir_op_type : mlir_op -- no region
--- 
+--
 
 
 -- EDSL OPERANDS
@@ -103,7 +102,7 @@ syntax "%" ident : mlir_op_operand
 syntax "[mlir_op_operand|" mlir_op_operand "]" : term
 macro_rules
   | `([mlir_op_operand| $$($q)]) => return q
-  | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (x.getId.toString))) 
+  | `([mlir_op_operand| % $x:ident]) => `(SSAVal.SSAVal $(Lean.quote (x.getId.toString)))
   | `([mlir_op_operand| % $n:num]) => `(SSAVal.SSAVal (IntToString $n))
 
 def operand0 := [mlir_op_operand| %x]
@@ -129,7 +128,7 @@ syntax "^" ident : mlir_op_successor_arg -- bb argument with no operands
 syntax "[mlir_op_successor_arg|" mlir_op_successor_arg "]" : term
 
 macro_rules
-  | `([mlir_op_successor_arg| ^ $x:ident  ]) => 
+  | `([mlir_op_successor_arg| ^ $x:ident  ]) =>
       `(BBName.mk $(Lean.quote (x.getId.toString)))
 
 def succ0 :  BBName := ([mlir_op_successor_arg| ^bb])
@@ -147,7 +146,7 @@ macro_rules
 | `([mlir_type| ( $xs,* )]) => do
       let xs <- xs.getElems.mapM (fun x => `([mlir_type| $x]))
       let x <- quoteMList xs.toList (<- `(MLIRTy))
-      `(MLIRTy.tuple $x)
+      `(MLIRType.tuple $x)
 
 -- syntax "(" mlir_type ")" : mlir_type
 -- syntax "(" mlir_type "," mlir_type ")" : mlir_type
@@ -160,31 +159,31 @@ syntax "!" ident : mlir_type
 syntax ident: mlir_type
 
 
-set_option hygiene false in -- allow i to expand 
+set_option hygiene false in -- allow i to expand
 macro_rules
   | `([mlir_type| $x:ident ]) => do
         let xstr := x.getId.toString
         if xstr == "index"
         then
-          `(MLIRTy.index)
+          `(MLIRType.index)
         else if xstr.front == 'i' || xstr.front == 'f'
-        then do 
+        then do
           let xstr' := xstr.drop 1
           match xstr'.toInt? with
-          | some i => 
+          | some i =>
             let lit := Lean.Syntax.mkNumLit xstr'
             if xstr.front == 'i'
-            then `(MLIRTy.int $lit)
-            else `(MLIRTy.float $lit)
-          | none => 
+            then `(MLIRType.int $lit)
+            else `(MLIRType.float $lit)
+          | none =>
               Macro.throwError $ "cannot convert suffix of i/f to int: " ++ xstr
-        else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
+        else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr
 
 macro_rules
-| `([mlir_type| ! $x:str ]) => `(MLIRTy.undefined $x)
+| `([mlir_type| ! $x:str ]) => `(MLIRType.undefined $x)
 
 macro_rules
-| `([mlir_type| ! $x:ident ]) => `(MLIRTy.undefined $(Lean.quote x.getId.toString))
+| `([mlir_type| ! $x:ident ]) => `(MLIRType.undefined $(Lean.quote x.getId.toString))
 
 def tyIndex : MLIRTy := [mlir_type| index]
 #eval tyIndex
@@ -205,17 +204,17 @@ macro_rules
 | `([mlir_type| {{ $t }} ]) => return t -- antiquot type
 
 -- macro_rules
---   | `([mlir_type| ( ) ]) => `(MLIRTy.tuple [])
---   | `([mlir_type| ( $x:mlir_type )]) => 
---         `(MLIRTy.tuple [ [mlir_type|$x] ])
---   | `([mlir_type| ( $x:mlir_type, $y:mlir_type )]) => 
---     `(MLIRTy.tuple [ [mlir_type|$x], [mlir_type|$y] ] )
---   | `([mlir_type| ( $x:mlir_type, $y:mlir_type, $z:mlir_type )]) => 
---     `(MLIRTy.tuple [ [mlir_type|$x], [mlir_type|$y], [mlir_type| $z ] ] )
+--   | `([mlir_type| ( ) ]) => `(MLIRType.tuple [])
+--   | `([mlir_type| ( $x:mlir_type )]) =>
+--         `(MLIRType.tuple [ [mlir_type|$x] ])
+--   | `([mlir_type| ( $x:mlir_type, $y:mlir_type )]) =>
+--     `(MLIRType.tuple [ [mlir_type|$x], [mlir_type|$y] ] )
+--   | `([mlir_type| ( $x:mlir_type, $y:mlir_type, $z:mlir_type )]) =>
+--     `(MLIRType.tuple [ [mlir_type|$x], [mlir_type|$y], [mlir_type| $z ] ] )
 
 macro_rules
   | `([mlir_type| $dom:mlir_type -> $codom:mlir_type]) =>
-     `(MLIRTy.fn [mlir_type|$dom] [mlir_type|$codom])
+     `(MLIRType.fn [mlir_type|$dom] [mlir_type|$codom])
 
 def ty0 : MLIRTy := [mlir_type| ( )]
 def tyi32 : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
@@ -233,6 +232,17 @@ def tyfn3 : MLIRTy := [mlir_type| (i21, i22, i23) -> (i23, i24, i25)]
 #print tyfn1
 -- #print tyi32'
 
+-- Uses dialect coercion empty → builtin
+example : MLIRType builtin := [mlir_type| i32]
+-- Uses MLIRType coercion on the sublist (MLIRType.coeList)
+example : MLIRType builtin := [mlir_type| () -> ()]
+-- Uses dialect coercion empty → empty + builtin
+example : MLIRType (Dialect.empty + builtin) := [mlir_type| i32]
+-- More tricky: pushes coercion into the whole construction
+-- (used to fail with HAppend in quoteMList)
+example : MLIRType (builtin + Dialect.empty) := [mlir_type| (i21, i22)]
+
+
 
 declare_syntax_cat mlir_dimension
 
@@ -243,7 +253,7 @@ syntax "[mlir_dimension|" mlir_dimension "]" : term
 macro_rules
 | `([mlir_dimension| ?]) => `(Dimension.Unknown)
 macro_rules
-| `([mlir_dimension| $x:num ]) => 
+| `([mlir_dimension| $x:num ]) =>
     `(Dimension.Known $x)
 
 def dim0 := [mlir_dimension| 30]
@@ -311,7 +321,7 @@ syntax sepBy(numLit, "×", "×" notFollowedBy(mlir_type <|> "[")) : static_dim_l
 syntax "[static_dim_list|" static_dim_list "]" : term
 macro_rules
 | `([static_dim_list| $[ $ns:num ]×* ]) => do
-      quoteMList ns.toList (<- `(Int))
+      quoteMList ns.toList (<- `(Nat))
 
 -- vector-dim-list := (static-dim-list `x`)? (`[` static-dim-list `]` `x`)?
 declare_syntax_cat vector_dim_list
@@ -320,21 +330,21 @@ syntax (static_dim_list "×" ("[" static_dim_list "]" "×")? )? : vector_dim_lis
 -- vector-type ::= `vector` `<` vector-dim-list vector-element-type `>`
 syntax "vector" "<" vector_dim_list mlir_type ">"  : mlir_type
 
-set_option hygiene false in -- allow i to expand 
+set_option hygiene false in -- allow i to expand
 macro_rules
 | `([mlir_type| vector < $[$fixed?:static_dim_list × $[ [ $scaled?:static_dim_list ] × ]? ]? $t:mlir_type  >]) => do
-      let fixedDims <- match fixed? with  
+      let fixedDims <- match fixed? with
         | some s =>  `([static_dim_list| $s])
-        | none => `((@List.nil Int))
-      let scaledDims <- match scaled? with  
+        | none => `((@List.nil Nat))
+      let scaledDims <- match scaled? with
         | some (some s) => `([static_dim_list| $s])
-        | _ => `((@List.nil Int))
-      `(MLIRTy.vector $fixedDims $scaledDims [mlir_type| $t])
+        | _ => `((@List.nil Nat))
+      `(builtin.vector $fixedDims $scaledDims [mlir_type| $t])
 
-def staticDimList0 : List Int := [static_dim_list| 1]
+def staticDimList0 : List Nat := [static_dim_list| 1]
 #reduce staticDimList0
 
-def staticDimList1 : List Int := [static_dim_list| 1 × 2]
+def staticDimList1 : List Nat := [static_dim_list| 1 × 2]
 #reduce staticDimList1
 
 
@@ -353,8 +363,8 @@ def vectorTy2 := [mlir_type| vector<2 × 3 × [ 4 ] × i32>]
 -- syntax  "<" mlir_dimension_list  ">"  : mlir_type
 -- macro_rules
 -- | `([mlir_type|  < $dims:mlir_dimension_list  >]) => do
---     let (dims, ty) <- parseTensorDimensionList dims 
---     `(MLIRTy.vector $dims $ty)
+--     let (dims, ty) <- parseTensorDimensionList dims
+--     `(MLIRType.vector $dims $ty)
 
 
 -- | TODO: fix bug that does not allow a trailing times.
@@ -362,8 +372,8 @@ def vectorTy2 := [mlir_type| vector<2 × 3 × [ 4 ] × i32>]
 syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
 macro_rules
 | `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
-    let (dims, ty) <- parseTensorDimensionList dims 
-    `(MLIRTy.tensorRanked $ty $dims)
+    let (dims, ty) <- parseTensorDimensionList dims
+    `(builtin.tensor $dims $ty)
 
 -- | TODO: this is a huge hack.
 -- | TODO: I should be able to use the lower level parser to parse this cleanly?
@@ -373,20 +383,21 @@ syntax "tensor" "<*×" mlir_type ">"  : mlir_type
 
 macro_rules
 | `([mlir_type| tensor < *× $ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+    `(builtin.tensor_unranked [mlir_type| $ty])
 
 macro_rules
 | `([mlir_type| tensor < * × $ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+    `(builtin.tensor_unranked [mlir_type| $ty])
 
 macro_rules
 | `([mlir_type| tensor <* × $ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+    `(builtin.tensor_unranked [mlir_type| $ty])
 
 macro_rules
 | `([mlir_type| tensor <*×$ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+    `(builtin.tensor_unranked [mlir_type| $ty])
 
+-- Automatically inferred as MLIRType builtin
 def tensorTy0 := [mlir_type| tensor<3×3×i32>]
 #print tensorTy0
 
@@ -401,6 +412,9 @@ def tensorTy3 := [mlir_type| tensor<*× f32>]
 
 def tensorTy4 := [mlir_type| tensor<* × f32>]
 #print tensorTy4
+
+-- Basic coercion builtin → builtin + empty
+example : MLIRType (builtin + Dialect.empty) := [mlir_type| tensor<* × f32>]
 
 
 
@@ -426,9 +440,9 @@ macro_rules
 macro_rules
   | `([mlir_bb_stmt| $call:mlir_op ]) =>
        `(BasicBlockStmt.StmtOp ([mlir_op| $call]))
-  | `([mlir_bb_stmt| $res:mlir_op_operand = $call:mlir_op]) => 
+  | `([mlir_bb_stmt| $res:mlir_op_operand = $call:mlir_op]) =>
        `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) none ([mlir_op| $call]))
-  | `([mlir_bb_stmt| $res:mlir_op_operand : $ix:num = $call:mlir_op]) => 
+  | `([mlir_bb_stmt| $res:mlir_op_operand : $ix:num = $call:mlir_op]) =>
        `(BasicBlockStmt.StmtAssign ([mlir_op_operand| $res]) (some $ix) ([mlir_op| $call]))
 
 
@@ -441,9 +455,9 @@ syntax mlir_op_operand ":" mlir_type : mlir_bb_operand
 
 syntax "[mlir_bb_operand|" mlir_bb_operand "]" : term
 
-macro_rules 
-| `([mlir_bb_operand| $name:mlir_op_operand : $ty:mlir_type ]) => 
-     `( ([mlir_op_operand| $name], [mlir_type|$ty]) ) 
+macro_rules
+| `([mlir_bb_operand| $name:mlir_op_operand : $ty:mlir_type ]) =>
+     `( ([mlir_op_operand| $name], [mlir_type|$ty]) )
 
 
 
@@ -460,8 +474,8 @@ syntax (mlir_bb_stmt)* : mlir_bb_stmts
 syntax "[mlir_bb_stmts|" mlir_bb_stmts "]" : term
 macro_rules
 | `([mlir_bb_stmts| $[ $stmts ]*  ]) => do
-      let initList <- `(@List.nil MLIR.AST.BasicBlockStmt)
-      stmts.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_stmt|$x]])
+      let initList <- `(@List.nil (MLIR.AST.BasicBlockStmt Dialect.empty))
+      stmts.foldrM (init := initList) fun x xs => `([mlir_bb_stmt|$x] :: $xs)
 
 macro_rules
   | `([mlir_bb_stmts| $$($q)]) => `(coe $q)
@@ -471,10 +485,10 @@ macro_rules
 syntax "[mlir_bb|" mlir_bb "]": term
 
 
-macro_rules 
+macro_rules
 | `([mlir_bb| ^ $name:ident ( $operands,* ) : $stmts ]) => do
    let initList <- `(@List.nil (MLIR.AST.SSAVal × MLIR.AST.MLIRTy))
-   let argsList <- operands.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb_operand| $x]])
+   let argsList <- operands.getElems.foldrM (init := initList) fun x xs => `([mlir_bb_operand| $x] :: $xs)
    let opsList <- `([mlir_bb_stmts| $stmts])
    `(BasicBlock.mk $(Lean.quote (name.getId.toString)) $argsList $opsList)
 | `([mlir_bb| ^ $name:ident : $stmts ]) => do
@@ -491,12 +505,12 @@ syntax mlir_bb_stmts : mlir_entry_bb
 syntax "[mlir_entry_bb|" mlir_entry_bb "]" : term
 
 
-macro_rules 
+macro_rules
 | `([mlir_entry_bb| $stmts:mlir_bb_stmts ]) => do
    let opsList <- `([mlir_bb_stmts| $stmts])
    `(BasicBlock.mk "entry" [] $opsList)
 
-macro_rules 
+macro_rules
 | `([mlir_entry_bb| $bb:mlir_bb ]) => `([mlir_bb| $bb])
 
 -- EDSL MLIR REGIONS
@@ -509,10 +523,10 @@ syntax "[mlir_region|" mlir_region "]" : term
 
 macro_rules
 | `([mlir_region| { $[ $entrybb ]? $[ $bbs ]* } ]) => do
-   let initList <- match entrybb with 
+   let initList <- match entrybb with
                   | some entry => `([[mlir_entry_bb| $entry]])
                   | none => `([])
-   let bbsList <- bbs.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_bb|$x]])
+   let bbsList <- bbs.foldrM (init := initList) fun x xs => `([mlir_bb|$x] :: $xs)
    `(Region.mk $bbsList)
 
 macro_rules
@@ -537,19 +551,19 @@ macro_rules
 macro_rules
 | `([mlir_tensor| $x:scientific ]) => `(TensorElem.float $x)
 
-macro_rules 
-| `([mlir_tensor| $x:ident ]) => do 
+macro_rules
+| `([mlir_tensor| $x:ident ]) => do
       let xstr := x.getId.toString
-      if xstr == "true" 
+      if xstr == "true"
       then `(TensorElem.bool true)
       else if xstr == "false"
       then `(TensorElem.bool false)
       else Macro.throwError ("unknown tensor value: |" ++ xstr ++ "|")
 
 macro_rules
-| `([mlir_tensor| [ $xs,* ] ]) => do 
+| `([mlir_tensor| [ $xs,* ] ]) => do
     let initList <- `([])
-    let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_tensor| $x]]) 
+    let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_tensor| $x]])
     `(TensorElem.nested $vals)
 
 
@@ -590,85 +604,93 @@ macro_rules
 | `([mlir_attr_val| $$($x) ]) => `($x)
 
 macro_rules
-| `([mlir_attr_val|  $x:num ]) => `(AttrVal.int $x (MLIRTy.int 64))
-| `([mlir_attr_val| $x:num : $t:mlir_type]) => `(AttrVal.int $x [mlir_type| $t])
+| `([mlir_attr_val|  $x:num ]) => `(AttrValue.int $x (MLIRType.int 64))
+| `([mlir_attr_val| $x:num : $t:mlir_type]) => `(AttrValue.int $x [mlir_type| $t])
 
 macro_rules
-| `([mlir_attr_val| true ]) => `(AttrVal.bool True)
-| `([mlir_attr_val| false ]) => `(AttrVal.bool False)
+| `([mlir_attr_val| true ]) => `(AttrValue.bool True)
+| `([mlir_attr_val| false ]) => `(AttrValue.bool False)
 
 
 macro_rules
 | `([mlir_attr_val| # $dialect:ident < $opaqueData:str > ]) => do
   let dialect := Lean.quote dialect.getId.toString
-  `(AttrVal.opaque $dialect $opaqueData)
+  `(AttrValue.opaque $dialect $opaqueData)
 
 macro_rules
 | `([mlir_attr_val| #opaque< $dialect:ident, $opaqueData:str> : $t:mlir_type ]) => do
   let dialect := Lean.quote dialect.getId.toString
-  `(AttrVal.opaqueElementsAttr $dialect $opaqueData $t)
+  `(AttrValue.opaqueElementsAttr $dialect $opaqueData $t)
 
-macro_rules 
-  | `([mlir_attr_val| $s:str]) => `(AttrVal.str $s)
-  | `([mlir_attr_val| [ $xs,* ] ]) => do 
+macro_rules
+  | `([mlir_attr_val| $s:str]) => `(AttrValue.str $s)
+  | `([mlir_attr_val| [ $xs,* ] ]) => do
         let initList <- `([])
-        let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_val| $x]]) 
-        `(AttrVal.list $vals)
-  | `([mlir_attr_val| $i:ident]) => `(AttrVal.type [mlir_type| $i:ident])
-  | `([mlir_attr_val| $ty:mlir_type]) => `(AttrVal.type [mlir_type| $ty])
+        let vals <- xs.getElems.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_attr_val| $x]])
+        `(AttrValue.list $vals)
+  | `([mlir_attr_val| $i:ident]) => `(AttrValue.type [mlir_type| $i:ident])
+  | `([mlir_attr_val| $ty:mlir_type]) => `(AttrValue.type [mlir_type| $ty])
 
 
 syntax "dense<" mlir_tensor  ">" ":" mlir_type : mlir_attr_val
 macro_rules
-| `([mlir_attr_val| dense< $v:mlir_tensor > : $t:mlir_type]) => 
-    `(AttrVal.dense [mlir_tensor| $v] [mlir_type| $t])
+| `([mlir_attr_val| dense< $v:mlir_tensor > : $t:mlir_type]) =>
+    `(builtin.denseWithType [mlir_tensor| $v] [mlir_type| $t])
 
 syntax "dense<" ">" ":" mlir_type: mlir_attr_val
 macro_rules
-| `([mlir_attr_val| dense< > : $t:mlir_type]) => 
-    `(AttrVal.dense TensorElem.empty [mlir_type| $t])
+| `([mlir_attr_val| dense< > : $t:mlir_type]) =>
+    `(builtin.denseWithType TensorElem.empty [mlir_type| $t])
 
 macro_rules
   | `([mlir_attr_val| $a:affine_map]) =>
-      `(AttrVal.affine [affine_map| $a])
+      `(AttrValue.affine [affine_map| $a])
 
 macro_rules
 | `([mlir_attr_val_symbol| @ $x:str ]) =>
-      `(AttrVal.symbol $x)
+      `(AttrValue.symbol $x)
 
 macro_rules
 | `([mlir_attr_val_symbol| @ $x:ident ]) =>
-      `(AttrVal.symbol $(Lean.quote x.getId.toString))
+      `(AttrValue.symbol $(Lean.quote x.getId.toString))
 
 macro_rules
 | `([mlir_attr_val_symbol| $x:mlir_attr_val_symbol :: $y:mlir_attr_val_symbol ]) =>
-      `(AttrVal.nestedsymbol [mlir_attr_val_symbol| $x] [mlir_attr_val_symbol| $y])
+      `(AttrValue.nestedsymbol [mlir_attr_val_symbol| $x] [mlir_attr_val_symbol| $y])
 
 
 macro_rules
 | `([mlir_attr_val| $x:mlir_attr_val_symbol ]) => `([mlir_attr_val_symbol| $x])
 
 
-
 def attrVal0Str : AttrVal := [mlir_attr_val| "foo"]
 #reduce attrVal0Str
 
-def attrVal1Ty : AttrVal := [mlir_attr_val| (i32, i64) -> i32]
+-- Uses dialect coercion: empty → builtin
+example : AttrValue builtin := [mlir_attr_val| "foo"]
+-- Uses dialect coercion: empty → empty + builtin
+example : AttrValue (Dialect.empty + builtin) := [mlir_attr_val| "foo"]
+-- Uses dialect coercion after building an AttrValue Dialect.empty
+#check (AttrValue.type [mlir_type| (i32, i64) -> i32]: AttrValue builtin)
+-- Uses dialect coercion in MLIRType inside the tuple, then propagates
+example : AttrValue builtin := AttrValue.type [mlir_type| (i32, i64) -> i32]
+
+def attrVal1Ty : AttrValue (Dialect.empty + builtin) := [mlir_attr_val| (i32, i64) -> i32]
 #reduce attrVal1Ty
 
-def attrVal1bTy : AttrVal := [mlir_attr_val| i32]
+def attrVal1bTy : AttrValue builtin := [mlir_attr_val| i32]
 #reduce attrVal1bTy
 
-def attrVal2List : AttrVal := [mlir_attr_val| ["foo", "foo"] ]
+def attrVal2List : AttrValue builtin := [mlir_attr_val| ["foo", "foo"] ]
 #reduce attrVal2List
 
-def attrVal3AffineMap : AttrVal := [mlir_attr_val| affine_map<(x, y) -> (y)>]
+def attrVal3AffineMap : AttrValue builtin := [mlir_attr_val| affine_map<(x, y) -> (y)>]
 #reduce attrVal3AffineMap
 
-def attrVal4Symbol : AttrVal := [mlir_attr_val| @"foo" ]
+def attrVal4Symbol : AttrValue builtin := [mlir_attr_val| @"foo" ]
 #reduce attrVal4Symbol
 
-def attrVal5int: AttrVal := [mlir_attr_val| 42 ]
+def attrVal5int: AttrValue builtin := [mlir_attr_val| 42 ]
 #reduce attrVal5int
 
 -- def attrVal5bint: AttrVal := [mlir_attr_val| -42 ]
@@ -684,7 +706,7 @@ def attrVal7NestedSymbol : AttrVal := [mlir_attr_val| @func_foo::@"func_bar" ]
 
 macro_rules
   | `([mlir_attr_val| # $a:str]) =>
-      `(AttrVal.alias $a)
+      `(AttrValue.alias $a)
 
 def attrVal8Alias : AttrVal := [mlir_attr_val| #"A" ]
 #reduce attrVal8Alias
@@ -692,14 +714,14 @@ def attrVal8Alias : AttrVal := [mlir_attr_val| #"A" ]
 
 macro_rules
   | `([mlir_attr_val| # $a:ident]) =>
-      `(AttrVal.alias $(Lean.quote a.getId.toString))
+      `(AttrValue.alias $(Lean.quote a.getId.toString))
 
 def attrVal9Alias : AttrVal := [mlir_attr_val| #a ]
 #reduce attrVal9Alias
 
 macro_rules
-| `([mlir_attr_val|  $x:scientific ]) => `(AttrVal.float $x (MLIRTy.float 64))
-| `([mlir_attr_val| $x:scientific : $t:mlir_type]) => `(AttrVal.float $x [mlir_type| $t])
+| `([mlir_attr_val|  $x:scientific ]) => `(AttrValue.float $x (MLIRType.float 64))
+| `([mlir_attr_val| $x:scientific : $t:mlir_type]) => `(AttrValue.float $x [mlir_type| $t])
 
 
 -- def attrVal10Float : AttrVal := [mlir_attr_val| 0.000000e+00  ]
@@ -709,7 +731,8 @@ def attrVal10Float :  AttrVal := [mlir_attr_val| 0.0023 ]
 def attrVal11Escape :  AttrVal := [mlir_attr_val| $(attrVal10Float) ]
 #print attrVal11Escape
 
-def attrVal12DenseEmpty:  AttrVal := [mlir_attr_val| dense<> : tensor<0 × i64>]
+-- The dense<> attribute requires the builtin dialect for the tensor type
+def attrVal12DenseEmpty: AttrValue builtin := [mlir_attr_val| dense<> : tensor<0 × i64>]
 #print attrVal12DenseEmpty
 
 
@@ -727,31 +750,31 @@ syntax "[mlir_attr_entry|" mlir_attr_entry "]" : term
 
 -- | TODO: don't actually write an elaborator for the `ident` case. This forces
 -- us to declare predefined identifiers in a controlled fashion.
-macro_rules 
-  | `([mlir_attr_entry| $name:ident  = $v:mlir_attr_val]) => 
+macro_rules
+  | `([mlir_attr_entry| $name:ident  = $v:mlir_attr_val]) =>
      `(AttrEntry.mk $(Lean.quote (name.getId.toString))  [mlir_attr_val| $v])
-  | `([mlir_attr_entry| $name:str  = $v:mlir_attr_val]) => 
+  | `([mlir_attr_entry| $name:str  = $v:mlir_attr_val]) =>
      `(AttrEntry.mk $name [mlir_attr_val| $v])
 
 macro_rules
   | `([mlir_attr_entry| $name:ident]) =>
-     `(AttrEntry.mk $(Lean.quote (name.getId.toString))  AttrVal.unit)
+     `(AttrEntry.mk $(Lean.quote (name.getId.toString))  AttrValue.unit)
 
-  
 
-def attr0Str : AttrEntry := [mlir_attr_entry| sym_name = "add"]
+
+def attr0Str : AttrEntry builtin := [mlir_attr_entry| sym_name = "add"]
 #print attr0Str
 
-def attr1Type : AttrEntry := [mlir_attr_entry| type = (i32, i32) -> i32]
+def attr1Type : AttrEntry builtin := [mlir_attr_entry| type = (i32, i32) -> i32]
 #print attr1Type
 
-def attr2Escape : AttrEntry :=
+def attr2Escape : AttrEntry builtin :=
    let x : AttrVal := [mlir_attr_val| 42]
    [mlir_attr_entry| sym_name = $(x)]
 #print attr0Str
 
 
-def attr3Unit : AttrEntry :=
+def attr3Unit : AttrEntry builtin :=
    [mlir_attr_entry| sym_name]
 #print attr3Unit
 
@@ -763,19 +786,18 @@ syntax "[mlir_attr_dict|" mlir_attr_dict "]" : term
 macro_rules
 | `([mlir_attr_dict| {  $attrEntries,* } ]) => do
         let attrsList <- attrEntries.getElems.toList.mapM (fun x => `([mlir_attr_entry| $x]))
-        let attrsList <- quoteMList attrsList (<- `(MLIR.AST.AttrEntry))
+        let attrsList <- quoteMList attrsList (<- `(MLIR.AST.AttrEntry Dialect.empty))
         `(AttrDict.mk $attrsList)
 
-
-def attrDict0 : AttrDict := [mlir_attr_dict| {}]
-def attrDict1 : AttrDict := [mlir_attr_dict| {foo = "bar" }]
-def attrDict2 : AttrDict := [mlir_attr_dict| {foo = "bar", baz = "quux" }]
+def attrDict0 : AttrDict builtin := [mlir_attr_dict| {}]
+def attrDict1 : AttrDict builtin := [mlir_attr_dict| {foo = "bar" }]
+def attrDict2 : AttrDict builtin := [mlir_attr_dict| {foo = "bar", baz = "quux" }]
 
 -- dict attribute val
 syntax mlir_attr_dict : mlir_attr_val
 
 macro_rules
-| `([mlir_attr_val| $v:mlir_attr_dict]) => `(AttrVal.dict [mlir_attr_dict| $v])
+| `([mlir_attr_val| $v:mlir_attr_dict]) => `(AttrValue.dict [mlir_attr_dict| $v])
 
 def nestedAttrDict0 := [mlir_attr_dict| {foo = {bar = "baz"} }]
 #print nestedAttrDict0
@@ -784,15 +806,15 @@ def nestedAttrDict0 := [mlir_attr_dict| {foo = {bar = "baz"} }]
 -- =========================================================
 
 
-syntax strLit "(" mlir_op_operand,* ")" 
+syntax strLit "(" mlir_op_operand,* ")"
   ("[" mlir_op_successor_arg,* "]")? ("(" mlir_region,* ")")?  (mlir_attr_dict)? ":" mlir_type : mlir_op
 
 
-macro_rules 
+macro_rules
   | `([mlir_op| $$($x) ]) => return x
 
-macro_rules 
-  | `([mlir_op| $name:str 
+macro_rules
+  | `([mlir_op| $name:str
         ( $operands,* )
         $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
@@ -802,17 +824,17 @@ macro_rules
 
         let succList <- match succ with
                 | none => `(@List.nil MLIR.AST.BBName)
-                | some xs => do 
+                | some xs => do
                   let xs <- xs.getElems.mapM (fun x => `([mlir_op_successor_arg| $x]))
                   quoteMList xs.toList (<- `(MLIR.AST.BBName))
-        let attrDict <- match attrDict with 
-                          | none => `(AttrDict.mk []) 
+        let attrDict <- match attrDict with
+                          | none => `(AttrDict.mk [])
                           | some dict => `([mlir_attr_dict| $dict])
-        let rgnsList <- match rgns with 
-                  | none => `(@List.nil MLIR.AST.Region) 
-                  | some rgns => do 
+        let rgnsList <- match rgns with
+                  | none => `(@List.nil (MLIR.AST.Region Dialect.empty))
+                  | some rgns => do
                     let rngs <- rgns.getElems.mapM (fun x => `([mlir_region| $x]))
-                    quoteMList rngs.toList (<- `(MLIR.AST.Region))
+                    quoteMList rngs.toList (<- `(MLIR.AST.Region Dialect.empty))
 
         `(Op.mk $name -- name
                 $operandsList -- operands
@@ -823,18 +845,17 @@ macro_rules
 
 
 
-
-def bbstmt1 : BasicBlockStmt := 
+def bbstmt1 : BasicBlockStmt Dialect.empty :=
   [mlir_bb_stmt| "foo"(%x, %y) : (i32, i32) -> i32]
 #print bbstmt1
-def bbstmt2: BasicBlockStmt := 
+def bbstmt2: BasicBlockStmt builtin :=
   [mlir_bb_stmt| %z = "foo"(%x, %y) : (i32, i32) -> i32]
 #print bbstmt2
 
 def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32 ]
 #print bbop1
 
-def bb1NoArgs : BasicBlock := 
+def bb1NoArgs : BasicBlock builtin :=
   [mlir_bb|
      ^entry:
      "foo"(%x, %y) : (i32, i32) -> i32
@@ -843,7 +864,7 @@ def bb1NoArgs : BasicBlock :=
   ]
 #print bb1NoArgs
 
-def bb2SingleArg : BasicBlock := 
+def bb2SingleArg : BasicBlock builtin :=
   [mlir_bb|
      ^entry(%argp : i32):
      "foo"(%x, %y) : (i32, i32) -> i32
@@ -853,7 +874,7 @@ def bb2SingleArg : BasicBlock :=
 #print bb2SingleArg
 
 
-def bb3MultipleArgs : BasicBlock := 
+def bb3MultipleArgs : BasicBlock builtin :=
   [mlir_bb|
      ^entry(%argp : i32, %argq : i64):
      "foo"(%x, %y) : (i32, i32) -> i32
@@ -863,18 +884,18 @@ def bb3MultipleArgs : BasicBlock :=
 #reduce bb3MultipleArgs
 
 
-def rgn0 : Region := ([mlir_region|  { }])
+def rgn0 : Region Dialect.empty := ([mlir_region|  { }])
 #print rgn0
 
-def rgn1 : Region := 
-  [mlir_region|  { 
+def rgn1 : Region builtin :=
+  [mlir_region|  {
     ^entry:
       "std.return"(%x0) : (i42) -> ()
   }]
 #print rgn1
 
-def rgn2 : Region := 
-  [mlir_region|  { 
+def rgn2 : Region builtin :=
+  [mlir_region|  {
     ^entry:
       "std.return"(%x0) : (i42) -> ()
 
@@ -884,25 +905,25 @@ def rgn2 : Region :=
 #print rgn2
 
 -- | test what happens if we try to use an entry block with no explicit bb name
-def rgn3 : Region := 
-  [mlir_region|  { 
+def rgn3 : Region builtin :=
+  [mlir_region|  {
       "std.return"(%x0) : (i42) -> ()
   }]
 #print rgn1
 
 
 -- | test simple ops [no regions]
-def opcall1 : Op := [mlir_op| "foo" (%x, %y) : (i32, i32) -> i32 ]
+def opcall1 : Op Dialect.empty := [mlir_op| "foo" (%x, %y) : (i32, i32) -> i32 ]
 #print opcall1
 
 
-def opattr0 : Op := [mlir_op|
+def opattr0 : Op Dialect.empty := [mlir_op|
  "foo"() { sym_name = "add", type = (i32, i32) -> i32 } : () -> ()
 ]
 #print opattr0
 
 
-def oprgn0 : Op := [mlir_op|
+def oprgn0 : Op Dialect.empty := [mlir_op|
  "func"() ( {
   ^bb0(%arg0: i32, %arg1: i32):
     %x = "std.addi"(%arg0, %arg1) : (i32, i32) -> i32
@@ -913,7 +934,7 @@ def oprgn0 : Op := [mlir_op|
 
 
 -- | note that this is a "full stack" example!
-def opRgnAttr0 : Op := [mlir_op|
+def opRgnAttr0 : Op builtin := [mlir_op|
  "module"() (
  {
   ^entry:
@@ -931,7 +952,7 @@ def opRgnAttr0 : Op := [mlir_op|
 
 
 -- | test simple ops [no regions, but with bb args]
-def opcall2 : Op := [mlir_op| "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32]
+def opcall2 : Op builtin := [mlir_op| "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32]
 #print opcall2
 
 
@@ -942,40 +963,40 @@ syntax "func" mlir_attr_val_symbol "(" sepBy(mlir_bb_operand, ",") ")" mlir_regi
 
 -- | note that this only supports single BB region.
 -- | TODO: add support for multi BB region.
-macro_rules 
+macro_rules
 | `([mlir_op| func $name:mlir_attr_val_symbol ( $args,* )  $rgn ]) => do
-     let argsList <- args.getElems.mapM (fun x => `([mlir_bb_operand| $x])) 
-     let argsList <- quoteMList argsList.toList (<- `(MLIR.AST.SSAVal × MLIR.AST.MLIRTy))
+     let argsList <- args.getElems.mapM (fun x => `([mlir_bb_operand| $x]))
+     let argsList <- quoteMList argsList.toList
+                      (<- `(MLIR.AST.SSAVal × MLIR.AST.MLIRType Dialect.empty))
 
-     let typesList <- args.getElems.mapM (fun x => `(Prod.snd [mlir_bb_operand| $x])) 
-     let typesList <- quoteMList typesList.toList (<- `(MLIR.AST.MLIRTy))
+     let typesList <- args.getElems.mapM (fun x => `(Prod.snd [mlir_bb_operand| $x]))
+     let typesList <- quoteMList typesList.toList (<- `(MLIR.AST.MLIRType Dialect.empty))
 
      let rgn <- `([mlir_region| $rgn])
      let rgn <- `(($rgn).ensureEntryBlock.setEntryBlockArgs $argsList)
      let argTys <- `(($argsList).map Prod.snd)
-     let ty <-  `(MLIRTy.fn (MLIRTy.tuple $typesList) MLIRTy.unit)
+     let ty <-  `(MLIRType.fn (MLIRType.tuple $typesList) MLIRType.unit)
      let attrs <- `(AttrDict.empty.addType "type" $ty)
-     let attrs <- `(($attrs).add ("sym_name", [mlir_attr_val_symbol| $name]))
+     let attrs <- `(($attrs).add (AttrEntry.mk "sym_name" [mlir_attr_val_symbol| $name]))
 
      `(Op.mk "func" [] [] [$rgn] $attrs $ty)
 
 
-def func1 : Op := [mlir_op| func @"main"() {
+def func1 : Op Dialect.empty := [mlir_op| func @"main"() {
   ^entry:
     %x = "asm.int" () { "val" = 32 } : () -> (i32)
 }]
 
 syntax "module" "{" mlir_op* "}" : mlir_op
 
-macro_rules 
+macro_rules
 | `([mlir_op| module { $ops* } ]) => do
-     let initList <- `(@List.nil MLIR.AST.Op)
-     let ops <- ops.foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op| $x] ])
-     let ops <- `($ops ++ [Op.empty "module_terminator"])
+     let initList <- `([Op.empty "module_terminator"])
+     let ops <- ops.foldrM (init := initList) fun x xs => `([mlir_op| $x] :: $xs)
      let rgn <- `(Region.fromOps $ops)
      `(Op.mk "module" [] [] [$rgn] AttrDict.empty [mlir_type| () -> ()])
 
-def mod1 : Op := [mlir_op| module { }]
+def mod1 : Op builtin := [mlir_op| module { }]
 #print mod1
 
 --- MEMREF+TENSOR
@@ -1010,7 +1031,7 @@ syntax "[memref_type_layout_specification|" memref_type_layout_specification "]"
 
 
 macro_rules
-| `([memref_type_layout_specification| $v:mlir_attr_val]) => 
+| `([memref_type_layout_specification| $v:mlir_attr_val]) =>
     `(MemrefLayoutSpec.attr [mlir_attr_val| $v])
 | `([memref_type_layout_specification| offset: $o:mlir_dimension , strides: [ $[ $ds:mlir_dimension ],* ]]) =>  do
     let ds <- ds.mapM (fun d => `([mlir_dimension| $d]))
@@ -1021,15 +1042,15 @@ macro_rules
 syntax "memref" "<"  mlir_dimension_list ("," memref_type_layout_specification)? ("," mlir_attr_val)?  ">"  : mlir_type
 macro_rules
 | `([mlir_type| memref  < $dims:mlir_dimension_list $[, $layout ]? $[, $memspace]? >]) => do
-    let (dims, ty) <- parseTensorDimensionList dims 
-    let memspace <- match memspace with 
+    let (dims, ty) <- parseTensorDimensionList dims
+    let memspace <- match memspace with
                     | some s => `(some [mlir_attr_val| $s])
                     | none => `(none)
 
-    let layout <- match layout with 
+    let layout <- match layout with
                   | some stx => `(some [memref_type_layout_specification| $stx])
                   | none => `(none)
-    `(MLIRTy.memrefRanked $dims $ty $layout $memspace)
+    `(builtin.memref $dims $ty $layout $memspace)
 
 def memrefTy0 := [mlir_type| memref<3×3×i32>]
 #print memrefTy0
@@ -1042,7 +1063,7 @@ def memrefTy2 := [mlir_type| memref<2 × 4 × i8, #map1>]
 
 def memrefTy3 := [mlir_type| memref<2 × 4 × i8, #map1, 1>]
 #print memrefTy3
-  
+
 
 -- | unranked memref
 -- unranked-memref-type ::= `memref` `<*x` type (`,` memory-space)? `>`
@@ -1051,18 +1072,18 @@ syntax "memref" "<"  "*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
 syntax "memref" "<*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
 macro_rules
 | `([mlir_type| memref < * × $ty  $[, $memspace]? >]) => do
-    let memspace <- match memspace with 
+    let memspace <- match memspace with
                     | some s => `(some [mlir_attr_val| $s])
                     | none => `(none)
-    `(MLIRTy.memrefUnranked [mlir_type| $ty] $memspace)
+    `(builtin.memref_unranked [mlir_type| $ty] $memspace)
 
 macro_rules
 | `([mlir_type| memref <* × $ty  $[, $memspace]? >]) => do
-    let memspace <- match memspace with 
+    let memspace <- match memspace with
                     | some s => `(some [mlir_attr_val| $s])
                     | none => `(none)
-    `(MLIRTy.memrefUnranked [mlir_type| $ty] $memspace)
- 
+    `(builtin.memref_unranked [mlir_type| $ty] $memspace)
+
 def memrefTy4 := [mlir_type| memref<* × f32>]
 #print memrefTy4
 

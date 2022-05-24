@@ -295,7 +295,7 @@ open TranslationM
 -- TODO: Provide dialect data properly once implemented
 -- TODO: Set name substitution priorities instead of using the default
 private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
-    (stmt: BasicBlockStmt): TranslationM Unit := do
+    (stmt: BasicBlockStmt builtin): TranslationM Unit := do
   let tr ← get
 
   match stmt with
@@ -303,25 +303,22 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
 
     -- %name = pdl.type
     | Op.mk "pdl.type" [] [] [] (AttrDict.mk [])
-          (MLIRTy.fn (MLIRTy.tuple [])
-                     (MLIRTy.user "pdl.type")) => do
+          (.fn (.tuple []) (.undefined "pdl.type")) => do
         IO.println s!"Found new type variable: {name}"
         addName name
 
     -- %name = pdl.type: TYPE
     | Op.mk "pdl.type" [] [] [] (AttrDict.mk [
-            AttrEntry.mk "type" (AttrVal.type τ)
+            AttrEntry.mk "type" (AttrValue.type τ)
           ])
-          (MLIRTy.fn (MLIRTy.tuple [])
-                     (MLIRTy.user "pdl.type")) => do
+          (.fn (.tuple []) (.undefined "pdl.type")) => do
         IO.println s!"Found new type variable: {name} (= {τ})"
         addName name
         addEquation <| .EqType (TypeVar 1 name) (TypeConst τ)
 
     -- %name = pdl.operand
     | Op.mk "pdl.operand" [] [] [] (AttrDict.mk [])
-          (MLIRTy.fn (MLIRTy.tuple [])
-                     (MLIRTy.user "pdl.value")) => do
+          (.fn (.tuple []) (.undefined "pdl.value")) => do
         IO.println s!"Found new variable: {name}"
         addName name
         let typeName ← makeFreshName (name ++ "_T")
@@ -330,8 +327,8 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
 
     -- %name = pdl.operand: %typeName
     | Op.mk "pdl.operand" [(SSAVal.SSAVal typeName)] [] [] (AttrDict.mk [])
-          (MLIRTy.fn (MLIRTy.tuple [MLIRTy.user "pdl.type"])
-                     (MLIRTy.user "pdl.value")) => do
+          (.fn (.tuple [.undefined "pdl.type"])
+               (.undefined "pdl.value")) => do
         IO.println s!"Found new variable: {name} of type {typeName}"
         addName name
         checkNameDefined typeName
@@ -345,9 +342,9 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
            attrs.find "operand_segment_sizes")
 
         match attributeNames, opname, operand_segment_sizes with
-        | some (AttrVal.list attributeNames),
-          some (AttrVal.str opname),
-          some (AttrVal.dense oss (MLIRTy.vector _ _ _)) =>
+        | some (.list attributeNames),
+          some (.str opname),
+          some (builtin.dense_vector_attr oss _ _ _) =>
             let values := (operandSegment args oss 0).map (·.str)
             let types  := (operandSegment args oss 2).map (·.str)
             IO.println s!"Found new operation: {name} matching {opname}"
@@ -384,11 +381,11 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
 
     -- %name = pdl.result INDEX of %op
     | Op.mk "pdl.result" [SSAVal.SSAVal opname] [] [] attrs
-          (MLIRTy.fn (MLIRTy.tuple [MLIRTy.user "pdl.operation"])
-                     (MLIRTy.user "pdl.value")) => do
+          (.fn (.tuple [.undefined "pdl.operation"])
+               (.undefined "pdl.value")) => do
 
         match attrs.find "index" with
-        | some (AttrVal.int index (MLIRTy.int _)) =>
+        | some (AttrValue.int index (MLIRType.int _)) =>
             IO.println
               s!"Found new variable: {name} aliasing result {index} of {opname}"
             checkNameDefined opname
@@ -411,7 +408,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
     | _ => do
         error s!"{op.name}: unrecognized PDL operation"
 
-def PDLToMatch.convert (PDLProgram: Op) (operationMatchTerms: List MOp):
+def PDLToMatch.convert (PDLProgram: Op builtin) (operationMatchTerms: List MOp):
     TranslationM Unit :=
   match PDLProgram with
   | Op.mk "pdl.pattern" [] [] [region] attrs ty =>
@@ -447,7 +444,7 @@ end
 ### Example PDL program
 -/
 
-private def ex_pdl: Op := [mlir_op|
+private def ex_pdl: Op builtin := [mlir_op|
   "pdl.pattern"() ({
     -- %T0 = pdl.type
     %T0 = "pdl.type"() : () -> !"pdl.type"
@@ -480,7 +477,7 @@ private def foo_op1_pattern: MOp :=
 private def foo_op2_pattern: MOp :=
   OpKnown "foo.op2"
     [(ValueVar 1 "x", TypeVar 1 "T"),
-     (ValueVar 1 "y", TypeConst (MLIRTy.int 32))]
+     (ValueVar 1 "y", TypeConst (MLIRType.int 32))]
     [(ValueVar 1 "res", TypeVar 1 "T")]
 #eval foo_op2_pattern
 

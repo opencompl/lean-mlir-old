@@ -1,4 +1,4 @@
-import MLIR.EDSL 
+import MLIR.EDSL
 import MLIR.Dialects.Builtin
 
 open MLIR.Doc
@@ -13,10 +13,10 @@ open MLIR.EDSL
 
 -- | Mix into MLIR definitions.
 def complex0 := [mlir_op|
-   func @"main"()  {    
+   func @"main"()  {
      %c42 = "std.constant" () { value = 42 : i32} : i32
-     %x = "complex.create" (%c42, %c42) : (i32, i32) -> !"complex" 
-     %y = "complex.mul" (%x, %x) : (!"complex", !"complex") -> !"complex" 
+     %x = "complex.create" (%c42, %c42) : (i32, i32) -> !"complex"
+     %y = "complex.mul" (%x, %x) : (!"complex", !"complex") -> !"complex"
      %z = "complex.exp" (%y) : (!"complex") -> !"complex"
     "std.return"(%z) : !"complex" -> ()
   }
@@ -29,11 +29,11 @@ syntax "return" mlir_op_operand ":" mlir_type : mlir_op
 
 
 macro_rules
-| `([mlir_op| constant $x:num : $t:mlir_type]) => 
+| `([mlir_op| constant $x:num : $t:mlir_type]) =>
         `([mlir_op| "TODO_constant" () : () ])
 
 macro_rules
-| `([mlir_op| return $x:mlir_op_operand : $t:mlir_type]) => 
+| `([mlir_op| return $x:mlir_op_operand : $t:mlir_type]) =>
         `([mlir_op| "TODO_return" () : () ])
 
 -- Complex numbers MLIR encoding
@@ -43,24 +43,24 @@ syntax mlir_op_operand "c*" mlir_op_operand :  mlir_op
 syntax "e^" mlir_op_operand :  mlir_op
 
 macro_rules
-| `([mlir_op| $x:mlir_op_operand + $y:mlir_op_operand i]) => 
+| `([mlir_op| $x:mlir_op_operand + $y:mlir_op_operand i]) =>
         `([mlir_op| "complex.create" ($x, $y) : () -> !"complex"  ])
 
 macro_rules
-| `([mlir_op| $x:mlir_op_operand c* $y:mlir_op_operand]) => 
+| `([mlir_op| $x:mlir_op_operand c* $y:mlir_op_operand]) =>
         `([mlir_op| "complex.mul" ($x, $y) : () -> !"complex"  ])
 
 macro_rules
-| `([mlir_op| e^ $x:mlir_op_operand]) => 
+| `([mlir_op| e^ $x:mlir_op_operand]) =>
         `([mlir_op| "complex.exp" ($x) : () -> !"complex"  ])
 
 
 -- | complex example
 def complex1 := [mlir_op|
-   func @"main"()  {    
+   func @"main"()  {
      %c42 = constant 42 : i32
      %x = %c42 + %c42 i
-     %y = %x c* %x 
+     %y = %x c* %x
      %z = e^ %y
     return %z : !"complex"
   }]
@@ -79,26 +79,26 @@ syntax "[complex|" complex "]" : term
 syntax term : mlir_op_operand
 
 
-structure GenM (a: Type) where 
-  gen: (Int × List BasicBlockStmt) → (a × Int  ×List BasicBlockStmt)
+structure GenM (a: Type) where
+  gen: (Int × List (BasicBlockStmt builtin)) → (a × Int × List (BasicBlockStmt builtin))
 
-instance : Functor GenM where 
-  map f gen := 
-  { gen := fun input => 
+instance : Functor GenM where
+  map f gen :=
+  { gen := fun input =>
     let (x, stmts) := gen.gen input
     (f x, stmts)
   }
 
 instance : Monad GenM where
-  pure v := { gen := fun (x, stmts) => (v, x, stmts) } 
+  pure v := { gen := fun (x, stmts) => (v, x, stmts) }
   bind gena a2genb  := {
-    gen := fun (count, ops) => 
+    gen := fun (count, ops) =>
         let (a, count, ops) := gena.gen (count, ops)
         let genb := a2genb a
         let (b, count, ops) := genb.gen (count, ops)
         (b, count, ops)
   }
-  -- |applicative 
+  -- |applicative
   seq gena2b unit2gena := {
     gen := fun (count, ops) =>
       let (a2b, count, ops) := (gena2b).gen (count, ops)
@@ -106,27 +106,50 @@ instance : Monad GenM where
       (a2b a, count, ops)
   }
 
-def runGenM (g: GenM α) (name: String := "entry") (args: List (SSAVal ×MLIRTy) := []): BasicBlock := 
+def runGenM (g: GenM α) (name: String := "entry") (args: List (SSAVal ×MLIRTy) := []):
+    BasicBlock builtin :=
   BasicBlock.mk name args (g.gen (0, [])).snd.snd
 
 -- | append an op with a named lh
-def appendOp (op: Op): GenM SSAVal :=
-  { gen := fun (x, stmts) => 
+def appendOp (op: Op builtin): GenM SSAVal :=
+  { gen := fun (x, stmts) =>
        let name := SSAVal.SSAVal ("v" ++ toString x)
        let stmt := BasicBlockStmt.StmtAssign name none op
        (name, x + 1,  stmts ++ [stmt])
   }
 
 -- | append an op with no name
-def appendOp_ (op: Op): GenM Unit := 
-  { gen := fun (x, stmts) => 
+def appendOp_ (op: Op builtin): GenM Unit :=
+  { gen := fun (x, stmts) =>
      let stmt := BasicBlockStmt.StmtOp op
      ((), x,  stmts ++ [stmt])
 }
 
+-- Old escaping system
+syntax "[escape|" term "]" : mlir_op_operand
+macro_rules
+| `([mlir_op_operand| [escape| $t ] ]) => return t
+
+-- Complex numbers MLIR encoding
+syntax mlir_op_operand "+" mlir_op_operand "i" : mlir_op
+syntax mlir_op_operand "c*" mlir_op_operand :  mlir_op
+syntax mlir_op_operand "c*" mlir_op_operand :  mlir_op
+syntax "e^" mlir_op_operand :  mlir_op
 
 macro_rules
-| `([complex| $x:num + $y:num i]) => 
+| `([mlir_op| $x:mlir_op_operand + $y:mlir_op_operand i]) =>
+        `([mlir_op| "complex.create" ($x, $y) : () -> !"complex"  ])
+
+macro_rules
+| `([mlir_op| $x:mlir_op_operand c* $y:mlir_op_operand]) =>
+        `([mlir_op| "complex.mul" ($x, $y) : () -> !"complex"  ])
+
+macro_rules
+| `([mlir_op| e^ $x:mlir_op_operand]) =>
+        `([mlir_op| "complex.exp" ($x) : () -> !"complex"  ])
+
+macro_rules
+| `([complex| $x:num + $y:num i]) =>
     `(do
         let k <- appendOp [mlir_op| constant $x : i32]
         let l <- appendOp [mlir_op| constant $y : i32]
@@ -143,7 +166,7 @@ def complex2 := runGenM [complex| 42 + 42 i]
 #eval IO.eprintln $ Pretty.doc $ complex2
 
 macro_rules
-| `([complex| $x:complex * $y:complex]) => 
+| `([complex| $x:complex * $y:complex]) =>
     `(do
         let k <- [complex| $x]
         let l <- [complex| $y]
