@@ -12,6 +12,7 @@ TODO: Provide the matcher
 import MLIR.Semantics.Types
 import MLIR.Dialects.BuiltinModel
 import MLIR.AST
+import MLIR.IRDL
 open MLIR.AST
 
 /-
@@ -145,3 +146,25 @@ def MOp.substValues (op: MOp) (repl: List (String × MValue)): MOp :=
 
 def MOp.substTypes (op: MOp) (repl: List (String × MType)): MOp :=
   repl.foldl (fun op (name, repl) => op.substType name repl) op
+
+
+/-
+### Generation from IRDL
+
+Generate match terms from IRDL definitions.
+-/
+
+def MType.fromIRDL : IRDLTypeConstraint builtin → MType
+  | IRDLTypeConstraint.TypeVar name => TypeVar 2 name
+  | IRDLTypeConstraint.Eq type => TypeConst type
+  | IRDLTypeConstraint.AnyOf constraints => TypeVar 2 "foo" -- TODO: Generate new fresh variable?
+
+def MValue.fromIRDL : String → MValue := ValueVar 2 
+
+def namedTypeConstrToIRDL (namedConstr: String × IRDLTypeConstraint builtin)
+ : (MValue × MType) :=
+  (MValue.fromIRDL namedConstr.fst, MType.fromIRDL namedConstr.snd)
+
+def MOp.fromIRDL : IRDLOp builtin → MOp
+  | IRDLOp.mk name varConstrs operands results =>
+    OpKnown name (operands.map namedTypeConstrToIRDL) (results.map namedTypeConstrToIRDL)
