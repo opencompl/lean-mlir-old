@@ -62,6 +62,13 @@ inductive SSAVal : Type where
 
 deriving instance DecidableEq for SSAVal
 
+def SSAValToString (s: SSAVal): String :=
+  match s with
+  | SSAVal.SSAVal str => str
+
+instance : ToString SSAVal where
+  toString := SSAValToString
+
 inductive TensorElem :=
 | int: Int -> TensorElem
 | float: Float -> TensorElem
@@ -256,6 +263,22 @@ instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [
     Coe (List (SSAVal × MLIRType δ₁)) (List (SSAVal × MLIRType δ₂)) where
   coe := List.map (fun (v, τ) => (v, Coe.coe τ))
 
+def BasicBlockStmt.op: BasicBlockStmt δ ->  Op δ
+| BasicBlockStmt.StmtAssign val ix op => op
+| BasicBlockStmt.StmtOp op => op
+
+def BasicBlock.name (bb: BasicBlock δ): BBName :=
+  match bb with
+  | BasicBlock.mk name args stmts => BBName.mk name
+
+
+def BasicBlock.stmts (bb: BasicBlock δ): List (BasicBlockStmt δ) :=
+  match bb with
+  | BasicBlock.mk name args stmts => stmts
+
+def Region.getBasicBlock (r: Region δ) (name: BBName): Option (BasicBlock δ) :=
+  r.bbs.find? (fun bb => bb.name == name)
+
 
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
@@ -309,7 +332,7 @@ variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [
 
 private def coeOp: Op δ₁ → Op δ₂
   | .mk name args bbs regions attrs τ =>
-      .mk name args bbs (coeRegionList regions) attrs τ
+      .mk name args bbs (coeRegionList regions) (Coe.coe attrs) (Coe.coe τ)
 
 private def coeBasicBlockStmt: BasicBlockStmt δ₁ → BasicBlockStmt δ₂
   | .StmtAssign val ix op => .StmtAssign val ix (coeOp op)
@@ -333,7 +356,6 @@ private def coeRegion: Region δ₁ → Region δ₂
 private def coeRegionList: List (Region δ₁) → List (Region δ₂)
   | [] => []
   | r :: regions => coeRegion r :: coeRegionList regions
-
 end
 
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:

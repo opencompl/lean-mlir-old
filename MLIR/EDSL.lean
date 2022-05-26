@@ -523,11 +523,10 @@ syntax "[mlir_region|" mlir_region "]" : term
 
 macro_rules
 | `([mlir_region| { $[ $entrybb ]? $[ $bbs ]* } ]) => do
-   let initList <- match entrybb with
-                  | some entry => `([[mlir_entry_bb| $entry]])
-                  | none => `([])
-   let bbsList <- bbs.foldrM (init := initList) fun x xs => `([mlir_bb|$x] :: $xs)
-   `(Region.mk $bbsList)
+   let bbsList ← bbs.foldrM (fun x xs => `([mlir_bb|$x] :: $xs)) (← `([]))
+   match entrybb with
+   | some entry => `(Region.mk ([mlir_entry_bb| $entry] :: $bbsList))
+   | none => `(Region.mk $bbsList)
 
 macro_rules
 | `([mlir_region| $$($q) ]) => return q
@@ -998,6 +997,9 @@ macro_rules
 
 def mod1 : Op builtin := [mlir_op| module { }]
 #print mod1
+
+def mod2 : Op builtin := [mlir_op| module { "dummy.dummy"(): () }]
+#print mod2
 
 --- MEMREF+TENSOR
 --- =============

@@ -5,6 +5,7 @@ import MLIR.Semantics.Verifier
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.InvalidOp
 import MLIR.Util.Metagen
+import MLIR.Util.Reduce
 
 import MLIR.AST
 import MLIR.EDSL
@@ -147,31 +148,6 @@ and finally the Toy operations themselves.
 /-
 ### Examples and testing
 -/
-
--- The following extends #reduce with a (skipProofs := true/false) parameter
--- to not reduce proofs in the kernel. Reducing proofs would cause constant
--- timeouts, and proofs are used implicitly through well-founded induction for
--- mutual definitions.
--- See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Repr.20instance.20for.20functions/near/276504682
-
-open Lean
-open Lean.Parser.Term
-open Lean.Elab.Command
-open Lean.Elab
-open Lean.Meta
-
-elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> falseVal) ")") term:term : command =>
-  let skipProofs := skipProofs[3].isOfKind ``trueVal
-  withoutModifyingEnv <| runTermElabM (some `_check) fun _ => do
-    -- dbg_trace term
-    let e ← Term.elabTerm term none
-    Term.synthesizeSyntheticMVarsNoPostponing
-    let (e, _) ← Term.levelMVarToParam (← instantiateMVars e)
-    withTheReader Core.Context (fun ctx => { ctx with options := ctx.options.setBool `smartUnfolding false }) do
-      let e ← withTransparency (mode := TransparencyMode.all) <| reduce e (skipProofs := skipProofs) (skipTypes := false)
-      logInfo e
-
----
 
 -- TODO: Can we infer the builtin in there?
 def transpose_stmt: BasicBlockStmt builtin := [mlir_bb_stmt|

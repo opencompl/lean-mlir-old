@@ -18,6 +18,8 @@ open MLIR.AST
 
 These are simply typed equalities which make up the core of a unification
 problem.
+
+TODO: We must also have a unification equality for MLIR attributes.
 -/
 
 inductive UEq :=
@@ -126,6 +128,15 @@ is set to none when the problem is found to be unsatisfiable.
 [1] Martelli, Alberto, and Ugo Montanari. "An efficient unification algorithm."
     ACM Transactions on Programming Languages and Systems (TOPLAS) 4.2 (1982):
     258-282.
+
+### Algorihm description
+
+We run the rules below till fixpoint:
+  1. Remove x = x.
+  2. If we have `x = term`, and there are no cycles, we substitute.
+  3. If we have `term = x`, we re-orient to `x = term`.
+  4. If we have `constructor(a1, ... ak) = constructor(b1, ... bk), we add equalities `ai = bi`.
+  5. Make sure that we have substitution priority right.
 -/
 
 -- ORIENT: turn [t = x] (where t not a variable) into [x = t]

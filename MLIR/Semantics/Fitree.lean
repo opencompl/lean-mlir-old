@@ -35,6 +35,7 @@ import MLIR.Semantics.SimpItree
 
 /- Extendable effect families -/
 
+-- | Polymorphic to and sum.
 def pto (E: Type u → Type v₁) (F: Type u → Type v₂) :=
   ∀ T, E T → F T
 def psum (E: Type u → Type v₁) (F: Type u → Type v₂) :=
@@ -114,6 +115,9 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 -- Interpretation into the state monad
+-- NOTE: This is semantically equivalent to interp,
+-- but it is easier to state theorems about `interp_state`, instead of
+-- stating theorems about `@interp (StateT S)`.
 @[simp_itree]
 def interp_state {M S} [Monad M] {E} (h: E ~> StateT S M):
     forall ⦃R⦄, Fitree E R → StateT S M R :=

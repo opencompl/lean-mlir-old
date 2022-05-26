@@ -18,6 +18,7 @@
 (ql:quickload 'cl-cram)
 (ql:quickload 'cl-csv)
 
+
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 
 ;; parinfer and rainbow delimiters interact poorly!
@@ -91,6 +92,38 @@
   run-canon-err	     ; stderr when canonicalizing run output
   roundtrip-successp ; whether the file round-trips correctly
   )
+
+
+
+;;  TODO: find some godforsaken way to maintain a connection
+;; between the preamble and the data written?
+;; Wait, I'm a genius, it's fucking lisp
+(defun function-name (fn)
+  (string-downcase (symbol-name (nth-value 2 (function-lambda-expression fn)))))
+
+(defparameter *csv-fields-to-write*
+  (list #'mlir-file-part-guid
+	#'mlir-file-part-category
+	#'mlir-file-part-path
+	#'mlir-file-part-canon-error
+	#'mlir-file-part-canon-successp
+	#'mlir-file-part-compile-error
+	#'mlir-file-part-compile-successp
+	#'mlir-file-part-run-canon-successp
+	#'mlir-file-part-run-canon-err
+	#'mlir-file-part-roundtrip-successp))
+
+
+
+;; Literallyu se the functions as your keys, lol
+(defparameter *csv-preamble*
+  (loop for f in *csv-fields-to-write*
+	collect (str:replace-first "mlir-file-part-" "" (function-name f))))
+
+
+;;; Format mlir as a CSV.
+(defun mlir-part-to-csv-row (p)
+  (loop for f in *csv-fields-to-write* collect (cl-csv:format-csv-value (funcall f p))))
 
 ;; returns file
 ;; https://github.com/llvm/llvm-project/blob/860eabb3953a104b2b85398c705cd32e33d86689/mlir/lib/Support/ToolUtilities.cpp#L22
@@ -412,7 +445,9 @@ def main : IO Unit :=
   (lparallel:pmap nil #'make-and-run-lean-file *canon-mlir-parts*)
   (print-compile-stats)
   (print-run-stats)
-  (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
-    (shasht:write-json (list (cons :stats *run-stats*)) outf)))
-
+  (uiop:with-output-file (outf #P"./test.csv" :if-exists :supersede)
+    (cl-csv:write-csv (cons *csv-preamble* (mapcar #'mlir-part-to-csv-row *canon-mlir-parts*)) :stream outf))
+  ;; (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
+  ;;   (shasht:write-json (list (cons :stats *run-stats*)) outf))
+  )
 (main)
