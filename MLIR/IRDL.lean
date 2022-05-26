@@ -12,7 +12,14 @@ inductive IRDLTypeConstraint (δ: Dialect α σ ε) :=
   | Eq (τ: MLIRType δ)
   | AnyOf (constraint: List (IRDLTypeConstraint δ))
 
-structure IRDLOp (δ: Dialect α σ ε) where mk ::
+def IRDLTypeConstraint.verify {δ: Dialect α σ ε} (constr: IRDLTypeConstraint δ) (τ: MLIRType δ) : Bool :=
+  match constr with
+  | TypeVar name => true
+  | Eq τ' => τ == τ'
+  | AnyOf [] => false
+  | AnyOf (constr::constrs) => constr.verify τ || ((AnyOf constrs).verify τ)
+
+structure IRDLOp {δ: Dialect α σ ε} where mk ::
   -- Operation name
   name: String
   -- Constraint variables
