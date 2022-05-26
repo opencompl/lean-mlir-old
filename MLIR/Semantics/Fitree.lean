@@ -32,6 +32,7 @@ only model programs that always terminate.
 -/
 
 import MLIR.Semantics.SimpItree
+import MLIR.Util.WriterT
 
 /- Extendable effect families -/
 
@@ -122,6 +123,13 @@ def interp {M} [Monad M] {E} (h: E ~> M):
 def interp_state {M S} [Monad M] {E} (h: E ~> StateT S M):
     forall ⦃R⦄, Fitree E R → StateT S M R :=
   interp h
+
+-- Interpretation into the writer monad
+@[simp_itree]
+def interp_writer [Monad M] {E} (h: E ~> WriterT M):
+    forall ⦃R⦄, Fitree E R → WriterT M R :=
+  interp h
+
 
 -- Since we only use finite ITrees, we can actually run them when they're
 -- fully interpreted (which leaves only the Ret constructor)

@@ -170,7 +170,23 @@ def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v
 instance {τ: MLIRType δ}: DecidableEq τ.eval :=
   MLIRType.eval.eq
 
-end
+def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
+  match τ, v with
+  | .fn τ₁ τ₂, v => v
+  | .int _, v => toString v
+  | .float _, v => toString v
+  | .index, v => toString v
+  | .tuple [], v => "()"
+  | .tuple [τ], v => "(" ++ (@str τ v).drop 1
+  | .tuple (τ₁::τ₂::τs), (v,vs) =>
+    "(" ++ str v ++ (@str (.tuple (τ₂::τs)) vs).drop 1
+  | .undefined _, () => "<undefined>"
+  | .extended s, v => DialectTypeIntf.str s v
+
+instance {τ: MLIRType δ}: ToString τ.eval where
+  toString := MLIRType.eval.str
+
+end -- of section defining δ
 
 
 /-
