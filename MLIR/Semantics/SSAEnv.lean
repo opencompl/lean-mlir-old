@@ -58,6 +58,12 @@ def SSAScope.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.
       then ⟨name', τ, v⟩ :: l
       else ⟨name', τ', v'⟩ :: set name τ v l
 
+def SSAScope.str {δ: Dialect α σ ε} (scope: SSAScope δ): String :=
+  "\n".intercalate <| scope.map fun ⟨name, τ, v⟩ => s!"{name} = {v} : {τ}"
+
+instance {δ: Dialect α σ ε}: ToString (SSAScope δ) where
+  toString := SSAScope.str
+
 /- Maybe useful in the future, for proofs
 def SSAScope.has (name: SSAVal) (l: SSAScope): Bool :=
   l.any (fun ⟨name', _, _⟩ => name' == name)
@@ -76,6 +82,12 @@ def SSAEnv (δ: Dialect α σ ε) :=
 
 -- An SSA environment with a single empty SSAScope
 def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := [[]]
+
+def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
+  "---\n".intercalate <| env.map toString
+
+instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
+  toString := SSAEnv.str
 
 @[simp]
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):

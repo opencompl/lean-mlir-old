@@ -2,8 +2,41 @@
 
 import MLIR.AST
 import MLIR.Doc
-open MLIR.Doc
+import MLIR.Dialects
 open MLIR.AST
+
+inductive ArgSet: List ArgumentArity → Type :=
+  | nil: ArgSet []
+  | consSingle {l} (s: SSAVal) (args: ArgSet l): ArgSet (.Single :: l)
+  | consVariadic {l} (s: List SSAVal) (args: ArgSet l): ArgSet (.Variadic :: l)
+
+declare_syntax_cat argset_arg
+syntax term "..."?: argset_arg
+syntax "[args|" sepBy(argset_arg, ",")  "]": term
+
+macro_rules
+  | `([args| $[$elems],* ]) => do
+      let nil ← `(ArgSet.nil)
+      elems.foldrM (init := nil) fun arg args =>
+        let x := arg.getArg 0
+        if (arg.getArg 1).getNumArgs > 0 then
+          `(ArgSet.consVariadic $x $args)
+        else
+          `(ArgSet.consSingle $x $args)
+
+--
+
+def args0: ArgSet [.Single, .Variadic, .Single] :=
+  .consSingle "0" <| .consVariadic ["1", "2", "3"] <| .consSingle "4" .nil
+
+def match_args0: ArgSet [.Single, .Variadic, .Single] → Nat
+  | [args| x, l..., y] =>
+      l.length + 2
+
+#eval match_args0 args0
+
+#exit
+--
 
 def FinList (n: Nat) (α: Type) := Fin n -> α
 

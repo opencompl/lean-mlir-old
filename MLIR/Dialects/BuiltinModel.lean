@@ -5,7 +5,9 @@
 import MLIR.AST
 import MLIR.Doc
 import MLIR.Semantics.Types
+import MLIR.Semantics.TensorElem
 open MLIR.AST
+open MLIR.AST.TensorElem (shapeProd)
 
 /-
 ## General tensor type
@@ -25,7 +27,7 @@ structure Tensor (τ: MLIRTy) where
   -- Contents in row-major order
   data: List τ.eval
   -- Invariant: shape and size must match
-  h_data_size: data.length = shape_prod shape
+  h_data_size: data.length = shapeProd shape
 
 theorem Tensor.eq_of_fields_eq {τ} (t₁ t₂: Tensor τ):
     t₁.shape = t₂.shape → t₁.data = t₂.data → t₁ = t₂ := by
@@ -39,7 +41,7 @@ instance {τ}: DecidableEq (Tensor τ) := fun t₁ t₂ => by
 
 def Tensor.uniform {τ} (shape: List Nat) (v: τ.eval): Tensor τ :=
   { shape       := shape,
-    data        := List.uniform v (shape_prod shape),
+    data        := List.uniform v (shapeProd shape),
     h_data_size := List.length_uniform _ _ }
 
 instance {τ}: Inhabited (Tensor τ) where
@@ -55,7 +57,7 @@ dimensions (all of which may not be known) which adds more invariants.
 
 structure RankedTensor (D: DimList) (τ: MLIRTy) extends Tensor τ where
   -- Invariants: shape/dimension must be compatible, shape/size must match
-  h_refines: shape_refines shape D
+  h_refines: D.shapeRefines shape
 
 theorem RankedTensor.eq_of_fields_eq {τ D} (t₁ t₂: RankedTensor τ D):
     t₁.shape = t₂.shape → t₁.data = t₂.data → t₁ = t₂ := by
@@ -69,8 +71,8 @@ instance {τ D}: DecidableEq (RankedTensor τ D) := fun t₁ t₂ => by
   exact inferInstance
 
 def RankedTensor.uniform {τ} (D: DimList) (v: τ.eval): RankedTensor D τ :=
-  { Tensor.uniform D.default_refinement v with
-    h_refines   := default_refinement_refines _ }
+  { Tensor.uniform D.defaultRefinement v with
+    h_refines   := DimList.defaultRefinement_refines _ }
 
 instance {τ D}: Inhabited (RankedTensor D τ) where
   default := RankedTensor.uniform D default
@@ -86,21 +88,24 @@ def RankedTensor.str {τ D} (t: RankedTensor D τ): String :=
 
 -- Conversion from TensorElem
 
-def RankedTensor.ofTensorElem {τ} (D: DimList) (e: TensorElem)
-    (Htype: e.hasType τ) (Hcompat: e.rankCompatibleWith D τ):
-    RankedTensor D τ :=
-  match Hcompat with
-  | .UniformInt i bitsize _ =>
+def RankedTensor.ofTensorLiteral (lit: TensorLiteral D τ): RankedTensor D τ :=
+  match τ, lit, lit.h_rank with
+  | .int bitsize, lit, .UniformInt i _ _ =>
       RankedTensor.uniform D i
-  | .UniformBool b _ =>
+  | .int 1, lit, .UniformBool b _ =>
       RankedTensor.uniform D (if b then 1 else 0)
-  | .UniformFloat f bitsize _ =>
+  | .float bitsize, lit, .UniformFloat f _ _ =>
       RankedTensor.uniform D f
-  | .HasShape s τ Hshape Hrefines =>
+  | τ, lit, .HasShape s _ Hshape Hrefines =>
       { shape       := s,
-        data        := e.flatten Htype,
+        data        := lit.elem.flatten lit.h_type,
         h_refines   := Hrefines,
-        h_data_size := TensorElem.flatten_size e s Hshape Htype }
+        h_data_size := TensorElem.flatten_size lit.elem s Hshape lit.h_type }
+
+def RankedTensor.ofTensorElem {τ} (D: DimList) (elem: TensorElem)
+    (h_type: elem.hasType τ) (h_rank: elem.rankCompatibleWith D τ):
+    RankedTensor D τ :=
+  ofTensorLiteral { elem, h_type, h_rank }
 
 -- Type interface for registration with MLIRType
 
@@ -147,7 +152,7 @@ instance: DialectTypeIntf σ_UnrankedTensor ε_UnrankedTensor where
 
 def Vector.size (fixed scalable: List Nat) (scale: List Nat)
     (H: scale.length = scalable.length) :=
-  shape_prod fixed * shape_prod (List.map₂ (· * ·) scalable scale)
+  shapeProd fixed * shapeProd (List.map₂ (· * ·) scalable scale)
 
 structure Vector (fixed: List Nat) (scalable: List Nat) (τ: MLIRTy) where
   -- Scales (number of instantiations of each scalable dimension)

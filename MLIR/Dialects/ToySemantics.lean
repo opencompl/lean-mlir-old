@@ -43,22 +43,23 @@ def toy_semantics_op (ret_name: Option SSAVal):
         (.fn (.tuple []) (builtin.tensor D₁ τ₁)) =>
       match AttrDict.find attrs "value" with
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
-          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
-            match Heq: elem, τ₁ with
+          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ /-∧ elem.hasType τ₁-/ then
+            SSAEnv.set? (δ := builtin) (.int 32) ret_name 42
+/-            match Heq: elem, τ₁ with
             | TensorElem.int i, .int 32 => do
-                let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
+                let t ← default /-Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
                   (.int 32) (by simp [Heq, H.2.2.2])
-                  (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));
+                  (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));-/
                 SSAEnv.set? (builtin.tensor D₁ (.int 32)) ret_name t
             | elem, τ₁ => do
-                if Hshape: elem.hasShape (DimList.default_refinement D₁) then
+                if Hshape: elem.hasShape D₁.defaultRefinement then
                   let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem τ₁
                     H.2.2.2 (TensorElem.rankCompatibleWith.HasShape
-                    (DimList.default_refinement D₁) _ Hshape
-                    (default_refinement_refines D₁)));
+                    D₁.defaultRefinement _ Hshape
+                    D₁.defaultRefinement_refines));
                   SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
                 else
-                  Fitree.trigger InvalidOpE.InvalidOp
+                  Fitree.trigger InvalidOpE.InvalidOp -/
           else
             Fitree.trigger InvalidOpE.InvalidOp
       | _ =>
@@ -167,14 +168,11 @@ def double_transpose: BasicBlock builtin := [mlir_bb|
     %t3 = "toy.transpose"(%t2): tensor<4×2×i32> -> tensor<2×4×i32>
 ]
 
-#reduce (skipProofs := true)
-  toy_semantics_bb double_transpose
+#reduce toy_semantics_bb double_transpose
 
-#reduce (skipProofs := true)
-  run_toy (toy_semantics_bbstmt transpose_stmt) [[]]
+#eval Fitree.run <| run_toy (toy_semantics_bbstmt transpose_stmt) [[]]
 
-#reduce (skipProofs := true)
-  run_toy (toy_semantics_bbstmt constant_stmt) [[]]
+#eval Fitree.run <| run_toy (toy_semantics_bbstmt constant_stmt) [[]]
 
 theorem double_transpose_correct:
   ∀ (t1: RankedTensor [.Known 2, .Known 4] (.int 32)),
