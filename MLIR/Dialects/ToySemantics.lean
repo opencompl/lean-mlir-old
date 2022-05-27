@@ -43,9 +43,8 @@ def toy_semantics_op (ret_name: Option SSAVal):
         (.fn (.tuple []) (builtin.tensor D₁ τ₁)) =>
       match AttrDict.find attrs "value" with
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
-          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ /-∧ elem.hasType τ₁-/ then
-            SSAEnv.set? (δ := builtin) (.int 32) ret_name 42
-/-            match Heq: elem, τ₁ with
+          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
+            match Heq: elem, τ₁ with
             | TensorElem.int i, .int 32 => do
                 let t ← default /-Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
                   (.int 32) (by simp [Heq, H.2.2.2])
@@ -59,7 +58,7 @@ def toy_semantics_op (ret_name: Option SSAVal):
                     D₁.defaultRefinement_refines));
                   SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
                 else
-                  Fitree.trigger InvalidOpE.InvalidOp -/
+                  Fitree.trigger InvalidOpE.InvalidOp
           else
             Fitree.trigger InvalidOpE.InvalidOp
       | _ =>

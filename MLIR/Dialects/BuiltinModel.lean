@@ -81,10 +81,10 @@ def RankedTensor.typeStr (τ: MLIRTy) (D: DimList): String :=
   let dims := "x".intercalate (D.map (MLIR.Doc.Pretty.doc ·))
   s!"tensor<{dims}x{τ}>"
 
--- TODO: String representation of ranked tensors
 def RankedTensor.str {τ D} (t: RankedTensor D τ): String :=
   let dims := "×".intercalate (D.map (MLIR.Doc.Pretty.doc ·))
-  s!"<a tensor of size {dims} and base type {τ}>"
+  let data := "[" ++ " ".intercalate (t.data.map toString) ++ "]"
+  s!"({dims}){data}"
 
 -- Conversion from TensorElem
 
