@@ -150,6 +150,8 @@ def inferredShape: TensorElem → Option (List Nat)
       some []
   | TensorElem.nested [] =>
       some [0]
+  | TensorElem.nested [e] => do
+      1 :: (← inferredShape e)
   | TensorElem.nested (e::l) => do
       let s1 ← inferredShape e
       let s2 ← inferredShape (.nested l)
@@ -165,18 +167,20 @@ theorem inferredShape_cons: ∀ head tail s_head s_tail,
     inferredShape (.nested (head :: tail)) =
       some ((s_head+1) :: s_tail) := by
   intros head tail s_head s_tail H1 H2
-  simp [inferredShape, H2, bind, Option.bind, H1]
+  cases tail
+  . simp [inferredShape, H2, bind, Option.bind] at *; apply H1.1
+  . simp [inferredShape, H2, bind, Option.bind, H1]
 
-theorem inferredShape_cons_inv: ∀ {head tail s_head s_tail},
-    inferredShape (.nested (head::tail)) = some (s_head::s_tail) →
+theorem inferredShape_cons_inv: ∀ {head mid tail s_head s_tail},
+    inferredShape (.nested (head::mid::tail)) = some (s_head::s_tail) →
     s_head > 0 ∧
     inferredShape head = some s_tail ∧
-    inferredShape (.nested tail) = some ((s_head-1) :: s_tail) := by
-  intros head tail s_head s_tail
-  simp [inferredShape]
-  cases inferredShape head <;> simp [bind, Option.bind]
+    inferredShape (.nested (mid::tail)) = some ((s_head-1) :: s_tail) := by
+  intros head mid tail s_head s_tail
+  simp [inferredShape, bind, Option.bind]
+  cases inferredShape head <;> simp
   case some head_shape =>
-  cases inferredShape (.nested tail) <;> simp [Option.bind]
+  cases inferredShape (.nested (mid :: tail)) <;> simp
   case some tail_shape =>
   cases tail_shape <;> simp
   case cons s_head' s_tail' =>
@@ -194,12 +198,22 @@ theorem inferredShape_list {l head tail}:
     intros head tile H; simp [inferredShape, List.all_nil] at *; simp [H.1]
   case cons head tail ih =>
     intros s_head s_tail H
-    let H' := inferredShape_cons_inv H
-    specialize (ih H'.2.2)
-    constructor
-    . simp [←ih.1, Nat.succ_eq_add_one, Nat.minus_plus_one H'.1]
-    . simp [List.all_cons]
-      constructor; exact H'.2.1; exact ih.2
+    cases tail
+    case nil =>
+      simp [inferredShape, List.all_one]
+      simp [inferredShape, bind, Option.bind, List.all_one] at H
+      split at H; trivial; simp at H
+      case h_2 _ s_mid H' =>
+        simp [←H.1, H', H.2]
+    case cons mid tail =>
+      let H' := inferredShape_cons_inv H
+      specialize (ih H'.2.2)
+      constructor
+      . have helper: forall {n m}, n > 0 → n - 1 = m → n = m + 1 := by
+          sorry
+        simp [helper H'.1 ih.1]
+      . rw [List.all_cons]
+        constructor; simp [H'.2.1]; exact ih.2
 
 theorem inferredShape_list_to_cons {l s}:
     inferredShape (.nested l) = some s →
@@ -208,12 +222,16 @@ theorem inferredShape_list_to_cons {l s}:
   case nil =>
     cases l <;> simp [inferredShape]
     case cons head tail =>
-      cases inferredShape head <;> simp [bind, Option.bind]
-      cases inferredShape (.nested tail) <;> simp [Option.bind]
-      case some.some s1 s2 =>
-        cases s2 <;> simp
-        case cons s2_head s2_tail =>
-          apply dite (s1 = s2_tail) <;> intros H <;> simp [H]
+      cases tail <;> simp [inferredShape]
+      case nil =>
+        cases inferredShape head <;> simp [bind, Option.bind]
+      case cons mid tail =>
+        cases inferredShape head <;> simp [bind, Option.bind]
+        cases inferredShape (.nested (mid :: tail)) <;> simp [Option.bind]
+        case some.some s1 s2 =>
+          cases s2 <;> simp
+          case cons s2_head s2_tail =>
+            apply dite (s1 = s2_tail) <;> intros H <;> simp [H]
   case cons s_head s_tail =>
     intro H
     let H' := inferredShape_list H
@@ -269,6 +287,14 @@ namespace DimList
 
 deriving instance DecidableEq for DimList
 
+def str (D: DimList): String :=
+  "x".intercalate <| D.map fun
+    | .Known n => toString n
+    | .Unknown => "?"
+
+instance: ToString DimList where
+  toString := str
+
 @[simp]
 def shapeRefines: List Nat → DimList → Bool
   | [], [] => true
@@ -300,6 +326,10 @@ def defaultRefinement: DimList → List Nat
   | [] => []
   | .Known n :: D => n :: defaultRefinement D
   | .Unknown :: D => 0 :: defaultRefinement D
+
+theorem dim_lift_refines (S: List Nat):
+    shapeRefines S (S.map Dimension.Known) := by
+  induction S <;> simp; assumption
 
 theorem dim_known_project_refines {D: DimList}:
     D.known → shapeRefines D.project D := by
@@ -454,3 +484,51 @@ structure TensorLiteral (D: DimList) (τ: MLIRTy) where
   elem: TensorElem
   h_type: elem.hasType τ
   h_rank: elem.rankCompatibleWith D τ
+
+def TensorLiteral.ofTensorElemInferred (elem: TensorElem) (τ: MLIRTy):
+    Option ((D: DimList) × TensorLiteral D τ) :=
+  if h_type: elem.hasType τ then
+    match h: elem.inferredShape with
+    | some shape =>
+        let h := TensorElem.hasShape_inferredShape _ _ h
+        -- No dimension specified: use the inferred shape
+        some ⟨shape.map Dimension.Known, {
+          elem := elem,
+          h_type := h_type,
+          h_rank := .HasShape _ _ h (DimList.dim_lift_refines _) }⟩
+    | none => none
+  else none
+
+def TensorLiteral.ofTensorElem (elem: TensorElem) (D: DimList) (τ: MLIRTy):
+    Option (TensorLiteral D τ) :=
+  if h_type: elem.hasType τ then
+    match h: elem.inferredShape with
+    | some shape =>
+        let h := TensorElem.hasShape_inferredShape _ _ h
+        -- Dimension is specified and matching: use it
+        if h': D.shapeRefines shape then
+          some {
+            elem := elem,
+            h_type := h_type,
+            h_rank := .HasShape _ _ h h' }
+        -- Dimension is not specified, but tensor is uniform: do uniform
+        else match h': elem, τ with
+        | TensorElem.int _, .int _ =>
+            some {
+              elem := elem,
+              h_type := by simp [h', h_type],
+              h_rank := .UniformInt _ _ h' }
+        | TensorElem.bool _, .int 1 =>
+            some {
+              elem := elem,
+              h_type := by simp [h', h_type],
+              h_rank := .UniformBool _ h' }
+        | TensorElem.float _, .float _ =>
+            some {
+              elem := elem,
+              h_type := by simp [h', h_type],
+              h_rank := .UniformFloat _ _ h' }
+        -- Otherwise: no
+        | _, _ => none
+    | none => none
+  else none

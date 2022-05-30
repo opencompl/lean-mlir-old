@@ -4,6 +4,7 @@ import MLIR.Semantics.Fitree
 import MLIR.Semantics.Verifier
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.InvalidOp
+import MLIR.Semantics.TensorElem
 import MLIR.Util.Metagen
 import MLIR.Util.Reduce
 
@@ -19,10 +20,8 @@ open MLIR.AST
 
 inductive ToyOp: Type → Type :=
   | Constant:
-      (D: DimList) → (Hknown: D.known) →
-      (e: TensorElem) → (τ: MLIRTy) → (Htype: e.hasType τ) →
-      (Hcompat: e.rankCompatibleWith D τ) →
-      ToyOp (RankedTensor D τ)
+      (cst_D: DimList) → (cst_τ: MLIRTy) → (cst: TensorLiteral cst_D cst_τ) →
+      ToyOp (RankedTensor cst_D cst_τ)
   | Transpose:
       (τ: MLIRTy) → (n m: Nat) →
       RankedTensor [Dimension.Known n, Dimension.Known m] τ →
@@ -36,33 +35,22 @@ inductive ToyOp: Type → Type :=
 /- To be automatically generated (hopefully; basically this is the
    verification stuff) -/
 
-def toy_semantics_op (ret_name: Option SSAVal):
-      Op builtin → Fitree (InvalidOpE +' SSAEnvE builtin +' ToyOp) Unit
+def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
+      Fitree (InvalidOpE builtin +' SSAEnvE builtin +' ToyOp) Unit :=
 
+  match op with
   | Op.mk "toy.constant" [] [] [] attrs
         (.fn (.tuple []) (builtin.tensor D₁ τ₁)) =>
       match AttrDict.find attrs "value" with
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
-          if H: D₁ = D₂ ∧ DimList.known D₁ ∧ τ₁ = τ₂ ∧ elem.hasType τ₁ then
-            match Heq: elem, τ₁ with
-            | TensorElem.int i, .int 32 => do
-                let t ← default /-Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem
-                  (.int 32) (by simp [Heq, H.2.2.2])
-                  (TensorElem.rankCompatibleWith.UniformInt i 32 Heq));-/
-                SSAEnv.set? (builtin.tensor D₁ (.int 32)) ret_name t
-            | elem, τ₁ => do
-                if Hshape: elem.hasShape D₁.defaultRefinement then
-                  let t ← Fitree.trigger (ToyOp.Constant D₁ H.2.1 elem τ₁
-                    H.2.2.2 (TensorElem.rankCompatibleWith.HasShape
-                    D₁.defaultRefinement _ Hshape
-                    D₁.defaultRefinement_refines));
-                  SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
-                else
-                  Fitree.trigger InvalidOpE.InvalidOp
-          else
-            Fitree.trigger InvalidOpE.InvalidOp
+          match TensorLiteral.ofTensorElem elem D₁ τ₁ with
+          | none =>
+              Fitree.trigger (InvalidOpE.InvalidOp op)
+          | some t_lit => do
+              let t ← Fitree.trigger <| ToyOp.Constant D₁ τ₁ t_lit
+              SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
       | _ =>
-          Fitree.trigger InvalidOpE.InvalidOp
+          Fitree.trigger (InvalidOpE.InvalidOp op)
 
   | Op.mk "toy.transpose" [t_name] [] [] _ (.fn (builtin.tensor D τ) τ₂) =>
       match D with
@@ -73,7 +61,7 @@ def toy_semantics_op (ret_name: Option SSAVal):
           SSAEnv.set? (builtin.tensor [Dimension.Known m, Dimension.Known n] τ)
             ret_name t'
       | _ =>
-          Fitree.trigger InvalidOpE.InvalidOp
+          Fitree.trigger (InvalidOpE.InvalidOp op)
 
   | Op.mk "toy.reshape" [t_name] [] [] _
         (.fn (builtin.tensor D τ₁) (builtin.tensor D' τ₂)) =>
@@ -87,14 +75,14 @@ def toy_semantics_op (ret_name: Option SSAVal):
         let t': RankedTensor D' τ₂ := cast (by rw [H.1]) t';
         SSAEnv.set? (builtin.tensor D' τ₂) ret_name t'
       else
-        Fitree.trigger InvalidOpE.InvalidOp
+        Fitree.trigger (InvalidOpE.InvalidOp op)
 
   | _ =>
-      Fitree.trigger InvalidOpE.InvalidOp
+      Fitree.trigger (InvalidOpE.InvalidOp op)
 
 def toy_semantics_bbstmt:
       BasicBlockStmt builtin →
-      Fitree (InvalidOpE +' (SSAEnvE builtin) +' ToyOp) Unit
+      Fitree (InvalidOpE builtin +' (SSAEnvE builtin) +' ToyOp) Unit
   | BasicBlockStmt.StmtAssign val _ op =>
       toy_semantics_op (some val) op
   | BasicBlockStmt.StmtOp op =>
@@ -104,7 +92,7 @@ def toy_semantics_bbstmt:
 @[simp]
 def toy_semantics_bb:
       BasicBlock builtin →
-      Fitree (InvalidOpE +' (SSAEnvE builtin) +' ToyOp) Unit
+      Fitree (InvalidOpE builtin +' (SSAEnvE builtin) +' ToyOp) Unit
   | BasicBlock.mk name args [] =>
       Fitree.ret ()
   | BasicBlock.mk name args (op1::ops) =>
@@ -116,8 +104,8 @@ def toy_semantics_bb:
 
 def ToyOp.handle {E}: ToyOp ~> Fitree E :=
   fun _ e => match e with
-  | ToyOp.Constant D Hknown elem τ Htype Hcompat =>
-      return RankedTensor.ofTensorElem D elem Htype Hcompat
+  | ToyOp.Constant D τ t_lit =>
+      return RankedTensor.ofTensorLiteral t_lit
   | ToyOp.Transpose α n m t =>
       return transpose t
   | ToyOp.Reshape α D D' H H' Hprod t =>
@@ -126,12 +114,12 @@ def ToyOp.handle {E}: ToyOp ~> Fitree E :=
 -- Interpretation in context
 
 def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
-  interp (case_ ToyOp.handle (fun T => @Fitree.trigger E E T _)) t
+  interp (Fitree.case_ ToyOp.handle (fun T => @Fitree.trigger E E T _)) t
 
 @[simp]
-def run_toy (t: Fitree (InvalidOpE +' SSAEnvE builtin +' ToyOp) Unit)
+def run_toy (t: Fitree (InvalidOpE builtin +' SSAEnvE builtin +' ToyOp) Unit)
     (env: SSAEnv builtin): Fitree PVoid (Unit × SSAEnv builtin) :=
-  interp ToyOp.handle (interp_ssa (interp_invalid t sorry) env)
+  interp ToyOp.handle (interp_ssa (interp_invalid! t) env)
 
 /-
 ### Interpretation layers for Toy programs

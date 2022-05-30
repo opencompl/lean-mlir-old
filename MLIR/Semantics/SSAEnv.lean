@@ -129,7 +129,8 @@ def SSAEnvE.handle {E}: SSAEnvE δ ~> StateT (SSAEnv δ) (Fitree E) :=
     | Set τ name v =>
         return (.unit, env.set name τ v)
 
-def SSAEnvE.handleLogged {E}: SSAEnvE δ ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
+def SSAEnvE.handleLogged {E}:
+    SSAEnvE δ ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
   fun _ e => do
     let env <- WriterT.lift StateT.get
     match e with
@@ -162,13 +163,14 @@ private def stateT_defaultHandler: E ~> StateT (SSAEnv δ) (Fitree E) :=
   fun _ e => StateT.lift $ Fitree.trigger e
 
 @[simp_itree]
-private def writerT_defaultHandler: E ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
+private def writerT_defaultHandler:
+    E ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
   fun _ e => WriterT.lift $ StateT.lift $ Fitree.trigger e
 
 def interp_ssa {E R} (t: Fitree (SSAEnvE δ +' E) R):
     StateT (SSAEnv δ) (Fitree E) R :=
-  interp_state (case_ SSAEnvE.handle stateT_defaultHandler) t
+  interp_state (Fitree.case_ SSAEnvE.handle stateT_defaultHandler) t
 
 def interp_ssa_logged {E R} (t: Fitree (SSAEnvE δ +' E) R):
     WriterT (StateT (SSAEnv δ) (Fitree E)) R :=
-  interp_writer (case_ SSAEnvE.handleLogged writerT_defaultHandler) t
+  interp_writer (Fitree.case_ SSAEnvE.handleLogged writerT_defaultHandler) t

@@ -32,6 +32,7 @@ only model programs that always terminate.
 -/
 
 import MLIR.Semantics.SimpItree
+import MLIR.Dialects
 import MLIR.Util.WriterT
 
 /- Extendable effect families -/
@@ -58,13 +59,17 @@ instance {E F G} [Member E F]: Member E (F +' G) where
 instance {E F G} [Member E G]: Member E (F +' G) where
   inject T := Sum.inr ∘ Member.inject T
 
+instance {E F G H} [Member E G] [Member F H]: Member (E +' F) (G +' H) where
+  inject T := Sum.cases (Member.inject T) (Member.inject T)
+
 -- Effects can now be put in context automatically by typeclass resolution
-example E:    Member E E := inferInstance
-example E F:  Member E (E +' F) := inferInstance
-example E F:  Member E (F +' (F +' E)) := inferInstance
+example E:      Member E E := inferInstance
+example E F:    Member E (E +' F) := inferInstance
+example E F:    Member E (F +' (F +' E)) := inferInstance
+example E F G:  Member (E +' F) (E +' F +' G) := inferInstance
 
 @[simp_itree]
-def case_ (h1: E ~> G) (h2: F ~> G): E +' F ~> G :=
+def Fitree.case_ (h1: E ~> G) (h2: F ~> G): E +' F ~> G :=
   fun R ef => match ef with
   | Sum.inl e => h1 R e
   | Sum.inr f => h2 R f
@@ -105,6 +110,10 @@ instance {E}: Monad (Fitree E) where
   pure := Fitree.ret
   bind := Fitree.bind
 
+@[simp_itree]
+def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
+  | Ret r => Ret r
+  | Vis e k => Vis (f _ e) (fun r => translate f (k r))
 
 -- Interpretation into the monad of finite ITrees
 @[simp_itree]

@@ -13,16 +13,26 @@ still prevent malformed programs from being studied by accident.
 -/
 
 import MLIR.Semantics.Fitree
+import MLIR.Dialects
+import MLIR.AST
+open MLIR.AST
 
-inductive InvalidOpE: Type → Type :=
-  | InvalidOp: InvalidOpE Unit
+inductive InvalidOpE {α σ ε} (δ: Dialect α σ ε): Type → Type :=
+  | InvalidOp: Op δ → InvalidOpE δ Unit
 
 @[simp_itree]
-def InvalidOpE.handle {E}: InvalidOpE ~> Fitree E :=
-  fun _ ⟨⟩ => Fitree.Ret ()
+def InvalidOpE.handle {E}: InvalidOpE δ ~> Fitree E :=
+  fun _ ⟨op⟩ => Fitree.Ret ()
+
+@[simp_itree]
+def InvalidOpE.handle! {E}: InvalidOpE δ ~> Fitree E :=
+  fun _ ⟨op⟩ => panic s!"InvalidOp triggered!\n{op}"
 
 -- We interpret (InvalidOpE +' E ~> E)
 
-def interp_invalid {E} (t: Fitree (InvalidOpE+'E) R) (H: Fitree.no_event_l t):
-    Fitree E R :=
-  interp (case_ InvalidOpE.handle (fun T => @Fitree.trigger E E T _)) t
+def interp_invalid {E} (t: Fitree (InvalidOpE δ +' E) R)
+    (H: Fitree.no_event_l t): Fitree E R :=
+  interp (Fitree.case_ InvalidOpE.handle (fun T => @Fitree.trigger E E T _)) t
+
+def interp_invalid! {E} (t: Fitree (InvalidOpE δ +' E) R): Fitree E R :=
+  interp (Fitree.case_ InvalidOpE.handle! (fun T => @Fitree.trigger E E T _)) t
