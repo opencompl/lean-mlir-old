@@ -1,3 +1,9 @@
+import Lean
+import Lean.Elab
+import Lean.Meta
+import Lean.Parser
+import Lean.PrettyPrinter
+import Lean.PrettyPrinter.Formatter
 import MLIR.AST
 import MLIR.Dialects.BuiltinModel
 import Lean.Parser
@@ -5,10 +11,144 @@ import Lean.Parser.Extra
 
 open Lean
 open Lean.Parser
+open Lean.Elab
+open Lean.Meta
+open Lean.Parser
+open Lean.Parser.ParserState
+open Lean.PrettyPrinter
+open Lean.PrettyPrinter.Formatter
 
 open MLIR.AST
 
 namespace MLIR.EDSL
+
+
+-- | Custom parsers for balanced brackets
+inductive Bracket
+| Square -- []
+| Round -- ()
+| Curly -- {}
+| Angle -- <>
+deriving Inhabited, DecidableEq
+
+instance : ToString Bracket where
+   toString :=
+    fun b =>
+     match b with
+     | .Square => "["
+     | .Round => "("
+     | .Curly => "{"
+     | .Angle => "<"
+
+
+-- TODO: remove <Tab> from quail
+def isOpenBracket(c: Char): Option Bracket :=
+match c with
+| '(' => some .Round
+| '[' => some .Square
+| '{' => some .Curly
+| '<' => some .Angle
+| _ => none
+
+def isCloseBracket(c: Char):Option Bracket :=
+match c with
+| ')' => some .Round
+| ']' => some .Square
+| '{' => some .Curly
+| '<' => some .Angle
+| _ => none
+
+mutual
+
+#check ParserState
+
+#check Format
+
+-- 'a -> symbol
+-- `a -> antiquotation `(... ,(...))
+partial def consumeCloseBracket(c: Bracket)
+  (startPos: String.Pos)
+  (i: String.Pos)
+  (input: String)
+  (brackets: List Bracket)
+  (ctx: ParserContext)
+  (s: ParserState): ParserState := Id.run do
+    dbg_trace "consumeCloseBracket"
+    match brackets with
+    | b::bs =>
+      if b == c
+      then
+        if bs == []
+        then
+          dbg_trace f!"closed brackets at {i}"
+          let parser_fn := Lean.Parser.mkNodeToken `balanced_brackets startPos
+          parser_fn ctx (s.setPos (input.next i)) -- consume the input here.
+        else balancedBracketsFnAux startPos (input.next i) input bs ctx s
+      else s.mkError $ "| found Opened `" ++ toString b ++ "` expected to close at `" ++ toString c ++ "`"
+    | _ => s.mkError $ "| found Closed `" ++ toString c ++ "`, but have no opened brackets on stack"
+
+
+partial def balancedBracketsFnAux (startPos: String.Pos)
+  (i: String.Pos)
+  (input: String)
+  (bs: List Bracket) (ctx: ParserContext) (s: ParserState): ParserState :=
+  if input.atEnd i
+  then s.mkError "fonud EOF"
+  else
+  match input.get i with
+  -- opening parens
+  | '(' => balancedBracketsFnAux startPos (input.next i) input (Bracket.Round::bs) ctx s
+  | '[' => balancedBracketsFnAux startPos (input.next i) input (Bracket.Square::bs) ctx s
+  | '<' => balancedBracketsFnAux startPos (input.next i) input (Bracket.Angle::bs) ctx s
+  | '{' => balancedBracketsFnAux startPos (input.next i) input (Bracket.Curly::bs) ctx s
+  -- closing parens
+  | ')' => consumeCloseBracket Bracket.Round startPos i input bs ctx s
+  | ']' => consumeCloseBracket Bracket.Square startPos i input bs ctx s
+  | '>' => consumeCloseBracket Bracket.Angle startPos i input bs ctx s
+  | '}' => consumeCloseBracket Bracket.Curly startPos i input bs ctx s
+  | c => balancedBracketsFnAux startPos (input.next i) input bs ctx s
+
+end
+
+-- | TODO: filter tab complete by type?
+def balancedBracketsFnEntry (ctx: ParserContext) (s: ParserState): ParserState :=
+  if ctx.input.get s.pos == '<'
+  then balancedBracketsFnAux
+   (startPos := s.pos)
+   (i := s.pos)
+   (input := ctx.input)
+   (bs := [])
+   ctx s
+  else s.mkError "Expected '<'"
+
+
+@[inline]
+def balancedBrackets : Parser :=
+   withAntiquot (mkAntiquot "balancedBrackets" `balancedBrackets) {
+       fn := balancedBracketsFnEntry,
+       info := mkAtomicInfo "balancedBrackets" : Parser
+    }
+
+#check balancedBrackets
+
+
+-- Code stolen from test/WebServer/lean
+@[combinatorFormatter MLIR.EDSL.balancedBrackets]
+def MLIR.EDSL.balancedBrackets.formatter : Formatter := pure ()
+
+@[combinatorParenthesizer MLIR.EDSL.balancedBrackets]
+def MLIR.EDSL.balancedBracketsParenthesizer : Parenthesizer := pure ()
+
+
+macro "[balanced_brackets|" xs:balancedBrackets "]" : term => do
+  match xs[0] with
+  | .atom _ val => return Lean.quote val
+  | _  => Macro.throwError "expected balanced bracts to have atom"
+
+
+def testBalancedBrackets : String := [balanced_brackets| < { xxasdasd } > ]
+#print testBalancedBrackets
+
 
 
 -- | positive and negative numbers, hex, octal
@@ -418,6 +558,10 @@ example : MLIRType (builtin + Dialect.empty) := [mlir_type| tensor<* × f32>]
 
 
 
+-- EDSL MLIR USER ATTRIBUTES
+-- =========================
+
+
 
 -- EDSL MLIR OP CALL, MLIR BB STMT
 -- ===============================
@@ -585,6 +729,9 @@ syntax "#" strLit : mlir_attr_val -- aliass
 syntax "#" ident "<" strLit ">" : mlir_attr_val -- opaqueAttr
 syntax "#opaque<" ident "," strLit ">" ":" mlir_type : mlir_attr_val -- opaqueElementsAttr
 syntax mlir_attr_val_symbol "::" mlir_attr_val_symbol : mlir_attr_val_symbol
+
+
+declare_syntax_cat balanced_parens  -- syntax "#" ident "." ident "<" balanced_parens ">" : mlir_attr_val -- generic user attributes
 
 
 syntax str: mlir_attr_val
