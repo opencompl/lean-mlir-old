@@ -1214,9 +1214,10 @@ def memrefTy4 := [mlir_type| memref<* × f32>]
 #print memrefTy4
 
 
--- syntax "!" ident "." ident balancedBrackets : mlir_type
+
 
 -- | FML, we need to manually split on the 'dot'
+/-
 macro "[mlir_type|" "!" dialectAndName:ident  b:balancedBrackets "]" : term => do
    let dialectAndNameStr := dialectAndName.getId.toString
    let splits := dialectAndNameStr.splitOn "."
@@ -1228,9 +1229,33 @@ macro "[mlir_type|" "!" dialectAndName:ident  b:balancedBrackets "]" : term => d
    `(MLIRTy.userPretty $(Lean.quote dialectStr)
                        $(Lean.quote nameStr)
                        $(Lean.quote bStr))
+-/
 
+syntax "!" ident balancedBrackets : mlir_type
+macro_rules
+| `([mlir_type| ! $dialectAndName  $b]) => do
+   let dialectAndNameStr := dialectAndName.getId.toString
+   let splits := dialectAndNameStr.splitOn "."
+   let dialectStr := splits.get! 0
+   let nameStr := splits.get! 1
+   -- dbg_trace "b: {b}"
+   let bStr := match b[0] with | .atom _ val => val | _ => panic! "expected balanced brackets to have atom"
+   let t := MLIRTy.userPretty dialectStr nameStr bStr
+   `(MLIRTy.userPretty $(Lean.quote dialectStr)
+                       $(Lean.quote nameStr)
+                       $(Lean.quote bStr))
+
+set_option pp.rawOnError true
 def userTy0 := [mlir_type| !test.test_rec<a, test_rec<b, test_type>> ]
 #print userTy0
+
+-- | TODO: how do we make this work?
+def userTy1 := [mlir_type| () -> !foo.bar<foo> ]
+#print userTy1
+
+-- | TODO: how do we make this work?
+def userTy2 := [mlir_type| !foo.bar<foo> -> ()]
+#print userTy2
 
 
 end MLIR.EDSL
