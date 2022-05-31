@@ -439,6 +439,8 @@ def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
     (fun τ eval_τ memspace eval_memspace => Unit)
     -- MLIRTy.user (todo)
     (fun name => Unit)
+    -- MLIRTy.userPretty (todo)
+    (fun dialect value pretty => Unit)
 
     -- **AttrVal**
 
@@ -531,6 +533,7 @@ def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
   | MLIRTy.memrefRanked D τ _ _ => () /- todo -/
   | MLIRTy.memrefUnranked τ _ => () /- todo -/
   | MLIRTy.user _ => () /- todo -/
+  | MLIRTy.userPretty _ _ _ => () /- todo -/
 
 instance (τ: MLIRTy): Inhabited τ.eval where
   default := τ.default

@@ -74,14 +74,14 @@ partial def consumeCloseBracket(c: Bracket)
   (brackets: List Bracket)
   (ctx: ParserContext)
   (s: ParserState): ParserState := Id.run do
-    dbg_trace "consumeCloseBracket"
+    -- dbg_trace "consumeCloseBracket"
     match brackets with
     | b::bs =>
       if b == c
       then
         if bs == []
         then
-          dbg_trace f!"closed brackets at {i}"
+          -- dbg_trace f!"closed brackets at {i}"
           let parser_fn := Lean.Parser.mkNodeToken `balanced_brackets startPos
           parser_fn ctx (s.setPos (input.next i)) -- consume the input here.
         else balancedBracketsFnAux startPos (input.next i) input bs ctx s
@@ -1212,6 +1212,26 @@ macro_rules
  
 def memrefTy4 := [mlir_type| memref<* × f32>]
 #print memrefTy4
+
+
+-- syntax "!" ident "." ident balancedBrackets : mlir_type
+
+-- | FML, we need to manually split on the 'dot'
+macro "[mlir_type|" "!" dialectAndName:ident  b:balancedBrackets "]" : term => do
+   let dialectAndNameStr := dialectAndName.getId.toString
+   let splits := dialectAndNameStr.splitOn "."
+   let dialectStr := splits.get! 0
+   let nameStr := splits.get! 1
+   -- dbg_trace "b: {b}"
+   let bStr := match b[0] with | .atom _ val => val | _ => panic! "expected balanced brackets to have atom"
+   let t := MLIRTy.userPretty dialectStr nameStr bStr
+   `(MLIRTy.userPretty $(Lean.quote dialectStr)
+                       $(Lean.quote nameStr)
+                       $(Lean.quote bStr))
+
+def userTy0 := [mlir_type| !test.test_rec<a, test_rec<b, test_type>> ]
+#print userTy0
+
 
 end MLIR.EDSL
 

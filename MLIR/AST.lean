@@ -97,6 +97,7 @@ inductive MLIRTy : Type where
   (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
 | memrefUnranked:  (t: MLIRTy) ->  (memspace: Option AttrVal) -> MLIRTy
 | user: String -> MLIRTy -- user defined type
+| userPretty: (dialect: String) -> (name: String) -> (contents: String) -> MLIRTy
 
 
 -- | TODO: factor Symbol out from AttrVal
@@ -281,6 +282,7 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
     let rec  go (ty: MLIRTy) :=
     match ty with
     | MLIRTy.user k => [doc| "!"k]
+    | MLIRTy.userPretty dialect name contents => [doc| "!" dialect "." name "<" contents ">"]
     | MLIRTy.int k => [doc| "i"k]
     | MLIRTy.float k => [doc| "f"k]
     | MLIRTy.index => [doc| "index"]
