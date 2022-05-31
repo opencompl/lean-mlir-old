@@ -249,7 +249,7 @@ def main : IO Unit :=
 
 (defun run-sed (path command)
   (uiop:run-program
-   (log-command-execution (list "sed" "-i" "-r" command (namestring path)))
+   (log-command-execution (list "sed" "-E" "-i" "-r" command (namestring path)))
    :output :string))
 
 
@@ -380,16 +380,16 @@ def main : IO Unit :=
       (when (= retval 0)
 	(str:to-file canon-path out)
 	;; perform further canonicalization
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\1 × \2 × \3 × \4 × \5 × \6>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\\1 × \\2>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)>/<\\1 × \\2 × \\3>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\\1 × \\2 × \\3 × \\4>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\\1 × \\2 × \\3 × \\4 × \\5>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)x([^x>]*)>/<\\1 × \\2 × \\3 × \\4 × \\5 × \\6>/g")
 	(run-sed canon-path "s/^#.*//") ;; remove attribute aliases
 	;; (run-sed canon-path "s/e\+//g") ;; remove floating point 0e+0 with 0e0
 	(run-sed canon-path "s-//.*--g") ;; remove comments
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
-	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\1 × \2>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\\1 × \\2>/g")
+	(run-sed canon-path "s/<([^x>]*)x([^x>]*)>/<\\1 × \\2>/g")
 	(setf (mlir-file-part-canon-contents part) (str:from-file canon-path))))))
 
 
