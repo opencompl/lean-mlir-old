@@ -106,16 +106,17 @@ jobs:
       run: lean --version
     - name: Build package
       run: |
-        lake build
+        rm -rf build/ || true # nuke build folder
+        lake build # run build
         # leanpkg build bin
-    - name: Test examples
-      run: |
-        ls -1u
-        export PATH=`pwd`/build/bin:$PATH # add MLIR from lean-MLIR to path
-        export PATH=`pwd`/llvm-project/build/bin:$PATH  # add mlir-opt from llvm-project to path
-        echo $PATH
-        pip install lit --user # install llvm-lit
-        cd examples && lit -v . # run llvm-lit to test examples.
+    # - name: Test examples
+    #   run: |
+    #     ls -1u
+    #     export PATH=`pwd`/build/bin:$PATH # add MLIR from lean-MLIR to path
+    #     export PATH=`pwd`/llvm-project/build/bin:$PATH  # add mlir-opt from llvm-project to path
+    #     echo $PATH
+    #     pip install lit --user # install llvm-lit
+    #     cd examples && lit -v . # run llvm-lit to test examples.
     # - name: Build C Lib
     #   run: make -C c -j4
     # - name: Build Lean Lib
