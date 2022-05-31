@@ -426,6 +426,9 @@ def main : IO Unit :=
 
 (defun main ()
   (setf lparallel:*kernel* (lparallel:make-kernel 32))
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-canon") :validate t :if-does-not-exist :ignore)
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-failures") :validate t :if-does-not-exist :ignore)
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-gen") :validate t :if-does-not-exist :ignore)
   (loop for (category path-root) in *tests* do
     (format t "collecting category |~d| at  path |~d|~%" category path-root)
     (let* ((paths (directory path-root)))
@@ -450,4 +453,5 @@ def main : IO Unit :=
   ;; (uiop:with-output-file (outf #P"./test.json" :if-exists :supersede)
   ;;   (shasht:write-json (list (cons :stats *run-stats*)) outf))
   )
+;; 
 (main)
