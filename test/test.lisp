@@ -424,11 +424,10 @@ def main : IO Unit :=
   (print-stats *canon-mlir-parts* #'mlir-file-part-run-canon-successp))
 
 
+(print "\\1")
 (defun main ()
   (setf lparallel:*kernel* (lparallel:make-kernel 32))
-  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-canon") :validate t :if-does-not-exist :ignore)
-  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-failures") :validate t :if-does-not-exist :ignore)
-  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-gen") :validate t :if-does-not-exist :ignore)
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-canon") :validate t )
   (loop for (category path-root) in *tests* do
     (format t "collecting category |~d| at  path |~d|~%" category path-root)
     (let* ((paths (directory path-root)))
