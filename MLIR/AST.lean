@@ -118,6 +118,7 @@ inductive AttrVal : Type where
 | dict: AttrDict -> AttrVal
 | opaque: (dialect: String) -> (value: String) -> AttrVal
 | opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRTy) -> AttrVal
+-- | userPrettyDialectItem: (dialect: String) -> (name: String) -> (contents: String) -> MLIRTy
 | unit: AttrVal
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
