@@ -93,10 +93,9 @@ def hasShape: TensorElem → List Nat → Bool
 
 -- Check whether a tensor literal has a particular data type
 def hasType: TensorElem → MLIRTy → Bool
-  | TensorElem.int _, .int _ =>
-      -- TODO: Check bounds
-      true
-  | TensorElem.bool _, .int 1 =>
+  | TensorElem.int n, .int sgn sz =>
+      FinInt.isInBounds sgn sz n
+  | TensorElem.bool _, .i1 =>
       true
   | TensorElem.float _, .float _ =>
       true
@@ -382,10 +381,10 @@ namespace MLIR.AST.TensorElem
 
 def flatten {τ: MLIRTy} (e: TensorElem) (h: e.hasType τ): List τ.eval :=
   match e, τ with
-  | TensorElem.int i, .int _ =>
-      [i]
-  | TensorElem.bool b, .int _ =>
-      [if b then 1 else 0]
+  | TensorElem.int i, .int sgn sz =>
+      [FinInt.ofInt sgn sz i]
+  | TensorElem.bool b, .int sgn sz =>
+      [FinInt.ofInt sgn sz (if b then 1 else 0)]
   | TensorElem.float f, .float _ =>
       [f]
   | TensorElem.nested [], _ =>
@@ -454,13 +453,14 @@ theorem flatten_size {τ: MLIRTy} (e: TensorElem) (shape: List Nat):
     rw [motive_1 s Hshape.1 Htype.1]
 
 inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type :=
-  | UniformInt (i: Int) bitsize:
-      -- TODO: Check range of uniform tensor value
+  | UniformInt (i: Int) (sgn: Signedness) (sz: Nat):
+      FinInt.isInBounds sgn sz i →
       e = TensorElem.int i →
-      e.rankCompatibleWith D (.int bitsize)
-  | UniformBool (b: Bool):
+      e.rankCompatibleWith D (.int sgn sz)
+  -- TODO: Only allow .Signless, once the dependent matching bug is fixed
+  | UniformBool (b: Bool) (sgn: Signedness):
       e = TensorElem.bool b →
-      e.rankCompatibleWith D (.int 1)
+      e.rankCompatibleWith D (.int sgn 1)
   | UniformFloat (f: Float) bitsize:
       -- TODO: Check range of uniform tensor value
       e = TensorElem.float f →
@@ -513,16 +513,19 @@ def TensorLiteral.ofTensorElem (elem: TensorElem) (D: DimList) (τ: MLIRTy):
             h_rank := .HasShape _ _ h h' }
         -- Dimension is not specified, but tensor is uniform: do uniform
         else match h': elem, τ with
-        | TensorElem.int _, .int _ =>
+        | TensorElem.int i, .int sgn sz =>
+            if h'': FinInt.isInBounds sgn sz i then
+              some {
+                elem := elem,
+                h_type := by simp [h', h_type],
+                h_rank := .UniformInt _ _ _ h'' h' }
+            else
+              none
+        | TensorElem.bool _, .int sgn 1 =>
             some {
               elem := elem,
               h_type := by simp [h', h_type],
-              h_rank := .UniformInt _ _ h' }
-        | TensorElem.bool _, .int 1 =>
-            some {
-              elem := elem,
-              h_type := by simp [h', h_type],
-              h_rank := .UniformBool _ h' }
+              h_rank := .UniformBool _ sgn h' }
         | TensorElem.float _, .float _ =>
             some {
               elem := elem,

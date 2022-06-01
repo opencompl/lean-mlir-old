@@ -162,15 +162,15 @@ def double_transpose: BasicBlock builtin := [mlir_bb|
 #eval Fitree.run <| run_toy (toy_semantics_bbstmt constant_stmt) [[]]
 
 theorem double_transpose_correct:
-  ∀ (t1: RankedTensor [.Known 2, .Known 4] (.int 32)),
+  ∀ (t1: RankedTensor [.Known 2, .Known 4] .i32),
     run_toy (toy_semantics_bb double_transpose)
-      [[("t1", ⟨builtin.tensor [.Known 2, .Known 4] (.int 32), t1⟩)]]
+      [[("t1", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)]]
     =
     Fitree.ret ((), [[
-      (SSAVal.SSAVal "t1", ⟨builtin.tensor [.Known 2, .Known 4] (.int 32), t1⟩),
-      (SSAVal.SSAVal "t2", ⟨builtin.tensor [.Known 4, .Known 2] (.int 32),
+      (SSAVal.SSAVal "t1", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩),
+      (SSAVal.SSAVal "t2", ⟨builtin.tensor [.Known 4, .Known 2] .i32,
                            transpose t1⟩),
-      (SSAVal.SSAVal "t3", ⟨builtin.tensor [.Known 2, .Known 4] (.int 32), t1⟩)
+      (SSAVal.SSAVal "t3", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)
     ]]) := by
   intros t1
   unfold double_transpose

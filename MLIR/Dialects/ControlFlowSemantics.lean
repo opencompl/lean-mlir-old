@@ -70,17 +70,17 @@ inductive DummyE: Type → Type :=
 
 def dummy_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSAVal):
       Op Gδ → Option (Fitree (SSAEnvE Gδ +' DummyE) (BlockResult Gδ))
-  | Op.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int b)) => some do
+  | Op.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.Dummy
-      SSAEnv.set? (δ := Gδ)  (.int b) ret i
+      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
       return BlockResult.Next
-  | Op.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int b)) => some do
+  | Op.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.True
-      SSAEnv.set? (δ := Gδ) (.int b) ret i
+      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
       return BlockResult.Next
-  | Op.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int b)) => some do
+  | Op.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.False
-      SSAEnv.set? (δ := Gδ) (.int b) ret i
+      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
       return BlockResult.Next
   | _ => none
 
@@ -125,8 +125,9 @@ def cf_semantics_op (ret_name: Option SSAVal):
   | Op.mk "cf.br" [] [bbname] [] _ _ => some do
       return BlockResult.Branch bbname []
   | Op.mk "cf.condbr" [vcond] [bbtrue, bbfalse] _ _ _ => some do
-      let condval <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) (.int 1) vcond
-      return BlockResult.Branch (if condval != 0 then bbtrue else bbfalse) []
+      let condval <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) (.i1) vcond
+      return BlockResult.Branch
+        (if condval.toUint != 0 then bbtrue else bbfalse) []
   | Op.mk "cf.ret" args [] [] _ (.fn (.tuple τs) _) =>
       if args.length = τs.length then
         some $ return BlockResult.Ret (List.zip args τs)
@@ -200,17 +201,14 @@ def semantics_run_logged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics 
 def dummy_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
   %dummy = "dummy.dummy"() : () -> i32
 ]
-#reduce semantics_bbstmt dummy_stmt
 
 def true_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
   %true = "dummy.true"() : () -> i1
 ]
-#reduce semantics_bbstmt true_stmt
 
 def false_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
   %false = "dummy.false"() : () -> i1
 ]
-#reduce semantics_bbstmt false_stmt
 
 def run_dummy_cf_region: Region (dummy + cf) → String := fun r =>
   semantics_run_logged (semantics_region 99 r) SSAEnv.empty |>.fst |>.snd
@@ -222,11 +220,11 @@ def ex_branch_true: Region dummy := [mlir_region| {
 
   ^bbtrue:
     %y = "dummy.dummy" () : () -> i32
-    "cf.ret" () : ()
+    "cf.ret" () : () -> ()
 
   ^bbfalse:
     %z = "dummy.dummy" () : () -> i32
-    "cf.ret" () : ()
+    "cf.ret" () : () -> ()
 }]
 
 #eval ex_branch_true
@@ -239,11 +237,11 @@ def ex_branch_false := [mlir_region| {
 
   ^bbtrue:
     %y = "dummy.dummy" () : () -> i32
-    "ret" () : ()
+    "cf.ret" () : () -> ()
 
   ^bbfalse:
     %z = "dummy.dummy" () : () -> i32
-    "ret" () : ()
+    "cf.ret" () : () -> ()
 }]
 
 #eval ex_branch_false

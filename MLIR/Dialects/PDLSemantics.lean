@@ -385,7 +385,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
                (.undefined "pdl.value")) => do
 
         match attrs.find "index" with
-        | some (AttrValue.int index (MLIRType.int _)) =>
+        | some (AttrValue.int index (MLIRType.int _ _)) =>
             IO.println
               s!"Found new variable: {name} aliasing result {index} of {opname}"
             checkNameDefined opname
@@ -477,7 +477,7 @@ private def foo_op1_pattern: MOp :=
 private def foo_op2_pattern: MOp :=
   OpKnown "foo.op2"
     [(ValueVar 1 "x", TypeVar 1 "T"),
-     (ValueVar 1 "y", TypeConst (MLIRType.int 32))]
+     (ValueVar 1 "y", TypeConst .i32)]
     [(ValueVar 1 "res", TypeVar 1 "T")]
 #eval foo_op2_pattern
 

@@ -140,7 +140,7 @@ def freePDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List (Bas
 def boundPDLOpOperand (operandName: String) (ix: Int) (parent: SSAVal): List (BasicBlockStmt builtin) :=
     -- let attr := (AttrDict.mk [AttrEntry.mk "index" (AttrVal.int ix (MLIRTy.int 32))])
     let rhs := Op.empty "pdl.result"
-    let rhs := rhs.addAttr "index" (AttrValue.int ix (MLIRType.int 32))
+    let rhs := rhs.addAttr "index" (AttrValue.int ix .i32)
     -- let rhs := rhs.addArg parent [mlir_type| !"pdl.operation"] -- lol what? the parent info is broken
     let rhs := rhs.addArg (SSAVal.SSAVal $ operandName) [mlir_type| !"pdl.operation"]
     let rhs := rhs.addResult [mlir_type| !"pdl.value"]

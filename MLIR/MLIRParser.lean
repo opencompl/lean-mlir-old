@@ -77,8 +77,8 @@ partial def ptype (u: Unit) : P MLIRTy := do
                 return MLIRType.tuple args
              | some 'i' => do
                  pconsume 'i'
-                 let num <- pnumber
-                 return MLIRType.int num
+                 let num <- pnat
+                 return MLIRType.int .Signless num
              | some '!' => do
                   puser ()
              | other => do

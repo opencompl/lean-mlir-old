@@ -90,10 +90,10 @@ def RankedTensor.str {τ D} (t: RankedTensor D τ): String :=
 
 def RankedTensor.ofTensorLiteral (lit: TensorLiteral D τ): RankedTensor D τ :=
   match τ, lit, lit.h_rank with
-  | .int bitsize, lit, .UniformInt i _ _ =>
-      RankedTensor.uniform D i
-  | .int 1, lit, .UniformBool b _ =>
-      RankedTensor.uniform D (if b then 1 else 0)
+  | .int sgn 1, lit, .UniformBool b _ _ =>
+      RankedTensor.uniform D (FinInt.ofUint 1 (if b then 1 else 0))
+  | .int sgn sz, lit, .UniformInt i _ _ _ _ =>
+      RankedTensor.uniform D (FinInt.ofInt sgn sz i)
   | .float bitsize, lit, .UniformFloat f _ _ =>
       RankedTensor.uniform D f
   | τ, lit, .HasShape s _ Hshape Hrefines =>
@@ -362,6 +362,6 @@ def builtin.denseWithType (e: TensorElem) (τ: MLIRType builtin):
       panic s!"buitin.denseVectorWithType: {τ} not a vector type"
 
 -- Create a dense vector with values `xs` and type `vector<len(xs)*ity>`
-def builtin.denseVectorOfList (xs: List Int) (ity: MLIRTy := .int 32):
+def builtin.denseVectorOfList (xs: List Int) (ity: MLIRTy := .i32):
     AttrValue builtin :=
   builtin.dense_vector_attr xs [xs.length] [] ity

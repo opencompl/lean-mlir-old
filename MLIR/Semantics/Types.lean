@@ -24,16 +24,15 @@ Types that need improvements or refinements:
 
 * Function type [τ₁ → τ₂]
   Resolves to program symbols, lacks testing
-* Integer types [i32, etc]
-  TODO: Model i32/etc with finite precision, probably restarting from Fin
-* Unsigned finite integer types [u32, etc]
-  TODO: Model u32/etc with lean's Uint{8/16/32/64} or restart with Fin
+* Integer types [i1, si32, u64, etc]
+  Very poor support for actual operations on FinInt
 * Float types [f16, f32, f64, f80, f128]
   Good luck with these
 -/
 
 import MLIR.Util.Arith
 import MLIR.Util.List
+import MLIR.Util.FinInt
 import MLIR.Semantics.Fitree
 import MLIR.AST
 
@@ -105,9 +104,9 @@ def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
     -- .fn (the only functions we can materialize are symbols)
     (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => String)
     -- .int
-    (fun bitsize => Int)
+    (fun sgn sz => FinInt sz)
     -- .float
-    (fun bitsize => Float)
+    (fun sz => Float)
     -- .index
     Nat
     -- .tuple [Mapping motive_2 to motive_1]
@@ -135,7 +134,7 @@ inhabitants and a decidable equality.
 def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
   match τ with
   | .fn τ₁ τ₂ => ""
-  | .int _ => 0
+  | .int _ _ => .zero
   | .float _ => 0.0
   | .index => 0
   | .tuple [] => ()
@@ -150,7 +149,7 @@ instance (τ: MLIRType δ): Inhabited τ.eval where
 def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
   match τ with
   | .fn τ₁ τ₂ => inferInstance
-  | .int _ => inferInstance
+  | .int _ _ => inferInstance
   | .float _ =>
       -- FIXME: Equality of floats
       if v₁ == v₂ then isTrue sorry else isFalse sorry
@@ -173,7 +172,10 @@ instance {τ: MLIRType δ}: DecidableEq τ.eval :=
 def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   match τ, v with
   | .fn τ₁ τ₂, v => v
-  | .int _, v => toString v
+  | .int .Signless _, v => toString v.toUint
+  | .int .Unsigned _, v => toString v.toUint
+  | .int .Signed 0, v => "<i0>"
+  | .int .Signed (sz+1), v => toString v.toSint
   | .float _, v => toString v
   | .index, v => toString v
   | .tuple [], v => "()"

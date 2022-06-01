@@ -320,7 +320,7 @@ partial def EinFactor.codegen (e: EinFactor) (out: SSAVal)  : Op builtin :=
 
   let leaf0_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.left e)
   let leaf1_arg := SSAVal.SSAVal $ EinLeaf.get_sym (EinFactor.right e)
-  (Op.mk "linalg_generic" [leaf0_arg, leaf1_arg, out] [] [rgn] attrdict (MLIRType.int 31))
+  (Op.mk "linalg_generic" [leaf0_arg, leaf1_arg, out] [] [rgn] attrdict (MLIRType.int .Signless 31))
 
 
 syntax ein_factor "(" mlir_op_operand ")" : mlir_op

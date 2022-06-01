@@ -313,7 +313,7 @@ macro_rules
           | some i =>
             let lit := Lean.Syntax.mkNumLit xstr'
             if xstr.front == 'i'
-            then `(MLIRType.int $lit)
+            then `(MLIRType.int .Signless $lit)
             else `(MLIRType.float $lit)
           | none =>
               Macro.throwError $ "cannot convert suffix of i/f to int: " ++ xstr
@@ -750,7 +750,7 @@ macro_rules
 | `([mlir_attr_val| $$($x) ]) => `($x)
 
 macro_rules
-| `([mlir_attr_val|  $x:num ]) => `(AttrValue.int $x (MLIRType.int 64))
+| `([mlir_attr_val|  $x:num ]) => `(AttrValue.int $x (MLIRType.int .Signless 64))
 | `([mlir_attr_val| $x:num : $t:mlir_type]) => `(AttrValue.int $x [mlir_type| $t])
 
 macro_rules

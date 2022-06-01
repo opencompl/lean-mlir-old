@@ -59,8 +59,7 @@ deriving instance DecidableEq for Dimension
 
 inductive SSAVal : Type where
   | SSAVal : String -> SSAVal
-
-deriving instance DecidableEq for SSAVal
+deriving DecidableEq
 
 def SSAValToString (s: SSAVal): String :=
   match s with
@@ -76,10 +75,16 @@ inductive TensorElem :=
 | nested: List TensorElem -> TensorElem
 | empty: TensorElem
 
+inductive Signedness :=
+| Signless -- i*
+| Unsigned -- u*
+| Signed   -- si*
+deriving DecidableEq
+
 inductive MLIRType (δ: Dialect α σ ε) :=
 | fn: MLIRType δ -> MLIRType δ -> MLIRType δ
-| int: Int -> MLIRType δ
-| float: Int -> MLIRType δ
+| int: Signedness -> Nat -> MLIRType δ
+| float: Nat -> MLIRType δ
 | index:  MLIRType δ
 | tuple: List (MLIRType δ) -> MLIRType δ
 | undefined: String → MLIRType δ
@@ -87,6 +92,9 @@ inductive MLIRType (δ: Dialect α σ ε) :=
 
 -- We define "MLIRTy" to be just the basic types outside of any dialect
 abbrev MLIRTy := @MLIRType _ _ _ Dialect.empty
+-- Other useful abbreviations
+abbrev MLIRType.i1: MLIRType δ := MLIRType.int .Signless 1
+abbrev MLIRType.i32: MLIRType δ := MLIRType.int .Signless 32
 
 mutual
 -- | TODO: factor Symbol out from AttrValue
@@ -199,7 +207,7 @@ instance : Coe String (AttrValue δ) where
   coe (s: String) := AttrValue.str s
 
 instance : Coe Int (AttrValue δ) where
-  coe (i: Int) := AttrValue.int i (MLIRType.int 64)
+  coe (i: Int) := AttrValue.int i (MLIRType.int .Signless 64)
 
 instance : Coe (MLIRType δ) (AttrValue δ) where
   coe (t: MLIRType δ) := AttrValue.type t
@@ -237,7 +245,7 @@ variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [
 
 private def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .fn τ₁ τ₂    => .fn (coeMLIRType τ₁) (coeMLIRType τ₂)
-  | .int n       => .int n
+  | .int sgn n   => .int sgn n
   | .float n     => .float n
   | .index       => .index
   | .tuple τs    => .tuple (coeMLIRTypeList τs)
@@ -409,7 +417,9 @@ mutual
 variable {α σ ε} [δ: Dialect α σ ε]
 
 partial def docMLIRType: MLIRType δ → Doc
-  | .int k => [doc| "i"k]
+  | .int .Signless k => [doc| "i"k]
+  | .int .Unsigned k => [doc| "u"k]
+  | .int .Signed k => [doc| "si"k]
   | .float k => [doc| "f"k]
   | .index => [doc| "index"]
   | .tuple ts => [doc| "(" (ts.map docMLIRType),* ")" ]
