@@ -349,8 +349,11 @@ def succ0 :  BBName := ([mlir_op_successor_arg| ^bb])
 #print succ0
 
 
--- EDSL MLIR TYPES
+-- EDSL MLIR TYPES / ATTRS
 -- ===============
+
+declare_syntax_cat mlir_attr_val
+syntax "[mlir_attr_val|" mlir_attr_val "]" : term
 
 
 syntax "[mlir_type|" mlir_type "]" : term
@@ -445,6 +448,8 @@ def tyfn3 : MLIRTy := [mlir_type| (i21, i22, i23) -> (i23, i24, i25)]
 #print tyfn0
 #print tyfn1
 -- #print tyi32'
+
+
 
 
 declare_syntax_cat mlir_dimension
@@ -572,11 +577,16 @@ def vectorTy2 := [mlir_type| vector<2 × 3 × [ 4 ] × i32>]
 
 -- | TODO: fix bug that does not allow a trailing times.
 
-syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
+syntax "tensor" "<"  mlir_dimension_list ("," mlir_attr_val)? ">"  : mlir_type
 macro_rules
 | `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
     let (dims, ty) <- parseTensorDimensionList dims 
     `(MLIRTy.tensorRanked $dims $ty)
+
+macro_rules
+| `([mlir_type| tensor < $dims:mlir_dimension_list , $val:mlir_attr_val >]) => do
+    let (dims, ty) <- parseTensorDimensionList dims 
+    `(MLIRTy.tensorRanked $dims $ty (some [mlir_attr_val| $val ]))
 
 -- | TODO: this is a huge hack.
 -- | TODO: I should be able to use the lower level parser to parse this cleanly?
@@ -614,6 +624,12 @@ def tensorTy3 := [mlir_type| tensor<*× f32>]
 
 def tensorTy4 := [mlir_type| tensor<* × f32>]
 #print tensorTy4
+
+def tensorTyAttributeComma := [mlir_type| tensor <1 × 2 × i32, "foo">]
+
+def userTy3 := [mlir_type|
+   tensor<16 × 32 × f64, #sparse_tensor<"encoding<{ dimLevelType = [ \22dense\22, \22dense\22 ], pointerBitWidth = 0, inde × BitWidth = 0 }>">>
+]
 
 
 
@@ -740,6 +756,7 @@ macro_rules
 -- TENSOR LITERAL
 -- ==============
 
+
 declare_syntax_cat mlir_tensor
 syntax numLit : mlir_tensor
 syntax scientificLit : mlir_tensor
@@ -780,7 +797,7 @@ def tensorValFalse := [mlir_tensor| false]
 -- ====================
 
 -- | TODO: consider renaming this to mlir_attr
-declare_syntax_cat mlir_attr_val
+
 declare_syntax_cat mlir_attr_val_symbol
 syntax "@" ident : mlir_attr_val_symbol
 syntax "@" str : mlir_attr_val_symbol
@@ -806,7 +823,6 @@ syntax scientificLit (":" mlir_type)? : mlir_attr_val
 syntax ident: mlir_attr_val
 
 syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
-syntax "[mlir_attr_val|" mlir_attr_val "]" : term
 syntax "[mlir_attr_val_symbol|" mlir_attr_val_symbol "]" : term
 
 -- | userPrettyAttr

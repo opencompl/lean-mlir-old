@@ -91,7 +91,7 @@ inductive MLIRTy : Type where
 | index:  MLIRTy
 | tuple : List MLIRTy -> MLIRTy
 | vector: (fixed: (List Int)) -> (scaled: (List Int)) -> MLIRTy -> MLIRTy
-| tensorRanked: List Dimension -> MLIRTy -> MLIRTy
+| tensorRanked: (dims: List Dimension) -> (ty: MLIRTy) -> (layout: Option AttrVal) -> MLIRTy
 | tensorUnranked: MLIRTy -> MLIRTy
 | memrefRanked: (dims: List Dimension) -> (t: MLIRTy) ->
   (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
@@ -231,7 +231,7 @@ def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
       beq t1 t2 && beq (MLIRTy.tuple l1) (MLIRTy.tuple l2)
   | MLIRTy.vector fixed1 scaled1 t1, MLIRTy.vector fixed2 scaled2 t2 =>
       fixed1 = fixed2 && scaled1 = scaled2 && beq t1 t2
-  | MLIRTy.tensorRanked l1 t1, MLIRTy.tensorRanked l2 t2 =>
+  | MLIRTy.tensorRanked l1 t1 a1, MLIRTy.tensorRanked l2 t2 a2 =>
       l1 == l2 && beq t1 t2
   | MLIRTy.tensorUnranked t1, MLIRTy.tensorUnranked t2 =>
       beq t1 t2
