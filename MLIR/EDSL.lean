@@ -23,7 +23,7 @@ open MLIR.AST
 
 namespace MLIR.EDSL
 
-
+namespace balanced_brackets_parser
 -- | Custom parsers for balanced brackets
 inductive Bracket
 | Square -- []
@@ -134,10 +134,10 @@ def balancedBrackets : Parser :=
 
 
 -- Code stolen from test/WebServer/lean
-@[combinatorFormatter MLIR.EDSL.balancedBrackets]
+@[combinatorFormatter MLIR.EDSL.balanced_brackets_parser.balancedBrackets]
 def MLIR.EDSL.balancedBrackets.formatter : Formatter := pure ()
 
-@[combinatorParenthesizer MLIR.EDSL.balancedBrackets]
+@[combinatorParenthesizer MLIR.EDSL.balanced_brackets_parser.balancedBrackets]
 def MLIR.EDSL.balancedBracketsParenthesizer : Parenthesizer := pure ()
 
 
@@ -150,7 +150,80 @@ macro "[balanced_brackets|" xs:balancedBrackets "]" : term => do
 def testBalancedBrackets : String := [balanced_brackets| < { xxasdasd } > ]
 #print testBalancedBrackets
 
+end balanced_brackets_parser
 
+open balanced_brackets_parser
+
+
+namespace mlir_string_parser
+
+partial def strFnAux (startPos: String.Pos)
+                     (i: String.Pos)
+                     (input: String)
+                     (ctx: ParserContext)
+                     (s: ParserState): ParserState := 
+   if ctx.input.get i == '\"' then
+       let parser_fn := Lean.Parser.mkNodeToken `mlir_string startPos
+              let leading   := mkEmptySubstringAt input startPos
+       let stopPos := i
+       let val       := input.extract startPos stopPos
+       let eatPos := input.next i -- eat the \"
+       let s := whitespace ctx (s.setPos eatPos)
+       let wsStopPos := s.pos
+       let trailing  := { str := input, startPos := stopPos, stopPos := wsStopPos : Substring }
+       let info      := SourceInfo.original leading startPos trailing stopPos
+       s.pushSyntax (Syntax.mkLit `mlir_string val info)
+   else if ctx.input.get (ctx.input.next i) == '\\' then -- escape, skip the next thing.
+       strFnAux startPos (ctx.input.next (ctx.input.next i)) input ctx s 
+   else
+       strFnAux startPos (ctx.input.next i) input ctx s -- go to next character
+
+partial def strFnEntry (ctx: ParserContext) (s: ParserState): ParserState := 
+  if ctx.input.get s.pos != '\"'
+  then s.mkError "| expected \", found {ctx.input.get s.pos}"
+  else strFnAux
+   (startPos := ctx.input.next s.pos) -- skip "
+   (i := ctx.input.next s.pos)
+   (input := ctx.input)
+   ctx s
+
+
+def mlir_string : Parser :=
+  let p := { fn := strFnEntry, info := mkAtomicInfo "mlir_string" : Parser }
+  withAntiquot (mkAntiquot "mlir_string" `mlir_string) p
+
+#check mlir_string
+
+-- Code stolen from test/WebServer/lean
+@[combinatorFormatter MLIR.EDSL.mlir_string_parser.mlir_string]
+def mlir_string.formater : Formatter := pure ()
+
+@[combinatorParenthesizer MLIR.EDSL.mlir_string_parser.mlir_string]
+def mlir_string.parenthesizer : Parenthesizer := pure ()
+  
+macro "[mlir_string|" s:mlir_string "]" : term => do 
+  let x : Syntax := s[0]
+  let s := x.getAtomVal!
+  return (Lean.quote s)
+
+
+def example_string_1 : String := [mlir_string| "foo "]
+#print example_string_1
+-- "foo "
+
+def example_string_2 := [mlir_string| "foo \22"]
+#print example_string_2
+-- "foo \\22"
+
+def example_string_3 := [mlir_string| "foo \22" ] -- the space should not fail
+#print example_string_3
+-- "foo \\22" 
+-- def example_normie_string_fail : String := "foo \22"
+-- invalid escape sequence
+
+end mlir_string_parser
+
+open mlir_string_parser
 
 -- | positive and negative numbers, hex, octal
 declare_syntax_cat mlir_int
@@ -544,6 +617,7 @@ def tensorTy4 := [mlir_type| tensor<* × f32>]
 
 
 
+-- tensor<16 × 32 × f64, #sparse_tensor<"encoding<{ dimLevelType = [ \22dense\22, \22dense\22 ], pointerBitWidth = 0, inde × BitWidth = 0 }>">>
 -- EDSL MLIR USER ATTRIBUTES
 -- =========================
 
@@ -713,12 +787,14 @@ syntax "@" str : mlir_attr_val_symbol
 syntax "#" ident : mlir_attr_val -- alias
 syntax "#" strLit : mlir_attr_val -- aliass
 
-syntax "#" ident "<" strLit ">" : mlir_attr_val -- opaqueAttr
-syntax "#opaque<" ident "," strLit ">" ":" mlir_type : mlir_attr_val -- opaqueElementsAttr
+syntax "#" ident "<" mlir_string ">" : mlir_attr_val -- opaqueAttr
+syntax "#opaque<" ident "," mlir_string ">" ":" mlir_type : mlir_attr_val -- opaqueElementsAttr
 syntax mlir_attr_val_symbol "::" mlir_attr_val_symbol : mlir_attr_val_symbol
 
+-- syntax "#" ident balancedBrackets : mlir_attr_val -- userPretty
+-- #sparse_tensor<"encoding<{ dimLevelType = [ \22dense\22, \22dense\22 ], pointerBitWidth = 0, inde × BitWidth = 0 }>">
 
-declare_syntax_cat balanced_parens  -- syntax "#" ident "." ident "<" balanced_parens ">" : mlir_attr_val -- generic user attributes
+
 
 
 syntax str: mlir_attr_val
@@ -733,6 +809,20 @@ syntax "[" sepBy(mlir_attr_val, ",") "]" : mlir_attr_val
 syntax "[mlir_attr_val|" mlir_attr_val "]" : term
 syntax "[mlir_attr_val_symbol|" mlir_attr_val_symbol "]" : term
 
+-- | userPrettyAttr
+-- macro_rules
+-- | `([mlir_attr_val| # $dialectAndName  $b]) => do
+--    let dialectAndNameStr := dialectAndName.getId.toString
+--    let splits := dialectAndNameStr.splitOn "."
+--    let dialectStr := splits.get! 0
+--    let nameStr := splits.get! 1
+--    -- dbg_trace "b: {b}"
+--    let bStr := match b[0] with | .atom _ val => val | _ => panic! "expected balanced brackets to have atom"
+--    let t := MLIRTy.userPretty dialectStr nameStr bStr
+--    `(MLIRTy.userPretty $(Lean.quote dialectStr)
+--                        $(Lean.quote nameStr)
+--                        $(Lean.quote bStr))
+
 macro_rules
 | `([mlir_attr_val| $$($x) ]) => `($x)
 
@@ -746,14 +836,23 @@ macro_rules
 
 
 macro_rules
-| `([mlir_attr_val| # $dialect:ident < $opaqueData:str > ]) => do
+| `([mlir_attr_val| # $dialect:ident < $opaqueData:mlir_string > ]) => do
   let dialect := Lean.quote dialect.getId.toString
-  `(AttrVal.opaque $dialect $opaqueData)
+  let opaque := Lean.quote opaqueData[0].getAtomVal!
+  `(AttrVal.opaque $dialect $opaque)
+
+
+-- | please help me kill myself.
+-- def attrValOpaque0: AttrVal := [mlir_attr_val| #sparse_tensor<"encoding<{ dimLevelType = [ \22dense\22, \22dense\22 ], pointerBitWidth = 0, inde × BitWidth = 0 }>"> ]
+def attrValOpaque0: AttrVal := [mlir_attr_val| #sparse_tensor<"encoding<{ dimLevelType = [], pointerBitWidth = [\22], inde × BitWidth = 0}>"> ]
+#print attrValOpaque0
+
 
 macro_rules
-| `([mlir_attr_val| #opaque< $dialect:ident, $opaqueData:str> : $t:mlir_type ]) => do
+| `([mlir_attr_val| #opaque< $dialect:ident, $opaqueData:mlir_string> : $t:mlir_type ]) => do
   let dialect := Lean.quote dialect.getId.toString
-  `(AttrVal.opaqueElementsAttr $dialect $opaqueData $t)
+  let opaque := Lean.quote opaqueData[0].getAtomVal! -- TODO: learn how to write anti-quoter
+  `(AttrVal.opaqueElementsAttr $dialect $opaque $t)
 
 macro_rules 
   | `([mlir_attr_val| $s:str]) => `(AttrVal.str $s)
@@ -858,6 +957,7 @@ def attrVal11Escape :  AttrVal := [mlir_attr_val| $(attrVal10Float) ]
 
 def attrVal12DenseEmpty:  AttrVal := [mlir_attr_val| dense<> : tensor<0 × i64>]
 #print attrVal12DenseEmpty
+
 
 
 -- MLIR ATTRIBUTE
