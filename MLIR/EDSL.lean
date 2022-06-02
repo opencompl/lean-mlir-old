@@ -225,6 +225,13 @@ end mlir_string_parser
 
 open mlir_string_parser
 
+def timesParser : Parser := rawCh '×' (trailingWs := true)
+def langleParser : Parser := rawCh '<' (trailingWs := true)
+def rangleParser : Parser := rawCh '>' (trailingWs := true)
+def starParser : Parser := rawCh '*' (trailingWs := true)
+
+
+
 -- | positive and negative numbers, hex, octal
 declare_syntax_cat mlir_int
 syntax numLit: mlir_int
@@ -531,12 +538,15 @@ macro_rules
 | `([static_dim_list| $[ $ns:num ]×* ]) => do
       quoteMList ns.toList (<- `(Int))
 
+
+-- @[builtinSyntaxParser] def unary           := leading_parser ident >> checkNoWsBefore >> "(" >> many1 syntaxParser >> ")"
+
 -- vector-dim-list := (static-dim-list `x`)? (`[` static-dim-list `]` `x`)?
 declare_syntax_cat vector_dim_list
-syntax (static_dim_list "×" ("[" static_dim_list "]" "×")? )? : vector_dim_list
+syntax (static_dim_list "×" ("[" static_dim_list "]" timesParser )? )? : vector_dim_list
 -- vector-element-type ::= float-type | integer-type | index-type
 -- vector-type ::= `vector` `<` vector-dim-list vector-element-type `>`
-syntax "vector" "<" vector_dim_list mlir_type ">"  : mlir_type
+syntax "vector" langleParser vector_dim_list mlir_type rangleParser : mlir_type
 
 set_option hygiene false in -- allow i to expand 
 macro_rules
@@ -575,39 +585,29 @@ def vectorTy2 := [mlir_type| vector<2 × 3 × [ 4 ] × i32>]
 --     `(MLIRTy.vector $dims $ty)
 
 
--- | TODO: fix bug that does not allow a trailing times.
+-- | TODO: fix bug that does not allow a trailing 
+-- #check h
 
-syntax "tensor" "<"  mlir_dimension_list ("," mlir_attr_val)? ">"  : mlir_type
+syntax "tensor" langleParser  mlir_dimension_list ("," mlir_attr_val)? rangleParser : mlir_type
 macro_rules
 | `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
     let (dims, ty) <- parseTensorDimensionList dims 
-    `(MLIRTy.tensorRanked $dims $ty)
+    `(MLIRTy.tensorRanked $dims $ty none)
 
 macro_rules
 | `([mlir_type| tensor < $dims:mlir_dimension_list , $val:mlir_attr_val >]) => do
     let (dims, ty) <- parseTensorDimensionList dims 
     `(MLIRTy.tensorRanked $dims $ty (some [mlir_attr_val| $val ]))
+    
 
 -- | TODO: this is a huge hack.
 -- | TODO: I should be able to use the lower level parser to parse this cleanly?
-syntax "tensor" "<"  "*" "×" mlir_type ">"  : mlir_type
-syntax "tensor" "<*" "×" mlir_type ">"  : mlir_type
-syntax "tensor" "<*×" mlir_type ">"  : mlir_type
-
-macro_rules
-| `([mlir_type| tensor < *× $ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
+syntax "tensor" langleParser  starParser timesParser mlir_type rangleParser  : mlir_type
+-- syntax "tensor" langleParser "*" "×" mlir_type rangleParser  : mlir_type
+-- syntax "tensor" langleParser "*×" mlir_type ">"  : mlir_type
 
 macro_rules
 | `([mlir_type| tensor < * × $ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
-
-macro_rules
-| `([mlir_type| tensor <* × $ty:mlir_type >]) => do
-    `(MLIRTy.tensorUnranked [mlir_type| $ty])
-
-macro_rules
-| `([mlir_type| tensor <*×$ty:mlir_type >]) => do
     `(MLIRTy.tensorUnranked [mlir_type| $ty])
 
 def tensorTy0 := [mlir_type| tensor<3×3×i32>]
@@ -624,12 +624,6 @@ def tensorTy3 := [mlir_type| tensor<*× f32>]
 
 def tensorTy4 := [mlir_type| tensor<* × f32>]
 #print tensorTy4
-
-def tensorTyAttributeComma := [mlir_type| tensor <1 × 2 × i32, "foo">]
-
-def userTy3 := [mlir_type|
-   tensor<16 × 32 × f64, #sparse_tensor<"encoding<{ dimLevelType = [ \22dense\22, \22dense\22 ], pointerBitWidth = 0, inde × BitWidth = 0 }>">>
-]
 
 
 
@@ -804,7 +798,7 @@ syntax "@" str : mlir_attr_val_symbol
 syntax "#" ident : mlir_attr_val -- alias
 syntax "#" strLit : mlir_attr_val -- aliass
 
-syntax "#" ident "<" mlir_string ">" : mlir_attr_val -- opaqueAttr
+syntax "#" ident langleParser mlir_string rangleParser : mlir_attr_val -- opaqueAttr
 syntax "#opaque<" ident "," mlir_string ">" ":" mlir_type : mlir_attr_val -- opaqueElementsAttr
 syntax mlir_attr_val_symbol "::" mlir_attr_val_symbol : mlir_attr_val_symbol
 
@@ -885,7 +879,9 @@ macro_rules
 | `([mlir_attr_val| dense< $v:mlir_tensor > : $t:mlir_type]) => 
     `(AttrVal.dense [mlir_tensor| $v] [mlir_type| $t])
 
+-- | TODO: modernize parser
 syntax "dense<" ">" ":" mlir_type: mlir_attr_val
+
 macro_rules
 | `([mlir_attr_val| dense< > : $t:mlir_type]) => 
     `(AttrVal.dense TensorElem.empty [mlir_type| $t])
@@ -1281,7 +1277,7 @@ macro_rules
     `(MemrefLayoutSpec.stride [mlir_dimension| $o] $ds)
 
 -- | ranked memref
-syntax "memref" "<"  mlir_dimension_list ("," memref_type_layout_specification)? ("," mlir_attr_val)?  ">"  : mlir_type
+syntax "memref" langleParser  mlir_dimension_list ("," memref_type_layout_specification)? ("," mlir_attr_val)?  rangleParser  : mlir_type
 macro_rules
 | `([mlir_type| memref  < $dims:mlir_dimension_list $[, $layout ]? $[, $memspace]? >]) => do
     let (dims, ty) <- parseTensorDimensionList dims 
@@ -1310,8 +1306,8 @@ def memrefTy3 := [mlir_type| memref<2 × 4 × i8, #map1, 1>]
 -- | unranked memref
 -- unranked-memref-type ::= `memref` `<*x` type (`,` memory-space)? `>`
 -- | TODO: Do I need two different parsers for these cases?
-syntax "memref" "<"  "*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
-syntax "memref" "<*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
+syntax "memref" langleParser  starParser timesParser mlir_type ("," mlir_attr_val)?  rangleParser : mlir_type
+-- syntax "memref" "<*" "×" mlir_type ("," mlir_attr_val)?  ">"  : mlir_type
 macro_rules
 | `([mlir_type| memref < * × $ty  $[, $memspace]? >]) => do
     let memspace <- match memspace with 
@@ -1319,13 +1315,6 @@ macro_rules
                     | none => `(none)
     `(MLIRTy.memrefUnranked [mlir_type| $ty] $memspace)
 
-macro_rules
-| `([mlir_type| memref <* × $ty  $[, $memspace]? >]) => do
-    let memspace <- match memspace with 
-                    | some s => `(some [mlir_attr_val| $s])
-                    | none => `(none)
-    `(MLIRTy.memrefUnranked [mlir_type| $ty] $memspace)
- 
 def memrefTy4 := [mlir_type| memref<* × f32>]
 #print memrefTy4
 
@@ -1372,6 +1361,16 @@ def userTy1 := [mlir_type| () -> !foo.bar<foo> ]
 -- | TODO: how do we make this work?
 def userTy2 := [mlir_type| !foo.bar<foo> -> ()]
 #print userTy2
+
+def tensorTyAttributeComma := [mlir_type| tensor <1 × 2 × i32, "foo">]
+#print tensorTyAttributeComma
+
+def userTy3 := [mlir_type|
+   -- | that's annoying, why does that not tokenize correctly?
+   tensor<16 × 32 × f64, #sparse_tensor<"encoding<{ dimLevelType = [ \22dense\22, \22dense\22 ], pointerBitWidth = 0, inde × BitWidth = 0 }>">>
+]
+#print userTy3
+
 
 
 end MLIR.EDSL

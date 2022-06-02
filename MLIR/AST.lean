@@ -304,7 +304,8 @@ partial def docMlirTy(ty: MLIRTy) : Doc :=
     | MLIRTy.memrefUnranked ty memspace? =>
       let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
       [doc| "memref<" "*x" (go ty) (docMemspace) ">"]
-    | MLIRTy.tensorRanked dims ty => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.tensorRanked dims ty none => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ ">"
+    | MLIRTy.tensorRanked dims ty (some layout) => "tensor<" ++ (intercalate_doc dims "x") ++ "x" ++ go ty ++ "," ++ docAttrVal layout ++ ">"
     | MLIRTy.tensorUnranked ty => "tensor<" ++ "*x" ++ go ty ++ ">"
     go ty
 

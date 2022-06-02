@@ -417,17 +417,21 @@ def main : IO Unit :=
 	      (+ (stat-nsucc v) (stat-nfail v))))))
 
 (defun print-compile-stats ()
+  (format t "PROGRAMS COMPILED STATUS:")
   (print-stats *canon-mlir-parts* #'mlir-file-part-compile-successp))
 
 ;;  TODO: canonicalize output of running 
 (defun print-run-stats ()
+  (format t "PROGRAMS RUN STATUS:")
   (print-stats *canon-mlir-parts* #'mlir-file-part-run-canon-successp))
 
 
 (print "\\1")
 (defun main ()
   (setf lparallel:*kernel* (lparallel:make-kernel 32))
-  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-canon") :validate t )
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-canon") :validate t :if-does-not-exist :ignore)
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-error") :validate t :if-does-not-exist :ignore)
+  (uiop:delete-directory-tree (uiop:ensure-directory-pathname #P"./1-gen") :validate t :if-does-not-exist :ignore)
   (loop for (category path-root) in *tests* do
     (format t "collecting category |~d| at  path |~d|~%" category path-root)
     (let* ((paths (directory path-root)))

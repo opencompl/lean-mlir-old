@@ -430,7 +430,7 @@ def MLIR.AST.MLIRTy.eval (τ: MLIRTy): Type :=
     -- MLIRTy.vector (todo)
     (fun Dfixed Dscaled τ eval_τ => Unit)
     -- MLIRTy.tensorRanked (todo)
-    (fun D τ eval_τ => RankedTensor eval_τ D)
+    (fun D τ attr eval_τ _ => RankedTensor eval_τ D)
     -- MLIRTy.tensorUnranked (todo)
     (fun τ eval_τ => Unit)
     -- MLIRTy.memrefRanked (todo)
@@ -528,7 +528,7 @@ def MLIR.AST.MLIRTy.default (τ: MLIRTy): τ.eval :=
   | MLIRTy.tuple [τ] => τ.default
   | MLIRTy.tuple (τ₁::τ₂::l) => (τ₁.default, (MLIRTy.tuple (τ₂::l)).default)
   | MLIRTy.vector _ _ _ => () /- todo -/
-  | MLIRTy.tensorRanked D τ => @RankedTensor.default τ.eval D ⟨default τ⟩
+  | MLIRTy.tensorRanked D τ l => @RankedTensor.uniform τ.eval D (default τ)
   | MLIRTy.tensorUnranked τ => () /- todo -/
   | MLIRTy.memrefRanked D τ _ _ => () /- todo -/
   | MLIRTy.memrefUnranked τ _ => () /- todo -/
