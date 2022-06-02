@@ -3,7 +3,7 @@ import MLIR.Dialects.BuiltinModel
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.Verifier
 import MLIR.Semantics.SSAEnv
-import MLIR.Semantics.InvalidOp
+import MLIR.Semantics.UB
 import MLIR.Semantics.TensorElem
 import MLIR.Util.Metagen
 import MLIR.Util.Reduce
@@ -36,7 +36,7 @@ inductive ToyOp: Type → Type :=
    verification stuff) -/
 
 def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
-      Fitree (InvalidOpE builtin +' SSAEnvE builtin +' ToyOp) Unit :=
+      Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit :=
 
   match op with
   | Op.mk "toy.constant" [] [] [] attrs
@@ -45,12 +45,12 @@ def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
           match TensorLiteral.ofTensorElem elem D₁ τ₁ with
           | none =>
-              Fitree.trigger (InvalidOpE.InvalidOp op)
+              Fitree.trigger (UBE.DebugUB s!"{op}")
           | some t_lit => do
               let t ← Fitree.trigger <| ToyOp.Constant D₁ τ₁ t_lit
               SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
       | _ =>
-          Fitree.trigger (InvalidOpE.InvalidOp op)
+          Fitree.trigger (UBE.DebugUB s!"{op}")
 
   | Op.mk "toy.transpose" [t_name] [] [] _ (.fn (builtin.tensor D τ) τ₂) =>
       match D with
@@ -61,7 +61,7 @@ def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
           SSAEnv.set? (builtin.tensor [Dimension.Known m, Dimension.Known n] τ)
             ret_name t'
       | _ =>
-          Fitree.trigger (InvalidOpE.InvalidOp op)
+          Fitree.trigger (UBE.DebugUB s!"{op}")
 
   | Op.mk "toy.reshape" [t_name] [] [] _
         (.fn (builtin.tensor D τ₁) (builtin.tensor D' τ₂)) =>
@@ -75,14 +75,13 @@ def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
         let t': RankedTensor D' τ₂ := cast (by rw [H.1]) t';
         SSAEnv.set? (builtin.tensor D' τ₂) ret_name t'
       else
-        Fitree.trigger (InvalidOpE.InvalidOp op)
+        Fitree.trigger (UBE.DebugUB s!"{op}")
 
   | _ =>
-      Fitree.trigger (InvalidOpE.InvalidOp op)
+      Fitree.trigger (UBE.DebugUB s!"{op}")
 
-def toy_semantics_bbstmt:
-      BasicBlockStmt builtin →
-      Fitree (InvalidOpE builtin +' (SSAEnvE builtin) +' ToyOp) Unit
+def toy_semantics_bbstmt: BasicBlockStmt builtin →
+      Fitree (UBE +' (SSAEnvE builtin) +' ToyOp) Unit
   | BasicBlockStmt.StmtAssign val _ op =>
       toy_semantics_op (some val) op
   | BasicBlockStmt.StmtOp op =>
@@ -90,9 +89,8 @@ def toy_semantics_bbstmt:
 
 -- TODO: toy_semantics_bb: handle basic block arguments
 @[simp]
-def toy_semantics_bb:
-      BasicBlock builtin →
-      Fitree (InvalidOpE builtin +' (SSAEnvE builtin) +' ToyOp) Unit
+def toy_semantics_bb: BasicBlock builtin →
+      Fitree (UBE +' (SSAEnvE builtin) +' ToyOp) Unit
   | BasicBlock.mk name args [] =>
       Fitree.ret ()
   | BasicBlock.mk name args (op1::ops) =>
@@ -117,21 +115,9 @@ def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
   interp (Fitree.case_ ToyOp.handle (fun T => @Fitree.trigger E E T _)) t
 
 @[simp]
-def run_toy (t: Fitree (InvalidOpE builtin +' SSAEnvE builtin +' ToyOp) Unit)
+def run_toy (t: Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit)
     (env: SSAEnv builtin): Fitree PVoid (Unit × SSAEnv builtin) :=
-  interp ToyOp.handle (interp_ssa (interp_invalid! t) env)
-
-/-
-### Interpretation layers for Toy programs
-
-We first interpret away nonexsting invalid operations, then the memory layer,
-and finally the Toy operations themselves.
--/
-
-#check interp_invalid
-#check interp_ssa
-#check interp_toy
-
+  interp ToyOp.handle (interp_ssa (interp_ub! t) env)
 
 /-
 ### Examples and testing
@@ -147,15 +133,11 @@ def constant_stmt: BasicBlockStmt builtin := [mlir_bb_stmt|
     () -> tensor<2×2×i32>
 ]
 
-#reduce constant_stmt
-
 def double_transpose: BasicBlock builtin := [mlir_bb|
   ^dbl:
     %t2 = "toy.transpose"(%t1): tensor<2×4×i32> -> tensor<4×2×i32>
     %t3 = "toy.transpose"(%t2): tensor<4×2×i32> -> tensor<2×4×i32>
 ]
-
-#reduce toy_semantics_bb double_transpose
 
 #eval Fitree.run <| run_toy (toy_semantics_bbstmt transpose_stmt) [[]]
 
@@ -176,6 +158,6 @@ theorem double_transpose_correct:
   unfold double_transpose
   simp
   simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
-  simp [interp_invalid]; simp_itree
+  simp [interp_ub!]; simp_itree
   simp [interp_ssa]; simp_itree
   rw [transpose_involutive]

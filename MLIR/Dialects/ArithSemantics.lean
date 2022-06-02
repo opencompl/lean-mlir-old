@@ -9,7 +9,7 @@ which are some of the most complex builtin types.
 
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.SSAEnv
-import MLIR.Semantics.InvalidOp
+import MLIR.Semantics.UB
 import MLIR.Dialects.BuiltinModel
 import MLIR.Util.Metagen
 import MLIR.AST

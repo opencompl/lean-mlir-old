@@ -1,6 +1,6 @@
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.SSAEnv
-import MLIR.Semantics.InvalidOp
+import MLIR.Semantics.UB
 import MLIR.Util.Metagen
 import MLIR.AST
 import MLIR.EDSL
@@ -43,15 +43,15 @@ instance {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁} {α₂ σ₂ ε�
 
 def semantics_op! {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]:
     Option SSAVal → Op Gδ →
-    Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) :=
+    Fitree (UBE +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) :=
   fun ret op =>
     match S.semantics_op ret op with
     | some t => t.translate Member.inject
-    | none => do Fitree.trigger (InvalidOpE.InvalidOp op); return .Next
+    | none => do Fitree.trigger (UBE.DebugUB s!"{op}"); return .Next
 
 def semantics_bbstmt {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]:
     BasicBlockStmt Gδ →
-    Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) (BlockResult Gδ)
+    Fitree (UBE +' SSAEnvE Gδ +' S.E) (BlockResult Gδ)
 | .StmtAssign val _ op => semantics_op! (some val) op
 | .StmtOp op => semantics_op! none op
 
@@ -146,7 +146,7 @@ instance: Semantics cf where
 -- TODO: Add the basic block arguments and bind them before running the block
 def semantics_bb {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     (bb: BasicBlock Gδ):
-    Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) := do
+    Fitree (UBE +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) := do
   -- TODO: we assume all statements return BlockResult.Next except the last
   for stmt in bb.stmts.init do
     let _ ← semantics_bbstmt stmt
@@ -156,7 +156,7 @@ def semantics_bb {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
 
 def semantics_region_go {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     (fuel: Nat) (r: Region Gδ) (bb: BasicBlock Gδ):
-    Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) :=
+    Fitree (UBE +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) :=
   match fuel with
   | 0 => return .Next
   | fuel' + 1 => do
@@ -173,21 +173,21 @@ def semantics_region_go {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics G
 -- TODO: Forward region's return type and value
 def semantics_region {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     (fuel: Nat) (r: Region Gδ):
-    Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) Unit := do
+    Fitree (UBE +' SSAEnvE Gδ +' S.E) Unit := do
   let _ ← semantics_region_go fuel r (r.bbs.get! 0)
 
 def semantics_run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
-    (t: Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
+    (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     R × SSAEnv Gδ :=
-  let t := interp_invalid! t
+  let t := interp_ub! t
   let t := interp_ssa t env
   let t := interp S.handle t
   t.run
 
 def semantics_run_logged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
-    {R} (t: Fitree (InvalidOpE Gδ +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
+    {R} (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     (R × String) × SSAEnv Gδ :=
-  let t := interp_invalid! t
+  let t := interp_ub! t
   let t := (interp_ssa_logged t).run env
   let t := interp S.handle t
   t.run
