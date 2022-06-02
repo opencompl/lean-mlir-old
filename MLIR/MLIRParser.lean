@@ -61,7 +61,7 @@ partial def puser (u: Unit): P MLIRTy := do
     let dialect <- pident
     pconsume '.'
     let ty <- pident
-    return MLIRTy.user (dialect ++ "." ++ ty)
+    return MLIRTy.userGeneric (dialect ++ "." ++ ty) none
 
 partial def ptype (u: Unit) : P MLIRTy := do
   eat_whitespace

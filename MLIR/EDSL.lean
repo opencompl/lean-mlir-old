@@ -380,6 +380,8 @@ syntax mlir_type "->" mlir_type : mlir_type
 syntax "{{" term "}}" : mlir_type
 syntax "!" str : mlir_type
 syntax "!" ident : mlir_type
+
+
 syntax ident: mlir_type
 
 
@@ -404,10 +406,10 @@ macro_rules
         else Macro.throwError $ "expected i<int> or f<int>, found: " ++ xstr  -- `(MLIRTy.int 1337)
 
 macro_rules
-| `([mlir_type| ! $x:str ]) => `(MLIRTy.user $x)
+| `([mlir_type| ! $x:str ]) => `(MLIRTy.userGeneric $x none)
 
 macro_rules
-| `([mlir_type| ! $x:ident ]) => `(MLIRTy.user $(Lean.quote x.getId.toString))
+| `([mlir_type| ! $x:ident ]) => `(MLIRTy.userGeneric $(Lean.quote x.getId.toString) none)
 
 def tyIndex : MLIRTy := [mlir_type| index]
 #eval tyIndex
@@ -624,6 +626,19 @@ def tensorTy3 := [mlir_type| tensor<*× f32>]
 
 def tensorTy4 := [mlir_type| tensor<* × f32>]
 #print tensorTy4
+
+
+syntax "!" ident langleParser mlir_string rangleParser : mlir_type -- !shape<"shape"> user specific dialect thingie.
+
+macro_rules
+| `([mlir_type| ! $x:ident < $s:mlir_string > ]) => do
+    let sstr : String := s[0].getAtomVal! 
+    let xstr : String := x.getId.toString
+    `(MLIRTy.userGeneric $(Lean.quote xstr) (some $(Lean.quote sstr)))
+   -- `(MLIRTy.userGeneric $(Lean.quote x.getId.toString) (some $(Lean.quote sstr)))
+
+
+def userTy0 : MLIRTy := [mlir_type| !shape<"shape">]
 
 
 
@@ -1351,7 +1366,7 @@ macro_rules
                        $(Lean.quote bStr))
 
 set_option pp.rawOnError true
-def userTy0 := [mlir_type| !test.test_rec<a, test_rec<b, test_type>> ]
+def userTy_custom := [mlir_type| !test.test_rec<a, test_rec<b, test_type>> ]
 #print userTy0
 
 -- | TODO: how do we make this work?

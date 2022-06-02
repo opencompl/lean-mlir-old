@@ -96,9 +96,9 @@ inductive MLIRTy : Type where
 | memrefRanked: (dims: List Dimension) -> (t: MLIRTy) ->
   (layout: Option MemrefLayoutSpec) -> (memspace: Option AttrVal) -> MLIRTy
 | memrefUnranked:  (t: MLIRTy) ->  (memspace: Option AttrVal) -> MLIRTy
-| user: String -> MLIRTy -- user defined type
+-- | TODO: combine user, userPretty, userGeneric
 | userPretty: (dialect: String) -> (name: String) -> (contents: String) -> MLIRTy
-
+| userGeneric: (dialect: String) -> (contents: Option String) -> MLIRTy
 
 -- | TODO: factor Symbol out from AttrVal
 inductive AttrVal : Type where
@@ -240,7 +240,7 @@ def MLIRTy.beq (t1 t2: MLIRTy): Bool :=
       dims1 == dims2 && beq t1 t2
   | MLIRTy.memrefUnranked t1 _, MLIRTy.memrefUnranked t2 _ =>
       beq t1 t2
-  | MLIRTy.user n1, MLIRTy.user n2 =>
+  | MLIRTy.userGeneric n1 k1, MLIRTy.userGeneric n2 k2 =>
       n1 == n2
   | _, _ =>
       false
@@ -282,7 +282,10 @@ match spec with
 partial def docMlirTy(ty: MLIRTy) : Doc :=
     let rec  go (ty: MLIRTy) :=
     match ty with
-    | MLIRTy.user k => [doc| "!"k]
+    | MLIRTy.userGeneric name contents? => 
+      match contents? with 
+      | some c => [doc| "!"name"<"c">"] -- TODO: does this print "" around strings?
+      | none => [doc| "!"name]
     | MLIRTy.userPretty dialect name contents => [doc| "!" dialect "." name "<" contents ">"]
     | MLIRTy.int k => [doc| "i"k]
     | MLIRTy.float k => [doc| "f"k]
