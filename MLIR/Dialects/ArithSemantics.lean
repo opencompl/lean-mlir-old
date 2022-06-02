@@ -8,16 +8,13 @@ which are some of the most complex builtin types.
 -/
 
 import MLIR.Semantics.Fitree
+import MLIR.Semantics.Semantics
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.UB
 import MLIR.Dialects.BuiltinModel
 import MLIR.Util.Metagen
 import MLIR.AST
 import MLIR.EDSL
-
--- TODO: Split Semantics into a proper file
-import MLIR.Dialects.ControlFlowSemantics
-
 open MLIR.AST
 
 /-
@@ -38,7 +35,7 @@ operands and disallowing incorrect types in the operation arguments, we define
 scalar, tensor, and vector overloads of each operation.
 -/
 
-inductive ArithE: Type → Type 1 :=
+inductive ArithE: Type → Type :=
   | AddI: (sz: Nat) → (lhs rhs: FinInt sz) →
           ArithE (FinInt sz)
   | AddT: (sz: Nat) → (D: DimList) → (lhs rhs: RankedTensor D (.int sgn sz)) →
@@ -63,3 +60,42 @@ def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSA
       else none
 
   | _ => none
+
+def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
+  match e with
+  | AddI sz lhs rhs =>
+      return (lhs + rhs)
+  | AddT sz D lhs rhs =>
+      -- TODO: Implementation of ArithE.AddT (tensor addition)
+      return default
+  | AddV sz sc fx lhs rhs =>
+      -- TODO: Implementation of ArithE.AddV (vector addition)
+      return default
+
+instance: Semantics arith where
+  E := ArithE
+  semantics_op := arith_semantics_op
+  handle := ArithE.handle
+
+/-
+### Theorems
+-/
+
+def add1: BasicBlockStmt arith := [mlir_bb_stmt|
+  %r = "arith.addi"(%n, %m): (i32, i32) -> i32
+]
+def add2: BasicBlockStmt arith := [mlir_bb_stmt|
+  %r = "arith.addi"(%m, %n): (i32, i32) -> i32
+]
+
+theorem add_commutative:
+  forall (n m: FinInt 32),
+    run ⟦add1⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] =
+    run ⟦add2⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] := by
+  intros n m
+  simp [Denote.denote]
+  simp [run, semantics_bbstmt, semantics_op!, Semantics.semantics_op]
+  simp [arith_semantics_op, Semantics.handle, add1, add2]
+  simp [interp_ub!]; simp_itree
+  simp [interp_ssa]; simp_itree
+  rw [FinInt.add_comm]

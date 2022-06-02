@@ -91,7 +91,7 @@ def semantics_region {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     Fitree (UBE +' SSAEnvE Gδ +' S.E) Unit := do
   let _ ← semantics_region_go fuel r (r.bbs.get! 0)
 
-def semantics_run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
+def run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
     (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     R × SSAEnv Gδ :=
   let t := interp_ub! t
@@ -99,10 +99,32 @@ def semantics_run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R
   let t := interp S.handle t
   t.run
 
-def semantics_run_logged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
+def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     {R} (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     (R × String) × SSAEnv Gδ :=
   let t := interp_ub! t
   let t := (interp_ssa_logged t).run env
   let t := interp S.handle t
   t.run
+
+/-
+### Denotation notation
+-/
+
+#print Op
+class Denote (δ: Dialect α σ ε) [S: Semantics δ]
+    (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
+  denote: T δ → Fitree (UBE +' SSAEnvE δ +' S.E) (BlockResult δ)
+
+notation "⟦ " t " ⟧" => Denote.denote t
+
+instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
+  denote op := semantics_op! none op
+
+instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
+  denote := semantics_bbstmt
+
+instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
+  denote := semantics_bb
+
+-- Not for regions because we need to specify the fuel

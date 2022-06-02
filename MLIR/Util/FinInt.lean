@@ -86,6 +86,42 @@ def toSint (n: FinInt (sz+1)): Int :=
   | .O m => m.toUint
   | .I m => m.toUint - (2:Int)^sz
 
+theorem toUint_ge_zero (n: FinInt sz): n.toUint ≥ 0 := by
+  revert n; induction sz <;> intros n <;> cases n <;> simp
+  case next sz bn n' ih =>
+    cases bn <;> simp [ih n']
+    apply Int.add_ge_zero; apply Int.pow_ge_zero; decide; apply ih
+
+theorem toUint_lt_maxUint (n: FinInt sz): n.toUint < (2:Int)^sz := by
+  revert n; induction sz <;> intros n <;> cases n <;> simp
+  case succ.next sz bn n' ih =>
+    cases bn <;> simp
+    . apply Int.lt_trans ((2:Int)^sz)
+      . specialize ih n'; simp at ih; trivial
+      . simp [Int.pow_succ, Int.mul_two]; apply Int.lt_add_right
+        apply Int.pow_gt_zero; decide
+    . specialize ih n'; simp at ih; simp [Int.pow_succ, Int.mul_two]
+      apply Int.lt_add_lt_left; trivial
+
+theorem toSint_ge_minSint (n: FinInt (sz+1)): n.toSint ≥ -(2:Int)^sz := by
+  cases n; case next bn n' =>
+  cases bn <;> simp [toSint]
+  . apply Int.le_trans 0 <;> sorry
+  . sorry
+
+theorem toSint_lt_maxSint (n: FinInt (sz+1)): n.toSint < (2:Int)^sz := by
+  cases n; case next bn n' =>
+  cases bn <;> simp [toSint]
+  . apply toUint_lt_maxUint
+  . sorry
+
+theorem lt_of_msb (n: FinInt (sz+1)):
+    n.toUint < (2:Int)^sz ↔ match n with | .next bn n' => bn = false := by
+  cases n; case next bn n' =>
+  cases bn <;> simp [toUint]
+  . apply toUint_lt_maxUint
+  . intro h; sorry
+
 /-
 ### String representation
 -/
@@ -210,6 +246,13 @@ theorem addfull_toSint (n m: FinInt (sz+1)):
       rw [h] at h'
       cases br <;> simp at h' <;> simp [toSint, h'] <;> sorry -- obvious
 
+theorem addfull_comm (n m: FinInt sz):
+    addfull n m = addfull m n := by
+  induction sz <;> cases n <;> cases m <;> simp [addfull]
+  case succ.next.next sz bn n' ih bm m' =>
+    simp [ih n' m']
+    split <;> cases bn <;> cases bm <;> rfl
+
 /-
 ### Addition to n bits
 -/
@@ -218,12 +261,24 @@ def addc (n m: FinInt sz): FinInt sz × Bool :=
   match addfull n m with
   | .next carry n => (n, carry)
 
+theorem addc_comm (n m: FinInt sz): addc n m = addc m n := by
+  simp [addc, addfull_comm]
+
 def add (n m: FinInt sz): FinInt sz :=
   match addfull n m with
   | .next carry n => n
 
+theorem add_comm' (n m: FinInt sz): add n m = add m n := by
+  simp [add, addfull_comm]
+
+instance {sz}: HAdd (FinInt sz) (FinInt sz) (FinInt sz) where
+  hAdd := add
+
+theorem add_comm (n m: FinInt sz): n + m = m + n := by
+  simp [HAdd.hAdd, add_comm']
+
 theorem add_toUint (n m: FinInt sz):
-  (add n m).toUint =
+  (n + m).toUint =
     match addfull n m with
     | .O _ => n.toUint + m.toUint
     | .I _ => n.toUint + m.toUint - (2:Int)^sz := by
@@ -235,10 +290,10 @@ theorem add_toUint (n m: FinInt sz):
     cases br <;> simp at * <;> sorry -- trivial rearranging
 
 theorem add_toSint (n m: FinInt (sz+1)):
-  (add n m).toSint =
+  (n + m).toSint =
     match n, m with
     | .O n', .O m' =>
-        match add n m with
+        match n + m with
         | .O _ => n.toSint + m.toSint
         | .I _ => n.toSint + m.toSint - (2:Int)^(sz+1)
     | .O n', .I m' =>
@@ -246,7 +301,7 @@ theorem add_toSint (n m: FinInt (sz+1)):
     | .I n', .O m' =>
         n.toSint + m.toSint
     | .I n', .I m' =>
-        match add n m with
+        match n + m with
         | .O _ => n.toSint + m.toSint + (2:Int)^(sz+1)
         | .I _ => n.toSint + m.toSint := by
   simp [add]
@@ -278,13 +333,17 @@ theorem add_toSint (n m: FinInt (sz+1)):
 def addv (n m: FinInt  (sz+1)): FinInt  (sz+1) × Bool :=
   match n, m with
   | .O n', .O m' =>
-    match add n m with
+    match n + m with
     | .next msb r' => (.next msb r', msb)
   | .I n', .I m' =>
-    match add n m with
+    match n + m with
     | .next msb r' => (.next msb r', !msb)
   | _, _ =>
-      (add n m, false)
+      (n + m, false)
+
+theorem addv_comm (n m: FinInt (sz+1)): addv n m = addv m n := by
+  simp [addv]; cases n; cases m; case next.next bn n' bm m' =>
+  simp [add_comm]; cases bn <;> cases bm <;> rfl
 
 theorem addv_toSint (n m: FinInt (sz+1)):
     (addv n m).snd = false →
@@ -296,16 +355,25 @@ theorem addv_toSint (n m: FinInt (sz+1)):
   cases m; case next dm m' =>
   cases dn <;> cases dm <;> simp [h] at *
   case false.false =>
-    match h: add (next false n') (next false m') with
+    match h: next false n' + next false m' with
     | .next br r =>
       rw [h] at h_nov
       cases br <;> simp at *
       rw [←h]; simp [add_toSint]; simp [h]
   case true.true =>
-    match h: add (next true n') (next true m') with
+    match h: next true n' + next true m' with
     | .next br r =>
       rw [h] at h_nov
       cases br <;> simp at *
       rw [←h]; simp [add_toSint]; simp [h]
+
+/-
+### Reasoning on additions by integer valuations
+-/
+
+/- theorem add_toUint' (n m: FinInt sz):
+    n.toUint + m.toUint < (2:Int)^sz →
+    (n + m).toUint = n.toUint + m.toUint := by
+  done -/
 
 end FinInt

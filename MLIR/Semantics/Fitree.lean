@@ -142,6 +142,7 @@ def interp_writer [Monad M] {E} (h: E ~> WriterT M):
 
 -- Since we only use finite ITrees, we can actually run them when they're
 -- fully interpreted (which leaves only the Ret constructor)
+@[simp_itree]
 def Fitree.run {R}: Fitree PVoid R → R
   | Ret r => r
   | Vis e k => nomatch e

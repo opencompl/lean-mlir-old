@@ -110,7 +110,7 @@ def false_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
 ]
 
 def run_dummy_cf_region: Region (dummy + cf) → String := fun r =>
-  semantics_run_logged (semantics_region 99 r) SSAEnv.empty |>.fst |>.snd
+  runLogged (semantics_region 99 r) SSAEnv.empty |>.fst |>.snd
 
 def ex_branch_true: Region dummy := [mlir_region| {
   ^entry:

@@ -41,6 +41,13 @@ def SSAScope (δ: Dialect α σ ε) :=
   List (SSAVal × (τ: MLIRType δ) × τ.eval)
 
 @[simp]
+def SSAScope.getT {δ: Dialect α σ ε} (name: SSAVal):
+  SSAScope δ → Option ((τ: MLIRType δ) × τ.eval)
+  | [] => none
+  | ⟨name', τ, v⟩ :: l =>
+      if name' = name then some ⟨τ,v⟩ else getT name l
+
+@[simp]
 def SSAScope.get {δ: Dialect α σ ε} (name: SSAVal):
   SSAScope δ → (τ: MLIRType δ) → Option τ.eval
   | [], _ => none
@@ -90,19 +97,33 @@ instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
   toString := SSAEnv.str
 
 @[simp]
+def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
+  SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
+  | [] => none
+  | l :: s => l.getT name <|> getT name s
+
+@[simp]
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   SSAEnv δ → Option τ.eval
   | [] => none
-  | l :: s =>
-      match l.get name τ with
-      | none => get name τ s
-      | some v => v
+  | l :: s => l.get name τ <|> get name τ s
 
 @[simp]
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
   | [] => [] -- cannot happen in practice
   | l :: s => l.set name τ v :: s
+
+instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
+  fun ⟨τ₁, v₁⟩ ⟨τ₂, v₂⟩ =>
+    if H: τ₁ = τ₂ then
+      if H': cast (by rw [H]) v₁ = v₂ then
+        isTrue (by cases H; cases H'; simp [cast_eq])
+      else isFalse fun h => by cases h; cases H' rfl
+    else isFalse fun h => by cases h; cases H rfl
+
+def SSAEnv.eqOn (l: List SSAVal) (env₁ env₂: SSAEnv δ): Bool :=
+  l.all (fun v => env₁.getT v == env₂.getT v)
 
 /- Useful for proofs
 def SSAEnv.refines (new old: SSAEnv) :=
