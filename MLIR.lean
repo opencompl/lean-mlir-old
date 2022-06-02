@@ -18,6 +18,7 @@ import MLIR.Examples.EndToEndDiff
 import MLIR.Dialects.ToySemantics
 import MLIR.Dialects.PDLSemantics
 import MLIR.Dialects.ControlFlowSemantics
+import MLIR.Dialects.ArithSemantics
 
 open MLIR.MLIRParser
 open MLIR.P

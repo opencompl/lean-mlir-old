@@ -23,8 +23,8 @@ inductive UBE: Type → Type :=
 @[simp_itree]
 def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>
   match e with
-  | UB => panic "Undefined Behavior raised!"
-  | DebugUB str => panic str
+  | UB => panic! "Undefined Behavior raised!"
+  | DebugUB str => panic! str
 
 @[simp_itree]
 def UBE.handleSafe {E}: UBE ~> Fitree E := fun _ e =>

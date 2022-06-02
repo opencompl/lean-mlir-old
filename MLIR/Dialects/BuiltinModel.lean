@@ -359,7 +359,7 @@ def builtin.denseWithType (e: TensorElem) (τ: MLIRType builtin):
   | builtin.vector fixed scalable τ =>
       builtin.dense_vector_attr e fixed scalable τ
   | _ =>
-      panic s!"buitin.denseVectorWithType: {τ} not a vector type"
+      panic! s!"buitin.denseVectorWithType: {τ} not a vector type"
 
 -- Create a dense vector with values `xs` and type `vector<len(xs)*ity>`
 def builtin.denseVectorOfList (xs: List Int) (ity: MLIRTy := .i32):
