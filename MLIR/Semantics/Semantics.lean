@@ -21,7 +21,23 @@ inductive BlockResult {Gα Gσ Gε} (Gδ: Dialect Gα Gσ Gε)
 class Semantics {α σ ε} (δ: Dialect α σ ε) where
   -- Events modeling the dialect's operations
   E: Type → Type
+  -- Monad transformer associated to the dialect's environment
+  mT: (Type → Type 1) → (Type → Type 1)
+  -- We need to be able to lift
+  monad: forall (m: Type → Type 1) [Monad m], Monad (mT m)
+  hoist: forall (m: Type → Type 1) (n: Type -> Type 1)
+      {α}, ({β: Type} → m β → n β) → mT m α → mT n α
+  -- reassoc: forall
+  -- (mT: (Type -> Type 1) -> (Type -> Type 1))
+  -- (nT: (Type -> Type 1) -> (Type -> Type 1))
+  -- (oT: (Type -> Type 1) -> (Type -> Type 1))
+  -- (o: Type -> Type 1) {a: Type},
+    --  mT (nT o) α → (fun m α => mT (nT )) o α
+  -- Semantics.mT δ₁ (Semantics.mT δ₂ (Fitree F)) R : Type 1
 
+  -- (fun m α => Semantics.mT δ₂ (Semantics.mT δ₁ m) α) (Fitree F) R : Type 1
+
+  -- hoist :: Monad m => (forall a. m a -> n a) -> t m b -> t n b
   -- Operation semantics function: maps an `Op` to an interaction tree. Usually
   -- this simply emits an event of `E` and records the return value into the
   -- environment, and could be automated.
@@ -34,15 +50,28 @@ class Semantics {α σ ε} (δ: Dialect α σ ε) where
   -- Event handler used when interpreting the operations and running programs.
   -- This is where most of the semantics and computations take place.
   -- TODO: Allow dialect handlers to emit events into other dialects
-  handle: E ~> Fitree PVoid
+  interpEvents (F): Fitree (E +' F) ~> mT (Fitree F)
+
+instance {α σ ε} [δ: Dialect α σ ε] [S: Semantics δ] (m) [Monad m]:
+    Monad (S.mT _ m) :=
+  S.monad m
 
 instance {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁} {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
     [S₁: Semantics δ₁] [S₂: Semantics δ₂]: Semantics (δ₁ + δ₂) where
   E := S₁.E +' S₂.E
+  mT m α := S₁.mT _ (S₂.mT _ m) α
   semantics_op ret_name op :=
     (S₁.semantics_op ret_name op).map (.translate Member.inject) <|>
     (S₂.semantics_op ret_name op).map (.translate Member.inject)
-  handle := Fitree.case_ S₁.handle S₂.handle
+  interpEvents F R t :=
+    let tr: (S₁.E +' S₂.E) +' F ~> S₁.E +' S₂.E +' F := fun R e =>
+      match e with
+      | .inl (Sum.inl e) => .inl e
+      | .inl (Sum.inr e) => .inr (Sum.inl e)
+      | .inr e => .inr (Sum.inr e)
+    let t := t.translate tr
+    let t := S₁.interpEvents _ _ t
+    S₁.hoist _ (Semantics.mT δ₂ _) (fun t' => S₂.interpEvents _ _ t') t
 
 def semantics_op! {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]:
     Option SSAVal → Op Gδ →
