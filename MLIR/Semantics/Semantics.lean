@@ -97,6 +97,16 @@ def semantics_region {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     Fitree (UBE +' SSAEnvE Gδ +' S.E) Unit := do
   let _ ← semantics_region_go fuel r (r.bbs.get! 0)
 
+-- TODO: Pass region arguments
+-- TODO: Forward region's return type and value
+-- Run the first basic block of the region.
+-- This is faithful if we are guaranteed that the region has only
+-- a single BB.
+def semantics_region_single_bb {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
+    (r: Region Gδ):
+    Fitree (UBE +' SSAEnvE Gδ +' S.E) Unit := do
+  let _ ← semantics_bb (r.bbs.get! 0)
+
 def run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
     (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     R × SSAEnv Gδ :=

@@ -169,6 +169,11 @@ def SSAEnvE.handleLogged {E}:
         return ()
 
 @[simp_itree]
+def SSAEnv.get? {E} (δ: Dialect α σ ε) [Member (SSAEnvE δ) E]
+  (τ: MLIRType δ) (name: SSAVal): Fitree E τ.eval := 
+    Fitree.trigger (SSAEnvE.Get τ name)
+
+@[simp_itree]
 def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
     (τ: MLIRType δ) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
   match name? with
