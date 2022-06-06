@@ -124,6 +124,14 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Ret r => pure r
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
+@[simp_itree]
+def interp' {E F} (h: E ~> Fitree PVoid):
+    forall ⦃R⦄, Fitree (E +' F) R → Fitree F R :=
+  fun _ t =>
+    interp (Fitree.case_
+      (fun _ e => (h _ e).translate $ fun _ e => nomatch e)
+      (fun _ e => Fitree.trigger e)) t
+
 -- Interpretation into the state monad
 -- NOTE: This is semantically equivalent to interp,
 -- but it is easier to state theorems about `interp_state`, instead of

@@ -33,11 +33,13 @@ open System
 
 -- https://github.com/leanprover/lean4/blob/master/tests/playground/file.lean
 def main (xs: List String): IO Unit := do
-  if xs.length == 0
-  then 
+  if xs.length == 0 then
     -- main_end_to_end_linalg
     main_end_to_end_lz
     main_end_to_end_diff
+  else if xs == ["--semantic-tests"] then
+    IO.println "Semantics tests..."
+    return ()
   else
     -- let path : System.FilePath :=  xs.head!
     let path :=  xs.head!

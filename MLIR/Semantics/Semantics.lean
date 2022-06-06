@@ -18,6 +18,12 @@ inductive BlockResult {Gα Gσ Gε} (Gδ: Dialect Gα Gσ Gε)
 | Ret (rets: List (SSAVal × MLIRType Gδ))
 | Next
 
+instance (Gδ: Dialect Gα Gσ Gε): ToString (BlockResult Gδ) where
+  toString := fun
+    | .Branch bb args => s!"Branch {bb} {args}"
+    | .Ret rets => s!"Ret {rets}"
+    | .Next => "Next"
+
 class Semantics {α σ ε} (δ: Dialect α σ ε) where
   -- Events modeling the dialect's operations
   E: Type → Type

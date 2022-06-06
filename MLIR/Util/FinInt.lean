@@ -81,10 +81,11 @@ def toUint (n: FinInt sz): Int :=
   | sz+1, .O i => i.toUint
   | sz+1, .I i => (2:Int)^sz + i.toUint
 
-def toSint (n: FinInt (sz+1)): Int :=
-  match n with
-  | .O m => m.toUint
-  | .I m => m.toUint - (2:Int)^sz
+def toSint (n: FinInt sz): Int :=
+  match sz, n with
+  | 0, .nil => 0
+  | sz+1, .O m => m.toUint
+  | sz+1, .I m => m.toUint - (2:Int)^sz
 
 theorem toUint_ge_zero (n: FinInt sz): n.toUint ≥ 0 := by
   revert n; induction sz <;> intros n <;> cases n <;> simp
