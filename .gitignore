@@ -29,3 +29,5 @@ examples/.lit_test_times.txt
 examples/Output
 temp.mlir
 tags
+test-semantics/*.mlir
+test-semantics/*.llvm

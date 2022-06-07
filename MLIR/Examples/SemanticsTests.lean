@@ -1,6 +1,7 @@
 import MLIR.EDSL
 import MLIR.AST
 import MLIR.Dialects.ArithSemantics
+import MLIR.Dialects.FuncSemantics
 import MLIR.Dialects.ControlFlowSemantics
 open MLIR.AST
 
@@ -22,18 +23,24 @@ def Test.run (t: Test): String :=
   let t := interp ControlFlowOp.handleLogged t
   t.run.run.snd
 
-def trueval := Test.mk arith "trueval.mlir" [mlir_region| {
+def trueval := Test.mk (func_ + arith) "trueval.mlir" [mlir_region| {
   %true = "arith.constant" () {value = 1: i1}: () -> i1
-  "cf.assert" (%true): (i1) -> ()
+  "cf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
+
+  %z = "arith.constant" () {value = 0: i32}: () -> i32
+  "func.return" (%z): (i32) -> ()
 }]
 
-def add := Test.mk arith "add.mlir" [mlir_region| {
+def add := Test.mk (func_ + arith) "add.mlir" [mlir_region| {
   %r1 = "arith.constant" () {value = 17: i5}: () -> i5
   %r2 = "arith.constant" () {value = 25: i5}: () -> i5
   %r = "arith.addi" (%r1, %r2): (i5, i5) -> i5
   %e = "arith.constant" () {value = 10: i5}: () -> i5
   %b = "arith.cmpi" (%r, %e) {predicate = 0 /- eq -/}: (i5, i5) -> i1
-  "cf.assert" (%b): (i1) -> ()
+  "cf.assert" (%b) {msg="<FAILED>"}: (i1) -> ()
+
+  %z = "arith.constant" () {value = 0: i32}: () -> i32
+  "func.return" (%z): (i32) -> ()
 }]
 
 def allTests: Array Test := #[
