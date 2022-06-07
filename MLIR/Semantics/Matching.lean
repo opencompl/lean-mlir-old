@@ -44,6 +44,8 @@ inductive MSort :=
   | AttrValue
   -- A natural number (typically int/float bit size). Matches against [Nat]
   | Nat
+  -- A string (in operation names). Matches against [String]
+  | String
   -- A dimension (in a vector/tensor). Matches against [Dimension]
   | Dimension
   -- A signedness specification (in integers). Matches against [Signedness]
@@ -51,30 +53,49 @@ inductive MSort :=
   -- A homogeneous list of objects
   | List (s: MSort)
 
+inductive MCtor: List MSort → MSort → Type :=
+  | INT: MCtor [.Signedness, .Nat] .MLIRType
+  | TENSOR: MCtor [.List .Dimension, .MLIRType] .MLIRType
+  -- TODO: Incomplete op
+  | OP: MCtor [.String, .List .SSAVal, .List .MLIRType] .Op
+  -- TODO: Varargs for LIST? >_o
+  -- | LIST (s: MSort): MCtor [.List s]
+
 inductive MTerm :=
   -- A typed variable
   | Var (priority: Nat := 0) (name: String) (s: MSort)
   -- A constructor (taken from a fixed pool)
-  | App (ctor: String) (args: List MTerm)
+  | App {s₁ s₂} (ctor: MCtor s₁ s₂) (args: List MTerm)
+
+-- Accessors
+
+def MCtor.name {s₁ s₂}: MCtor s₁ s₂ → String
+  | INT => "INT"
+  | TENSOR => "TENSOR"
+  | OP => "OP"
 
 -- Common instances
 
+deriving instance Inhabited for MSort
 deriving instance Inhabited for MTerm
 
-def MSort.str: MSort → String
+def MSort_str: MSort → String
   | .Op         => "Op"
   | .MLIRType   => "MLIRType"
   | .SSAVal     => "SSAVal"
   | .AttrValue  => "AttrValue"
   | .Nat        => "Nat"
+  | .String     => "String"
   | .Dimension  => "Dimension"
   | .Signedness => "Signedness"
-  | .List s     => "[" ++ str s ++ "]"
+  | .List s     => "[" ++ MSort_str s ++ "]"
+
+def MSort.str := MSort_str
 
 mutual
 def MTerm.str: MTerm → String
   | .Var _ name s => "name:" ++ s.str
-  | .App ctor args => ctor ++ " " ++ MTerm.strList args
+  | .App ctor args => ctor.name ++ " " ++ MTerm.strList args
 
 protected def MTerm.strList: List MTerm → String
   | [] => ""
