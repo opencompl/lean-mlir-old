@@ -36,6 +36,8 @@ that user-assigned names are preserved.
 inductive MSort :=
   -- An MLIR operation. Matches against [Op δ]
   | Op
+  -- An operation parameter. Matches against (SSAVal × MLIRType δ)
+  | Operand
   -- An MLIR type. Matches against [MLIRType δ]
   | MLIRType
   -- A value. Matches against [SSAVal]
@@ -54,26 +56,40 @@ inductive MSort :=
   | List (s: MSort)
 
 inductive MCtor: List MSort → MSort → Type :=
+  -- Integer type
   | INT: MCtor [.Signedness, .Nat] .MLIRType
+  -- Tensor type
   | TENSOR: MCtor [.List .Dimension, .MLIRType] .MLIRType
-  -- TODO: Incomplete op
-  | OP: MCtor [.String, .List .SSAVal, .List .MLIRType] .Op
-  -- TODO: Varargs for LIST? >_o
-  -- | LIST (s: MSort): MCtor [.List s]
+  -- Operation with known or unknown mnemonic (TODO: MCtor.OP: unfinished)
+  | OP: MCtor [.String, .List .Operand, .List .Operand] .Op
+  -- Operation argument of return value
+  | OPERAND: MCtor [.SSAVal, .MLIRType] .Operand
+
+  -- SPECIAL CASE: We treat LIST specially in inferSort, to allow variadic
+  -- arguments without specifying it here
+  | LIST (s: MSort): MCtor [] (.List s)
 
 inductive MTerm :=
   -- A typed variable
   | Var (priority: Nat := 0) (name: String) (s: MSort)
   -- A constructor. We allow building mistyped terms (but check them later)
-  | App (args_sort: List MSort) (ctor_sort: MSort)
+  | App {args_sort: List MSort} {ctor_sort: MSort}
         (ctor: MCtor args_sort ctor_sort) (args: List MTerm)
+  -- Constants
+  | ConstMLIRType (τ: MLIRType builtin)
+  | ConstNat (n: Nat)
+  | ConstString (s: String)
+  | ConstDimension (d: Dimension)
+  | ConstSignedness (sgn: Signedness)
 
 -- Accessors
 
 def MCtor.name {s₁ s₂}: MCtor s₁ s₂ → String
-  | INT => "INT"
-  | TENSOR => "TENSOR"
-  | OP => "OP"
+  | LIST _  => "LIST"
+  | INT     => "INT"
+  | TENSOR  => "TENSOR"
+  | OP      => "OP"
+  | OPERAND => "OPERAND"
 
 -- Common instances
 
@@ -83,17 +99,21 @@ deriving instance Inhabited for MTerm
 deriving instance DecidableEq for MCtor
 deriving instance DecidableEq for MSort
 
+def MCtor.eq {args_sort₁ ctor_sort₁ args_sort₂ ctor_sort₂}:
+    MCtor args_sort₁ ctor_sort₁ → MCtor args_sort₂ ctor_sort₂ → Bool :=
+  fun c₁ c₂ =>
+    if H: args_sort₁ = args_sort₂ ∧ ctor_sort₁ = ctor_sort₂ then
+      cast (by rw [H.1, H.2]) c₁ = c₂
+    else
+      false
+
 mutual
 def MTerm.eq (t₁ t₂: MTerm): Bool :=
   match t₁, t₂ with
   | Var _ name₁ s₁, Var _ name₂ s₂ =>
       name₁ = name₂ && s₁ = s₂
-  | App args_sort₁ ctor_sort₁ ctor₁ args₁,
-    App args_sort₂ ctor_sort₂ ctor₂ args₂ =>
-      if H: args_sort₁ = args_sort₂ ∧ ctor_sort₁ = ctor_sort₂ then
-        cast (by rw [H.1, H.2]) ctor₁ = ctor₂ && eqList args₁ args₂
-      else
-        false
+  | App ctor₁ args₁, App ctor₂ args₂ =>
+      MCtor.eq ctor₁ ctor₂ && eqList args₁ args₂
   | _, _ => false
 
 def MTerm.eqList (l₁ l₂: List MTerm): Bool :=
@@ -108,6 +128,7 @@ instance: BEq MTerm where
 
 def MSort_str: MSort → String
   | .Op         => "Op"
+  | .Operand    => "Operand"
   | .MLIRType   => "MLIRType"
   | .SSAVal     => "SSAVal"
   | .AttrValue  => "AttrValue"
@@ -121,12 +142,24 @@ def MSort.str := MSort_str
 
 mutual
 def MTerm.str: MTerm → String
+  -- Short notations for common sorts of variables
+  | .Var _ name .MLIRType => "!" ++ name
+  | .Var _ name .SSAVal => "%" ++ name
+  -- General notation
   | .Var _ name s => "name:" ++ s.str
-  | .App _ _ ctor args => ctor.name ++ " " ++ MTerm.strList args
+  | .App ctor args => ctor.name ++ " [" ++ MTerm.strList args ++ "]"
+  -- Constants
+  | ConstMLIRType c
+  | ConstNat c
+  | ConstString c
+  | ConstDimension c
+  | ConstSignedness c =>
+      toString c
 
 protected def MTerm.strList: List MTerm → String
   | [] => ""
-  | t::ts => str t ++ " " ++ MTerm.strList ts
+  | [t] => str t
+  | t::ts => str t ++ ", " ++ MTerm.strList ts
 end
 
 instance: ToString MSort where
@@ -138,24 +171,27 @@ instance: ToString MTerm where
 
 def MTerm.vars: MTerm → List String
   | .Var _ name _ => [name]
-  | .App _ _ ctor [] => []
-  | .App _ _ ctor (arg::args) =>
-      vars arg ++ vars (.App _ _ ctor args)
+  | .App ctor [] => []
+  | .App ctor (arg::args) =>
+      vars arg ++ vars (.App ctor args)
+  | _ => []
 
 -- Check whether a variable occurs in a term. We don't check typing here since
 -- we have a common pool of unique variable names.
 def MTerm.occurs (name: String): MTerm → Bool
   | .Var _ name' _ => name' = name
-  | .App _ _ ctor [] => false
-  | .App _ _ ctor (arg::args) =>
-      occurs name arg || occurs name (.App _ _ ctor args)
+  | .App ctor [] => false
+  | .App ctor (arg::args) =>
+      occurs name arg || occurs name (.App ctor args)
+  | _ => false
 
 -- Substitute a variable in a term
 mutual
 def MTerm.subst (t: MTerm) (name: String) (repl: MTerm): MTerm :=
   match t with
   | .Var _ name' _ => if name' = name then repl else t
-  | .App _ _ ctor args => .App _ _ ctor (MTerm.substList args name repl)
+  | .App ctor args => .App ctor (MTerm.substList args name repl)
+  | t => t
 
 protected def MTerm.substList (l: List MTerm) (name: String) (repl: MTerm) :=
   match l with
@@ -174,13 +210,21 @@ unification.
 mutual
 def MTerm.inferSort: MTerm → Option MSort
   | Var _ _ s => some s
-  | App args_sort ctor_sort ctor args =>
+  | App (.LIST s) args => do
+      let l ← inferSortList args
+      if l.all (· = s) then some (.List s) else none
+  | @App args_sort ctor_sort ctor args =>
       if args.length != args_sort.length then
         none
       else if inferSortList args |>.isEqSome args_sort then
         some ctor_sort
       else
         none
+  | ConstMLIRType _     => some .MLIRType
+  | ConstNat _          => some .Nat
+  | ConstString _       => some .String
+  | ConstDimension _    => some .Dimension
+  | ConstSignedness _   => some .Signedness
 
 def MTerm.inferSortList: List MTerm → Option (List MSort)
   | [] => some []
