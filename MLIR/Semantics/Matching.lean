@@ -64,8 +64,9 @@ inductive MCtor: List MSort → MSort → Type :=
 inductive MTerm :=
   -- A typed variable
   | Var (priority: Nat := 0) (name: String) (s: MSort)
-  -- A constructor (taken from a fixed pool)
-  | App {s₁ s₂} (ctor: MCtor s₁ s₂) (args: List MTerm)
+  -- A constructor. We allow building mistyped terms (but check them later)
+  | App (args_sort: List MSort) (ctor_sort: MSort)
+        (ctor: MCtor args_sort ctor_sort) (args: List MTerm)
 
 -- Accessors
 
@@ -78,6 +79,32 @@ def MCtor.name {s₁ s₂}: MCtor s₁ s₂ → String
 
 deriving instance Inhabited for MSort
 deriving instance Inhabited for MTerm
+
+deriving instance DecidableEq for MCtor
+deriving instance DecidableEq for MSort
+
+mutual
+def MTerm.eq (t₁ t₂: MTerm): Bool :=
+  match t₁, t₂ with
+  | Var _ name₁ s₁, Var _ name₂ s₂ =>
+      name₁ = name₂ && s₁ = s₂
+  | App args_sort₁ ctor_sort₁ ctor₁ args₁,
+    App args_sort₂ ctor_sort₂ ctor₂ args₂ =>
+      if H: args_sort₁ = args_sort₂ ∧ ctor_sort₁ = ctor_sort₂ then
+        cast (by rw [H.1, H.2]) ctor₁ = ctor₂ && eqList args₁ args₂
+      else
+        false
+  | _, _ => false
+
+def MTerm.eqList (l₁ l₂: List MTerm): Bool :=
+  match l₁, l₂ with
+  | [], [] => true
+  | t₁::l₁, t₂::l₂ => eq t₁ t₂ && eqList l₁ l₂
+  | _, _ => false
+end
+
+instance: BEq MTerm where
+  beq := MTerm.eq
 
 def MSort_str: MSort → String
   | .Op         => "Op"
@@ -95,7 +122,7 @@ def MSort.str := MSort_str
 mutual
 def MTerm.str: MTerm → String
   | .Var _ name s => "name:" ++ s.str
-  | .App ctor args => ctor.name ++ " " ++ MTerm.strList args
+  | .App _ _ ctor args => ctor.name ++ " " ++ MTerm.strList args
 
 protected def MTerm.strList: List MTerm → String
   | [] => ""
@@ -111,25 +138,51 @@ instance: ToString MTerm where
 
 def MTerm.vars: MTerm → List String
   | .Var _ name _ => [name]
-  | .App ctor [] => []
-  | .App ctor (arg::args) => vars arg ++ vars (.App ctor args)
+  | .App _ _ ctor [] => []
+  | .App _ _ ctor (arg::args) =>
+      vars arg ++ vars (.App _ _ ctor args)
 
 -- Check whether a variable occurs in a term. We don't check typing here since
 -- we have a common pool of unique variable names.
 def MTerm.occurs (name: String): MTerm → Bool
   | .Var _ name' _ => name' = name
-  | .App ctor [] => false
-  | .App ctor (arg::args) => occurs name arg || occurs name (.App ctor args)
+  | .App _ _ ctor [] => false
+  | .App _ _ ctor (arg::args) =>
+      occurs name arg || occurs name (.App _ _ ctor args)
 
 -- Substitute a variable in a term
 mutual
 def MTerm.subst (t: MTerm) (name: String) (repl: MTerm): MTerm :=
   match t with
   | .Var _ name' _ => if name' = name then repl else t
-  | .App ctor args => .App ctor (MTerm.substList args name repl)
+  | .App _ _ ctor args => .App _ _ ctor (MTerm.substList args name repl)
 
 protected def MTerm.substList (l: List MTerm) (name: String) (repl: MTerm) :=
   match l with
   | [] => []
   | t::ts => subst t name repl :: MTerm.substList ts name repl
+end
+
+/-
+### Sort inference
+
+In order to ensure we only manipulate well typed match terms and equalities
+despite mixing constructors, we aggressively check typing during matching and
+unification.
+-/
+
+mutual
+def MTerm.inferSort: MTerm → Option MSort
+  | Var _ _ s => some s
+  | App args_sort ctor_sort ctor args =>
+      if args.length != args_sort.length then
+        none
+      else if inferSortList args |>.isEqSome args_sort then
+        some ctor_sort
+      else
+        none
+
+def MTerm.inferSortList: List MTerm → Option (List MSort)
+  | [] => some []
+  | t::l => do return (← inferSort t) :: (← inferSortList l)
 end
