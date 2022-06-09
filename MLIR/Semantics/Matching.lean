@@ -35,39 +35,39 @@ that user-assigned names are preserved.
 
 inductive MSort :=
   -- An MLIR operation. Matches against [Op δ]
-  | Op
+  | MOp
   -- An operation parameter. Matches against (SSAVal × MLIRType δ)
-  | Operand
+  | MOperand
   -- An MLIR type. Matches against [MLIRType δ]
-  | MLIRType
+  | MMLIRType
   -- A value. Matches against [SSAVal]
-  | SSAVal
+  | MSSAVal
   -- An attribute. Matches against [AttrVal δ]
-  | AttrValue
+  | MAttrValue
   -- A natural number (typically int/float bit size). Matches against [Nat]
-  | Nat
+  | MNat
   -- A string (in operation names). Matches against [String]
-  | String
+  | MString
   -- A dimension (in a vector/tensor). Matches against [Dimension]
-  | Dimension
+  | MDimension
   -- A signedness specification (in integers). Matches against [Signedness]
-  | Signedness
+  | MSignedness
   -- A homogeneous list of objects
-  | List (s: MSort)
+  | MList (s: MSort)
 
 inductive MCtor: List MSort → MSort → Type :=
   -- Integer type
-  | INT: MCtor [.Signedness, .Nat] .MLIRType
+  | INT: MCtor [.MSignedness, .MNat] .MMLIRType
   -- Tensor type
-  | TENSOR: MCtor [.List .Dimension, .MLIRType] .MLIRType
+  | TENSOR: MCtor [.MList .MDimension, .MMLIRType] .MMLIRType
   -- Operation with known or unknown mnemonic (TODO: MCtor.OP: unfinished)
-  | OP: MCtor [.String, .List .Operand, .List .Operand] .Op
+  | OP: MCtor [.MString, .MList .MOperand, .MList .MOperand] .MOp
   -- Operation argument of return value
-  | OPERAND: MCtor [.SSAVal, .MLIRType] .Operand
+  | OPERAND: MCtor [.MSSAVal, .MMLIRType] .MOperand
 
   -- SPECIAL CASE: We treat LIST specially in inferSort, to allow variadic
   -- arguments without specifying it here
-  | LIST (s: MSort): MCtor [] (.List s)
+  | LIST (s: MSort): MCtor [] (.MList s)
 
 inductive MTerm :=
   -- A typed variable
@@ -126,25 +126,23 @@ end
 instance: BEq MTerm where
   beq := MTerm.eq
 
-def MSort_str: MSort → String
-  | .Op         => "Op"
-  | .Operand    => "Operand"
-  | .MLIRType   => "MLIRType"
-  | .SSAVal     => "SSAVal"
-  | .AttrValue  => "AttrValue"
-  | .Nat        => "Nat"
-  | .String     => "String"
-  | .Dimension  => "Dimension"
-  | .Signedness => "Signedness"
-  | .List s     => "[" ++ MSort_str s ++ "]"
-
-def MSort.str := MSort_str
+def MSort.str: MSort → String
+  | .MOp         => "Op"
+  | .MOperand    => "Operand"
+  | .MMLIRType   => "MLIRType"
+  | .MSSAVal     => "SSAVal"
+  | .MAttrValue  => "AttrValue"
+  | .MNat        => "Nat"
+  | .MString     => "String"
+  | .MDimension  => "Dimension"
+  | .MSignedness => "Signedness"
+  | .MList s     => "[" ++ s.str ++ "]"
 
 mutual
 def MTerm.str: MTerm → String
   -- Short notations for common sorts of variables
-  | .Var _ name .MLIRType => "!" ++ name
-  | .Var _ name .SSAVal => "%" ++ name
+  | .Var _ name .MMLIRType => "!" ++ name
+  | .Var _ name .MSSAVal => "%" ++ name
   -- General notation
   | .Var _ name s => "name:" ++ s.str
   | .App ctor args => ctor.name ++ " [" ++ MTerm.strList args ++ "]"
@@ -212,7 +210,7 @@ def MTerm.inferSort: MTerm → Option MSort
   | Var _ _ s => some s
   | App (.LIST s) args => do
       let l ← inferSortList args
-      if l.all (· = s) then some (.List s) else none
+      if l.all (· = s) then some (.MList s) else none
   | @App args_sort ctor_sort ctor args =>
       if args.length != args_sort.length then
         none
@@ -220,11 +218,11 @@ def MTerm.inferSort: MTerm → Option MSort
         some ctor_sort
       else
         none
-  | ConstMLIRType _     => some .MLIRType
-  | ConstNat _          => some .Nat
-  | ConstString _       => some .String
-  | ConstDimension _    => some .Dimension
-  | ConstSignedness _   => some .Signedness
+  | ConstMLIRType _     => some .MMLIRType
+  | ConstNat _          => some .MNat
+  | ConstString _       => some .MString
+  | ConstDimension _    => some .MDimension
+  | ConstSignedness _   => some .MSignedness
 
 def MTerm.inferSortList: List MTerm → Option (List MSort)
   | [] => some []

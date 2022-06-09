@@ -275,11 +275,11 @@ multiplication operation (mul_pattern), supposedly obtained from IRDL.
 private def mul_pattern: MTerm :=
   .App .OP [
     .ConstString "arith.mul",
-    .App (.LIST .Operand) [
-      .App .OPERAND [.Var 2 "op_x" .SSAVal, .Var 2 "T" .MLIRType],
-      .App .OPERAND [.Var 2 "op_y" .SSAVal, .Var 2 "T" .MLIRType]],
-    .App (.LIST .Operand) [
-      .App .OPERAND [.Var 2 "op_res" .SSAVal, .Var 2 "T" .MLIRType]]
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_x" .MSSAVal, .Var 2 "T" .MMLIRType],
+      .App .OPERAND [.Var 2 "op_y" .MSSAVal, .Var 2 "T" .MMLIRType]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_res" .MSSAVal, .Var 2 "T" .MMLIRType]]
   ]
 
 -- TODO: We don't have attributes, so we assume there is an "arith.two"
@@ -288,9 +288,9 @@ private def mul_pattern: MTerm :=
 private def ex_two: MTerm :=
   .App .OP [
     .ConstString "arith.two",
-    .App (.LIST .Operand) [],
-    .App (.LIST .Operand) [
-      .App .OPERAND [.Var 2 "two" .SSAVal, .ConstMLIRType .i32]]
+    .App (.LIST .MOperand) [],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "two" .MSSAVal, .ConstMLIRType .i32]]
   ]
 
 -- The following matching pattern could be derived from PDL:
@@ -300,11 +300,11 @@ private def ex_two: MTerm :=
 private def ex_root: MTerm :=
   .App .OP [
     .ConstString "arith.mul",
-    .App (.LIST .Operand) [
-      .App .OPERAND [.Var 0 "x" .SSAVal, .Var 1 "x_T" .MLIRType],
-      .App .OPERAND [.Var 0 "two" .SSAVal, .ConstMLIRType .i32]],
-    .App (.LIST .Operand) [
-      .App .OPERAND [.Var 1 "_res0" .SSAVal, .Var 1 "_res0_T" .MLIRType]]
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 0 "x" .MSSAVal, .Var 1 "x_T" .MMLIRType],
+      .App .OPERAND [.Var 0 "two" .MSSAVal, .ConstMLIRType .i32]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 1 "_res0" .MSSAVal, .Var 1 "_res0_T" .MMLIRType]]
   ]
 
 -- TODO: How to mix ex_two in there?
