@@ -8,7 +8,7 @@ The process of analyzing and proving a rewrite theorem is as follows:
 
 1. The dialect definition provides *generic operation formats* as match terms, as well as *arbitrary constraints* which encode the invariants of the instructions of the dialect. Such invariants are implicit in the PDL pattern.
 2. **Unification:** The PDL pattern is compiled to a set of match terms; all the operations in these terms are unified with an instance of their dialect-provided generic formats. This step essentially enriches the PDL pattern with invariants enforced by the dialect.
-3. **Canonical match:** A *canonical match* of the PDL pattern is computed; this is a program of minimal size that matches the pattern. (Such a program may not be unique.)
+3. **Canonical match:** A *canonical match* of the PDL pattern is computed; this is a program of minismum size that matches the pattern. (Such a program may not be unique.)
 4. **Canonical output**: The rewrite part of the PDL pattern is applied to the canonical match, which defines the *canonical output*.
 5. **Statement generation**: A statement of semantic preservation is generated for the canonical match. It quantifies over any remaining unification variables (usually values, types, tensor dimensions...), assumes any *arbitrary constraints* required on operations by the dialect, then states equality of the semantics of the canonical match and canonical output.
 6. **Simple proof:** The user then proves the generated statement, from which it follows that the rewrite is correct when applied to the canonical match.
