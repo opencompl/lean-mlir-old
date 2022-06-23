@@ -17,56 +17,36 @@ open MLIR.AST
 ### Unification equalities
 
 These are simply typed equalities which make up the core of a unification
-problem.
-
-TODO: We must also have a unification equality for MLIR attributes.
+problem. They can be constructed mistyped, but we check them.
 -/
 
-inductive UEq :=
-  | EqValue: MValue → MValue → UEq
-  | EqType: MType → MType → UEq
-  | EqOp: MOp → MOp → UEq
+def UEq := MTerm × MTerm
 
 -- Common instances
 
 deriving instance Inhabited for UEq
 
 def UEq.str: UEq → String
-  | EqValue left right
-  | EqType left right
-  | EqOp left right =>
-      s!"{left} ≡ {right}"
+  | (left, right) => s!"{left} ≡ {right}"
 
-instance: ToString UEq := ⟨UEq.str⟩
+instance: ToString UEq where
+  toString := UEq.str
+
+def UEq.inferSort (eq: UEq): Option MSort := do
+  let s₁ ← eq.1.inferSort
+  let s₂ ← eq.2.inferSort
+  if s₁ = s₂ then some s₁ else none
 
 -- Extensions of functions on matching patterns
 
-def UEq.valueVars: UEq → List String
-  | EqValue v₁ v₂ => v₁.valueVars ++ v₂.valueVars
-  | EqType t₁ t₂  => []
-  | EqOp op₁ op₂  => op₁.valueVars ++ op₂.valueVars
+def UEq.vars (eq: UEq): List String :=
+  eq.1.vars ++ eq.2.vars
 
-def UEq.typeVars: UEq → List String
-  | EqValue v₁ v₂ => []
-  | EqType t₁ t₂  => t₁.typeVars ++ t₂.typeVars
-  | EqOp op₁ op₂  => op₁.typeVars ++ op₂.typeVars
+def UEq.occurs (eq: UEq) (name: String): Bool :=
+  eq.1.occurs name || eq.2.occurs name
 
-def UEq.occurs (name: String): UEq → Bool
-  | EqValue v₁ v₂ => v₁.occurs name || v₂.occurs name
-  | EqType t₁ t₂  => t₁.occurs name || t₂.occurs name
-  | EqOp op₁ op₂  => op₁.occurs name || op₂.occurs name
-
-def UEq.substValue (eq: UEq) (name: String) (repl: MValue): UEq :=
-  match eq with
-  | EqValue v₁ v₂ => EqValue (v₁.substValue name repl) (v₂.substValue name repl)
-  | EqType t₁ t₂  => EqType t₁ t₂
-  | EqOp op₁ op₂  => EqOp (op₁.substValue name repl) (op₂.substValue name repl)
-
-def UEq.substType (eq: UEq) (name: String) (repl: MType): UEq :=
-  match eq with
-  | EqValue v₁ v₂ => EqValue v₁ v₂
-  | EqType t₁ t₂  => EqType (t₁.substType name repl) (t₂.substType name repl)
-  | EqOp op₁ op₂  => EqOp (op₁.substType name repl) (op₂.substType name repl)
+def UEq.subst (eq: UEq) (name: String) (repl: MTerm): UEq :=
+  (eq.1.subst name repl, eq.2.subst name repl)
 
 /-
 ### Unification problem
@@ -83,7 +63,7 @@ structure Unification where mk ::
   equations: List UEq := []
   -- Substitutions performed so far. These are restricted to have variables as
   -- the left hand of every equality.
-  -- TODO: More specific definition of Unification.subst?
+  -- TODO: More specific definition of Unification.substs?
   substs: List UEq := []
 
 -- Common instances
@@ -93,15 +73,16 @@ deriving instance Inhabited for Unification
 def Unification.empty: Unification :=
   default
 
-def Unification.str: Unification → String := fun u =>
+def Unification.str (u: Unification): String :=
   if u.equations.isEmpty then
     "(empty unification problem: no equations)"
   else
     "\n".intercalate (u.equations.map toString)
 
-instance: ToString Unification := ⟨Unification.str⟩
+instance: ToString Unification where
+  toString := Unification.str
 
-def Unification.repr: Unification → String := fun u =>
+def Unification.repr (u: Unification): String :=
   "Initial equations:\n" ++
     (String.join $ u.initial_equations.map (s!"  {·}\n")) ++
   "Current equations:\n" ++
@@ -135,7 +116,8 @@ We run the rules below till fixpoint:
   1. Remove x = x.
   2. If we have `x = term`, and there are no cycles, we substitute.
   3. If we have `term = x`, we re-orient to `x = term`.
-  4. If we have `constructor(a1, ... ak) = constructor(b1, ... bk), we add equalities `ai = bi`.
+  4. If we have `constructor(a1, ... ak) = constructor(b1, ... bk), we add
+     equalities `ai = bi`.
   5. Make sure that we have substitution priority right.
 -/
 
@@ -143,79 +125,60 @@ We run the rules below till fixpoint:
 -- We also orient equations [y = x] if y is a variable with a higher
 -- substitution priority than x.
 
-open UEq MValue MType MOp
-
-private def orientOne (eqn: UEq): IO (UEq × Bool) :=
-  match eqn with
+private def orientOne (eq: UEq): IO (UEq × Bool) :=
+  match eq with
   -- Orient to substitute automatically generated names first
-  | EqValue (ValueVar p₁ n₁) (ValueVar p₂ n₂) =>
+  | (.Var p₁ n₁ s₁, .Var p₂ n₂ s₂) =>
       if p₂ > p₁ then do
-        IO.print s!"ORIENT: {eqn} (by priority)\n\n"
-        return (EqValue (ValueVar p₂ n₂) (ValueVar p₁ n₁), true)
+        IO.print s!"ORIENT: {eq} (by priority)\n\n"
+        return ((.Var p₂ n₂ s₂, .Var p₁ n₁ s₁), true)
       else
-        return (eqn, false)
-  | EqType (TypeVar p₁ n₁) (TypeVar p₂ n₂) =>
-      if p₂ > p₁ then do
-        IO.print s!"ORIENT: {eqn} (by priority)\n\n"
-        return (EqType (TypeVar p₂ n₂) (TypeVar p₁ n₁), true)
-      else
-        return (eqn, false)
+        return (eq, false)
   -- Orient to substitute variables with full terms
-  | EqValue v₁ (ValueVar p₂ n₂) => do
-      IO.print s!"ORIENT: {eqn}\n\n"
-      return (EqValue (ValueVar p₂ n₂) v₁, true)
-  | EqType t₁ (TypeVar p₂ n₂) => do
-      IO.print s!"ORIENT: {eqn}\n\n"
-      return (EqType (TypeVar p₂ n₂) t₁, true)
+  | (t₁, .Var p₂ n₂ s₂) => do
+      IO.print s!"ORIENT: {eq}\n\n"
+      return ((.Var p₂ n₂ s₂, t₁), true)
   | _ =>
-      return (eqn, false)
+      return (eq, false)
 
 private def orient (equations: List UEq): IO (List UEq × Bool) :=
   equations.foldlM
-    (fun (done, b) eqn => do
-      let (eqn, b') ← orientOne eqn
-      return (done ++ [eqn], b || b'))
+    (fun (done, b) eq => do
+      let (eq, b') ← orientOne eq
+      return (done ++ [eq], b || b'))
     ([], false)
 
 -- ERASE: remove equation [x = x] where x is a variable
 
 private def eraseFilter: UEq → Bool
-  | EqValue (ValueVar p₁ n₁) (ValueVar p₂ n₂) =>
-      n₁ = n₂
-  | EqType (TypeVar p₁ n₁) (TypeVar p₂ n₂) =>
-      n₁ = n₂
+  | (.Var p₁ n₁ s₁, .Var p₂ n₂ s₂) =>
+      -- Keep mistyped equations so they cause errors when analyzed later
+      n₁ = n₂ && s₁ = s₂
   | _ =>
       false
 
 private def erase (equations: List UEq): List UEq × Bool :=
-  let equations' := equations.filter (fun eq => ! eraseFilter eq)
+  let equations' := equations.filter (! eraseFilter ·)
   (equations', equations'.length != equations.length)
 
--- REDUCE: reduce [op = op'] to equality of arguments and return values (or no
--- solution if the constructors differ)
+-- REDUCE: reduce [ctor args... = ctor' args'...] to equality of arguments (or
+-- no solution if the constructors or argument counts differ)
 
-private def reduceOne (eqn: UEq): IO (Option (List UEq × Bool)) :=
-  match eqn with
-  | EqOp (OpKnown mnemonic₁ vals₁ rets₁) (OpKnown mnemonic₂ vals₂ rets₂) => do
-      if mnemonic₁ = mnemonic₂
-          ∧ vals₁.length = vals₂.length
-          ∧ rets₁.length = rets₂.length then
-        IO.print s!"REDUCE: {eqn}\n\n"
-        let zipPairs := fun (v₁, t₁) (v₂, t₂) =>
-          [EqValue v₁ v₂, EqType t₁ t₂]
-        return some (List.join (
-            List.map₂ zipPairs vals₁ vals₂ ++
-            List.map₂ zipPairs rets₁ rets₂),
-          true)
+private def reduceOne (eq: UEq): IO (Option (List UEq × Bool)) :=
+  match eq with
+  | (.App ctor₁ args₁, .App ctor₂ args₂) => do
+      if MCtor.eq ctor₁ ctor₂ && args₁.length == args₂.length then
+        IO.print s!"REDUCE: {eq}\n\n"
+        return some (List.zip args₁ args₂, true)
       else
         return none
-  | eqn =>
-      return some ([eqn], false)
+  | eq =>
+      return some ([eq], false)
 
 private def reduce (equations: List UEq): IO (Option (List UEq × Bool)) :=
   equations.foldlM
-    (fun acc eqn => do
-       match ← reduceOne eqn with
+    (fun acc eq => do
+       match ← reduceOne eq with
        | some (equations, b') =>
           return acc.bind fun (done, b) => some (done ++ equations, b || b')
        | none =>
@@ -229,24 +192,16 @@ private def elimAt (equations: List UEq) (n: Nat):
     IO (Option (List UEq × List UEq)) := do
 
   if H: n < equations.length then
-    let eqn := equations.get ⟨n, H⟩
+    let eq := equations.get ⟨n, H⟩
     let others := (equations.enum.filter (·.1 ≠ n)).map (·.snd)
 
-    if let EqValue (ValueVar p₁ n₁) v₂ := eqn then
-      if v₂.occurs n₁ then do
-        IO.println s!"Equation {eqn} has a cycle!"
-        return none -- cycle
-      else if others.any (·.occurs n₁) then do
-        IO.print s!"SUBSTITUTE: {eqn}\n\n"
-        return some (others.map (·.substValue n₁ v₂), [eqn])
-
-    else if let EqType (TypeVar p₁ n₁) t₂ := eqn then
+    if let (.Var p₁ n₁ s₁, t₂) := eq then
       if t₂.occurs n₁ then do
-        IO.println s!"Equation {eqn} has a cycle!"
+        IO.println s!"Equation {eq} has a cycle!"
         return none -- cycle
       else if others.any (·.occurs n₁) then do
-        IO.print s!"SUBSTITUTE: {eqn}\n\n"
-        return some (others.map (·.substType n₁ t₂), [eqn])
+        IO.print s!"SUBSTITUTE: {eq}\n\n"
+        return some (others.map (·.subst n₁ t₂), [eq])
 
   return some (equations, [])
 
@@ -299,14 +254,13 @@ def Unification.solve (u: Unification) (steps: Nat := 100):
       IO.println s!"Problem has no solution!"
       return none
 
-def Unification.applyOnOp (solved_u: Unification) (op: MOp): MOp :=
+def Unification.applyOnTerm (solved_u: Unification) (t: MTerm): MTerm :=
   List.foldl
-    (fun op eqn =>
-      match eqn with
-      | EqValue (ValueVar p₁ n₁) v₂ => op.substValue n₁ v₂
-      | EqType (TypeVar p₁ n₁) t₂ => op.substType n₁ t₂
-      | _ => op)
-    op (solved_u.substs ++ solved_u.equations)
+    (fun t eq =>
+      match eq with
+      | (.Var p₁ n₁ s₁, t₂) => t.subst n₁ t₂
+      | _ => t)
+    t (solved_u.substs ++ solved_u.equations)
 
 /-
 ### Basic example
@@ -317,31 +271,47 @@ is implicit, and we uncover this fact by unifying with the general shape of a
 multiplication operation (mul_pattern), supposedly obtained from IRDL.
 -/
 
--- $op_res:!T = "arith.mul"($op_x:!T, $op_y:!T)
-private def mul_pattern: MOp :=
-  OpKnown "arith.mul"
-    [(ValueVar 2 "op_x", TypeVar 2 "T"), (ValueVar 2 "op_y", TypeVar 2 "T")]
-    [(ValueVar 2 "op_res", TypeVar 2 "T")]
+-- %op_res:!T = "arith.mul"(%op_x:!T, %op_y:!T)
+private def mul_pattern: MTerm :=
+  .App .OP [
+    .ConstString "arith.mul",
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_x" .MSSAVal, .Var 2 "T" .MMLIRType],
+      .App .OPERAND [.Var 2 "op_y" .MSSAVal, .Var 2 "T" .MMLIRType]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_res" .MSSAVal, .Var 2 "T" .MMLIRType]]
+  ]
 
--- The following equality could be derived from PDL:
---   %two = pdl.value 2: i32
-private def ex_two: UEq :=
-  EqValue (ValueVar 0 "two") (ValueConst .i32 (.ofInt .Signless 32 2))
+-- TODO: We don't have attributes, so we assume there is an "arith.two"
+-- operation that always returns 2
+-- %two:i32 = "arith.two"()
+private def ex_two: MTerm :=
+  .App .OP [
+    .ConstString "arith.two",
+    .App (.LIST .MOperand) [],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "two" .MSSAVal, .ConstMLIRType .i32]]
+  ]
 
 -- The following matching pattern could be derived from PDL:
 --   %x = pdl.value
 --   %root = "arith.mul"(%x, %two)
 -- (%x is implicit, while %x_T, %_0 and %_0_T are automatically generated)
-private def ex_root: MOp :=
-  OpKnown "arith.mul"
-    [(ValueVar 0 "x", TypeVar 1 "x_T"),
-     (ValueVar 0 "two", TypeConst .i32)]
-    [(ValueVar 1 "_res0", TypeVar 1 "_res0_T")]
+private def ex_root: MTerm :=
+  .App .OP [
+    .ConstString "arith.mul",
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 0 "x" .MSSAVal, .Var 1 "x_T" .MMLIRType],
+      .App .OPERAND [.Var 0 "two" .MSSAVal, .ConstMLIRType .i32]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 1 "_res0" .MSSAVal, .Var 1 "_res0_T" .MMLIRType]]
+  ]
 
+-- TODO: How to mix ex_two in there?
 private def mul_example: Unification :=
-  { Unification.empty with equations := [ex_two, EqOp mul_pattern ex_root] }
+  { Unification.empty with equations := [(mul_pattern, ex_root)] }
 
 #eval show IO Unit from do
   let u ← mul_example.solve
-  let stmt := u.get!.applyOnOp ex_root
+  let stmt := u.get!.applyOnTerm ex_root
   IO.println s!"Theorem input:\n{stmt}"

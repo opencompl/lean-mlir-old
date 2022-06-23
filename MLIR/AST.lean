@@ -395,6 +395,13 @@ instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [
   coe := coeRegionList
 
 
+instance : Pretty Signedness where
+  doc sgn :=
+    match sgn with
+    | .Signless => "Signless"
+    | .Unsigned => "Unsigned"
+    | .Signed => "Signed"
+
 instance : Pretty Dimension where
   doc dim :=
   match dim with
