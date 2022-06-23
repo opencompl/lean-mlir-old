@@ -82,7 +82,8 @@ open Lean
 
 open MLIR.AST
 open MLIR.EDSL
-open MValue MType MOp
+
+-- TODO: We updated to new matching but did not add regular type checks
 
 /- Utilities -/
 
@@ -121,11 +122,11 @@ structure Translation where mk ::
   -- All variables defined so far (for fresh name generation)
   allvars: List String
   -- Typing judgements (to be inserted into operation terms)
-  judgements: List (String × MType)
+  judgements: List (String × MTerm)
   -- List of operations that we want to collect after unification
-  operations: List MOp
+  operations: List MTerm
   -- Names of results for each operation, and their types
-  opresults: List (String × List (String × MType))
+  opresults: List (String × List (String × MTerm))
   -- Whether translation completed successfully
   success: Bool
 
@@ -142,7 +143,7 @@ instance: Inhabited Translation := ⟨Translation.empty⟩
 def Translation.str: Translation → String := fun tr =>
   "Unification problem:\n" ++
     (toString tr.u) ++
-  "All variables:\n " ++
+  "\nAll variables:\n " ++
     (String.join $ tr.allvars.map (s!" %{·}")) ++
   "\nTyping judgements:\n" ++
     (String.join $ tr.judgements.map (fun (v,t) => s!"  %{v}: {t}\n")) ++
@@ -198,9 +199,12 @@ private def TranslationM.freshNameAux (s: String) (n p: Nat):
 def TranslationM.makeFreshName (name: String): TranslationM String := do
   let tr ← get
   if tr.allvars.all (· != name) then
+    addName name
     return name
   else
-    freshNameAux name (tr.allvars.length+1) 0
+    let f ← freshNameAux name (tr.allvars.length+1) 0
+    addName f
+    return f
 
 -- Generate [n] fresh names based on [name]
 def TranslationM.makeFreshNames (name: String) (n: Nat):
@@ -209,22 +213,21 @@ def TranslationM.makeFreshNames (name: String) (n: Nat):
 
 -- Generate a copy of the operation with the specified prefix and fresh names.
 -- Returns a pair with the new term and the list of all variables involved.
-def TranslationM.makeFreshOp (prefix_: String) (op: MOp) (priority: Nat):
-    TranslationM MOp := do
-  let renameVars {α} (done vars: List String) (ctor: String → α):
-      TranslationM (List (String × α) × List String) :=
+def TranslationM.makeFreshOp (prefix_: String) (op: MTerm) (priority: Nat):
+    TranslationM MTerm := do
+  let renameVars (done: List String) (vars: List (String × MSort)):
+      TranslationM (List (String × MTerm) × List String) :=
     vars.foldlM
-      (fun (repl, done) var => do
+      (fun (repl, done) (var, sort) => do
         if var ∈ done then
           return (repl, done)
         else
           let var' ← makeFreshName (prefix_ ++ var)
-          return (repl ++ [(var, ctor var')], done ++ [var]))
+          return (repl ++ [(var, MTerm.Var priority var' sort)], done ++ [var]))
       ([], done)
 
-  let (replValues, done₁) ← renameVars [] op.valueVars (ValueVar priority)
-  let (replTypes,  done₂) ← renameVars [] op.typeVars (TypeVar priority)
-  return (op.substValues replValues).substTypes replTypes
+  let (repl, done) ← renameVars [] op.varsWithSorts
+  return op.substVars repl
 
 
 /-
@@ -237,40 +240,40 @@ def TranslationM.addEquation (equation: UEq): TranslationM Unit := do
   let tr ← get
   set { tr with u := { equations := tr.u.equations ++ [equation] } }
 
-def TranslationM.addOperation (op: MOp): TranslationM Unit := do
+def TranslationM.addOperation (op: MTerm): TranslationM Unit := do
   let tr ← get
   set { tr with operations := tr.operations ++ [op] }
 
-def TranslationM.addJudgement (s: String) (type: MType): TranslationM Unit := do
+def TranslationM.addJudgement (s: String) (type: MTerm): TranslationM Unit := do
   let tr ← get
   set { tr with judgements := tr.judgements ++ [(s, type)] }
 
-def TranslationM.addOpResults (name: String) (results: List (String × MType)):
+def TranslationM.addOpResults (name: String) (results: List (String × MTerm)):
     TranslationM Unit := do
   let tr ← get
   set { tr with opresults := tr.opresults ++ [(name, results)] }
 
 
-def TranslationM.findJudgement? (s: String): TranslationM (Option MType) := do
+def TranslationM.findJudgement? (s: String): TranslationM (Option MTerm) := do
   let cmpName := fun (name, type) => if name = s then some type else none
   return (← get).judgements.findSome? cmpName
 
-def TranslationM.findJudgement (s: String): TranslationM MType := do
+def TranslationM.findJudgement (s: String): TranslationM MTerm := do
   match ← findJudgement? s with
   | some type   => return type
   | none        => error s!"findJudgement: no type information for {s}!"
 
 def TranslationM.findJudgements (l: List String):
-    TranslationM (List (String × MType)) :=
+    TranslationM (List (String × MTerm)) :=
   l.mapM (fun var => do return (var, ← findJudgement var))
 
 def TranslationM.findOpResult? (op: String) (idx: Nat):
-    TranslationM (Option (String × MType)) := do
+    TranslationM (Option (String × MTerm)) := do
   let cmpName := fun (name, rets) => if name = op then rets.get? idx else none
   return (← get).opresults.findSome? cmpName
 
 def TranslationM.findOpResult (op: String) (idx: Nat):
-    TranslationM (String × MType) := do
+    TranslationM (String × MTerm) := do
   match ← findOpResult? op idx with
   | some info   => return info
   | none        => error s!"findOpResultName: no return #{idx} for {op}!"
@@ -293,8 +296,7 @@ section
 open TranslationM
 
 -- TODO: Provide dialect data properly once implemented
--- TODO: Set name substitution priorities instead of using the default
-private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
+private def PDLToMatch.readStatement (operationMatchTerms: List MTerm)
     (stmt: BasicBlockStmt builtin): TranslationM Unit := do
   let tr ← get
 
@@ -314,7 +316,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
           (.fn (.tuple []) (.undefined "pdl.type")) => do
         IO.println s!"Found new type variable: {name} (= {τ})"
         addName name
-        addEquation <| .EqType (TypeVar 1 name) (TypeConst τ)
+        addEquation (.Var 1 name .MMLIRType, .ConstMLIRType τ)
 
     -- %name = pdl.operand
     | Op.mk "pdl.operand" [] [] [] (AttrDict.mk [])
@@ -323,7 +325,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
         addName name
         let typeName ← makeFreshName (name ++ "_T")
         IO.println s!"→ Generated type name: {typeName}"
-        addJudgement name (TypeVar 1 typeName)
+        addJudgement name (.Var 1 typeName .MMLIRType)
 
     -- %name = pdl.operand: %typeName
     | Op.mk "pdl.operand" [(SSAVal.SSAVal typeName)] [] [] (AttrDict.mk [])
@@ -332,7 +334,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
         IO.println s!"Found new variable: {name} of type {typeName}"
         addName name
         checkNameDefined typeName
-        addJudgement name (TypeVar 0 typeName)
+        addJudgement name (.Var 0 typeName .MMLIRType)
 
     -- %name = pdl.operation "OPNAME"(ARGS) -> TYPE
     | Op.mk "pdl.operation" args [] [] attrs some_type => do
@@ -358,8 +360,9 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
             let retNames ← makeFreshNames (name ++ "_res") types.length
             IO.println s!"→ Arg types: {valuesTypes}, return names: {retNames}"
 
-            let insPattern := operationMatchTerms.find? fun t => match t with
-              | OpKnown n _ _ => n = opname
+            let insPattern := operationMatchTerms.find? fun
+              | .App .OP [.ConstString n, _, _] => n = opname
+              | _ => false
             if insPattern.isNone then
               error s!"pdl.operation: no pattern known for {opname}!"
             let insPattern := insPattern.get!
@@ -369,11 +372,20 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
             addOperation ins
             IO.println s!"→ Instantiated match term: {ins}"
 
-            let args := valuesTypes.map (fun (v,t) => (ValueVar 0 v, t))
-            let rets := List.zip (retNames.map (ValueVar 1)) (types.map TypeVar)
-            addEquation <| .EqOp (OpKnown opname args rets) ins
+            let operands_args: List MTerm := valuesTypes.map (fun (v,t) =>
+              .App .OPERAND [.Var 0 v .MSSAVal, t])
+            let operands_rets: List MTerm :=
+              List.zip retNames types |>.map (fun (v, t) =>
+                .App .OPERAND [.Var 1 v .MSSAVal, .Var 0 t .MMLIRType])
+            let op_mterm :=
+              .App .OP [
+                .ConstString opname,
+                .App (.LIST .MOperand) operands_args,
+                .App (.LIST .MOperand) operands_rets
+              ]
+            addEquation (op_mterm, ins)
 
-            let opResults := List.zip retNames (types.map TypeVar)
+            let opResults := List.zip retNames (types.map (.Var 0 · .MMLIRType))
             addOpResults name opResults
 
         | _, _, _ =>
@@ -393,7 +405,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
 
             let (resName, resType) ← findOpResult opname index.toNat
             addJudgement name resType
-            addEquation <| .EqValue (ValueVar 0 name) (ValueVar 1 resName)
+            addEquation (.Var 0 name .MSSAVal, .Var 1 resName .MSSAVal)
 
         | _ =>
             error s!"pdl.result: unexpected attributes on {opname}: {attrs}"
@@ -408,7 +420,8 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MOp)
     | _ => do
         error s!"{op.name}: unrecognized PDL operation"
 
-def PDLToMatch.convert (PDLProgram: Op builtin) (operationMatchTerms: List MOp):
+def PDLToMatch.convert (PDLProgram: Op builtin)
+    (operationMatchTerms: List MTerm):
     TranslationM Unit :=
   match PDLProgram with
   | Op.mk "pdl.pattern" [] [] [region] attrs ty =>
@@ -434,9 +447,9 @@ def PDLToMatch.unify: TranslationM Unit := do
   else
     error "unify: unification failed"
 
-def PDLToMatch.getOperationMatchTerms: TranslationM (List MOp) := do
+def PDLToMatch.getOperationMatchTerms: TranslationM (List MTerm) := do
   let tr ← get
-  return tr.operations.map tr.u.applyOnOp
+  return tr.operations.map tr.u.applyOnTerm
 
 end
 
@@ -468,17 +481,27 @@ private def ex_pdl: Op builtin := [mlir_op|
   }) {benefit = 1 : i16} : () -> ()
 ]
 
-private def foo_op1_pattern: MOp :=
-  OpKnown "foo.op1"
-    [(ValueVar 1 "x", TypeVar 1 "T")]
-    [(ValueVar 1 "res", TypeVar 1 "T")]
+-- %res:!T = "foo.op1"(%x:!T)
+private def foo_op1_pattern: MTerm :=
+  .App .OP [
+    .ConstString "foo.op1",
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 1 "x" .MSSAVal, .Var 1 "T" .MMLIRType]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 1 "ret" .MSSAVal, .Var 1 "T" .MMLIRType]]
+  ]
 #eval foo_op1_pattern
 
-private def foo_op2_pattern: MOp :=
-  OpKnown "foo.op2"
-    [(ValueVar 1 "x", TypeVar 1 "T"),
-     (ValueVar 1 "y", TypeConst .i32)]
-    [(ValueVar 1 "res", TypeVar 1 "T")]
+-- %res:!T = "foo.op2"(%x:!T, %y:i32)
+private def foo_op2_pattern: MTerm :=
+  .App .OP [
+    .ConstString "foo.op2",
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 1 "x" .MSSAVal, .Var 1 "T" .MMLIRType],
+      .App .OPERAND [.Var 1 "y" .MSSAVal, .ConstMLIRType .i32]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 1 "ret" .MSSAVal, .Var 1 "T" .MMLIRType]]
+  ]
 #eval foo_op2_pattern
 
 private def foo_dialect := [foo_op1_pattern, foo_op2_pattern]

@@ -166,12 +166,19 @@ instance: ToString MTerm where
   toString := MTerm.str
 
 -- Collect variables in a term
-
 def MTerm.vars: MTerm → List String
   | .Var _ name _ => [name]
   | .App ctor [] => []
   | .App ctor (arg::args) =>
       vars arg ++ vars (.App ctor args)
+  | _ => []
+
+-- Collect variables and their sorts
+def MTerm.varsWithSorts: MTerm → List (String × MSort)
+  | .Var _ name sort => [(name, sort)]
+  | .App ctor [] => []
+  | .App ctor (arg::args) =>
+      varsWithSorts arg ++ varsWithSorts (.App ctor args)
   | _ => []
 
 -- Check whether a variable occurs in a term. We don't check typing here since
@@ -196,6 +203,10 @@ protected def MTerm.substList (l: List MTerm) (name: String) (repl: MTerm) :=
   | [] => []
   | t::ts => subst t name repl :: MTerm.substList ts name repl
 end
+
+-- Substitue a set of variables in a term
+def MTerm.substVars (t: MTerm) (repl: List (String × MTerm)): MTerm :=
+  repl.foldl (fun t (name, repl) => t.subst name repl) t
 
 /-
 ### Sort inference
