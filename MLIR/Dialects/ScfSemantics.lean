@@ -63,11 +63,12 @@ def scf_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
       -- SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
       return BlockResult.Next
   | _ => none
-
+#check psum
 private def eff_inject {E} [Semantics δ] (x: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ) Unit): 
     Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit := 
   -- TODO: fill up sorry for translation
-  let y: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) Unit := Fitree.translate sorry x
+  let y: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) Unit := 
+    Fitree.translate (fun t v =>  Member.inject _ v) x
   let z : Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit := 
     Functor.map (fun _ => PUnit.unit) y
   z
@@ -95,4 +96,5 @@ instance  : Semantics scf where
 /-
 ### Examples and testing
 -/
+
 
