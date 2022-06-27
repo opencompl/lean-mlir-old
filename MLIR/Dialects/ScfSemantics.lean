@@ -34,7 +34,7 @@ def run_loop_bounded_go [Monad m] (n: Nat) (i: Nat) (lo: Int) (step: Int)
    | .succ i' => run_loop_bounded_go n i' lo step accum eff
 
 -- | TODO: use this to run regions.
-def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: Int -> a -> m a): m a := 
+def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: Int -> a -> m a): m a :=
   run_loop_bounded_go n n lo step accum eff
 
 #check semantics_region_single_bb
@@ -52,10 +52,10 @@ def scf_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
       let t <- Fitree.trigger (ScfE.For (δ := Gδ) (FinInt.toSint' lo) (FinInt.toSint' hi) (FinInt.toSint' step) r);
       SSAEnv.set? (δ := Gδ) MLIRType.unit ret_name ()
       -- let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
-      -- let out <- run_loop_bounded (a := PUnit) 
+      -- let out <- run_loop_bounded (a := PUnit)
       --            (n := nsteps.toNat)
       --            (lo := (FinInt.toSint' lo))
-      --            (step := (FinInt.toSint' step)) 
+      --            (step := (FinInt.toSint' step))
       --            (accum := PUnit.unit)
       --            (eff := (fun i _ => (semantics_region_single_bb r))) -- how to type this correctly?
                  -- (eff := (fun i _ => pure PUnit.unit))
@@ -64,12 +64,12 @@ def scf_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
       return BlockResult.Next
   | _ => none
 #check psum
-private def eff_inject {E} [Semantics δ] (x: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ) Unit): 
-    Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit := 
+private def eff_inject {E} [Semantics δ] (x: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ) Unit):
+    Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit :=
   -- TODO: fill up sorry for translation
-  let y: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) Unit := 
+  let y: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) Unit :=
     Fitree.translate (fun t v =>  Member.inject _ v) x
-  let z : Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit := 
+  let z : Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit :=
     Functor.map (fun _ => PUnit.unit) y
   z
 
@@ -79,7 +79,7 @@ def handle_scf {E} [Semantics δ]: ScfE δ ~> Fitree  (UBE +' SSAEnvE δ +' Sema
     match e with
     | .For lo hi step r => do
       let nsteps : Int := (hi - lo) / step
-      let out <- run_loop_bounded (a := PUnit) 
+      let out <- run_loop_bounded (a := PUnit)
                  (n := nsteps.toNat)
                  (lo := lo)
                  (step := step)
