@@ -106,9 +106,71 @@ def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   | Ret r => k r
   | Vis e k' => Vis e (fun r => bind (k' r) k)
 
+#check Functor
+def Fitree.map {E } (f: α → β) (fa: Fitree E α): Fitree E β :=
+   match fa with
+   | .Ret r => .Ret (f r)
+   | .Vis e k' => .Vis e (fun r => map f (k' r))
+
+theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α): 
+   fa.map (g ∘ f) = (fa.map f).map g := by {
+  intros;
+  unfold Fitree.map;
+  induction fa;
+  simp; 
+  unfold Fitree.map;
+  simp;
+  case Vis IH => {
+   simp;
+   unfold Fitree.map;
+   simp;
+   funext x; -- classical!
+   apply IH;
+  }
+}
+  
 instance {E}: Monad (Fitree E) where
   pure := Fitree.ret
   bind := Fitree.bind
+
+-- https://wiki.haskell.org/Monad_laws
+theorem Fitree_monad_left_identity (a: α) (h: α → Fitree E β):
+  Fitree.bind (Fitree.ret a) h = h a := by {
+  unfold Fitree.ret;
+  unfold Fitree.bind;
+  simp;
+}
+
+-- https://wiki.haskell.org/Monad_laws
+theorem Fitree_monad_right_identity (ma: Fitree E α):
+  Fitree.bind ma Fitree.ret = ma := by {
+  unfold Fitree.ret;
+  unfold Fitree.bind;
+  induction ma;
+  simp;
+  simp;
+  funext x; -- classical
+  unfold Fitree.bind;
+  case Vis IH => 
+  apply IH;
+}
+
+-- https://wiki.haskell.org/Monad_laws
+theorem Fitree_monad_assoc (ma: Fitree E α)
+  (g: α → Fitree E β) (h: β → Fitree E γ):
+  Fitree.bind (Fitree.bind ma g) h =
+  Fitree.bind ma (fun x => Fitree.bind (g x) h) := by {
+  induction ma;
+  case Ret r => {
+    simp [Fitree.bind];
+  }
+  case Vis T e k IH => {
+     simp [Fitree.bind];
+     funext v;
+     simp [Fitree.bind];
+     apply IH;
+  }
+}
 
 @[simp_itree]
 def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
