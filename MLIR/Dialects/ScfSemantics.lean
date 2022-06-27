@@ -17,8 +17,9 @@ instance scf: Dialect Void Void (fun x => Unit) where
 
 -- | interesting, what is the type of ScfFor?
 -- | TODO: use the return type. For now, just do unit.
-inductive ScfE (δ: Dialect α σ ε): Type → Type :=
-  | For: (low:Int) → (upper: Int) → (step: Int)  → (r: Region δ) → ScfE δ Unit
+-- Fitree S [S: Semantics δ]
+inductive ScfE (Gδ2: Dialect α σ ε): Type → Type :=
+  | For: (low:Int) → (upper: Int) → (step: Int)  → (r: Region Gδ2) → ScfE Gδ2 Unit
 
 
 
@@ -43,13 +44,13 @@ def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: I
 -- | TODO: refactor to (1) an effect, (2) an interpretation
 def scf_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   (ret_name: Option SSAVal):
-        Op Gδ → Option (Fitree (UBE +' SSAEnvE Gδ +' S.E Gδ +' ScfE Gδ) (BlockResult Gδ))
+        Op Gδ → Option (Fitree (SSAEnvE Gδ +' (ScfE Gδ +' S.E +' UBE)) (BlockResult Gδ))
   | Op.mk "scf.for" [lo, hi, step] _ [r] _ (.fn (.tuple []) (.int sgn sz)) => some do
       let lo : FinInt sz <- SSAEnv.get? Gδ (MLIRType.int sgn sz) lo
       let hi : FinInt sz <- SSAEnv.get? Gδ (MLIRType.int sgn sz) hi
       let step : FinInt sz <- SSAEnv.get? Gδ (MLIRType.int sgn sz) step
       let rsem := semantics_region_single_bb r
-      let t <- Fitree.trigger (ScfE.For (δ := Gδ) (FinInt.toSint' lo) (FinInt.toSint' hi) (FinInt.toSint' step) r);
+      let t <- Fitree.trigger (ScfE.For (Gδ2 := Gδ) (FinInt.toSint' lo) (FinInt.toSint' hi) (FinInt.toSint' step) r);
       SSAEnv.set? (δ := Gδ) MLIRType.unit ret_name ()
       -- let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
       -- let out <- run_loop_bounded (a := PUnit)
@@ -86,12 +87,11 @@ def handle_scf {E} [Semantics δ]: ScfE δ ~> Fitree  (UBE +' SSAEnvE δ +' Sema
                  (accum := PUnit.unit)
                  (eff := (fun i _ => eff_inject (semantics_region_single_bb (Gδ := δ) r)))
        return ()
-/-
-instance  : Semantics scf where
-  E := ScfE δ
+-- set_option pp.all true
+instance [δ: Dialect α σ ϵ] [S: Semantics δ]: Semantics scf where
+  E := ScfE δ +' S.E +' UBE
   semantics_op := scf_semantics_op
   handle := handle_scf
--/
 
 /-
 ### Examples and testing
