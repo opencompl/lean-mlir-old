@@ -64,7 +64,7 @@ inductive ArithE: Type → Type :=
           (lhs rhs: Vector sc fx (.int sgn sz)) →
           ArithE (Vector sc fx (.int sgn sz))
 
-def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSAVal):
+def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε}:
     Op Gδ → Option (Fitree (SSAEnvE Gδ +' ArithE) (BlockResult Gδ))
 
   | Op.mk "arith.constant" [] [] [] attrs (.fn (.tuple []) τ₁) =>
@@ -75,8 +75,7 @@ def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSA
             | .int sgn sz => some do
                 -- TODO: Check range of constants
                 let v := FinInt.ofInt sgn sz value
-                SSAEnv.set? (δ := Gδ) (.int sgn sz) ret v
-                return BlockResult.Next
+                return BlockResult.Next ⟨.int sgn sz, v⟩
             | _ => none
           else none
       | _ => none
@@ -93,8 +92,7 @@ def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSA
                   let rhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ)
                               (.int sgn sz) rhs)
                   let r ← Fitree.trigger (ArithE.CmpI sz pred lhs rhs)
-                  SSAEnv.set? (δ := Gδ) .i1 ret r
-                  return BlockResult.Next
+                  return BlockResult.Next ⟨.i1, r⟩
             | _ => none
         | _ => none
       else none
@@ -106,8 +104,7 @@ def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSA
             let lhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ) (.int sgn sz) lhs)
             let rhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ) (.int sgn sz) rhs)
             let r ← Fitree.trigger (ArithE.AddI sz lhs rhs)
-            SSAEnv.set? (δ := Gδ) (.int sgn sz) ret r
-            return BlockResult.Next
+            return BlockResult.Next ⟨.int sgn sz, r⟩
         | _ => none
       else none
 
@@ -182,4 +179,4 @@ theorem add_commutative:
   simp [arith_semantics_op, Semantics.handle, add1, add2]
   simp [interp_ub!]; simp_itree
   simp [interp_ssa]; simp_itree
-  rw [FinInt.add_comm]
+  simp [FinInt.add_comm]

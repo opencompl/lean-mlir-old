@@ -47,7 +47,7 @@ inductive PVoid: Type -> Type u
 infixr:40 " ~> " => pto
 infixr:60 " +' " => psum
 
-class Member (E: Type u → Type v₁) (F: Type u → Type v₂) where
+class Member (E: Type → Type) (F: Type → Type) where
   inject : E ~> F
 
 instance {E}: Member E E where
@@ -77,26 +77,26 @@ def Fitree.case_ (h1: E ~> G) (h2: F ~> G): E +' F ~> G :=
 
 /- Examples of interactions -/
 
-inductive StateE {S: Type _}: Type _ → Type _ where
+inductive StateE {S: Type}: Type → Type where
   | Read: Unit → StateE S
   | Write: S → StateE PUnit
 
-inductive WriteE {W: Type _}: Type _ → Type _ where
+inductive WriteE {W: Type}: Type → Type where
   | Tell: W → WriteE Unit
 
 
 /- The monadic domain; essentially finite Interaction Trees -/
 
-inductive Fitree (E: Type _ → Type _) (R: Type _) where
+inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
-  | Vis {T: Type _} (e: E T) (k: T → Fitree E R): Fitree E R
+  | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
 @[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
 
 @[simp_itree]
-def Fitree.trigger {E: Type _ → Type _} {F: Type _ → Type _} {T} [Member E F]
+def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 

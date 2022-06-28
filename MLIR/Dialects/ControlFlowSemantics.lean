@@ -20,20 +20,17 @@ inductive DummyE: Type → Type :=
   | True: DummyE Int
   | False: DummyE Int
 
-def dummy_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSAVal):
-      Op Gδ → Option (Fitree (SSAEnvE Gδ +' DummyE) (BlockResult Gδ))
+def dummy_semantics_op: Op Gδ →
+      Option (Fitree (SSAEnvE Gδ +' DummyE) (BlockResult Gδ))
   | Op.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.Dummy
-      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
   | Op.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.True
-      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
   | Op.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.False
-      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
   | _ => none
 
 def DummyE.handle {E}: DummyE ~> Fitree E :=
@@ -62,8 +59,8 @@ instance cf: Dialect Void Void (fun x => Unit) where
 inductive ControlFlowOp: Type → Type :=
   | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowOp Unit
 
-def cf_semantics_op (ret_name: Option SSAVal):
-      Op Gδ → Option (Fitree (SSAEnvE Gδ +' ControlFlowOp) (BlockResult Gδ))
+def cf_semantics_op: Op Gδ →
+      Option (Fitree (SSAEnvE Gδ +' ControlFlowOp) (BlockResult Gδ))
   | Op.mk "cf.br" [] [bbname] [] _ _ => some do
       return BlockResult.Branch bbname []
   | Op.mk "cf.condbr" [vcond] [bbtrue, bbfalse] _ _ _ => some do
@@ -79,11 +76,11 @@ def cf_semantics_op (ret_name: Option SSAVal):
       | some (.str str) => some do
         let arg <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) .i1 arg
         Fitree.trigger $ ControlFlowOp.Assert arg str
-        return BlockResult.Next
+        return BlockResult.Next ⟨.unit, ()⟩
       | none => some do
         let arg <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) .i1 arg
         Fitree.trigger $ ControlFlowOp.Assert arg "<assert failed>"
-        return BlockResult.Next
+        return BlockResult.Next ⟨.unit, ()⟩
       | _ => none
   | _ => none
 

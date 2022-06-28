@@ -16,7 +16,7 @@ instance func_: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
 
-def func_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSAVal):
+def func_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε}:
     Op Gδ → Option (Fitree (SSAEnvE Gδ +' PVoid) (BlockResult Gδ))
 
   | Op.mk "func.return" args [] [] _ (.fn (.tuple τs) (.tuple [])) =>
