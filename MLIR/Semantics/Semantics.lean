@@ -18,6 +18,9 @@ inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Ret (rets: List (SSAVal × MLIRType δ))
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
+instance : Inhabited (BlockResult δ) where
+  default := .Ret []
+
 instance (δ: Dialect α σ ε): ToString (BlockResult δ) where
   toString := fun
     | .Branch bb args => s!"Branch {bb} {args}"
@@ -87,18 +90,11 @@ def denoteOp (op: Op (δ+Δ)):
       -- stall iop
       -- Run the dialect-provided semantics
       let childtree := S.semantics_op iop
-      childtree.translate (fun T x => by { 
-           cases x;
-           case inl regione => { 
-             cases regione;
-             case runRegion ix => {
-                exact (denoteRegion (regions0.get! ix));
-             }
-           }
-           case inr inr => { 
-              exact inr;
-           }
-      })
+      let foo := elimEffect childtree 
+            (fun re => match re with
+                      | RegionE.runRegion ix => regions.get! ix)
+      foo
+
   | _ => do
       Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
       return .Next ⟨.unit, ()⟩

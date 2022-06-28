@@ -91,6 +91,9 @@ inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
   | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
+instance [Inhabited R]: Inhabited (Fitree E R) where
+   default := .Ret default
+
 @[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
