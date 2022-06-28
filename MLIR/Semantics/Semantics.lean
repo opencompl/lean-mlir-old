@@ -29,9 +29,14 @@ inductive IOp (Δ: Dialect α σ ε) (ΔE: Type → Type) := | mk
   (name:    String)
   (args:    List ((τ: MLIRType Δ) × τ.eval))
   (bbargs:  List BBName)
-  (regions: List (Fitree (UBE +' SSAEnvE Δ +' ΔE) (BlockResult Δ)))
+  (regions: Nat)
+-- (regions: List (Fitree (UBE +' SSAEnvE Δ +' ΔE) (BlockResult Δ)))
   (attrs:   AttrDict Δ)
   (type:    MLIRType Δ)
+
+-- Effect to run a region
+inductive RegionE: Type -> Type
+| runRegion {T: Type} (ix: Nat): RegionE T
 
 -- Semantics of dialect `δ`, which is dependent on external dialects `Δ`.
 class Semantics (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → Type) where
@@ -42,7 +47,7 @@ class Semantics (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → 
   -- this simply emits an event of `E` and records the return value into the
   -- environment, and could be automated.
   semantics_op: IOp (δ+Δ) (E +' ΔE) →
-    Fitree (UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
+    Fitree (RegionE +' UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
   -- TODO| their branching behavior, instead of hardcoding it for cf
@@ -51,6 +56,17 @@ class Semantics (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → 
   -- This is where most of the semantics and computations take place.
   -- TODO: Allow dialect handlers to emit events into other dialects
   handle: E ~> Fitree PVoid
+
+-- Given an eliminator for the effect K for *any* T into a
+-- *particular R* for (Fitree E R), produce a new (Fitree E R)
+def elimEffect (f: Fitree (K +' E) R)
+   (eliminator: {T: Type} -> (kt: K T) -> Fitree E R) : Fitree E R :=
+  match f with 
+  | .Ret r => .Ret r
+  | .Vis e k => 
+        match e with 
+        | .inl cur => eliminator cur
+        | .inr rest => .Vis rest (fun t => elimEffect (k t) eliminator)
 
 
 mutual
@@ -67,10 +83,22 @@ def denoteOp (op: Op (δ+Δ)):
       -- Evaluate regions
       let regions := denoteRegions regions0
       -- Built the interpreted operation
-      let iop := IOp.mk name args bbargs regions attrs (.fn (.tuple τs) t)
+      let iop := IOp.mk name args bbargs regions0.length attrs (.fn (.tuple τs) t)
       -- stall iop
       -- Run the dialect-provided semantics
-      S.semantics_op iop
+      let childtree := S.semantics_op iop
+      childtree.translate (fun T x => by { 
+           cases x;
+           case inl regione => { 
+             cases regione;
+             case runRegion ix => {
+                exact (denoteRegion (regions0.get! ix));
+             }
+           }
+           case inr inr => { 
+              exact inr;
+           }
+      })
   | _ => do
       Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
       return .Next ⟨.unit, ()⟩
