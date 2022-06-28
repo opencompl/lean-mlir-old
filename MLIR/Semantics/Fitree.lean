@@ -90,7 +90,7 @@ inductive WriteE {W: Type}: Type → Type where
 inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
   | Vis {T: Type} (e: E T) (k: T → Fitree E R) : Fitree E R
-   | Vis' {T: Type} (e: E T) (k: T → Fitree E R) (xs: List (Fitree E R)): Fitree E R
+  | Vis' {T: Type} (e: E T) (k: T → Fitree E R) (xs: List (Fitree E R)): Fitree E R
 
 #print Fitree.Vis.sizeOf_spec -- 1 + sizeOf t + sizeOf e
 #print Fitree.Ret.sizeOf_spec -- 1 + sizeOf r
@@ -109,13 +109,13 @@ match xs with
 | .nil => 0
 | .cons x xs => x + sum xs
 
-#check Nat.add_lt_add
 @[simp_itree]
 def Fitree.bind {E A B} (t: Fitree E A) (k: A → Fitree E B) : Fitree E B := 
   match t with
   | Ret r => k r
   | Vis e k' => 
          Vis e (fun r => bind (k' r) k)
+
   | Vis' e k' xs => 
      let rec go (feas: List (Fitree E A)): List (Fitree E B) := 
        match feas with 
@@ -124,22 +124,21 @@ def Fitree.bind {E A B} (t: Fitree E A) (k: A → Fitree E B) : Fitree E B :=
              have : 1 + List.sum (List.map (fun x => 1 + sizeOf x) feas) < 
                     1 + List.sum (List.map (fun x => 1 + sizeOf x) (fea :: feas)) := by {
                simp [List.map, List.sum];
-               rewrite [Nat.add_comm];
-               rewrite [Nat.add_comm (m := 1 + sizeOf fea + _)];
-               rewrite [Nat.add_comm];
-               sorry;
+               apply Nat.add_lt_add_left;
+               rewrite [← (Nat.zero_add (List.sum _))];
+               rewrite [← Nat.add_assoc]
+               apply Nat.add_lt_add_right;
+               apply Nat.zero_lt_of_ne_zero;
+               simp;
+               rewrite [Nat.add_comm, Nat.add_one];
+               simp
             }
             .cons (bind fea k) (go feas)
      Vis' e (fun r => bind (k' r) k) (go xs)
 termination_by
-  bind t k =>  sizeOf k
+  bind t k =>  
+  sizeOf k
   bind.go xs => 1 + (List.sum (List.map (fun x => 1 + sizeOf x) xs))
-
-
-
-
-
-
 
  
 /-
