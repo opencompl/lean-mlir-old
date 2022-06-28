@@ -89,7 +89,11 @@ inductive WriteE {W: Type}: Type → Type where
 
 inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
-  | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
+  | Vis {T: Type} (e: E T) (k: T → Fitree E R) : Fitree E R
+   | Vis' {T: Type} (e: E T) (k: T → Fitree E R) (xs: List (Fitree E R)): Fitree E R
+
+#print Fitree.Vis.sizeOf_spec -- 1 + sizeOf t + sizeOf e
+#print Fitree.Ret.sizeOf_spec -- 1 + sizeOf r
 
 @[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
@@ -100,12 +104,66 @@ def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 
+def List.sum (xs: List Nat): Nat := 
+match xs with
+| .nil => 0
+| .cons x xs => x + sum xs
+
+#check Nat.add_lt_add
 @[simp_itree]
-def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
+def Fitree.bind {E A B} (t: Fitree E A) (k: A → Fitree E B) : Fitree E B := 
   match t with
   | Ret r => k r
-  | Vis e k' => Vis e (fun r => bind (k' r) k)
+  | Vis e k' => 
+         Vis e (fun r => bind (k' r) k)
+  | Vis' e k' xs => 
+     let rec go (feas: List (Fitree E A)): List (Fitree E B) := 
+       match feas with 
+       | .nil => .nil
+       | .cons fea feas => 
+             have : 1 + List.sum (List.map (fun x => 1 + sizeOf x) feas) < 
+                    1 + List.sum (List.map (fun x => 1 + sizeOf x) (fea :: feas)) := by {
+               simp [List.map, List.sum];
+               rewrite [Nat.add_comm];
+               rewrite [Nat.add_comm (m := 1 + sizeOf fea + _)];
+               rewrite [Nat.add_comm];
+               sorry;
+            }
+            .cons (bind fea k) (go feas)
+     Vis' e (fun r => bind (k' r) k) (go xs)
+termination_by
+  bind t k =>  sizeOf k
+  bind.go xs => 1 + (List.sum (List.map (fun x => 1 + sizeOf x) xs))
 
+
+
+
+
+
+
+ 
+/-
+@[simp_itree]
+def Fitree.bind' {E R T} (t: Fitree E T) (k: T → Fitree E R) : Fitree E R := 
+  @Fitree.rec (E := E) (R := T) (motive := fun _ => Fitree E R) 
+    -- ret
+   (fun t => k t)
+   -- E T_1 → (T_1 → Fitree E T) → (T_1 → Fitree E R) → Fitree E R) → Fitree E T → Fitree E R : Type 1
+   -- vis
+  (fun et t2fet rec_t => sorry)
+  -- call
+  t
+-/
+   
+
+/-
+end
+termination_by
+Fitree.bind t k => sizeOf t 
+Fitree.bind_list ts k => sizeOf ts
+-/
+     
+/-
 #check Functor
 def Fitree.map {E } (f: α → β) (fa: Fitree E α): Fitree E β :=
    match fa with
@@ -241,3 +299,4 @@ elab "simp_itree" : tactic => do
     (init := #[]) (fun acc n => acc.push (toSimpLemma n))
   evalTactic $ ← `(tactic|simp [$lemmas.reverse,*,
     Member.inject, StateT.bind, StateT.pure, bind, pure, cast_eq])
+-/
