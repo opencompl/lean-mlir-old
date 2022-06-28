@@ -172,6 +172,10 @@ instance {α₁ σ₁ ε₁ α₂ σ₂ ε₂}:
     iε := inferInstance
   }
 
+instance {α₁ σ₁ ε₁ α₂ σ₂ ε₂} [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂]:
+    Dialect (α₁ ⊕ α₂) (σ₁ ⊕ σ₂) (Sum.cases ε₁ ε₂) :=
+  δ₁ + δ₂
+
 
 /-
 ### Coercions of dialects

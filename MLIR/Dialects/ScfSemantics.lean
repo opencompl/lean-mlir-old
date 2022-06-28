@@ -18,11 +18,9 @@ instance scf: Dialect Void Void (fun x => Unit) where
 -- | interesting, what is the type of ScfFor?
 -- | TODO: use the return type. For now, just do unit.
 -- Fitree S [S: Semantics δ]
-inductive ScfE (Gδ2: Dialect α σ ε): Type → Type :=
-  | For: (low:Int) → (upper: Int) → (step: Int)  → (r: Region Gδ2) → ScfE Gδ2 Unit
-
-
-
+inductive ScfE (Δ: Dialect α σ ε) [SΔ: Semantics Δ]: Type → Type :=
+  | For: (low:Int) → (upper: Int) → (step: Int) → (r: Region (scf + Δ)) →
+         ScfE Δ Unit
 
 -- | run a loop, decrementing i from n to -
 -- | ix := lo + (n - i) * step
@@ -40,18 +38,16 @@ def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: I
 
 #check semantics_region_single_bb
 
-#check ScfE.For
+#check @ScfE.For
 -- | TODO: refactor to (1) an effect, (2) an interpretation
-def scf_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
-  (ret_name: Option SSAVal):
-        Op Gδ → Option (Fitree (SSAEnvE Gδ +' (ScfE Gδ +' S.E +' UBE)) (BlockResult Gδ))
+def scf_semantics_op (Δ: Dialect α σ ε) [SΔ: Semantics Δ]:
+        Op (scf + Δ) → Option (Fitree (SSAEnvE (scf + Δ) +' (ScfE Δ +' SΔ.E +' UBE)) (BlockResult (scf + Δ)))
   | Op.mk "scf.for" [lo, hi, step] _ [r] _ (.fn (.tuple []) (.int sgn sz)) => some do
-      let lo : FinInt sz <- SSAEnv.get? Gδ (MLIRType.int sgn sz) lo
-      let hi : FinInt sz <- SSAEnv.get? Gδ (MLIRType.int sgn sz) hi
-      let step : FinInt sz <- SSAEnv.get? Gδ (MLIRType.int sgn sz) step
+      let lo : FinInt sz <- SSAEnv.get? (scf + Δ) (MLIRType.int sgn sz) lo
+      let hi : FinInt sz <- SSAEnv.get? (scf + Δ) (MLIRType.int sgn sz) hi
+      let step : FinInt sz <- SSAEnv.get? (scf + Δ) (MLIRType.int sgn sz) step
       let rsem := semantics_region_single_bb r
-      let t <- Fitree.trigger (ScfE.For (Gδ2 := Gδ) (FinInt.toSint' lo) (FinInt.toSint' hi) (FinInt.toSint' step) r);
-      SSAEnv.set? (δ := Gδ) MLIRType.unit ret_name ()
+      let t <- Fitree.trigger (ScfE.For (Δ := Δ) (FinInt.toSint' lo) (FinInt.toSint' hi) (FinInt.toSint' step) r);
       -- let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
       -- let out <- run_loop_bounded (a := PUnit)
       --            (n := nsteps.toNat)
@@ -62,12 +58,11 @@ def scf_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
                  -- (eff := (fun i _ => pure PUnit.unit))
       -- let i ← Fitree.trigger (ScfE.For 0 0 0)
       -- SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
+      return BlockResult.Next ⟨.unit, ()⟩
   | _ => none
-#check psum
+
 private def eff_inject {E} [Semantics δ] (x: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ) Unit):
     Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit :=
-  -- TODO: fill up sorry for translation
   let y: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) Unit :=
     Fitree.translate (fun t v =>  Member.inject _ v) x
   let z : Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit :=
