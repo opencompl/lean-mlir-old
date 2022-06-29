@@ -98,6 +98,17 @@ instance [Inhabited R]: Inhabited (Fitree E R) where
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
 
+-- Coerce an Fitree along a member
+@[simp_itree]
+def Fitree.coe_member {E: Type → Type} {F: Type → Type} {T} [Member E F]
+    (fe: Fitree E T): Fitree F T :=
+  match fe with 
+  | Ret r => Ret r
+  | Vis et k => Vis (Member.inject _ et) (fun t => coe_member (k t))
+
+instance [Member E F] : Coe (Fitree E T) (Fitree F T) where
+  coe := Fitree.coe_member
+
 @[simp_itree]
 def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=

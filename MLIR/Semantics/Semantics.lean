@@ -18,6 +18,9 @@ inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Ret (rets: List (SSAVal × MLIRType δ))
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
+instance [CoeDialect δ Δ] : Coe (BlockResult δ) (BlockResult Δ) where
+  coe := sorry
+
 instance : Inhabited (BlockResult δ) where
   default := .Ret []
 
@@ -64,17 +67,19 @@ end IOpCoe
 inductive RegionE: Type -> Type
 | runRegion {T: Type} (ix: Nat): RegionE T
 
+#check Member
 -- TODO(sid): do we need external dialects?
 -- Semantics of dialect `δ`, which is dependent on external dialects `Δ`.
-class Semantics (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → Type) where
+class Semantics (δ: Dialect α σ ε)  where
   -- Events modeling the dialect's operations.
   E: Type → Type
 
   -- Operation semantics function: maps an `Op` to an interaction tree. Usually
   -- this simply emits an event of `E` and records the return value into the
   -- environment, and could be automated.
-  semantics_op: IOp (δ+Δ) (E +' ΔE) →
-    Fitree (RegionE +' UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
+  semantics_op {Δ : Dialect α' σ' ε'} [CoeDialect δ Δ]:
+    IOp Δ E →
+    Fitree (RegionE +' UBE +' (SSAEnvE δ) +' E) (BlockResult δ)
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
   -- TODO| their branching behavior, instead of hardcoding it for cf
@@ -96,11 +101,18 @@ def elimEffect (f: Fitree (K +' E) R)
         | .inr rest => .Vis rest (fun t => elimEffect (k t) eliminator)
 
 
+-- The memory of a smaller dialect can be injected into a larger one.
+instance [CoeDialect δ Δ]: Member (SSAEnvE δ) (SSAEnvE Δ) where 
+  inject := sorry
+
 mutual
-variable (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → Type)
-variable [S: Semantics δ Δ ΔE]
-def denoteOp (op: Op (δ+Δ)):
-    Fitree (UBE +' SSAEnvE (δ+Δ) +' (S.E +' ΔE)) (BlockResult (δ+Δ)) :=
+variable (δ: Dialect α σ ε)
+variable (Δ: Dialect α' σ' ε')
+variable [S: Semantics δ]
+variable [CoeDialect δ Δ]
+
+def denoteOp (op: Op δ):
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match op with
   | .mk name args0 bbargs regions0 attrs (.fn (.tuple τs) t) => do
       -- Read arguments from memory
@@ -112,7 +124,21 @@ def denoteOp (op: Op (δ+Δ)):
       let iop := IOp.mk name args bbargs regions0.length attrs (.fn (.tuple τs) t)
       -- stall iop
       -- Run the dialect-provided semantics
-      let childtree := S.semantics_op iop
+      -- TODO: Coerce the fitree into a larger parent itree
+      let childtree 
+           : Fitree (RegionE +' UBE +' SSAEnvE δ +' S.E)
+                    (BlockResult δ)  := S.semantics_op iop
+      -- 1. change result type to (BlockResult Δ) [capital Delta]
+      let childtree 
+           : Fitree (RegionE +' UBE +' SSAEnvE δ +' S.E)
+                    (BlockResult Δ)  := childtree.map Coe.coe
+      -- 2. Change environment to  (SSAEnvE Δ)
+      -- This will coerce along Fitree.coe_member, since 
+      -- (SSAEnvE δ) can be coerced to (SSAEnv Δ)
+      let childtree 
+           : Fitree (RegionE +' UBE +' SSAEnvE Δ +' S.E)
+                    (BlockResult Δ)  := Coe.coe childtree
+
       let foo := elimEffect childtree 
             (fun re => match re with
                       | RegionE.runRegion ix => regions.get! ix)
@@ -122,8 +148,8 @@ def denoteOp (op: Op (δ+Δ)):
       Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
       return .Next ⟨.unit, ()⟩
 
-def denoteBBStmt (bbstmt: BasicBlockStmt (δ+Δ)):
-    Fitree (UBE +' SSAEnvE (δ+Δ) +' (S.E +' ΔE)) (BlockResult (δ+Δ)) :=
+def denoteBBStmt (bbstmt: BasicBlockStmt δ):
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match bbstmt with
   | .StmtAssign val _ op => do
       let br ← denoteOp op
@@ -136,8 +162,8 @@ def denoteBBStmt (bbstmt: BasicBlockStmt (δ+Δ)):
   | .StmtOp op =>
       denoteOp op
 
-def denoteBB (bb: BasicBlock (δ+Δ)):
-    Fitree (UBE +' SSAEnvE (δ+Δ) +' (S.E +' ΔE)) (BlockResult (δ+Δ)) := do
+def denoteBB (bb: BasicBlock δ):
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   -- TODO: Bind basic block arguments before running the basic block
   -- TODO: Any checks on the BlockResults of intermediate ops?
   match bb with
@@ -149,8 +175,8 @@ def denoteBB (bb: BasicBlock (δ+Δ)):
       let _ ← denoteBBStmt stmt
       denoteBB (.mk name args stmts)
 
-def denoteRegion (r: Region (δ+Δ)):
-    Fitree (UBE +' SSAEnvE (δ+Δ) +' (S.E +' ΔE)) (BlockResult (δ+Δ)) :=
+def denoteRegion (r: Region δ):
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   -- We only define semantics for single-basic-block regions
   -- TODO: Pass region arguments
   -- TODO: Forward region's return type and value
@@ -161,30 +187,27 @@ def denoteRegion (r: Region (δ+Δ)):
       Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}")
       return BlockResult.Next ⟨.unit, ()⟩
 
-def denoteRegions (l: List (Region (δ+Δ))):
-    List $ Fitree (UBE +' SSAEnvE (δ+Δ) +' (S.E +' ΔE)) (BlockResult (δ+Δ)) :=
+def denoteRegions (l: List (Region δ)):
+    List (Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)) :=
   match l with
   | [] => []
   | r::l => denoteRegion r :: denoteRegions l
 end
 
+
 instance
     {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
     {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
-    {α' σ' ε'} {Δ: Dialect α' σ' ε'}
-    {ΔE: Type → Type}
-    [S₁: Semantics δ₁ Δ  ΔE]
-    [S₂: Semantics δ₂ Δ  ΔE]
-    : Semantics (δ₁ + δ₂) Δ ΔE where
+    [S₁: Semantics δ₁]
+    [S₂: Semantics δ₂]
+    : Semantics (δ₁ + δ₂) where
   E := S₁.E +' S₂.E
   -- semantics_op: IOp (δ+Δ) (E +' ΔE) →
   --  Fitree (RegionE +' UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
   -- | sid: how to implement? need to figure out which side to inject
-  semantics_op op := by {
-     let sem1 := S₁.semantics_op _
-  }
---    (S₁.semantics_op op).map (.translate Member.inject) <|>
---    (S₂.semantics_op op).map (.translate Member.inject)
+  semantics_op op := 
+    (S₁.semantics_op op).map (.translate Member.inject) <|>
+    (S₂.semantics_op op).map (.translate Member.inject)
 
   handle := Fitree.case_ S₁.handle S₂.handle
 
@@ -212,7 +235,6 @@ def semantics_region {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   let _ ← semantics_region_go fuel r (r.bbs.get! 0)
 -/
 
-/-
 
 def run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
     (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
@@ -229,7 +251,7 @@ def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   let t := (interp_ssa_logged t).run env
   let t := interp S.handle t
   t.run
--/
+
 
 /-
 ### Denotation notation
