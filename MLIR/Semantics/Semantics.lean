@@ -37,10 +37,34 @@ inductive IOp (Δ: Dialect α σ ε) (ΔE: Type → Type) := | mk
   (attrs:   AttrDict Δ)
   (type:    MLIRType Δ)
 
+-- Coercions for IOp into larger dialects from smaller dialects.
+-- Required to define semantics injections.
+section IOpCoe
+def coeTypeValPair
+  [Δ: Dialect α σ ε]
+  [Δ': Dialect α' σ' ε']
+  (xs: List ((τ: MLIRType Δ) × MLIRType.eval τ)):
+  List ((τ: MLIRType (Δ + Δ')) × MLIRType.eval τ) := 
+   match xs with 
+   | .nil => .nil
+-- argument v has type 'MLIRType.eval τ : Type'
+-- but is expected to have type 'MLIRType.eval (MLIR.AST.coeMLIRType τ) : Type'
+--   | .cons ⟨τ, v⟩ xs => .cons ⟨τ, v ⟩ (MLIRValAndTypeInject xs)
+   | .cons ⟨τ, v⟩ xs => .cons ⟨τ, sorry⟩ (coeTypeValPair xs)
+
+def IOp.inject_left {Δ': Dialect α' σ' ε'}:
+  IOp (Δ: Dialect α σ ε) ΔE -> 
+  IOp (Δ + Δ') ΔE
+| IOp.mk name args bbargs regions attrs type =>
+    IOp.mk name (coeTypeValPair args) bbargs regions attrs type
+end IOpCoe
+
 -- Effect to run a region
+-- TODO: change this to also deal with scf.if and yield.
 inductive RegionE: Type -> Type
 | runRegion {T: Type} (ix: Nat): RegionE T
 
+-- TODO(sid): do we need external dialects?
 -- Semantics of dialect `δ`, which is dependent on external dialects `Δ`.
 class Semantics (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → Type) where
   -- Events modeling the dialect's operations.
@@ -75,7 +99,6 @@ def elimEffect (f: Fitree (K +' E) R)
 mutual
 variable (δ: Dialect α σ ε) (Δ: Dialect α' σ' ε') (ΔE: Type → Type)
 variable [S: Semantics δ Δ ΔE]
-
 def denoteOp (op: Op (δ+Δ)):
     Fitree (UBE +' SSAEnvE (δ+Δ) +' (S.E +' ΔE)) (BlockResult (δ+Δ)) :=
   match op with
@@ -145,12 +168,24 @@ def denoteRegions (l: List (Region (δ+Δ))):
   | r::l => denoteRegion r :: denoteRegions l
 end
 
-instance {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁} {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
-    [S₁: Semantics δ₁] [S₂: Semantics δ₂]: Semantics (δ₁ + δ₂) where
+instance
+    {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
+    {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
+    {α' σ' ε'} {Δ: Dialect α' σ' ε'}
+    {ΔE: Type → Type}
+    [S₁: Semantics δ₁ Δ  ΔE]
+    [S₂: Semantics δ₂ Δ  ΔE]
+    : Semantics (δ₁ + δ₂) Δ ΔE where
   E := S₁.E +' S₂.E
-  semantics_op op :=
-    (S₁.semantics_op op).map (.translate Member.inject) <|>
-    (S₂.semantics_op op).map (.translate Member.inject)
+  -- semantics_op: IOp (δ+Δ) (E +' ΔE) →
+  --  Fitree (RegionE +' UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
+  -- | sid: how to implement? need to figure out which side to inject
+  semantics_op op := by {
+     let sem1 := S₁.semantics_op _
+  }
+--    (S₁.semantics_op op).map (.translate Member.inject) <|>
+--    (S₂.semantics_op op).map (.translate Member.inject)
+
   handle := Fitree.case_ S₁.handle S₂.handle
 
 /-
@@ -177,6 +212,8 @@ def semantics_region {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   let _ ← semantics_region_go fuel r (r.bbs.get! 0)
 -/
 
+/-
+
 def run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
     (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     R × SSAEnv Gδ :=
@@ -192,11 +229,13 @@ def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   let t := (interp_ssa_logged t).run env
   let t := interp S.handle t
   t.run
+-/
 
 /-
 ### Denotation notation
 -/
 
+/-
 class Denote (δ: Dialect α σ ε) [S: Semantics δ]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
   denote: T δ → Fitree (UBE +' SSAEnvE δ +' S.E) (BlockResult δ)
@@ -211,5 +250,5 @@ instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
 
 instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
   denote := semantics_bb
-
+-/
 -- Not for regions because we need to specify the fuel
