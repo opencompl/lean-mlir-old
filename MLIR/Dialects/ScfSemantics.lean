@@ -8,19 +8,18 @@ import MLIR.EDSL
 open MLIR.AST
 
 /-
-### Dialect: `dummy`
+### Dialect: `scf`
 -/
 
 instance scf: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
 
--- | interesting, what is the type of ScfFor?
--- | TODO: use the return type. For now, just do unit.
--- Fitree S [S: Semantics δ]
-inductive ScfE (Δ: Dialect α σ ε) [SΔ: Semantics Δ]: Type → Type :=
-  | For: (low:Int) → (upper: Int) → (step: Int) → (r: Region (scf + Δ)) →
-         ScfE Δ Unit
+-- Operations of `scf` that unfold into regions need to expose these regions
+-- immediately at denotation time rather than at interpretation time, so that
+-- inner operations can be interpreted correctly. So operations with regions
+-- are not represented here, and handled directly in `semantics_op`.
+inductive ScfE: Type -> Type :=
 
 -- | run a loop, decrementing i from n to -
 -- | ix := lo + (n - i) * step
@@ -36,60 +35,29 @@ def run_loop_bounded_go [Monad m] (n: Nat) (i: Nat) (lo: Int) (step: Int)
 def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: Int -> a -> m a): m a :=
   run_loop_bounded_go n n lo step accum eff
 
-#check semantics_region_single_bb
-
-#check @ScfE.For
 -- | TODO: refactor to (1) an effect, (2) an interpretation
-def scf_semantics_op (Δ: Dialect α σ ε) [SΔ: Semantics Δ]:
-        Op (scf + Δ) → Option (Fitree (SSAEnvE (scf + Δ) +' (ScfE Δ +' SΔ.E +' UBE)) (BlockResult (scf + Δ)))
-  | Op.mk "scf.for" [lo, hi, step] _ [r] _ (.fn (.tuple []) (.int sgn sz)) => some do
-      let lo : FinInt sz <- SSAEnv.get? (scf + Δ) (MLIRType.int sgn sz) lo
-      let hi : FinInt sz <- SSAEnv.get? (scf + Δ) (MLIRType.int sgn sz) hi
-      let step : FinInt sz <- SSAEnv.get? (scf + Δ) (MLIRType.int sgn sz) step
-      let rsem := semantics_region_single_bb r
-      let t <- Fitree.trigger (ScfE.For (Δ := Δ) (FinInt.toSint' lo) (FinInt.toSint' hi) (FinInt.toSint' step) r);
-      -- let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
-      -- let out <- run_loop_bounded (a := PUnit)
-      --            (n := nsteps.toNat)
-      --            (lo := (FinInt.toSint' lo))
-      --            (step := (FinInt.toSint' step))
-      --            (accum := PUnit.unit)
-      --            (eff := (fun i _ => (semantics_region_single_bb r))) -- how to type this correctly?
-                 -- (eff := (fun i _ => pure PUnit.unit))
-      -- let i ← Fitree.trigger (ScfE.For 0 0 0)
-      -- SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next ⟨.unit, ()⟩
+-- | TODO: use the return type of Scf.For. For now, just do unit.
+def scf_semantics_op: IOp Δ →
+      Option (Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ))
+  | IOp.mk "scf.for" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
+    let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
+    run_loop_bounded
+      (a := BlockResult Δ)
+      (n := nsteps.toNat)
+      (lo := (FinInt.toSint' lo))
+      (step := (FinInt.toSint' step))
+      (accum := default)
+      (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0))
   | _ => none
 
-private def eff_inject {E} [Semantics δ] (x: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ) Unit):
-    Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit :=
-  let y: Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) Unit :=
-    Fitree.translate (fun t v =>  Member.inject _ v) x
-  let z : Fitree (UBE +' SSAEnvE δ +' Semantics.E δ +' E) PUnit :=
-    Functor.map (fun _ => PUnit.unit) y
-  z
+def handleScf: ScfE ~> Fitree PVoid :=
+  fun _ e => nomatch e
 
-
-def handle_scf {E} [Semantics δ]: ScfE δ ~> Fitree  (UBE +' SSAEnvE δ +' Semantics.E δ +' E)  :=
-  fun _ e =>
-    match e with
-    | .For lo hi step r => do
-      let nsteps : Int := (hi - lo) / step
-      let out <- run_loop_bounded (a := PUnit)
-                 (n := nsteps.toNat)
-                 (lo := lo)
-                 (step := step)
-                 (accum := PUnit.unit)
-                 (eff := (fun i _ => eff_inject (semantics_region_single_bb (Gδ := δ) r)))
-       return ()
--- set_option pp.all true
-instance [δ: Dialect α σ ϵ] [S: Semantics δ]: Semantics scf where
-  E := ScfE δ +' S.E +' UBE
+instance: Semantics scf where
+  E := ScfE
   semantics_op := scf_semantics_op
-  handle := handle_scf
+  handle := handleScf
 
 /-
 ### Examples and testing
 -/
-
-

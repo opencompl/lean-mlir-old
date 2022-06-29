@@ -21,6 +21,12 @@ inductive UBE: Type → Type :=
   | DebugUB: String → UBE Unit
 
 @[simp_itree]
+def UBE.handle {E}: UBE ~> OptionT (Fitree E) := fun _ e =>
+  match e with
+  | UB => Fitree.Ret none
+  | DebugUB str => do panic! str; Fitree.Ret none
+
+@[simp_itree]
 def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>
   match e with
   | UB => panic! "Undefined Behavior raised!"
@@ -33,6 +39,13 @@ def UBE.handleSafe {E}: UBE ~> Fitree E := fun _ e =>
   | DebugUB str => return ()
 
 -- We interpret (UBE +' E ~> E)
+
+@[simp_itree]
+private def optionT_defaultHandler: E ~> OptionT (Fitree E) :=
+  fun _ e => OptionT.lift $ Fitree.trigger e
+
+def interp_ub {E} (t: Fitree (UBE +' E) R): OptionT (Fitree E) R :=
+  interp (Fitree.case_ UBE.handle optionT_defaultHandler) t
 
 def interp_ub! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
   interp (Fitree.case_ UBE.handle! (fun T => @Fitree.trigger E E T _)) t

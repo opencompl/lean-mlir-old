@@ -95,6 +95,17 @@ inductive Fitree (E: Type → Type) (R: Type) where
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
 
+-- Coerce an Fitree along a member
+@[simp_itree]
+def Fitree.coe_member {E: Type → Type} {F: Type → Type} {T} [Member E F]
+    (fe: Fitree E T): Fitree F T :=
+  match fe with
+  | Ret r => Ret r
+  | Vis et k => Vis (Member.inject _ et) (fun t => coe_member (k t))
+
+instance [Member E F] : Coe (Fitree E T) (Fitree F T) where
+  coe := Fitree.coe_member
+
 @[simp_itree]
 def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
@@ -112,12 +123,12 @@ def Fitree.map {E } (f: α → β) (fa: Fitree E α): Fitree E β :=
    | .Ret r => .Ret (f r)
    | .Vis e k' => .Vis e (fun r => map f (k' r))
 
-theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α): 
+theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α):
    fa.map (g ∘ f) = (fa.map f).map g := by {
   intros;
   unfold Fitree.map;
   induction fa;
-  simp; 
+  simp;
   unfold Fitree.map;
   simp;
   case Vis IH => {
@@ -128,7 +139,7 @@ theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α):
    apply IH;
   }
 }
-  
+
 instance {E}: Monad (Fitree E) where
   pure := Fitree.ret
   bind := Fitree.bind
@@ -151,7 +162,7 @@ theorem Fitree_monad_right_identity (ma: Fitree E α):
   simp;
   funext x; -- classical
   unfold Fitree.bind;
-  case Vis IH => 
+  case Vis IH =>
   apply IH;
 }
 
@@ -180,35 +191,38 @@ def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
 -- Interpretation into the monad of finite ITrees
 @[simp_itree]
 def interp {M} [Monad M] {E} (h: E ~> M):
-    forall ⦃R⦄, Fitree E R → M R :=
-  fun _ t =>
+    forall {R}, Fitree E R → M R :=
+  fun t =>
     match t with
     | Fitree.Ret r => pure r
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 @[simp_itree]
 def interp' {E F} (h: E ~> Fitree PVoid):
-    forall ⦃R⦄, Fitree (E +' F) R → Fitree F R :=
-  fun _ t =>
+    forall {R}, Fitree (E +' F) R → Fitree F R :=
+  fun t =>
     interp (Fitree.case_
       (fun _ e => (h _ e).translate $ fun _ e => nomatch e)
       (fun _ e => Fitree.trigger e)) t
 
--- Interpretation into the state monad
--- NOTE: This is semantically equivalent to interp,
--- but it is easier to state theorems about `interp_state`, instead of
--- stating theorems about `@interp (StateT S)`.
+-- Interpretation into the state monad. This is semantically equivalent to
+-- `interp`, but the specialization is useful to write state-specific theorems.
 @[simp_itree]
 def interp_state {M S} [Monad M] {E} (h: E ~> StateT S M):
-    forall ⦃R⦄, Fitree E R → StateT S M R :=
+    forall {R}, Fitree E R → StateT S M R :=
   interp h
 
 -- Interpretation into the writer monad
 @[simp_itree]
-def interp_writer [Monad M] {E} (h: E ~> WriterT M):
-    forall ⦃R⦄, Fitree E R → WriterT M R :=
+def interp_writer {M} [Monad M] {E} (h: E ~> WriterT M):
+    forall {R}, Fitree E R → WriterT M R :=
   interp h
 
+-- Interpretation into the option monad
+@[simp_itree]
+def interp_option {M} [Monad M] {E} (h: E ~> OptionT M):
+    forall {R}, Fitree E R → OptionT M R :=
+  interp h
 
 -- Since we only use finite ITrees, we can actually run them when they're
 -- fully interpreted (which leaves only the Ret constructor)
