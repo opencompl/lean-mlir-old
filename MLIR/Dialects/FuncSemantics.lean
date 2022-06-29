@@ -16,18 +16,16 @@ instance func_: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
 
-def func_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε}:
-    Op Gδ → Option (Fitree (SSAEnvE Gδ +' PVoid) (BlockResult Gδ))
+def funcSemanticsOp:
+    IOp func_ → Fitree (RegionE +' UBE +' SSAEnvE func_ +' PVoid) (BlockResult func_)
 
-  | Op.mk "func.return" args [] [] _ (.fn (.tuple τs) (.tuple [])) =>
-      if args.length != τs.length then
-        none
-      else some do
-        return .Ret (List.zip args τs)
-
-  | _ => none
+  | IOp.mk "func.return" args [] 0 _ _ =>
+       return .Ret args
+  | _ => do
+    Fitree.trigger $ UBE.DebugUB "unknown func op"
+    return BlockResult.Ret []
 
 instance: Semantics func_ where
   E := PVoid
-  semantics_op := func_semantics_op
+  semantics_op := funcSemanticsOp
   handle := fun _ e => nomatch e

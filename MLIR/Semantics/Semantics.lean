@@ -15,7 +15,7 @@ open MLIR.AST
 
 inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Branch (bb: BBName) (args: List SSAVal)
-| Ret (rets: List (SSAVal × MLIRType δ))
+| Ret (rets:  List ((τ : MLIRType δ) × MLIRType.eval τ))
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
 instance [CoeDialect δ Δ] : Coe (BlockResult δ) (BlockResult Δ) where
@@ -78,6 +78,11 @@ class Semantics (δ: Dialect α σ ε)  where
   -- Operation semantics function: maps an `Op` to an interaction tree. Usually
   -- this simply emits an event of `E` and records the return value into the
   -- environment, and could be automated.
+  -- TOD, NOTE: We probably still need an Option (...) on the outside, or we need some kind of
+  -- FailE that lets us fail, because we need to know the difference between 
+  -- "code ran and created UB", versus "there was a user error", when we try to merge the
+  -- semantics of two user dialect, we critically depend on the (<|>) operator to combine
+  -- the two `semantics_op` funvtions.
   semantics_op:
     IOp δ →
     Fitree (RegionE +' UBE +' (SSAEnvE δ) +' E) (BlockResult δ)
@@ -212,29 +217,30 @@ instance
   -/
   handle := Fitree.case_ S₁.handle S₂.handle
 
-/-
-def semantics_region_go {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
-    (fuel: Nat) (r: Region Gδ) (bb: BasicBlock Gδ):
-    Fitree (UBE +' SSAEnvE Gδ +' S.E) (BlockResult Gδ) :=
+def semanticsRegionRec 
+    [inst: CoeDialect δ Δ]
+    [S: Semantics Δ]
+    (fuel: Nat) (r: Region δ) (bb: BasicBlock δ):
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match fuel with
   | 0 => return .Next ⟨.unit, ()⟩
   | fuel' + 1 => do
-      match ← semantics_bb bb with
+      match ← denoteBB Δ _ bb with
         | .Branch bbname args =>
             -- TODO: Pass the block arguments
             match r.getBasicBlock bbname with
-            | some bb' => semantics_region_go fuel' r bb'
+            | some bb' => semanticsRegionRec fuel' r bb'
             | none => return .Next ⟨.unit, ()⟩
         | .Ret rets => return .Ret rets
         | .Next v => return .Next v
 
 -- TODO: Pass region arguments
 -- TODO: Forward region's return type and value
-def semantics_region {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
+def semanticsRegion {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     (fuel: Nat) (r: Region Gδ):
     Fitree (UBE +' SSAEnvE Gδ +' S.E) Unit := do
-  let _ ← semantics_region_go fuel r (r.bbs.get! 0)
--/
+  let _ ← semanticsRegionRec fuel r (r.bbs.get! 0)
+
 
 
 def run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
@@ -258,7 +264,6 @@ def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
 ### Denotation notation
 -/
 
-/-
 class Denote (δ: Dialect α σ ε) [S: Semantics δ]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
   denote: T δ → Fitree (UBE +' SSAEnvE δ +' S.E) (BlockResult δ)
@@ -266,12 +271,13 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 notation "⟦ " t " ⟧" => Denote.denote t
 
 instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
-  denote := semantics_op!
+  denote op := denoteOp δ δ op
 
 instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
-  denote := semantics_bbstmt
+  denote bbstmt := denoteBBStmt δ δ bbstmt
 
 instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
-  denote := semantics_bb
--/
+  denote bb := denoteBB δ δ bb
+
+
 -- Not for regions because we need to specify the fuel

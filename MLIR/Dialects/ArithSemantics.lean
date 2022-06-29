@@ -64,51 +64,69 @@ inductive ArithE: Type → Type :=
           (lhs rhs: Vector sc fx (.int sgn sz)) →
           ArithE (Vector sc fx (.int sgn sz))
 
-def arith_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε}:
-    Op Gδ → Option (Fitree (SSAEnvE Gδ +' ArithE) (BlockResult Gδ))
-
-  | Op.mk "arith.constant" [] [] [] attrs (.fn (.tuple []) τ₁) =>
+def arith_semantics_op:
+    IOp arith → Fitree (RegionE +' UBE +' (SSAEnvE arith) +' ArithE) (BlockResult arith)
+ --  -- interesting, this is a case where we need the op (result) type?
+ -- actually, this is wrong! As per MLIR semantics, we must have the attribute type be equal
+ -- to the return type. 
+  | IOp.mk "arith.constant" [] [] 0 attrs (.fn (.tuple []) τ₁) =>
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
           if τ₁ = τ₂ then
             match τ₂ with
-            | .int sgn sz => some do
+            | .int sgn sz => do
                 -- TODO: Check range of constants
                 let v := FinInt.ofInt sgn sz value
                 return BlockResult.Next ⟨.int sgn sz, v⟩
-            | _ => none
-          else none
-      | _ => none
+            | _ => do 
+                Fitree.trigger $ UBE.DebugUB "non maching width of arith.const"
+                return BlockResult.Ret []    
+          else do 
+                Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
+                return BlockResult.Ret []    
 
-  | Op.mk "arith.cmpi" [lhs, rhs] [] [] attrs (.fn (.tuple [τ₁, τ₂]) .i1) =>
-      if h: τ₁ = τ₂ then
-        match τ₁ with
-        | .int sgn sz =>
+      | _ => do
+            Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
+            return BlockResult.Ret []    
+  | IOp.mk "arith.cmpi" [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0 attrs _ =>
+      if EQ: sgn = sgn' /\ sz = sz' then
             match attrs.find "predicate" with
-            | some (.int n (.int .Signless 64)) =>
-                (ComparisonPred.ofInt n).map fun pred => do
-                  let lhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ)
-                              (.int sgn sz) lhs)
-                  let rhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ)
-                              (.int sgn sz) rhs)
-                  let r ← Fitree.trigger (ArithE.CmpI sz pred lhs rhs)
+            | some (.int n (.int .Signless 64)) => do
+                match (ComparisonPred.ofInt n) with 
+                | some pred => do
+                  have rhs' : (MLIRType.int sgn sz).eval := by {
+                     cases EQ;
+                     case intro left right =>
+                     simp [left, right];
+                     exact rhs;
+                  }
+                  let r ← Fitree.trigger (ArithE.CmpI sz pred lhs rhs')
                   return BlockResult.Next ⟨.i1, r⟩
-            | _ => none
-        | _ => none
-      else none
-
-  | Op.mk "arith.addi" [lhs, rhs] [] [] _ (.fn (.tuple [τ₁, τ₂]) τ) =>
-      if h: τ₁ = τ₂ ∧ τ₁ = τ then
-        match τ with
-        | .int sgn sz => some do
-            let lhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ) (.int sgn sz) lhs)
-            let rhs ← Fitree.trigger (SSAEnvE.Get (δ := Gδ) (.int sgn sz) rhs)
-            let r ← Fitree.trigger (ArithE.AddI sz lhs rhs)
-            return BlockResult.Next ⟨.int sgn sz, r⟩
-        | _ => none
-      else none
-
-  | _ => none
+                | none => 
+                  Fitree.trigger $ UBE.DebugUB "unable to create ComparisonPred"
+                  return BlockResult.Ret []    
+            | _ => do 
+                Fitree.trigger $ UBE.DebugUB "unable to find predicate"
+                return BlockResult.Ret []    
+      else do
+        Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (cmp)"
+        return BlockResult.Ret []
+  | IOp.mk "arith.addi" [⟨.int sgn sz, lhs⟩, ⟨ .int sgn' sz', rhs⟩] [] 0 _ _ => do
+      if EQ: sgn = sgn' /\ sz = sz' then 
+          have rhs' : (MLIRType.int sgn sz).eval := by {
+             cases EQ;
+             case intro left right =>
+             simp [left, right];
+             exact rhs;
+          }
+          let r ← Fitree.trigger (ArithE.AddI sz lhs rhs')
+          return BlockResult.Next ⟨.int sgn sz, r⟩
+      else 
+        Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (add)"
+        return BlockResult.Ret []
+  | _ => do
+        Fitree.trigger $ UBE.DebugUB "unknown arith op"
+        return BlockResult.Ret []
 
 def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
   match e with
@@ -155,7 +173,7 @@ private def cst1: BasicBlock arith := [mlir_bb|
     %b2 = "arith.cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
 ]
 
-#eval run ⟦cst1⟧ (SSAEnv.empty (δ := arith))
+#eval run (Gδ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
 
 
 /-
@@ -175,8 +193,8 @@ theorem add_commutative:
     run ⟦add2⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] := by
   intros n m
   simp [Denote.denote]
-  simp [run, semantics_bbstmt, semantics_op!, Semantics.semantics_op]
-  simp [arith_semantics_op, Semantics.handle, add1, add2]
+  simp [run, denoteBBStmt, denoteOp, denoteOp]
+  simp [arith_semantics_op, Semantics.handle, add1, add2];
   simp [interp_ub!]; simp_itree
   simp [interp_ssa]; simp_itree
   simp [FinInt.add_comm]

@@ -37,10 +37,11 @@ def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: I
 
 
 -- | TODO: refactor to (1) an effect, (2) an interpretation
+#check Signedness
 def semantics_op:
     IOp scf →
     Fitree (RegionE +' UBE +' (SSAEnvE scf) +' ScfE) (BlockResult scf)
-| IOp.mk "scf.for" [⟨_, lo⟩, ⟨_, hi⟩, ⟨step, _⟩] [] 1 _ _ => do 
+  | IOp.mk "scf.for" [⟨.int .Signless 32, lo⟩, ⟨.int .Signless 32, hi⟩, ⟨.int .Signless 32, step⟩] [] 1 _ _ => do 
     let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
     let out <- run_loop_bounded (a := PUnit)
                  (n := nsteps.toNat)
@@ -84,8 +85,9 @@ private def eff_inject {E} [Semantics δ] (x: Fitree (UBE +' SSAEnvE δ +' Seman
   z
 
 
-def handle_scf {E} [Semantics δ]: ScfE δ ~> Fitree  (UBE +' SSAEnvE δ +' Semantics.E δ +' E)  :=
-  fun _ e =>
+def handleScf {E} [Semantics δ]: ScfE ~> Fitree PVoid
+  fun _ e => return ()
+  /-
     match e with
     | .For lo hi step r => do
       let nsteps : Int := (hi - lo) / step
@@ -96,12 +98,13 @@ def handle_scf {E} [Semantics δ]: ScfE δ ~> Fitree  (UBE +' SSAEnvE δ +' Sema
                  (accum := PUnit.unit)
                  (eff := (fun i _ => eff_inject (semantics_region_single_bb (Gδ := δ) r)))
        return ()
+  -/
 -- set_option pp.all true
 instance: Semantics scf where
   E := ScfE
 
   semantics_op := scf_semantics_op
-  handle := handle_scf
+  handle := handleScf
 
 /-
 ### Examples and testing
