@@ -31,15 +31,16 @@ instance (δ: Dialect α σ ε): ToString (BlockResult δ) where
     | .Next ⟨τ, val⟩  => s!"Next {val}: {τ}"
 
 -- Interpreted operation, like MLIR.AST.Op, but with less syntax
-inductive IOp (Δ: Dialect α σ ε) (ΔE: Type → Type) := | mk
+inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String)
-  (args:    List ((τ: MLIRType Δ) × τ.eval))
+  (args:    List ((τ: MLIRType δ) × τ.eval))
   (bbargs:  List BBName)
   (regions: Nat)
 -- (regions: List (Fitree (UBE +' SSAEnvE Δ +' ΔE) (BlockResult Δ)))
-  (attrs:   AttrDict Δ)
-  (type:    MLIRType Δ)
+  (attrs:   AttrDict δ)
+  (type:    MLIRType δ)
 
+/-
 -- Coercions for IOp into larger dialects from smaller dialects.
 -- Required to define semantics injections.
 section IOpCoe
@@ -61,7 +62,7 @@ def IOp.inject_left {Δ': Dialect α' σ' ε'}:
 | IOp.mk name args bbargs regions attrs type =>
     IOp.mk name (coeTypeValPair args) bbargs regions attrs type
 end IOpCoe
-
+-/
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE: Type -> Type
@@ -77,8 +78,8 @@ class Semantics (δ: Dialect α σ ε)  where
   -- Operation semantics function: maps an `Op` to an interaction tree. Usually
   -- this simply emits an event of `E` and records the return value into the
   -- environment, and could be automated.
-  semantics_op {Δ : Dialect α' σ' ε'} [CoeDialect δ Δ]:
-    IOp Δ E →
+  semantics_op:
+    IOp δ →
     Fitree (RegionE +' UBE +' (SSAEnvE δ) +' E) (BlockResult δ)
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
@@ -205,10 +206,10 @@ instance
   -- semantics_op: IOp (δ+Δ) (E +' ΔE) →
   --  Fitree (RegionE +' UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
   -- | sid: how to implement? need to figure out which side to inject
-  semantics_op op := 
+  semantics_op op := sorry /-
     (S₁.semantics_op op).map (.translate Member.inject) <|>
     (S₂.semantics_op op).map (.translate Member.inject)
-
+  -/
   handle := Fitree.case_ S₁.handle S₂.handle
 
 /-
