@@ -21,7 +21,7 @@ inductive DummyE: Type → Type :=
   | False: DummyE Int
 
 def dummy_semantics_op: IOp Δ →
-      (Fitree (RegionE +' UBE +' SSAEnvE Δ +' DummyE) (BlockResult Δ))
+      (Fitree (RegionE +' UBE +' DummyE) (BlockResult Δ))
   | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => do
       let i ← Fitree.trigger DummyE.Dummy
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
@@ -62,7 +62,7 @@ inductive ControlFlowOp: Type → Type :=
   | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowOp Unit
 
 def cfSemanticsOp: IOp Δ →
-      (Fitree (RegionE +' UBE +'SSAEnvE Δ +' ControlFlowOp) (BlockResult Δ))
+      (Fitree (RegionE +' UBE +' ControlFlowOp) (BlockResult Δ))
   | IOp.mk "cf.br" [] [bbname] 0 _ _ => do
       return BlockResult.Branch bbname []
   | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => do

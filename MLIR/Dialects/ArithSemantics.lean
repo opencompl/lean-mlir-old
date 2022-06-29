@@ -65,7 +65,7 @@ inductive ArithE: Type → Type :=
           ArithE (Vector sc fx (.int sgn sz))
 
 def arith_semantics_op:
-    IOp Δ → Fitree (RegionE +' UBE +' (SSAEnvE Δ) +' ArithE) (BlockResult Δ)
+    IOp Δ → Fitree (RegionE +' UBE +' ArithE) (BlockResult Δ)
  --  -- interesting, this is a case where we need the op (result) type?
  -- actually, this is wrong! As per MLIR semantics, we must have the attribute type be equal
  -- to the return type. 

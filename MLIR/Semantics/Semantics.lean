@@ -87,7 +87,7 @@ class Semantics (δ: Dialect α σ ε)  where
   -- the two `semantics_op` funvtions.
   semantics_op:
     IOp Δ →
-    (Fitree (RegionE +' UBE +' (SSAEnvE Δ) +' E) (BlockResult Δ))
+    (Fitree (RegionE +' UBE +' E) (BlockResult Δ))
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
   -- TODO| their branching behavior, instead of hardcoding it for cf
@@ -220,6 +220,12 @@ instance
   semantics_op op :=
     let k := S₁.semantics_op op;
     let l := S₂.semantics_op op;
+    -- TODO: this is really janky. What we should really do is to have a
+    -- notion of `membershipChecker` in the semantics, which if succeeds,
+    -- implies that the node belongs to the dialect.
+    -- Alternatively, we just keep the name of the dialect in the semantics,
+    -- and we do a prefix search on `op.name` to dispatch to the
+    -- right Sᵢ.
     if findImmediateUB k 
     then l
     else k
