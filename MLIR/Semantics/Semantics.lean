@@ -18,11 +18,6 @@ inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Ret (rets:  List ((τ : MLIRType δ) × MLIRType.eval τ))
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
-/-
-instance [CoeDialect δ Δ] : Coe (BlockResult δ) (BlockResult Δ) where
-  coe := sorry
--/
-
 instance : Inhabited (BlockResult δ) where
   default := .Ret []
 
@@ -41,29 +36,6 @@ inductive IOp (δ: Dialect α σ ε) := | mk
   (attrs:   AttrDict δ)
   (type:    MLIRType δ)
 
-/-
--- Coercions for IOp into larger dialects from smaller dialects.
--- Required to define semantics injections.
-section IOpCoe
-def coeTypeValPair
-  [Δ: Dialect α σ ε]
-  [Δ': Dialect α' σ' ε']
-  (xs: List ((τ: MLIRType Δ) × MLIRType.eval τ)):
-  List ((τ: MLIRType (Δ + Δ')) × MLIRType.eval τ) :=
-   match xs with
-   | .nil => .nil
--- argument v has type 'MLIRType.eval τ : Type'
--- but is expected to have type 'MLIRType.eval (MLIR.AST.coeMLIRType τ) : Type'
---   | .cons ⟨τ, v⟩ xs => .cons ⟨τ, v ⟩ (MLIRValAndTypeInject xs)
-   | .cons ⟨τ, v⟩ xs => .cons ⟨τ, sorry⟩ (coeTypeValPair xs)
-
-def IOp.inject_left {Δ': Dialect α' σ' ε'}:
-  IOp (Δ: Dialect α σ ε) ΔE ->
-  IOp (Δ + Δ') ΔE
-| IOp.mk name args bbargs regions attrs type =>
-    IOp.mk name (coeTypeValPair args) bbargs regions attrs type
-end IOpCoe
--/
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α' σ' ε'): Type -> Type
@@ -96,10 +68,6 @@ class Semantics (δ: Dialect α σ ε)  where
 
 
 -- The memory of a smaller dialect can be injected into a larger one.
-/-
-instance [CoeDialect δ Δ]: Member (SSAEnvE δ) (SSAEnvE Δ) where
-  inject := sorry
--/
 
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
@@ -187,10 +155,8 @@ instance
     : Semantics (δ₁ + δ₂) where
   E := S₁.E +' S₂.E
   semantics_op op :=
-    -- TODO: Not sure why <|> fails here
-    match S₁.semantics_op op with
-    | some t => t
-    | none => S₂.semantics_op op
+    (S₁.semantics_op op).map (.translate Member.inject) <|>
+    (S₂.semantics_op op).map (.translate Member.inject)
   handle := Fitree.case_ S₁.handle S₂.handle
 
 def semanticsRegionRec
