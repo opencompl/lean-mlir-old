@@ -38,7 +38,6 @@ inductive IOp (δ: Dialect α σ ε) := | mk
   (args:    List ((τ: MLIRType δ) × τ.eval))
   (bbargs:  List BBName)
   (regions: Nat)
--- (regions: List (Fitree (UBE +' SSAEnvE Δ +' ΔE) (BlockResult Δ)))
   (attrs:   AttrDict δ)
   (type:    MLIRType δ)
 
@@ -50,8 +49,8 @@ def coeTypeValPair
   [Δ: Dialect α σ ε]
   [Δ': Dialect α' σ' ε']
   (xs: List ((τ: MLIRType Δ) × MLIRType.eval τ)):
-  List ((τ: MLIRType (Δ + Δ')) × MLIRType.eval τ) := 
-   match xs with 
+  List ((τ: MLIRType (Δ + Δ')) × MLIRType.eval τ) :=
+   match xs with
    | .nil => .nil
 -- argument v has type 'MLIRType.eval τ : Type'
 -- but is expected to have type 'MLIRType.eval (MLIR.AST.coeMLIRType τ) : Type'
@@ -59,7 +58,7 @@ def coeTypeValPair
    | .cons ⟨τ, v⟩ xs => .cons ⟨τ, sorry⟩ (coeTypeValPair xs)
 
 def IOp.inject_left {Δ': Dialect α' σ' ε'}:
-  IOp (Δ: Dialect α σ ε) ΔE -> 
+  IOp (Δ: Dialect α σ ε) ΔE ->
   IOp (Δ + Δ') ΔE
 | IOp.mk name args bbargs regions attrs type =>
     IOp.mk name (coeTypeValPair args) bbargs regions attrs type
@@ -67,58 +66,43 @@ end IOpCoe
 -/
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
-inductive RegionE: Type -> Type
-| runRegion {T: Type} (ix: Nat): RegionE T
+inductive RegionE (Δ: Dialect α' σ' ε'): Type -> Type
+| runRegion (ix: Nat): RegionE Δ (BlockResult Δ)
 
-#check Member
--- TODO(sid): do we need external dialects?
--- Semantics of dialect `δ`, which is dependent on external dialects `Δ`.
 class Semantics (δ: Dialect α σ ε)  where
-  -- Events modeling the dialect's operations.
+  -- Events modeling the dialect's computational behavior. Usually operations
+  -- are simply denoted by a trigger of such an event. This excludes, however,
+  -- operations that have regions or otherwise call into other dialects, since
+  -- every operation in the program must be accessible before we start
+  -- interpreting.
   E: Type → Type
 
-  -- Operation semantics function: maps an `Op` to an interaction tree. Usually
-  -- this simply emits an event of `E` and records the return value into the
-  -- environment, and could be automated.
-  -- TOD, NOTE: We probably still need an Option (...) on the outside, or we need some kind of
-  -- FailE that lets us fail, because we need to know the difference between 
-  -- "code ran and created UB", versus "there was a user error", when we try to merge the
-  -- semantics of two user dialect, we critically depend on the (<|>) operator to combine
-  -- the two `semantics_op` funvtions.
+  -- Operation semantics function: maps an IOp (morally an Op but slightly less
+  -- rich to guarantee good properties) to an interaction tree. Usually exposes
+  -- any region calls then emits of event of E. This function runs on the
+  -- program's entire dialect Δ but returns none for any operation that is not
+  -- part of δ.
   semantics_op:
     IOp Δ →
-    (Fitree (RegionE +' UBE +' E) (BlockResult Δ))
+    Option (Fitree (RegionE Δ +' UBE +' E) (BlockResult Δ))
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
   -- TODO| their branching behavior, instead of hardcoding it for cf
 
   -- Event handler used when interpreting the operations and running programs.
-  -- This is where most of the semantics and computations take place.
+  -- This is where most of the computational semantics take place.
   -- TODO: Allow dialect handlers to emit events into other dialects
   handle: E ~> Fitree PVoid
-
--- Given an eliminator for the effect K for *any* T into a
--- *particular R* for (Fitree E R), produce a new (Fitree E R)
-def elimEffect (f: Fitree (K +' E) R)
-   (eliminator: {T: Type} -> (kt: K T) -> Fitree E R) : Fitree E R :=
-  match f with 
-  | .Ret r => .Ret r
-  | .Vis e k => 
-        match e with 
-        | .inl cur => eliminator cur
-        | .inr rest => .Vis rest (fun t => elimEffect (k t) eliminator)
 
 
 -- The memory of a smaller dialect can be injected into a larger one.
 /-
-instance [CoeDialect δ Δ]: Member (SSAEnvE δ) (SSAEnvE Δ) where 
+instance [CoeDialect δ Δ]: Member (SSAEnvE δ) (SSAEnvE Δ) where
   inject := sorry
 -/
 
 mutual
-variable (Δ: Dialect α' σ' ε')
-variable [S: Semantics δ]
-variable [CoeDialect δ Δ]
+variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
 def denoteOp (op: Op Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
@@ -131,17 +115,18 @@ def denoteOp (op: Op Δ):
       let regions := denoteRegions regions0
       -- Built the interpreted operation
       let iop : IOp Δ := IOp.mk name args bbargs regions0.length attrs (.fn (.tuple τs) t)
-      -- stall iop
-      -- Run the dialect-provided semantics
-      -- TODO: Coerce the fitree into a larger parent itree
-      let childtree 
-           : Fitree (RegionE +' UBE +' SSAEnvE Δ +' S.E)
-                    (BlockResult Δ)  := 
-          S.semantics_op (Δ := Δ) iop 
-      let foo := elimEffect childtree 
-            (fun re => match re with
-                      | RegionE.runRegion ix => regions.get! ix)
-      foo
+      -- Use the dialect-provided semantics, and substitute regions
+      match S.semantics_op iop with
+      | some t =>
+          interp (fun _ e =>
+            match e with
+            | Sum.inl (RegionE.runRegion ix) => regions.get! ix
+            | Sum.inr <| Sum.inl ube => Fitree.trigger ube
+            | Sum.inr <| Sum.inr se => Fitree.trigger se
+          ) t
+      | none => do
+          Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
+          return default
 
   | _ => do
       Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
@@ -194,19 +179,6 @@ def denoteRegions (l: List (Region Δ)):
 end
 
 
--- TODO: this is a hack, we should really find a different way
--- to communicate that we have a proper op or not.
-def findImmediateUB: Fitree (RegionE +' UBE +' E) R -> Bool
-| .Ret r => false
-| .Vis e k => 
-  match e with
-  | .inr e' => 
-    match e' with 
-    | .inl ub => true
-    | _ => false
-  | _ => false
-
-
 instance
     {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
     {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
@@ -214,29 +186,14 @@ instance
     [S₂: Semantics δ₂]
     : Semantics (δ₁ + δ₂) where
   E := S₁.E +' S₂.E
-  -- semantics_op: IOp (δ+Δ) (E +' ΔE) →
-  --  Fitree (RegionE +' UBE +' SSAEnvE (δ+Δ) +' (E +' ΔE)) (BlockResult (δ+Δ))
-  -- | sid: how to implement? need to figure out which side to inject
   semantics_op op :=
-    let k := S₁.semantics_op op;
-    let l := S₂.semantics_op op;
-    -- TODO: this is really janky. What we should really do is to have a
-    -- notion of `membershipChecker` in the semantics, which if succeeds,
-    -- implies that the node belongs to the dialect.
-    -- Alternatively, we just keep the name of the dialect in the semantics,
-    -- and we do a prefix search on `op.name` to dispatch to the
-    -- right Sᵢ.
-    if findImmediateUB k 
-    then l
-    else k
-
-   /-
-    (S₁.semantics_op op).map (.translate Member.inject) <|>
-    (S₂.semantics_op op).map (.translate Member.inject)
--/
+    -- TODO: Not sure why <|> fails here
+    match S₁.semantics_op op with
+    | some t => t
+    | none => S₂.semantics_op op
   handle := Fitree.case_ S₁.handle S₂.handle
 
-def semanticsRegionRec 
+def semanticsRegionRec
     [inst: CoeDialect δ Δ]
     [S: Semantics Δ]
     (fuel: Nat) (r: Region δ) (bb: BasicBlock δ):
@@ -262,9 +219,9 @@ def semanticsRegion {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
 
 
 
-def run {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ] {R}
-    (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
-    R × SSAEnv Gδ :=
+def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
+    (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
+    R × SSAEnv Δ :=
   let t := interp_ub! t
   let t := interp_ssa t env
   let t := interp S.handle t

@@ -91,9 +91,6 @@ inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
   | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
-instance [Inhabited R]: Inhabited (Fitree E R) where
-   default := .Ret default
-
 @[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
@@ -102,7 +99,7 @@ def Fitree.ret {E R}: R → Fitree E R :=
 @[simp_itree]
 def Fitree.coe_member {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (fe: Fitree E T): Fitree F T :=
-  match fe with 
+  match fe with
   | Ret r => Ret r
   | Vis et k => Vis (Member.inject _ et) (fun t => coe_member (k t))
 
@@ -126,12 +123,12 @@ def Fitree.map {E } (f: α → β) (fa: Fitree E α): Fitree E β :=
    | .Ret r => .Ret (f r)
    | .Vis e k' => .Vis e (fun r => map f (k' r))
 
-theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α): 
+theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α):
    fa.map (g ∘ f) = (fa.map f).map g := by {
   intros;
   unfold Fitree.map;
   induction fa;
-  simp; 
+  simp;
   unfold Fitree.map;
   simp;
   case Vis IH => {
@@ -142,7 +139,7 @@ theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α):
    apply IH;
   }
 }
-  
+
 instance {E}: Monad (Fitree E) where
   pure := Fitree.ret
   bind := Fitree.bind
@@ -165,7 +162,7 @@ theorem Fitree_monad_right_identity (ma: Fitree E α):
   simp;
   funext x; -- classical
   unfold Fitree.bind;
-  case Vis IH => 
+  case Vis IH =>
   apply IH;
 }
 

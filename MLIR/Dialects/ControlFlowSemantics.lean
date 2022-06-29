@@ -21,19 +21,17 @@ inductive DummyE: Type → Type :=
   | False: DummyE Int
 
 def dummy_semantics_op: IOp Δ →
-      (Fitree (RegionE +' UBE +' DummyE) (BlockResult Δ))
-  | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => do
+      Option (Fitree (RegionE Δ +' UBE +' DummyE) (BlockResult Δ))
+  | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.Dummy
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
-  | IOp.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => do
+  | IOp.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.True
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
-  | IOp.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => do
+  | IOp.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.False
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
-  | _ => do
-    Fitree.trigger $ UBE.DebugUB "unknown dummy instruction"
-    return BlockResult.Ret []
+  | _ => none
 
 def DummyE.handle {E}: DummyE ~> Fitree E :=
   fun _ e =>
@@ -62,28 +60,24 @@ inductive ControlFlowOp: Type → Type :=
   | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowOp Unit
 
 def cfSemanticsOp: IOp Δ →
-      (Fitree (RegionE +' UBE +' ControlFlowOp) (BlockResult Δ))
-  | IOp.mk "cf.br" [] [bbname] 0 _ _ => do
+      Option (Fitree (RegionE Δ +' UBE +' ControlFlowOp) (BlockResult Δ))
+  | IOp.mk "cf.br" [] [bbname] 0 _ _ => some do
       return BlockResult.Branch bbname []
-  | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => do
+  | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => some do
       return BlockResult.Branch
         (if condval.toUint != 0 then bbtrue else bbfalse) []
-  | IOp.mk "cf.ret" args [] 0 _ _ =>
+  | IOp.mk "cf.ret" args [] 0 _ _ => some <|
        return BlockResult.Ret args
   | IOp.mk "cf.assert" [⟨.i1, arg⟩] [] 0 attrs _ =>
       match attrs.find "msg" with
-      | some (.str str) => do
+      | some (.str str) => some do
              Fitree.trigger $ ControlFlowOp.Assert arg str
              return BlockResult.Next ⟨.unit, ()⟩
-      | none => do
+      | none => some do
             Fitree.trigger $ ControlFlowOp.Assert arg "<assert failed>"
             return BlockResult.Next ⟨.unit, ()⟩
-      | _ => do 
-           Fitree.trigger (UBE.UB)
-           return (BlockResult.Ret [])
-  | _ => do
-           Fitree.trigger (UBE.UB)
-           return (BlockResult.Ret [])
+      | _ => none
+  | _ => none
 
 
 -- Default pure handler

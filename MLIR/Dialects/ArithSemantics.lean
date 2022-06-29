@@ -64,12 +64,10 @@ inductive ArithE: Type → Type :=
           (lhs rhs: Vector sc fx (.int sgn sz)) →
           ArithE (Vector sc fx (.int sgn sz))
 
-def arith_semantics_op:
-    IOp Δ → Fitree (RegionE +' UBE +' ArithE) (BlockResult Δ)
- --  -- interesting, this is a case where we need the op (result) type?
- -- actually, this is wrong! As per MLIR semantics, we must have the attribute type be equal
- -- to the return type. 
-  | IOp.mk "arith.constant" [] [] 0 attrs (.fn (.tuple []) τ₁) =>
+def arith_semantics_op: IOp Δ →
+    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ))
+
+  | IOp.mk "arith.constant" [] [] 0 attrs (.fn (.tuple []) τ₁) => some <|
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
           if τ₁ = τ₂ then
@@ -78,21 +76,22 @@ def arith_semantics_op:
                 -- TODO: Check range of constants
                 let v := FinInt.ofInt sgn sz value
                 return BlockResult.Next ⟨.int sgn sz, v⟩
-            | _ => do 
+            | _ => do
                 Fitree.trigger $ UBE.DebugUB "non maching width of arith.const"
-                return BlockResult.Ret []    
-          else do 
+                return BlockResult.Ret []
+          else do
                 Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
-                return BlockResult.Ret []    
-
+                return BlockResult.Ret []
       | _ => do
             Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
-            return BlockResult.Ret []    
-  | IOp.mk "arith.cmpi" [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0 attrs _ =>
+            return BlockResult.Ret []
+
+  | IOp.mk "arith.cmpi" [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
+    attrs _ => some <|
       if EQ: sgn = sgn' /\ sz = sz' then
             match attrs.find "predicate" with
             | some (.int n (.int .Signless 64)) => do
-                match (ComparisonPred.ofInt n) with 
+                match (ComparisonPred.ofInt n) with
                 | some pred => do
                   have rhs' : (MLIRType.int sgn sz).eval := by {
                      cases EQ;
@@ -102,31 +101,27 @@ def arith_semantics_op:
                   }
                   let r ← Fitree.trigger (ArithE.CmpI sz pred lhs rhs')
                   return BlockResult.Next ⟨.i1, r⟩
-                | none => 
+                | none =>
                   Fitree.trigger $ UBE.DebugUB "unable to create ComparisonPred"
-                  return BlockResult.Ret []    
-            | _ => do 
+                  return BlockResult.Ret []
+            | _ => do
                 Fitree.trigger $ UBE.DebugUB "unable to find predicate"
-                return BlockResult.Ret []    
+                return BlockResult.Ret []
       else do
         Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (cmp)"
         return BlockResult.Ret []
-  | IOp.mk "arith.addi" [⟨.int sgn sz, lhs⟩, ⟨ .int sgn' sz', rhs⟩] [] 0 _ _ => do
-      if EQ: sgn = sgn' /\ sz = sz' then 
-          have rhs' : (MLIRType.int sgn sz).eval := by {
-             cases EQ;
-             case intro left right =>
-             simp [left, right];
-             exact rhs;
-          }
+
+  | IOp.mk "arith.addi" [⟨.int sgn sz, lhs⟩, ⟨ .int sgn' sz', rhs⟩] [] 0 _ _ => some do
+      if EQ: sgn = sgn' /\ sz = sz' then
+          have rhs': (MLIRType.int sgn sz).eval := by (
+            simp [EQ.1, EQ.2];
+            exact rhs)
           let r ← Fitree.trigger (ArithE.AddI sz lhs rhs')
           return BlockResult.Next ⟨.int sgn sz, r⟩
-      else 
+      else
         Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (add)"
         return BlockResult.Ret []
-  | _ => do
-        Fitree.trigger $ UBE.DebugUB "unknown arith op"
-        return BlockResult.Ret []
+  | _ => none
 
 def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
   match e with
@@ -173,7 +168,7 @@ private def cst1: BasicBlock arith := [mlir_bb|
     %b2 = "arith.cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
 ]
 
-#eval run (Gδ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
+#eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
 
 
 /-
@@ -187,7 +182,7 @@ private def add2: BasicBlockStmt arith := [mlir_bb_stmt|
   %r = "arith.addi"(%m, %n): (i32, i32) -> i32
 ]
 
-theorem add_commutative:
+/- theorem add_commutative:
   forall (n m: FinInt 32),
     run ⟦add1⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] =
     run ⟦add2⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] := by
@@ -198,3 +193,4 @@ theorem add_commutative:
   simp [interp_ub!]; simp_itree
   simp [interp_ssa]; simp_itree
   simp [FinInt.add_comm]
+-/
