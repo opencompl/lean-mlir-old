@@ -93,13 +93,7 @@ def arith_semantics_op: IOp Δ →
             | some (.int n (.int .Signless 64)) => do
                 match (ComparisonPred.ofInt n) with
                 | some pred => do
-                  have rhs' : (MLIRType.int sgn sz).eval := by {
-                     cases EQ;
-                     case intro left right =>
-                     simp [left, right];
-                     exact rhs;
-                  }
-                  let r ← Fitree.trigger (ArithE.CmpI sz pred lhs rhs')
+                  let r ← Fitree.trigger (ArithE.CmpI sz pred lhs (EQ.2 ▸ rhs))
                   return BlockResult.Next ⟨.i1, r⟩
                 | none =>
                   Fitree.trigger $ UBE.DebugUB "unable to create ComparisonPred"

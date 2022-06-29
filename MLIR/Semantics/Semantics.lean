@@ -67,7 +67,7 @@ end IOpCoe
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α' σ' ε'): Type -> Type
-| runRegion (ix: Nat): RegionE Δ (BlockResult Δ)
+| RunRegion (ix: Nat): RegionE Δ (BlockResult Δ)
 
 class Semantics (δ: Dialect α σ ε)  where
   -- Events modeling the dialect's computational behavior. Usually operations
@@ -120,7 +120,7 @@ def denoteOp (op: Op Δ):
       | some t =>
           interp (fun _ e =>
             match e with
-            | Sum.inl (RegionE.runRegion ix) => regions.get! ix
+            | Sum.inl (RegionE.RunRegion ix) => regions.get! ix
             | Sum.inr <| Sum.inl ube => Fitree.trigger ube
             | Sum.inr <| Sum.inr se => Fitree.trigger se
           ) t
@@ -219,10 +219,18 @@ def semanticsRegion {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
 
 
 
-def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
+def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
     (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
     R × SSAEnv Δ :=
   let t := interp_ub! t
+  let t := interp_ssa t env
+  let t := interp S.handle t
+  t.run
+
+def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
+    (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
+    Option R × SSAEnv Δ :=
+  let t := interp_ub t
   let t := interp_ssa t env
   let t := interp S.handle t
   t.run
