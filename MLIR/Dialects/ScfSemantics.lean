@@ -39,8 +39,8 @@ def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: I
 -- | TODO: refactor to (1) an effect, (2) an interpretation
 #check Signedness
 def semantics_op:
-    IOp scf →
-    Fitree (RegionE +' UBE +' (SSAEnvE scf) +' ScfE) (BlockResult scf)
+    IOp Δ →
+    Fitree (RegionE +' UBE +' (SSAEnvE Δ) +' ScfE) (BlockResult Δ)
   | IOp.mk "scf.for" [⟨.int .Signless 32, lo⟩, ⟨.int .Signless 32, hi⟩, ⟨.int .Signless 32, step⟩] [] 1 _ _ => do 
     let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
     let out <- run_loop_bounded (a := PUnit)

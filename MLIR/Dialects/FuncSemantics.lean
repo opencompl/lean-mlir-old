@@ -17,7 +17,7 @@ instance func_: Dialect Void Void (fun x => Unit) where
   iε := inferInstance
 
 def funcSemanticsOp:
-    IOp func_ → Fitree (RegionE +' UBE +' SSAEnvE func_ +' PVoid) (BlockResult func_)
+    IOp Δ → Fitree (RegionE +' UBE +' SSAEnvE Δ +' PVoid) (BlockResult Δ)
 
   | IOp.mk "func.return" args [] 0 _ _ =>
        return .Ret args

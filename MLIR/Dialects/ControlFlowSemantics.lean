@@ -20,8 +20,8 @@ inductive DummyE: Type → Type :=
   | True: DummyE Int
   | False: DummyE Int
 
-def dummy_semantics_op: IOp dummy →
-      (Fitree (RegionE +' UBE +' SSAEnvE dummy +' DummyE) (BlockResult dummy))
+def dummy_semantics_op: IOp Δ →
+      (Fitree (RegionE +' UBE +' SSAEnvE Δ +' DummyE) (BlockResult Δ))
   | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => do
       let i ← Fitree.trigger DummyE.Dummy
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
@@ -61,8 +61,8 @@ instance cf: Dialect Void Void (fun x => Unit) where
 inductive ControlFlowOp: Type → Type :=
   | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowOp Unit
 
-def cfSemanticsOp: IOp cf →
-      (Fitree (RegionE +' UBE +'SSAEnvE cf +' ControlFlowOp) (BlockResult cf))
+def cfSemanticsOp: IOp Δ →
+      (Fitree (RegionE +' UBE +'SSAEnvE Δ +' ControlFlowOp) (BlockResult Δ))
   | IOp.mk "cf.br" [] [bbname] 0 _ _ => do
       return BlockResult.Branch bbname []
   | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => do
@@ -136,7 +136,7 @@ def false_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
 def ex_branch_true: Region dummy := [mlir_region| {
   ^entry:
     %x = "dummy.true" () : () -> i1
-    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : ()
+    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
 
   ^bbtrue:
     %y = "dummy.dummy" () : () -> i32
@@ -153,7 +153,7 @@ def ex_branch_true: Region dummy := [mlir_region| {
 def ex_branch_false := [mlir_region| {
   ^entry:
     %x = "dummy.false" () : () -> i1
-    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : ()
+    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
 
   ^bbtrue:
     %y = "dummy.dummy" () : () -> i32
