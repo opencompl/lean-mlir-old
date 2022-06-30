@@ -87,32 +87,35 @@ def SSAScope.maps (l: SSAScope) (name: SSAVal) (τ: MLIRTy) (v: τ.eval) :=
 
 -- SSAEnv
 
-def SSAEnv (δ: Dialect α σ ε) :=
-  List (SSAScope δ)
+inductive SSAEnv (δ: Dialect α σ ε) :=
+  | One (scope: SSAScope δ)
+  | Cons (head: SSAScope δ) (tail: SSAEnv δ)
 
 -- An SSA environment with a single empty SSAScope
-def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := [[]]
+def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := One []
 
 def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
-  "---\n".intercalate <| env.map toString
+  match env with
+  | One s => s.toString
+  | Cons head tail => head.toString ++ "---\n" ++ tail.str
 
 instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
   toString := SSAEnv.str
 
 def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
   SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
-  | [] => none
-  | l :: s => l.getT name <|> getT name s
+  | One s => s.getT name
+  | Cons s l => s.getT name <|> getT name l
 
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   SSAEnv δ → Option τ.eval
-  | [] => none
-  | l :: s => l.get name τ <|> get name τ s
+  | One s => s.get name τ
+  | Cons s l => s.get name τ <|> get name τ l
 
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
-  | [] => [] -- cannot happen in practice
-  | l :: s => l.set name τ v :: s
+  | One s => One (s.set name τ v)
+  | Cons s l => Cons (s.set name τ v) l
 
 instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
   fun ⟨τ₁, v₁⟩ ⟨τ₂, v₂⟩ =>
