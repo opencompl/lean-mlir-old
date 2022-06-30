@@ -95,17 +95,6 @@ inductive Fitree (E: Type → Type) (R: Type) where
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
 
--- Coerce an Fitree along a member
-@[simp_itree]
-def Fitree.coe_member {E: Type → Type} {F: Type → Type} {T} [Member E F]
-    (fe: Fitree E T): Fitree F T :=
-  match fe with
-  | Ret r => Ret r
-  | Vis et k => Vis (Member.inject _ et) (fun t => coe_member (k t))
-
-instance [Member E F] : Coe (Fitree E T) (Fitree F T) where
-  coe := Fitree.coe_member
-
 @[simp_itree]
 def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
@@ -117,7 +106,6 @@ def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   | Ret r => k r
   | Vis e k' => Vis e (fun r => bind (k' r) k)
 
-#check Functor
 def Fitree.map {E } (f: α → β) (fa: Fitree E α): Fitree E β :=
    match fa with
    | .Ret r => .Ret (f r)
@@ -254,4 +242,7 @@ elab "simp_itree" : tactic => do
   let lemmas := (← SimpItreeExtension.getTheorems).toUnfold.fold
     (init := #[]) (fun acc n => acc.push (toSimpLemma n))
   evalTactic $ ← `(tactic|simp [$lemmas.reverse,*,
-    Member.inject, StateT.bind, StateT.pure, bind, pure, cast_eq])
+    Member.inject,
+    StateT.bind, StateT.pure, StateT.lift,
+    OptionT.bind, OptionT.pure, OptionT.mk, OptionT.lift,
+    bind, pure, cast_eq, Eq.mpr])

@@ -176,15 +176,14 @@ private def add2: BasicBlockStmt arith := [mlir_bb_stmt|
   %r = "arith.addi"(%m, %n): (i32, i32) -> i32
 ]
 
-/- theorem add_commutative:
+theorem add_commutative:
   forall (n m: FinInt 32),
     run ⟦add1⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] =
     run ⟦add2⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] := by
   intros n m
   simp [Denote.denote]
-  simp [run, denoteBBStmt, denoteOp, denoteOp]
-  simp [arith_semantics_op, Semantics.handle, add1, add2];
-  simp [interp_ub!]; simp_itree
+  simp [run, add1, add2, denoteBBStmt, denoteOp]
+  simp [interp_ub]; simp_itree
   simp [interp_ssa]; simp_itree
+  simp [Semantics.handle, ArithE.handle]; simp_itree
   simp [FinInt.add_comm]
--/
