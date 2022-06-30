@@ -52,8 +52,11 @@ def SSAScope.get {δ: Dialect α σ ε} (name: SSAVal):
   SSAScope δ → (τ: MLIRType δ) → Option τ.eval
   | [], _ => none
   | ⟨name', τ', v'⟩ :: l, τ =>
-      if H: name' = name && τ' = τ then
-        some (cast (by simp at H; simp [H]) v')
+      if H: name' = name then
+        if H': τ' = τ then
+          some (cast (by simp [H']) v')
+        else
+          none
       else get name l τ
 
 @[simp]
