@@ -183,7 +183,8 @@ theorem add_commutative:
   intros n m
   simp [Denote.denote]
   simp [run, add1, add2, denoteBBStmt, denoteOp]
-  simp [interp_ub]; simp_itree
-  simp [interp_ssa]; simp_itree
-  simp [Semantics.handle, ArithE.handle]; simp_itree
+  simp [interp_ub, SSAEnv.get]; simp_itree
+  simp [interp_ssa, SSAEnv.get]; simp_itree
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
   simp [FinInt.add_comm]

@@ -99,19 +99,16 @@ def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
 instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
   toString := SSAEnv.str
 
-@[simp]
 def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
   SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
   | [] => none
   | l :: s => l.getT name <|> getT name s
 
-@[simp]
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   SSAEnv δ → Option τ.eval
   | [] => none
   | l :: s => l.get name τ <|> get name τ s
 
-@[simp]
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
   | [] => [] -- cannot happen in practice

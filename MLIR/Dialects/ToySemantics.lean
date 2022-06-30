@@ -158,6 +158,7 @@ theorem double_transpose_correct:
   unfold double_transpose
   simp
   simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
-  simp [interp_ub!]; simp_itree
-  simp [interp_ssa]; simp_itree
+  simp [interp_ub!, interp_ssa]; simp_itree
+  simp [SSAEnv.get, SSAEnv.set]; simp_itree
+  simp [SSAEnv.get, SSAEnv.set]; simp_itree
   rw [transpose_involutive]
