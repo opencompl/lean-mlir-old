@@ -20,20 +20,17 @@ inductive DummyE: Type → Type :=
   | True: DummyE Int
   | False: DummyE Int
 
-def dummy_semantics_op {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} (ret: Option SSAVal):
-      Op Gδ → Option (Fitree (SSAEnvE Gδ +' DummyE) (BlockResult Gδ))
-  | Op.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
+def dummy_semantics_op: IOp Δ →
+      Option (Fitree (RegionE Δ +' UBE +' DummyE) (BlockResult Δ))
+  | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.Dummy
-      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
-  | Op.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
+  | IOp.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.True
-      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
-  | Op.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
+  | IOp.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.False
-      SSAEnv.set? (δ := Gδ) (.int sgn sz) ret (.ofInt sgn sz i)
-      return BlockResult.Next
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
   | _ => none
 
 def DummyE.handle {E}: DummyE ~> Fitree E :=
@@ -62,30 +59,26 @@ instance cf: Dialect Void Void (fun x => Unit) where
 inductive ControlFlowOp: Type → Type :=
   | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowOp Unit
 
-def cf_semantics_op (ret_name: Option SSAVal):
-      Op Gδ → Option (Fitree (SSAEnvE Gδ +' ControlFlowOp) (BlockResult Gδ))
-  | Op.mk "cf.br" [] [bbname] [] _ _ => some do
+def cfSemanticsOp: IOp Δ →
+      Option (Fitree (RegionE Δ +' UBE +' ControlFlowOp) (BlockResult Δ))
+  | IOp.mk "cf.br" [] [bbname] 0 _ _ => some do
       return BlockResult.Branch bbname []
-  | Op.mk "cf.condbr" [vcond] [bbtrue, bbfalse] _ _ _ => some do
-      let condval <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) .i1 vcond
+  | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => some do
       return BlockResult.Branch
         (if condval.toUint != 0 then bbtrue else bbfalse) []
-  | Op.mk "cf.ret" args [] [] _ (.fn (.tuple τs) _) =>
-      if args.length = τs.length then
-        some $ return BlockResult.Ret (List.zip args τs)
-      else none
-  | Op.mk "cf.assert" [arg] [] [] attrs (.fn (.tuple [.i1]) .unit) =>
+  | IOp.mk "cf.ret" args [] 0 _ _ => some <|
+       return BlockResult.Ret args
+  | IOp.mk "cf.assert" [⟨.i1, arg⟩] [] 0 attrs _ =>
       match attrs.find "msg" with
       | some (.str str) => some do
-        let arg <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) .i1 arg
-        Fitree.trigger $ ControlFlowOp.Assert arg str
-        return BlockResult.Next
+             Fitree.trigger $ ControlFlowOp.Assert arg str
+             return BlockResult.Next ⟨.unit, ()⟩
       | none => some do
-        let arg <- Fitree.trigger $ SSAEnvE.Get (δ := Gδ) .i1 arg
-        Fitree.trigger $ ControlFlowOp.Assert arg "<assert failed>"
-        return BlockResult.Next
+            Fitree.trigger $ ControlFlowOp.Assert arg "<assert failed>"
+            return BlockResult.Next ⟨.unit, ()⟩
       | _ => none
   | _ => none
+
 
 -- Default pure handler
 def ControlFlowOp.handle {E}: ControlFlowOp ~> Fitree E
@@ -101,7 +94,7 @@ def ControlFlowOp.handleLogged {E}: ControlFlowOp ~> WriterT (Fitree E)
 
 instance: Semantics cf where
   E := ControlFlowOp
-  semantics_op := cf_semantics_op
+  semantics_op := cfSemanticsOp
   handle := ControlFlowOp.handle
 
 /-
@@ -109,10 +102,10 @@ instance: Semantics cf where
 -/
 
 def run_dummy_cf_region: Region (dummy + cf) → String := fun r =>
-  runLogged (semantics_region 99 r) SSAEnv.empty |>.fst |>.snd
+  runLogged (semanticsRegion 99 r) SSAEnv.empty |>.fst |>.snd
 
 def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
-  let t := semantics_region 99 r
+  let t := semanticsRegion 99 r
   let t := interp_ub! t
   let t := interp_ssa t SSAEnv.empty
   let t: Fitree ControlFlowOp _ := interp (Fitree.case_ DummyE.handle
@@ -137,7 +130,7 @@ def false_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
 def ex_branch_true: Region dummy := [mlir_region| {
   ^entry:
     %x = "dummy.true" () : () -> i1
-    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : ()
+    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
 
   ^bbtrue:
     %y = "dummy.dummy" () : () -> i32
@@ -154,7 +147,7 @@ def ex_branch_true: Region dummy := [mlir_region| {
 def ex_branch_false := [mlir_region| {
   ^entry:
     %x = "dummy.false" () : () -> i1
-    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : ()
+    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
 
   ^bbtrue:
     %y = "dummy.dummy" () : () -> i32

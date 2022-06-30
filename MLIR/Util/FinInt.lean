@@ -87,6 +87,14 @@ def toSint (n: FinInt sz): Int :=
   | sz+1, .O m => m.toUint
   | sz+1, .I m => m.toUint - (2:Int)^sz
 
+-- | A variant of toSint that is defined at the singularity of
+-- zero bit-width based on https://reviews.llvm.org/D116413
+def toSint' (n: FinInt sz): Int :=
+  match sz, n with
+  | 0, .nil =>  0 -- is this sane?
+  | sz+1, .O m => m.toUint
+  | sz+1, .I m => m.toUint - (2:Int)^sz
+
 theorem toUint_ge_zero (n: FinInt sz): n.toUint ≥ 0 := by
   revert n; induction sz <;> intros n <;> cases n <;> simp
   case next sz bn n' ih =>
