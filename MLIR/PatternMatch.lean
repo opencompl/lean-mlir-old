@@ -203,7 +203,7 @@ match m with
     match eprev with
     | Left stx => return (Left stx)
     | Right prev =>
-      match name.isStrLit? with
+      match name.raw.isStrLit? with
       | some n => -- update focus
         if (prev.ops.contains n)
         then return Right ({ prev with focus := n })
@@ -215,7 +215,7 @@ match m with
     match eprev with
     | Left stx => return (Left stx)
     | Right prev =>
-      match kind.isStrLit? with
+      match kind.raw.isStrLit? with
       | some k => -- | update kind
         return Right ({ prev with kinds := prev.kinds.insert (prev.focus) k })
       | _ =>
@@ -226,7 +226,7 @@ match m with
     match eprev with
     | Left stx => return (Left stx)
     | Right prev =>
-      match (ix.isNatLit?, name.isStrLit?) with
+      match (ix.raw.isNatLit?, name.raw.isStrLit?) with
       | (some ix, some name) =>
         let args := match prev.opArgs.find? prev.focus with
           | none => RBMap.fromList [(ix, name)] compare
@@ -246,7 +246,7 @@ match m with
     match eprev with
     | Left stx => return (Left stx)
     | Right prev =>
-        match (oldrand.isStrLit?, newrand.isStrLit?) with
+        match (oldrand.raw.isStrLit?, newrand.raw.isStrLit?) with
         | (some oldrand, some newrand) =>
             match prev.replaceOpArg (prev.focus) oldrand newrand with
             | some matchinfo => return Right matchinfo
@@ -277,7 +277,7 @@ partial def stx_vgroup_strings (ss: Array String)
   let mut out <- `("")
   for s in ss do
     out :=  (<- `($out
-                  $newline
+                  $(⟨newline⟩)
                    $(Lean.quote s)))
   return out
 
@@ -384,7 +384,7 @@ Lean.PrettyPrinter.Unexpander :=  fun m =>
 match m with
 | `(built' $arg) => do
       unexpandMatch arg
-| unk => `("built_UNK" $unk)
+| unk => `("built_UNK" $(⟨unk⟩))
 
 
 -- | does not work, because exists is existential. need sigma type

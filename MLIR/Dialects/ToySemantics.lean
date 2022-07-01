@@ -155,10 +155,9 @@ theorem double_transpose_correct:
       (SSAVal.SSAVal "t3", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)
     ]) := by
   intros t1
-  unfold double_transpose
-  simp
   simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
-  simp [interp_ub!, interp_ssa]; simp_itree
+  simp [interp_ub!]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
   rw [transpose_involutive]

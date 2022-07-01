@@ -112,7 +112,7 @@ inductive AttrValue (δ: Dialect α σ ε) :=
 | nestedsymbol: AttrValue δ -> AttrValue δ -> AttrValue δ
 | alias: String -> AttrValue δ
 | dict: AttrDict δ -> AttrValue δ
-| opaque: (dialect: String) -> (value: String) -> AttrValue δ
+| opaque_: (dialect: String) -> (value: String) -> AttrValue δ
 | opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRType δ) -> AttrValue δ
 | unit: AttrValue δ
 | extended: α → AttrValue δ
@@ -303,7 +303,7 @@ private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
   | .nestedsymbol a₁ a₂ => .nestedsymbol (coeAttrValue a₁) (coeAttrValue a₂)
   | .alias s => .alias s
   | .dict d => .dict (coeAttrDict d)
-  | .opaque d v => .opaque d v
+  | .opaque_ d v => .opaque_ d v
   | .opaqueElements d v τ => .opaqueElements d v τ
   | .unit => .unit
   | .extended a => .extended (c.coe_α _ _ a)
@@ -446,7 +446,7 @@ partial def docAttrVal: AttrValue δ → Doc
   | .list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map docAttrVal) ", ") ++ "]"
   | .alias a => "#" ++ a
   | .dict d => docAttrDict d
-  | .opaque dialect val => [doc| "#" (dialect) "<"  (val) ">"]
+  | .opaque_ dialect val => [doc| "#" (dialect) "<"  (val) ">"]
   | .opaqueElements dialect val ty => [doc| "#opaque<" (dialect) ","  (val) ">" ":" (docMLIRType ty)]
   | .unit => "()"
   | .extended a => DialectAttrIntf.str a

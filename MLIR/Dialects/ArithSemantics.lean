@@ -184,7 +184,7 @@ theorem add_commutative:
   simp [Denote.denote]
   simp [run, add1, add2, denoteBBStmt, denoteOp]
   simp [interp_ub, SSAEnv.get]; simp_itree
-  simp [interp_ssa, SSAEnv.get]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [FinInt.add_comm]

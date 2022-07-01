@@ -305,10 +305,10 @@ syntax "[docLine|" docline "]" : term
 
 macro_rules
 | `([docLine| $p:pipes  $x:docstx]) => do
-      let str := p.reprint
+      let str := p.raw.reprint
       match str with
       | some str => do
-          let x := Lean.quote str
+          let x := (Lean.quote str: Lean.TSyntax Lean.strLitKind).raw
           `([doc| "SUCCESS"])
       | none => `([doc| "ERROR"])
 

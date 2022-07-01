@@ -117,7 +117,6 @@ theorem reflect_OpValid_opValid (o : Op builtin) (v: OpVerifier) :
 
 
 
-@[simp]
 class DialectOps (Ops : Type) where
   enumerate : List Ops
   verifier : Ops -> OpVerifier

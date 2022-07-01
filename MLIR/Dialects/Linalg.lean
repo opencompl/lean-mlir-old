@@ -99,6 +99,9 @@ syntax "linalg.generic" mlir_attr_dict "ins" linalg_arglist "outs" linalg_arglis
 set_option hygiene false in -- need to disable hygiene for i32 expansion.
 macro_rules
 | `([mlir_op| linalg.generic $attrs ins ($invs,* : $intys,*) outs ($outvs,* : $outtys,*) $rgn]) => do
+   -- Force retype
+   let intys: Lean.Syntax.TSepArray `mlir_type "," := ⟨intys⟩
+   let outtys: Lean.Syntax.TSepArray `mlir_type "," := ⟨outtys⟩
    let initList <- `([])
    let argsList <- (invs.getElems ++ outvs.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_op_operand| $x]])
    let tysList <- (intys.getElems ++ outtys.getElems).foldlM (init := initList) fun xs x => `($xs ++ [[mlir_type| $x]])
@@ -160,7 +163,7 @@ macro_rules
   match splits with
   | x::xs => do
     let fst <- `(EinLeaf.Sym $(Lean.quote x))
-    xs.foldlM (fun e ix => `(EinLeaf.Lower $e $(Lean.quote ix))) fst
+    xs.foldlM (fun e ix => `(EinLeaf.Lower $(⟨e⟩) $(Lean.quote ix))) fst
   | _ => `(EinLeaf.Sym "will never reach ein_leaf")
 
 
@@ -170,7 +173,7 @@ macro_rules
   match splits with
   | ix::ixs => do
       let fst <- `(EinLeaf.Upper [ein_leaf| $x] $(Lean.quote ix))
-      ixs.foldlM (fun e ixcur => `(EinLeaf.Lower $e $(Lean.quote ixcur))) fst
+      ixs.foldlM (fun e ixcur => `(EinLeaf.Lower $(⟨e⟩) $(Lean.quote ixcur))) fst
   | _ => `(Ein.Sym "will never reach ein_leaf")
 
 def leaf0 : EinLeaf := [ein_leaf| x]

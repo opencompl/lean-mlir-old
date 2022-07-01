@@ -241,7 +241,9 @@ elab "simp_itree" : tactic => do
   -- TODO: Also handle .lemmaNames, not just unfolding!
   let lemmas := (← SimpItreeExtension.getTheorems).toUnfold.fold
     (init := #[]) (fun acc n => acc.push (toSimpLemma n))
-  evalTactic $ ← `(tactic|simp [$lemmas.reverse,*,
+  let trlemmas: Syntax.TSepArray `Lean.Parser.Tactic.simpStar "," :=
+    ⟨lemmas.reverse⟩
+  evalTactic $ ← `(tactic|simp [$trlemmas,*,
     Member.inject,
     StateT.bind, StateT.pure, StateT.lift,
     OptionT.bind, OptionT.pure, OptionT.mk, OptionT.lift,

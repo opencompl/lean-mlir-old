@@ -21,7 +21,7 @@ open Lean.Elab
 open Lean.Meta
 
 elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> falseVal) ")") term:term : command =>
-  let skipProofs := skipProofs[3].isOfKind ``trueVal
+  let skipProofs := skipProofs.raw[3].isOfKind ``trueVal
   withoutModifyingEnv <| runTermElabM (some `_check) fun _ => do
     -- dbg_trace term
     let e ← Term.elabTerm term none

@@ -141,8 +141,8 @@ def MLIR.EDSL.balancedBracketsParenthesizer : Parenthesizer := pure ()
 
 
 macro "[balanced_brackets|" xs:balancedBrackets "]" : term => do
-  match xs[0] with
-  | .atom _ val => return Lean.quote val
+  match xs.raw[0] with
+  | .atom _ val => return (Lean.quote val: TSyntax `str)
   | _  => Macro.throwError "expected balanced bracts to have atom"
 
 
@@ -166,7 +166,7 @@ def quoteMDimension (d: Dimension): MacroM Syntax :=
   | Dimension.Unknown => `(Dimension.Unknown)
 
 
-def quoteMList (k: List Syntax) (ty: Syntax): MacroM Syntax :=
+def quoteMList (k: List (TSyntax `term)) (ty: TSyntax `term): MacroM (TSyntax `term) :=
   match k with
   | [] => `(@List.nil $ty)
   | (k::ks) => do
@@ -423,11 +423,12 @@ def string_to_dimension (s: String): MacroM Dimension := do
 
 -- | TODO: assert that the string we get is of the form x3x4x?x2...
 -- that is, interleaved x and other stuff.
-def parseTensorDimensionList (k: Syntax) : MacroM (Syntax × Syntax) := do
+def parseTensorDimensionList (k: Syntax) : MacroM (TSyntax `term × TSyntax `term) := do
 
-  let ty <- `([mlir_type|  $(k.getArgs.back)])
+  let ty <- `([mlir_type|  $(⟨k.getArgs.back⟩)])
   let dimensions := (k.getArg 0)
-  let dimensions <- dimensions.getArgs.toList.mapM (fun x => `([mlir_dimension| $(x.getArg 0)]))
+  let dimensions <- dimensions.getArgs.toList.mapM (fun x =>
+    `([mlir_dimension| $(⟨x.getArg 0⟩)]))
   let dimensions <- quoteMList dimensions (<- `(MLIR.AST.Dimension))
   -- Macro.throwError $ ("unknown dimension list:\n|" ++ (toString k.getArgs) ++ "|" ++ "\nDIMS: " ++ (toString dimensions) ++ " |\nTYPE: " ++ (toString ty)++ "")
   return (dimensions, ty)
@@ -461,7 +462,7 @@ syntax sepBy(numLit, "×", "×" notFollowedBy(mlir_type <|> "[")) : static_dim_l
 syntax "[static_dim_list|" static_dim_list "]" : term
 macro_rules
 | `([static_dim_list| $[ $ns:num ]×* ]) => do
-      quoteMList ns.toList (<- `(Nat))
+      quoteMList (ns.toList.map (⟨·.raw⟩)) (<- `(Nat))
 
 -- vector-dim-list := (static-dim-list `x`)? (`[` static-dim-list `]` `x`)?
 declare_syntax_cat vector_dim_list
@@ -618,8 +619,10 @@ syntax (mlir_bb_stmt)* : mlir_bb_stmts
 syntax "[mlir_bb_stmts|" mlir_bb_stmts "]" : term
 macro_rules
 | `([mlir_bb_stmts| $[ $stmts ]*  ]) => do
-      let initList <- `(@List.nil (MLIR.AST.BasicBlockStmt Dialect.empty))
-      stmts.foldrM (init := initList) fun x xs => `([mlir_bb_stmt|$x] :: $xs)
+      let initList: TSyntax `term <- `(@List.nil (MLIR.AST.BasicBlockStmt Dialect.empty))
+      let l ← stmts.foldrM (init := initList)
+        fun x (xs: TSyntax `term) => `([mlir_bb_stmt|$x] :: $xs)
+      return l
 
 macro_rules
   | `([mlir_bb_stmts| $$($q)]) => `(coe $q)
@@ -692,7 +695,7 @@ macro_rules
 | `([mlir_tensor| $x:num ]) => `(TensorElem.int $x)
 
 macro_rules
-| `([mlir_tensor| $x:scientific ]) => `(TensorElem.float $x)
+| `([mlir_tensor| $x:scientific ]) => `(TensorElem.float $(⟨x⟩))
 
 macro_rules
 | `([mlir_tensor| $x:ident ]) => do
@@ -761,12 +764,12 @@ macro_rules
 macro_rules
 | `([mlir_attr_val| # $dialect:ident < $opaqueData:str > ]) => do
   let dialect := Lean.quote dialect.getId.toString
-  `(AttrValue.opaque $dialect $opaqueData)
+  `(AttrValue.opaque_ $dialect $opaqueData)
 
 macro_rules
 | `([mlir_attr_val| #opaque< $dialect:ident, $opaqueData:str> : $t:mlir_type ]) => do
   let dialect := Lean.quote dialect.getId.toString
-  `(AttrValue.opaqueElementsAttr $dialect $opaqueData $t)
+  `(AttrValue.opaqueElementsAttr $dialect $opaqueData $(⟨t⟩))
 
 macro_rules
   | `([mlir_attr_val| $s:str]) => `(AttrValue.str $s)
@@ -866,8 +869,8 @@ def attrVal9Alias : AttrVal := [mlir_attr_val| #a ]
 #reduce attrVal9Alias
 
 macro_rules
-| `([mlir_attr_val|  $x:scientific ]) => `(AttrValue.float $x (MLIRType.float 64))
-| `([mlir_attr_val| $x:scientific : $t:mlir_type]) => `(AttrValue.float $x [mlir_type| $t])
+| `([mlir_attr_val|  $x:scientific ]) => `(AttrValue.float $(⟨x⟩) (MLIRType.float 64))
+| `([mlir_attr_val| $x:scientific : $t:mlir_type]) => `(AttrValue.float $(⟨x⟩) [mlir_type| $t])
 
 
 -- def attrVal10Float : AttrVal := [mlir_attr_val| 0.000000e+00  ]

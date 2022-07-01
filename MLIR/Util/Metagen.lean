@@ -42,15 +42,17 @@ def BB.toString: BB → String
 
 --
 
-
 -- We want to generate commands based on data structures after reduction and
 -- evaluation. But evalExpr is unsafe so elab_rules refuses it. We insist.
-@[implementedBy evalExpr] -- HACK
-def evalExprSafe (α) (typeName: Name) (value: Expr): TermElabM α :=
+@[implementedBy evalExpr'] -- HACK
+def evalExprSafe (α) (typeName: Name) (value: Expr)
+    (safety := DefinitionSafety.safe): MetaM α :=
   throwError "trust me evalExpr is safe enough"
 
 -- Variation of evalExpr that supports non-constant types.
 -- | TODO: Find out how to reflect `α` into `expectedType`
+-- TODO: Apparently evalExpr now does this; evalExpr' replaces the old
+-- TODO: evalExpr that expected a type name
 unsafe def evalExprAnyType (α: Type) (expectedType: Expr) (value: Expr):
     TermElabM α :=
   withoutModifyingEnv do
