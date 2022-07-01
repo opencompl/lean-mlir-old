@@ -415,7 +415,7 @@ def matchMNat {δ: Dialect α σ ε} (mNat: MTerm δ) (nat: Nat)
   | .ConstNat mNat => if nat == mNat then some ctx else none
   | _ => none
 
--- Match a nat with a MTerm.
+-- Match a type with a MTerm.
 def matchMType (mType: MTerm δ) (type: MLIRType δ)
                (ctx: VarCtx δ): Option (VarCtx δ) :=
   match mType, type with
