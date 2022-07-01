@@ -20,32 +20,30 @@ These are simply typed equalities which make up the core of a unification
 problem. They can be constructed mistyped, but we check them.
 -/
 
-def UEq := MTerm × MTerm
+def UEq (δ: Dialect α σ ε) := MTerm δ × MTerm δ
 
 -- Common instances
 
-deriving instance Inhabited for UEq
-
-def UEq.str: UEq → String
+def UEq.str: UEq δ → String
   | (left, right) => s!"{left} ≡ {right}"
 
-instance: ToString UEq where
+instance: ToString (UEq δ) where
   toString := UEq.str
 
-def UEq.inferSort (eq: UEq): Option MSort := do
+def UEq.inferSort (eq: UEq δ): Option MSort := do
   let s₁ ← eq.1.inferSort
   let s₂ ← eq.2.inferSort
   if s₁ = s₂ then some s₁ else none
 
 -- Extensions of functions on matching patterns
 
-def UEq.vars (eq: UEq): List String :=
+def UEq.vars (eq: UEq δ): List String :=
   eq.1.vars ++ eq.2.vars
 
-def UEq.occurs (eq: UEq) (name: String): Bool :=
+def UEq.occurs (eq: UEq δ) (name: String): Bool :=
   eq.1.occurs name || eq.2.occurs name
 
-def UEq.subst (eq: UEq) (name: String) (repl: MTerm): UEq :=
+def UEq.subst (eq: UEq δ) (name: String) (repl: MTerm δ): UEq δ :=
   (eq.1.subst name repl, eq.2.subst name repl)
 
 /-
@@ -56,33 +54,33 @@ number of elements related to the resolution, including the original set of
 equations and the substitutions that form the most general unifier.
 -/
 
-structure Unification where mk ::
+structure Unification (δ: Dialect α σ ε) where mk ::
   -- Original set of equations
-  initial_equations: List UEq := []
+  initial_equations: List (UEq δ) := []
   -- Current set of equations
-  equations: List UEq := []
+  equations: List (UEq δ) := []
   -- Substitutions performed so far. These are restricted to have variables as
   -- the left hand of every equality.
   -- TODO: More specific definition of Unification.substs?
-  substs: List UEq := []
+  substs: List (UEq δ) := []
 
 -- Common instances
 
 deriving instance Inhabited for Unification
 
-def Unification.empty: Unification :=
+def Unification.empty: Unification δ :=
   default
 
-def Unification.str (u: Unification): String :=
+def Unification.str (u: Unification δ): String :=
   if u.equations.isEmpty then
     "(empty unification problem: no equations)"
   else
     "\n".intercalate (u.equations.map toString)
 
-instance: ToString Unification where
+instance: ToString (Unification δ) where
   toString := Unification.str
 
-def Unification.repr (u: Unification): String :=
+def Unification.repr (u: Unification δ): String :=
   "Initial equations:\n" ++
     (String.join $ u.initial_equations.map (s!"  {·}\n")) ++
   "Current equations:\n" ++
@@ -125,7 +123,7 @@ We run the rules below till fixpoint:
 -- We also orient equations [y = x] if y is a variable with a higher
 -- substitution priority than x.
 
-private def orientOne (eq: UEq): IO (UEq × Bool) :=
+private def orientOne (eq: UEq δ): IO (UEq δ × Bool) :=
   match eq with
   -- Orient to substitute automatically generated names first
   | (.Var p₁ n₁ s₁, .Var p₂ n₂ s₂) =>
@@ -141,7 +139,7 @@ private def orientOne (eq: UEq): IO (UEq × Bool) :=
   | _ =>
       return (eq, false)
 
-private def orient (equations: List UEq): IO (List UEq × Bool) :=
+private def orient (equations: List (UEq δ)): IO (List (UEq δ) × Bool) :=
   equations.foldlM
     (fun (done, b) eq => do
       let (eq, b') ← orientOne eq
@@ -150,21 +148,21 @@ private def orient (equations: List UEq): IO (List UEq × Bool) :=
 
 -- ERASE: remove equation [x = x] where x is a variable
 
-private def eraseFilter: UEq → Bool
+private def eraseFilter: UEq δ → Bool
   | (.Var p₁ n₁ s₁, .Var p₂ n₂ s₂) =>
       -- Keep mistyped equations so they cause errors when analyzed later
       n₁ = n₂ && s₁ = s₂
   | _ =>
       false
 
-private def erase (equations: List UEq): List UEq × Bool :=
+private def erase (equations: List (UEq δ)): List (UEq δ) × Bool :=
   let equations' := equations.filter (! eraseFilter ·)
   (equations', equations'.length != equations.length)
 
 -- REDUCE: reduce [ctor args... = ctor' args'...] to equality of arguments (or
 -- no solution if the constructors or argument counts differ)
 
-private def reduceOne (eq: UEq): IO (Option (List UEq × Bool)) :=
+private def reduceOne (eq: UEq δ): IO (Option (List (UEq δ) × Bool)) :=
   match eq with
   | (.App ctor₁ args₁, .App ctor₂ args₂) => do
       if MCtor.eq ctor₁ ctor₂ && args₁.length == args₂.length then
@@ -175,7 +173,7 @@ private def reduceOne (eq: UEq): IO (Option (List UEq × Bool)) :=
   | eq =>
       return some ([eq], false)
 
-private def reduce (equations: List UEq): IO (Option (List UEq × Bool)) :=
+private def reduce (equations: List (UEq δ)): IO (Option (List (UEq δ) × Bool)) :=
   equations.foldlM
     (fun acc eq => do
        match ← reduceOne eq with
@@ -188,8 +186,8 @@ private def reduce (equations: List UEq): IO (Option (List UEq × Bool)) :=
 -- ELIM: eliminate [x = t] by substituting x if it's used elsewhere and does
 -- not occur in t (no solution if x occurs in t)
 
-private def elimAt (equations: List UEq) (n: Nat):
-    IO (Option (List UEq × List UEq)) := do
+private def elimAt (equations: List (UEq δ)) (n: Nat):
+    IO (Option (List (UEq δ) × List (UEq δ))) := do
 
   if H: n < equations.length then
     let eq := equations.get ⟨n, H⟩
@@ -205,7 +203,7 @@ private def elimAt (equations: List UEq) (n: Nat):
 
   return some (equations, [])
 
-private def elim (equations: List UEq): IO (Option (List UEq × List UEq)) :=
+private def elim (equations: List (UEq δ)): IO (Option (List (UEq δ) × List (UEq δ))) :=
   (List.range equations.length).foldlM
     (fun acc n => do
       if let some (equations, substs) := acc then
@@ -215,7 +213,7 @@ private def elim (equations: List UEq): IO (Option (List UEq × List UEq)) :=
     $ some (equations, [])
 
 -- Apply a single round of transformations
-def Unification.simplify (u: Unification): IO (Option (Unification×Bool)) := do
+def Unification.simplify (u: Unification δ): IO (Option (Unification δ × Bool)) := do
   -- Orient all rules
   let (equations, b) ← orient u.equations
   if b then return some ({u with equations := equations}, true) else
@@ -235,13 +233,13 @@ def Unification.simplify (u: Unification): IO (Option (Unification×Bool)) := do
 -- Solve the problem by normalizing for the transformations. We don't really
 -- mind whether the function is total, but the bound avoids infinite loops in
 -- case something goes wrong.
-def Unification.solve (u: Unification) (steps: Nat := 100):
-    IO (Option Unification) := do
+def Unification.solve (u: Unification δ) (steps: Nat := 100):
+    IO (Option (Unification δ)) := do
   IO.print s!"{u}\n\n"
   match ← u.simplify with
   | some (u, b) =>
       -- Clean up after every step
-      let u: Unification := {u with equations := (erase u.equations).fst}
+      let u: Unification δ := {u with equations := (erase u.equations).fst}
       if b then
         if steps > 0 then
           let u ← u.solve (steps-1)
@@ -254,7 +252,7 @@ def Unification.solve (u: Unification) (steps: Nat := 100):
       IO.println s!"Problem has no solution!"
       return none
 
-def Unification.applyOnTerm (solved_u: Unification) (t: MTerm): MTerm :=
+def Unification.applyOnTerm (solved_u: Unification δ) (t: MTerm δ): MTerm δ :=
   List.foldl
     (fun t eq =>
       match eq with
@@ -272,7 +270,7 @@ multiplication operation (mul_pattern), supposedly obtained from IRDL.
 -/
 
 -- %op_res:!T = "arith.mul"(%op_x:!T, %op_y:!T)
-private def mul_pattern: MTerm :=
+private def mul_pattern: MTerm δ :=
   .App .OP [
     .ConstString "arith.mul",
     .App (.LIST .MOperand) [
@@ -285,7 +283,7 @@ private def mul_pattern: MTerm :=
 -- TODO: We don't have attributes, so we assume there is an "arith.two"
 -- operation that always returns 2
 -- %two:i32 = "arith.two"()
-private def ex_two: MTerm :=
+private def ex_two: MTerm δ :=
   .App .OP [
     .ConstString "arith.two",
     .App (.LIST .MOperand) [],
@@ -297,7 +295,7 @@ private def ex_two: MTerm :=
 --   %x = pdl.value
 --   %root = "arith.mul"(%x, %two)
 -- (%x is implicit, while %x_T, %_0 and %_0_T are automatically generated)
-private def ex_root: MTerm :=
+private def ex_root: MTerm δ :=
   .App .OP [
     .ConstString "arith.mul",
     .App (.LIST .MOperand) [
@@ -308,7 +306,7 @@ private def ex_root: MTerm :=
   ]
 
 -- TODO: How to mix ex_two in there?
-private def mul_example: Unification :=
+private def mul_example: Unification builtin :=
   { Unification.empty with equations := [(mul_pattern, ex_root)] }
 
 #eval show IO Unit from do
