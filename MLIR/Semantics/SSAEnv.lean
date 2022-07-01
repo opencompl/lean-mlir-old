@@ -162,16 +162,19 @@ def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
 instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
   toString := SSAEnv.str
 
+-- TODO: Add this to simp_itree
 def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
   SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
   | One s => s.getT name
   | Cons s l => s.getT name <|> getT name l
 
+-- TODO: Add this to simp_itree
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   SSAEnv δ → Option τ.eval
   | One s => s.get name τ
   | Cons s l => s.get name τ <|> get name τ l
 
+-- TODO: Add this to simp_itree
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
   | One s => One (s.set name τ v)
