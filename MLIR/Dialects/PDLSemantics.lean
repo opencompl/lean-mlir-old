@@ -116,21 +116,21 @@ track of this information, which is carried around in a state monad called
 TranslationM.
 -/
 
-structure Translation where mk ::
+structure Translation (δ: Dialect α σ ε) where mk ::
   -- Unification problem
-  u: Unification
+  u: Unification δ
   -- All variables defined so far (for fresh name generation)
   allvars: List String
   -- Typing judgements (to be inserted into operation terms)
-  judgements: List (String × MTerm)
+  judgements: List (String × MTerm δ)
   -- List of operations that we want to collect after unification
-  operations: List MTerm
+  operations: List (MTerm δ)
   -- Names of results for each operation, and their types
-  opresults: List (String × List (String × MTerm))
+  opresults: List (String × List (String × MTerm δ))
   -- Whether translation completed successfully
   success: Bool
 
-def Translation.empty: Translation :=
+def Translation.empty: Translation δ :=
   { u           := Unification.empty,
     allvars     := [],
     judgements  := [],
@@ -138,9 +138,9 @@ def Translation.empty: Translation :=
     opresults   := [],
     success     := false }
 
-instance: Inhabited Translation := ⟨Translation.empty⟩
+instance {δ: Dialect α σ ε} : Inhabited (Translation δ) := ⟨Translation.empty⟩
 
-def Translation.str: Translation → String := fun tr =>
+def Translation.str: Translation δ → String := fun tr =>
   "Unification problem:\n" ++
     (toString tr.u) ++
   "\nAll variables:\n " ++
@@ -150,12 +150,12 @@ def Translation.str: Translation → String := fun tr =>
   "Operation results:\n" ++
     (String.join $ tr.opresults.map (fun (n,l) => s!"  %{n}: {l}\n"))
 
-abbrev TranslationM := StateT Translation IO
+abbrev TranslationM (δ: Dialect α σ ε) := StateT (Translation δ) IO
 
-def TranslationM.toIO {α} (tr: Translation) (x: TranslationM α): IO α :=
+def TranslationM.toIO {α} (tr: Translation δ) (x: TranslationM δ α): IO α :=
   Prod.fst <$> StateT.run x tr
 
-def TranslationM.error {α} (s: String): TranslationM α :=
+def TranslationM.error {α} (s: String): TranslationM δ α :=
   throw <| IO.userError (s ++ " o(x_x)o")
 
 /-
@@ -166,7 +166,7 @@ guaranteeing uniqueness, and generating fresh names.
 -/
 
 -- Record that [name] is now used in the problem, and check uniqueness
-def TranslationM.addName (name: String): TranslationM Unit := do
+def TranslationM.addName (name: String): TranslationM δ Unit := do
   let tr ← get
   if name ∈ tr.allvars then
     error s!"addName: {name} is already used!"
@@ -174,14 +174,14 @@ def TranslationM.addName (name: String): TranslationM Unit := do
     set { tr with allvars := tr.allvars ++ [name] }
 
 -- Check that [name] is known
-def TranslationM.checkNameDefined (name: String): TranslationM Unit := do
+def TranslationM.checkNameDefined (name: String): TranslationM δ Unit := do
   let tr ← get
   if ! name ∈ tr.allvars then
     error s!"checkNameDefined: {name} is undefined!"
 
 -- Make up to [n] attempts at finding a fresh name by suffixing [s]
 private def TranslationM.freshNameAux (s: String) (n p: Nat):
-    TranslationM String := do
+    TranslationM δ String := do
   let tr ← get
   match n with
   | 0 =>
@@ -196,7 +196,7 @@ private def TranslationM.freshNameAux (s: String) (n p: Nat):
 
 -- Generate a new fresh name based on [name]; if not available, resort to
 -- adding numbered suffixes
-def TranslationM.makeFreshName (name: String): TranslationM String := do
+def TranslationM.makeFreshName (name: String): TranslationM δ String := do
   let tr ← get
   if tr.allvars.all (· != name) then
     addName name
@@ -208,15 +208,15 @@ def TranslationM.makeFreshName (name: String): TranslationM String := do
 
 -- Generate [n] fresh names based on [name]
 def TranslationM.makeFreshNames (name: String) (n: Nat):
-    TranslationM (List String) :=
+    TranslationM δ (List String) :=
   (List.range n).mapM (fun idx => makeFreshName (name ++ toString idx))
 
 -- Generate a copy of the operation with the specified prefix and fresh names.
 -- Returns a pair with the new term and the list of all variables involved.
-def TranslationM.makeFreshOp (prefix_: String) (op: MTerm) (priority: Nat):
-    TranslationM MTerm := do
+def TranslationM.makeFreshOp (prefix_: String) (op: MTerm δ) (priority: Nat):
+    TranslationM δ (MTerm δ) := do
   let renameVars (done: List String) (vars: List (String × MSort)):
-      TranslationM (List (String × MTerm) × List String) :=
+      TranslationM δ (List (String × MTerm δ) × List String) :=
     vars.foldlM
       (fun (repl, done) (var, sort) => do
         if var ∈ done then
@@ -236,44 +236,44 @@ def TranslationM.makeFreshOp (prefix_: String) (op: MTerm) (priority: Nat):
 The following utilities query data recorded in the translation state.
 -/
 
-def TranslationM.addEquation (equation: UEq): TranslationM Unit := do
+def TranslationM.addEquation (equation: UEq δ): TranslationM δ Unit := do
   let tr ← get
   set { tr with u := { equations := tr.u.equations ++ [equation] } }
 
-def TranslationM.addOperation (op: MTerm): TranslationM Unit := do
+def TranslationM.addOperation (op: MTerm δ): TranslationM δ Unit := do
   let tr ← get
   set { tr with operations := tr.operations ++ [op] }
 
-def TranslationM.addJudgement (s: String) (type: MTerm): TranslationM Unit := do
+def TranslationM.addJudgement (s: String) (type: MTerm δ): TranslationM δ Unit := do
   let tr ← get
   set { tr with judgements := tr.judgements ++ [(s, type)] }
 
-def TranslationM.addOpResults (name: String) (results: List (String × MTerm)):
-    TranslationM Unit := do
+def TranslationM.addOpResults (name: String) (results: List (String × MTerm δ)):
+    TranslationM δ Unit := do
   let tr ← get
   set { tr with opresults := tr.opresults ++ [(name, results)] }
 
 
-def TranslationM.findJudgement? (s: String): TranslationM (Option MTerm) := do
+def TranslationM.findJudgement? (s: String): TranslationM δ (Option (MTerm δ)) := do
   let cmpName := fun (name, type) => if name = s then some type else none
   return (← get).judgements.findSome? cmpName
 
-def TranslationM.findJudgement (s: String): TranslationM MTerm := do
+def TranslationM.findJudgement (s: String): TranslationM δ (MTerm δ) := do
   match ← findJudgement? s with
   | some type   => return type
   | none        => error s!"findJudgement: no type information for {s}!"
 
 def TranslationM.findJudgements (l: List String):
-    TranslationM (List (String × MTerm)) :=
+    TranslationM δ (List (String × MTerm δ)) :=
   l.mapM (fun var => do return (var, ← findJudgement var))
 
 def TranslationM.findOpResult? (op: String) (idx: Nat):
-    TranslationM (Option (String × MTerm)) := do
+    TranslationM δ (Option (String × MTerm δ)) := do
   let cmpName := fun (name, rets) => if name = op then rets.get? idx else none
   return (← get).opresults.findSome? cmpName
 
 def TranslationM.findOpResult (op: String) (idx: Nat):
-    TranslationM (String × MTerm) := do
+    TranslationM δ (String × MTerm δ) := do
   match ← findOpResult? op idx with
   | some info   => return info
   | none        => error s!"findOpResultName: no return #{idx} for {op}!"
@@ -296,8 +296,8 @@ section
 open TranslationM
 
 -- TODO: Provide dialect data properly once implemented
-private def PDLToMatch.readStatement (operationMatchTerms: List MTerm)
-    (stmt: BasicBlockStmt builtin): TranslationM Unit := do
+private def PDLToMatch.readStatement (operationMatchTerms: List (MTerm builtin))
+    (stmt: BasicBlockStmt builtin): TranslationM builtin Unit := do
   let tr ← get
 
   match stmt with
@@ -372,9 +372,9 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MTerm)
             addOperation ins
             IO.println s!"→ Instantiated match term: {ins}"
 
-            let operands_args: List MTerm := valuesTypes.map (fun (v,t) =>
+            let operands_args: List (MTerm _) := valuesTypes.map (fun (v,t) =>
               .App .OPERAND [.Var 0 v .MSSAVal, t])
-            let operands_rets: List MTerm :=
+            let operands_rets: List (MTerm _) :=
               List.zip retNames types |>.map (fun (v, t) =>
                 .App .OPERAND [.Var 1 v .MSSAVal, .Var 0 t .MMLIRType])
             let op_mterm :=
@@ -421,8 +421,8 @@ private def PDLToMatch.readStatement (operationMatchTerms: List MTerm)
         error s!"{op.name}: unrecognized PDL operation"
 
 def PDLToMatch.convert (PDLProgram: Op builtin)
-    (operationMatchTerms: List MTerm):
-    TranslationM Unit :=
+    (operationMatchTerms: List (MTerm builtin)):
+    TranslationM builtin Unit :=
   match PDLProgram with
   | Op.mk "pdl.pattern" [] [] [region] attrs ty =>
       match region with
@@ -438,7 +438,7 @@ def PDLToMatch.convert (PDLProgram: Op builtin)
   | _ => do
       error s!"PDLToMatch.convert: not a PDL program: {PDLProgram}"
 
-def PDLToMatch.unify: TranslationM Unit := do
+def PDLToMatch.unify: TranslationM δ Unit := do
   let tr ← get
   if ! tr.success then
     error "unify: translation did not complete successfully"
@@ -447,7 +447,7 @@ def PDLToMatch.unify: TranslationM Unit := do
   else
     error "unify: unification failed"
 
-def PDLToMatch.getOperationMatchTerms: TranslationM (List MTerm) := do
+def PDLToMatch.getOperationMatchTerms: TranslationM δ (List (MTerm δ)) := do
   let tr ← get
   return tr.operations.map tr.u.applyOnTerm
 
@@ -482,7 +482,7 @@ private def ex_pdl: Op builtin := [mlir_op|
 ]
 
 -- %res:!T = "foo.op1"(%x:!T)
-private def foo_op1_pattern: MTerm :=
+private def foo_op1_pattern: MTerm builtin :=
   .App .OP [
     .ConstString "foo.op1",
     .App (.LIST .MOperand) [
@@ -493,7 +493,7 @@ private def foo_op1_pattern: MTerm :=
 #eval foo_op1_pattern
 
 -- %res:!T = "foo.op2"(%x:!T, %y:i32)
-private def foo_op2_pattern: MTerm :=
+private def foo_op2_pattern: MTerm builtin :=
   .App .OP [
     .ConstString "foo.op2",
     .App (.LIST .MOperand) [

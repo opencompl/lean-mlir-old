@@ -12,6 +12,7 @@ TODO: Provide the matcher
 import MLIR.Semantics.Types
 import MLIR.Dialects.BuiltinModel
 import MLIR.AST
+import MLIR.EDSL
 open MLIR.AST
 
 /-
@@ -69,14 +70,14 @@ inductive MCtor: List MSort → MSort → Type :=
   -- arguments without specifying it here
   | LIST (s: MSort): MCtor [] (.MList s)
 
-inductive MTerm :=
+inductive MTerm (δ: Dialect α σ ε) :=
   -- A typed variable
   | Var (priority: Nat := 0) (name: String) (s: MSort)
   -- A constructor. We allow building mistyped terms (but check them later)
   | App {args_sort: List MSort} {ctor_sort: MSort}
-        (ctor: MCtor args_sort ctor_sort) (args: List MTerm)
+        (ctor: MCtor args_sort ctor_sort) (args: List (MTerm δ))
   -- Constants
-  | ConstMLIRType (τ: MLIRType builtin)
+  | ConstMLIRType (τ: MLIRType δ)
   | ConstNat (n: Nat)
   | ConstString (s: String)
   | ConstDimension (d: Dimension)
@@ -108,7 +109,7 @@ def MCtor.eq {args_sort₁ ctor_sort₁ args_sort₂ ctor_sort₂}:
       false
 
 mutual
-def MTerm.eq (t₁ t₂: MTerm): Bool :=
+def MTerm.eq (t₁ t₂: MTerm δ): Bool :=
   match t₁, t₂ with
   | Var _ name₁ s₁, Var _ name₂ s₂ =>
       name₁ = name₂ && s₁ = s₂
@@ -116,14 +117,14 @@ def MTerm.eq (t₁ t₂: MTerm): Bool :=
       MCtor.eq ctor₁ ctor₂ && eqList args₁ args₂
   | _, _ => false
 
-def MTerm.eqList (l₁ l₂: List MTerm): Bool :=
+def MTerm.eqList (l₁ l₂: List (MTerm δ)): Bool :=
   match l₁, l₂ with
   | [], [] => true
   | t₁::l₁, t₂::l₂ => eq t₁ t₂ && eqList l₁ l₂
   | _, _ => false
 end
 
-instance: BEq MTerm where
+instance: BEq (MTerm δ) where
   beq := MTerm.eq
 
 def MSort.str: MSort → String
@@ -139,7 +140,7 @@ def MSort.str: MSort → String
   | .MList s     => "[" ++ s.str ++ "]"
 
 mutual
-def MTerm.str: MTerm → String
+def MTerm.str: MTerm δ → String
   -- Short notations for common sorts of variables
   | .Var _ name .MMLIRType => "!" ++ name
   | .Var _ name .MSSAVal => "%" ++ name
@@ -154,7 +155,7 @@ def MTerm.str: MTerm → String
   | ConstSignedness c =>
       toString c
 
-protected def MTerm.strList: List MTerm → String
+protected def MTerm.strList: List (MTerm δ) → String
   | [] => ""
   | [t] => str t
   | t::ts => str t ++ ", " ++ MTerm.strList ts
@@ -162,11 +163,11 @@ end
 
 instance: ToString MSort where
   toString := MSort.str
-instance: ToString MTerm where
+instance: ToString (MTerm δ) where
   toString := MTerm.str
 
 -- Collect variables in a term
-def MTerm.vars: MTerm → List String
+def MTerm.vars: MTerm δ → List String
   | .Var _ name _ => [name]
   | .App ctor [] => []
   | .App ctor (arg::args) =>
@@ -174,7 +175,7 @@ def MTerm.vars: MTerm → List String
   | _ => []
 
 -- Collect variables and their sorts
-def MTerm.varsWithSorts: MTerm → List (String × MSort)
+def MTerm.varsWithSorts: MTerm δ → List (String × MSort)
   | .Var _ name sort => [(name, sort)]
   | .App ctor [] => []
   | .App ctor (arg::args) =>
@@ -183,7 +184,7 @@ def MTerm.varsWithSorts: MTerm → List (String × MSort)
 
 -- Check whether a variable occurs in a term. We don't check typing here since
 -- we have a common pool of unique variable names.
-def MTerm.occurs (name: String): MTerm → Bool
+def MTerm.occurs (name: String): MTerm δ→ Bool
   | .Var _ name' _ => name' = name
   | .App ctor [] => false
   | .App ctor (arg::args) =>
@@ -192,20 +193,21 @@ def MTerm.occurs (name: String): MTerm → Bool
 
 -- Substitute a variable in a term
 mutual
-def MTerm.subst (t: MTerm) (name: String) (repl: MTerm): MTerm :=
+def MTerm.subst (t: MTerm δ) (name: String) (repl: MTerm δ): MTerm δ :=
   match t with
   | .Var _ name' _ => if name' = name then repl else t
   | .App ctor args => .App ctor (MTerm.substList args name repl)
   | t => t
 
-protected def MTerm.substList (l: List MTerm) (name: String) (repl: MTerm) :=
+protected def MTerm.substList (l: List (MTerm δ)) (name: String) 
+                              (repl: MTerm δ) : List (MTerm δ) :=
   match l with
   | [] => []
   | t::ts => subst t name repl :: MTerm.substList ts name repl
 end
 
 -- Substitue a set of variables in a term
-def MTerm.substVars (t: MTerm) (repl: List (String × MTerm)): MTerm :=
+def MTerm.substVars (t: MTerm δ) (repl: List (String × MTerm δ)): MTerm δ :=
   repl.foldl (fun t (name, repl) => t.subst name repl) t
 
 /-
@@ -217,12 +219,14 @@ unification.
 -/
 
 mutual
-def MTerm.inferSort: MTerm → Option MSort
+variable {δ: Dialect α σ ε} -- We need this for termination somehow
+
+def MTerm.inferSort: MTerm δ → Option MSort
   | Var _ _ s => some s
   | App (.LIST s) args => do
       let l ← inferSortList args
       if l.all (· = s) then some (.MList s) else none
-  | @App args_sort ctor_sort ctor args =>
+  | @App _ _ _ _ args_sort ctor_sort ctor args =>
       if args.length != args_sort.length then
         none
       else if inferSortList args |>.isEqSome args_sort then
@@ -235,7 +239,393 @@ def MTerm.inferSort: MTerm → Option MSort
   | ConstDimension _    => some .MDimension
   | ConstSignedness _   => some .MSignedness
 
-def MTerm.inferSortList: List MTerm → Option (List MSort)
+def MTerm.inferSortList: List (MTerm δ) → Option (List MSort)
   | [] => some []
   | t::l => do return (← inferSort t) :: (← inferSortList l)
 end
+
+@[reducible]
+def MSort.toType (δ: Dialect α σ ε): MSort -> Type
+| .MOp => Bool -- TODO MLIR.AST.BasicBlockStmt δ
+| .MOperand => MLIR.AST.SSAVal × MLIR.AST.MLIRType δ
+| .MMLIRType => MLIR.AST.MLIRType δ
+| .MSSAVal => MLIR.AST.SSAVal
+| .MAttrValue => Bool -- TODO MLIR.AST.AttrValue δ
+| .MNat => Nat
+| .MString => String
+| .MDimension => Dimension
+| .MSignedness => MLIR.AST.Signedness
+| .MList mTerm => List (mTerm.toType δ)
+
+def MSort_toType_decEq {δ: Dialect α σ ε} (s: MSort)
+    : DecidableEq (s.toType δ) :=
+  match s with
+  | .MOp => decEq
+  | .MOperand => decEq 
+  | .MMLIRType => decEq
+  | .MSSAVal => decEq
+  | .MAttrValue => decEq
+  | .MNat => decEq
+  | .MString => decEq
+  | .MDimension => decEq
+  | .MSignedness => decEq
+  | .MList term => @List.hasDecEq _ (MSort_toType_decEq term)
+
+instance {δ: Dialect α σ ε} (s: MSort): DecidableEq (s.toType δ) :=
+  MSort_toType_decEq s
+
+/-
+### Variable context for MTerms
+
+This structure contains an assignment from MTerm variables to concrete
+structures. It is used both for matching, and for concretizing MTerms into
+concrete strucctures.
+-/
+
+-- Matching context. Contains the assignment of matching variables.
+abbrev VarCtx (δ: Dialect α σ ε) :=
+  List ((s: MSort) × List (String × (s.toType δ)))
+
+-- Get the assignment of a variable.
+def VarCtx.get (ctx: VarCtx δ) (s: MSort) (name: String) :
+    Option (s.toType δ) :=
+  match ctx with
+  | ⟨so, sortCtx⟩::ctx' => 
+    match H: so == s with
+    | false => get ctx' s name 
+    | true => do
+      let res ← List.find? (·.fst == name) ((of_decide_eq_true H) ▸ sortCtx)
+      return res.snd
+  | [] => none
+
+-- Assign a variable.
+def VarCtx.set (ctx: VarCtx δ) (s: MSort) (name: String) (value: s.toType δ):
+    VarCtx δ :=
+  match ctx with
+  | ⟨so, sortCtx⟩::ctx' => 
+    match H: so == s with
+    | false => ⟨so, sortCtx⟩::(set ctx' s name value) 
+    | true => ⟨so, (name, (of_decide_eq_true H) ▸ value)::sortCtx⟩::ctx'
+  | [] => [{fst := s, snd := [(name, value)]}]
+
+/-
+### Concretization of MTerm
+
+This section defines some functions to transform a MTerm into some
+concrete structure, given a variable context.
+-/
+
+-- We provide an expected sort, since we do not want to carry the
+-- proof that terms are well typed.
+def MTerm.concretizeVariable (m: MTerm δ) (s: MSort) (ctx: VarCtx δ) :
+    Option (s.toType δ) :=
+  match m with
+  | Var _ name sort =>
+    if s == sort then ctx.get s name else none
+  | _ => none
+
+def MTerm.concretizeSign (m: MTerm δ) (ctx: VarCtx δ) : Option Signedness := 
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MSignedness ctx
+  | ConstSignedness s => some s
+  | _ => none
+
+def MTerm.concretizeNat (m: MTerm δ) (ctx: VarCtx δ) : Option Nat := 
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MNat ctx
+  | ConstNat n => some n
+  | _ => none
+
+def MTerm.concretizeDim (m: MTerm δ) (ctx: VarCtx δ) : Option Dimension := 
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MDimension ctx
+  | ConstDimension d => some d
+  | _ => none
+
+def MTerm.concretizeType (m: MTerm δ) (ctx: VarCtx δ) :
+    Option (MLIR.AST.MLIRType δ) :=
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MMLIRType ctx
+  | .App .INT [mSign, mNat] => do
+    let sign ← mSign.concretizeSign ctx
+    let nat ← mNat.concretizeNat ctx
+    return MLIRType.int sign nat
+  | _ => none
+
+def MTerm.concretizeOperand (m: MTerm δ) (ctx: VarCtx δ) :
+    Option (MLIR.AST.SSAVal × MLIR.AST.MLIRType δ) :=
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MOperand ctx 
+  | .App .OPERAND [mVal, mType] => do
+    let val ← mVal.concretizeVariable .MSSAVal ctx
+    let type ← mType.concretizeType ctx
+    return (val, type)
+  | _ => none
+
+def MTerm.concretizeOperands (m: MTerm δ) (ctx: VarCtx δ) :
+    Option (List (MLIR.AST.SSAVal × MLIR.AST.MLIRType δ)) :=
+  match m with
+  | .App (.LIST .MOperand) l => l.mapM (fun m' => m'.concretizeOperand ctx)
+  | _ => none
+
+def MTerm.concretizeOp (m: MTerm δ) (ctx: VarCtx δ) :
+    Option (BasicBlockStmt δ) :=
+  match m with
+  | .App .OP [ .ConstString mName, mOperands, mRes ] => do
+    let operands ← MTerm.concretizeOperands mOperands ctx
+    let res ← MTerm.concretizeOperands mRes ctx
+    let operandsVal := operands.map (fun p => p.fst)
+    let operandsTy := operands.map (fun p => p.snd)
+    match res with
+    | [(resVal, resTy)] =>
+      let fun_type :=
+        (MLIRType.fn (MLIRType.tuple operandsTy) (MLIRType.tuple [resTy]))
+      let op := (.mk mName operandsVal [] [] (AttrDict.mk []) fun_type)
+      return .StmtAssign resVal none op
+    | _ => none
+  | _ => none
+
+def MTerm.concretizeProg (m: List (MTerm δ)) (ctx: VarCtx δ) :
+    Option (List (BasicBlockStmt δ)) :=
+  m.mapM (fun m' => m'.concretizeOp ctx)
+
+/-
+### Simple MTerm matching
+
+This section defines functions to match an MTerm with a concrete structure.
+Note that here, the matching does not match recursively inside the concrete
+structure.
+-/
+
+-- Match a MTerm variable.
+def matchVariable {δ: Dialect α σ ε} (s: MSort) (name: String)
+                  (val: s.toType δ) (ctx: VarCtx δ) : Option (VarCtx δ) := 
+  match ctx.get s name with 
+  | some matchedVal => if val == matchedVal then some ctx else none
+  | none => some (ctx.set s name val)
+
+-- Match a signedness with a MTerm.
+def matchMSignedness {δ: Dialect α σ ε} (mSgn: MTerm δ) (sgn: Signedness)
+                     (ctx: VarCtx δ): Option (VarCtx δ) :=
+  match mSgn with
+  | .Var _ name .MSignedness => matchVariable .MSignedness name sgn ctx
+  | .ConstSignedness mSgn => if sgn == mSgn then some ctx else none
+  | _ => none
+
+-- Match a dimension with a MTerm.
+def matchMDimension {δ: Dialect α σ ε} (mDim: MTerm δ) (dim: Dimension)
+                    (ctx: VarCtx δ): Option (VarCtx δ) :=
+  match mDim with
+  | .Var _ name .MDimension => matchVariable .MDimension name dim ctx
+  | .ConstDimension mDim => if dim == mDim then some ctx else none
+  | _ => none
+
+-- Match a string with a MTerm.
+def matchMString {δ: Dialect α σ ε} (mStr: MTerm δ) (str: String)
+                 (ctx: VarCtx δ): Option (VarCtx δ) :=
+  match mStr with
+  | .Var _ name .MString => matchVariable .MString name str ctx
+  | .ConstString mStr => if str == mStr then some ctx else none
+  | _ => none
+
+-- Match a nat with a MTerm.
+def matchMNat {δ: Dialect α σ ε} (mNat: MTerm δ) (nat: Nat)
+              (ctx: VarCtx δ): Option (VarCtx δ) :=
+  match mNat with
+  | .Var _ name .MNat => matchVariable .MNat name nat ctx
+  | .ConstNat mNat => if nat == mNat then some ctx else none
+  | _ => none
+
+-- Match a type with a MTerm.
+def matchMType (mType: MTerm δ) (type: MLIRType δ)
+               (ctx: VarCtx δ): Option (VarCtx δ) :=
+  match mType, type with
+  | .Var _ name .MMLIRType, _ => matchVariable .MMLIRType name type ctx
+  | .ConstMLIRType mType, _ => if type == mType then some ctx else none
+  | .App .INT [mSgn, mNat], MLIRType.int sgn nat =>
+    (matchMSignedness mSgn sgn ctx).bind (matchMNat mNat nat ·)
+  | _, _ => none
+
+-- Match a type SSA value with a MTerm.
+def matchMSSAVal (mOperand: MTerm δ) (operand: SSAVal) (operandTy: MLIRType δ)
+                  (ctx: VarCtx δ) : Option (VarCtx δ) :=
+  match mOperand with
+  | .App .OPERAND [.Var _ ssaName .MSSAVal, mType] => do
+    let ctx' ← matchMType mType operandTy ctx
+    matchVariable MSort.MSSAVal ssaName operand ctx'
+  | _ => none
+
+-- Match a list of typed SSA values with a list of MTerm.
+def matchMSSAVals (operands: List SSAVal) (operandsTy: List (MLIRType δ))
+                   (mOperands: List (MTerm δ)) (ctx: VarCtx δ) :
+    Option (VarCtx δ) :=
+  match operands, operandsTy, mOperands with
+  | [], [], [] => some ctx
+  | operand::operands, operandTy::operandsTy, mOperand::mOperands => do
+    let ctx' ← matchMSSAVal mOperand operand operandTy ctx
+    matchMSSAVals operands operandsTy mOperands ctx'
+  | _, _, _ => none
+
+-- Match a basic block statement with an MTerm.
+def matchMBasicBlockStmt (op: BasicBlockStmt δ) (mterm: MTerm δ)
+                         (ctx: VarCtx δ) : Option (VarCtx δ) :=
+  match op, mterm with
+  | .StmtAssign res ix (Op.mk name operands [] [] (AttrDict.mk [])
+      (MLIRType.fn (MLIRType.tuple operandsTy) (MLIRType.tuple resultsTy))),
+    .App .OP [ .ConstString mName, .App (.LIST .MOperand) mOperands,
+      .App (.LIST .MOperand) mRes ] =>
+    if name != mName then
+      none
+    else
+      (matchMSSAVals operands operandsTy mOperands ctx).bind
+      (matchMSSAVals [res] resultsTy mRes ·)
+  | _, _ => none
+
+/-
+### Recursive MTerm op matching
+
+This section defines functions to match an op MTerm inside a concrete
+structure. Here, the matching is done recursively inside the regions/BBs/Ops.
+
+We first define functions that match all possible ops in the IR. Then, we use
+this to match a program in an IR.
+-/
+
+mutual 
+-- Get all possible operations matching an MTerm in a basic block statement.
+def matchAllMOpInBBStmt (stmt: BasicBlockStmt δ) (mOp: MTerm δ)
+                        (ctx: VarCtx δ) :
+    List (BasicBlockStmt δ × VarCtx δ) :=
+  let nextMatches :=
+    match stmt with
+    | .StmtAssign _ _ op => matchAllMOpInOp op mOp ctx
+    | .StmtOp op => matchAllMOpInOp op mOp ctx;
+  match matchMBasicBlockStmt stmt mOp ctx with
+  | some ctx' => (stmt, ctx')::nextMatches
+  | none => nextMatches
+
+-- Get all possible operations matching an MTerm in a list of basic block
+-- statements.
+def matchAllMOpInBBStmts (stmts: List (BasicBlockStmt δ)) (mOp: MTerm δ)
+                        (ctx: VarCtx δ) : List (BasicBlockStmt δ × VarCtx δ) :=
+  match stmts with
+  | stmt::stmts' => (matchAllMOpInBBStmt stmt mOp ctx).append 
+    (matchAllMOpInBBStmts stmts' mOp ctx)
+  | [] => []
+
+-- Get all possible operations matching an MTerm in a basic block.
+def matchAllMOpInBB (bb: BasicBlock δ) (mOp: MTerm δ)
+                    (ctx: VarCtx δ) : List (BasicBlockStmt δ × VarCtx δ) :=
+
+  match bb with
+  | .mk _ _ stmts => matchAllMOpInBBStmts stmts mOp ctx
+
+-- Get all possible operations matching an MTerm in multiple basic blocks.
+def matchAllMOpInBBs (bbs: List (BasicBlock δ)) (mOp: MTerm δ)
+                    (ctx: VarCtx δ) : List (BasicBlockStmt δ × VarCtx δ) :=
+  match bbs with
+  | bb::bbs' =>
+    (matchAllMOpInBB bb mOp ctx).append (matchAllMOpInBBs bbs' mOp ctx)
+  | [] => []
+
+-- Get all possible operations matching an MTerm in a region.
+def matchAllMOpInRegion (region: Region δ) (mOp: MTerm δ)
+                        (ctx: VarCtx δ) : List (BasicBlockStmt δ × VarCtx δ) :=
+  match region with
+  | .mk bbs => matchAllMOpInBBs bbs mOp ctx
+    -- List.foldl List.append [] <| List.map (matchAllMOpInBB · mOp ctx) bbs
+
+-- Get all possible operations matching an MTerm in a list of regions.
+def matchAllMOpInRegions (regions: List (Region δ)) (mOp: MTerm δ)
+                         (ctx: VarCtx δ) :
+    List (BasicBlockStmt δ × VarCtx δ) :=
+  match regions with
+  | region::regions' => (matchAllMOpInRegion region mOp ctx).append
+    (matchAllMOpInRegions regions' mOp ctx)
+  | [] => []
+
+-- Get all possible operations matching an MTerm in an operation.
+def matchAllMOpInOp (op: Op δ) (mOp: MTerm δ)
+                    (ctx: VarCtx δ) : List (BasicBlockStmt δ × VarCtx δ) :=
+  match op with
+  | .mk _ _ _ regions _ _ => matchAllMOpInRegions regions mOp ctx
+end
+termination_by
+  matchAllMOpInBBStmt stmt _ _ => sizeOf stmt
+  matchAllMOpInBBStmts stmts _ _ => sizeOf stmts
+  matchAllMOpInBB bb _ _ => sizeOf bb
+  matchAllMOpInBBs bbs _ _ => sizeOf bbs
+  matchAllMOpInRegion region _ _ => sizeOf region
+  matchAllMOpInRegions regions _ _ => sizeOf regions
+  matchAllMOpInOp op _ _ => sizeOf op
+
+mutual
+variable {δ: Dialect α σ ε} -- We need this for termination somehow
+
+-- Match a program defined by a list of MTerm (one Operation per MTerm) in
+-- an operation.
+def matchMProgInOp (op: Op δ) (mOps: List (MTerm δ)) (ctx: VarCtx δ) :
+    Option ((List (BasicBlockStmt δ)) × VarCtx δ) :=
+  match mOps with
+  -- Try all matches of the first operation.
+  | mOp::mOps' => 
+    matchMProgInOpAux op mOps' (matchAllMOpInOp op mOp ctx)
+  | [] => some ([], ctx)
+
+-- Match a program defined by a list of MTerm (one Operation per MTerm) in
+-- an operation. `matchOps` correspond to the possible matches of the current
+-- MTerm being matched.
+def matchMProgInOpAux (op: Op δ) (mOps: List (MTerm δ))
+                      (matchOps: List (BasicBlockStmt δ × VarCtx δ))
+                      : Option (List (BasicBlockStmt δ) × VarCtx δ) :=
+  -- For all possible match, we check if we can match the remaining of the
+  -- program with the match assignment
+  match matchOps with
+  | (matchOp, ctx')::matchOps' =>
+    match matchMProgInOp op mOps ctx' with
+    -- If we do match the remaining of the program, we are finished.
+    | some (matchedOps, ctx'') => some (matchOp::matchedOps, ctx'')
+    -- Otherwise, we check the next match for the current operation.
+    | none => matchMProgInOpAux op mOps matchOps'
+  | [] => none
+end
+termination_by
+  matchMProgInOpAux _ mOps matchOps => (mOps, matchOps)
+  matchMProgInOp _ mOps ctx => (mOps, [])
+
+private def test_addi_multiple_pattern: List (MTerm δ) :=
+  [.App .OP [
+    .ConstString "std.addi",
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_x" .MSSAVal, .Var 2 "T" .MMLIRType],
+      .App .OPERAND [.Var 2 "op_y" .MSSAVal, .Var 2 "T" .MMLIRType]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_res" .MSSAVal, .Var 2 "T" .MMLIRType]]
+  ],
+  .App .OP [
+    .ConstString "std.addi",
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_res" .MSSAVal, .Var 2 "T" .MMLIRType],
+      .App .OPERAND [.Var 2 "op_res" .MSSAVal, .Var 2 "T" .MMLIRType]],
+    .App (.LIST .MOperand) [
+      .App .OPERAND [.Var 2 "op_res2" .MSSAVal, .Var 2 "T" .MMLIRType]]
+  ]]
+
+private def multiple_example: Op builtin := [mlir_op|
+  "builtin.module"() ({
+    ^entry:
+    %r2 = "std.addi"(%t2, %t3): (i32, i32) -> (i32)
+    %r = "std.addi"(%t0, %t1): (i32, i32) -> (i32)
+    %r3 = "std.addi"(%r, %r): (i32, i32) -> (i32)
+  }) : ()
+]
+
+-- Match an MTerm program in some IR, then concretize
+-- the MTerm using the resulting matching context.
+def multiple_example_result : Option (List (BasicBlockStmt builtin)) := do
+  let (val, ctx) ←
+    matchMProgInOp multiple_example test_addi_multiple_pattern []
+  let res ← MTerm.concretizeProg test_addi_multiple_pattern ctx
+  val
+
+#eval multiple_example_result
