@@ -50,7 +50,7 @@ infixr:60 " +' " => psum
 class Member (E: Type → Type) (F: Type → Type) where
   inject : E ~> F
 
-instance {E}: Member E E where
+instance (priority := high) {E}: Member E E where
   inject := (fun _ => id)
 
 instance {E F G} [Member E F]: Member E (F +' G) where

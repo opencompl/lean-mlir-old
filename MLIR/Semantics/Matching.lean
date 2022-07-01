@@ -629,3 +629,26 @@ def multiple_example_result : Option (List (BasicBlockStmt builtin)) := do
   val
 
 #eval multiple_example_result
+
+/-
+### MTerm actions
+
+MTerm actions are actions that can be done on a list of op MTerm.
+These correspond to PDL rewrites, such as replacing an SSA Value with a new one,
+or replacing an operation with multiple operations.
+-/
+
+inductive MTermAction (δ: Dialect α σ ε) :=
+--| ReplaceValue (oldVal newVal: SSAVal)
+| ReplaceOp (newOps: List (MTerm δ))
+
+def MTermAction.apply (a: MTermAction δ) (prog: List (BasicBlockStmt δ)) (ctx: VarCtx δ) : Option (List (BasicBlockStmt δ)) :=
+  match a with
+  | ReplaceOp newOps =>
+    match prog with
+    | [] => none
+    | [_] => newOps.mapM (fun t => t.concretizeOp ctx)
+    | stmt::stmts => do
+      let res ← a.apply stmts ctx
+      stmt::res
+

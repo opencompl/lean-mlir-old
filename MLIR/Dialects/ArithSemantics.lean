@@ -205,7 +205,7 @@ def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
   | Select _ b lhs rhs =>
       return if b.toUint = 1 then lhs else rhs
 
-instance: Semantics arith where
+instance arithSemantics : Semantics arith where
   E := ArithE
   semantics_op := arith_semantics_op
   handle := ArithE.handle

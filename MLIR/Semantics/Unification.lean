@@ -11,6 +11,7 @@ invariants that are implicit in PDL.
 import MLIR.Semantics.Types
 import MLIR.Semantics.Matching
 import MLIR.AST
+import MLIR.EDSL
 open MLIR.AST
 
 /-
