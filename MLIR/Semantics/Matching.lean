@@ -284,7 +284,7 @@ abbrev VarCtx (δ: Dialect α σ ε) := List ((s: MSort) × List (String × (s.t
 -- Get the assignment of a variable.
 def VarCtx.get (ctx: VarCtx δ) (s: MSort) (name: String) : Option (s.toType δ) :=
   match ctx with
-  | {fst := so, snd := sortCtx}::ctx' => 
+  | ⟨so, sortCtx⟩::ctx' => 
     match H: so == s with
     | false => get ctx' s name 
     | true => (List.find? (·.fst == name) ((of_decide_eq_true H) ▸ sortCtx)).map (·.snd)
@@ -293,7 +293,7 @@ def VarCtx.get (ctx: VarCtx δ) (s: MSort) (name: String) : Option (s.toType δ)
 -- Assign a variable.
 def VarCtx.set (ctx: VarCtx δ) (s: MSort) (name: String) (value: s.toType δ) : VarCtx δ :=
   match ctx with
-  | {fst := so, snd := sortCtx}::ctx' => 
+  | ⟨so, sortCtx⟩::ctx' => 
     match H: so == s with
     | false => {fst := so, snd := sortCtx}::(set ctx' s name value) 
     | true => {fst := so, snd := (name, (of_decide_eq_true H) ▸ value)::sortCtx}::ctx' 
