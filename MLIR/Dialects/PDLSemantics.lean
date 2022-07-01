@@ -138,7 +138,7 @@ def Translation.empty: Translation δ :=
     opresults   := [],
     success     := false }
 
-instance inhabited_translation {δ: Dialect α σ ε} : Inhabited (Translation δ) := ⟨Translation.empty⟩
+instance {δ: Dialect α σ ε} : Inhabited (Translation δ) := ⟨Translation.empty⟩
 
 def Translation.str: Translation δ → String := fun tr =>
   "Unification problem:\n" ++
