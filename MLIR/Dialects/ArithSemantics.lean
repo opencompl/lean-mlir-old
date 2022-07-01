@@ -178,12 +178,13 @@ private def add2: BasicBlockStmt arith := [mlir_bb_stmt|
 
 theorem add_commutative:
   forall (n m: FinInt 32),
-    run ⟦add1⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] =
-    run ⟦add2⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] := by
+    run ⟦add1⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
+    run ⟦add2⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
   intros n m
   simp [Denote.denote]
   simp [run, add1, add2, denoteBBStmt, denoteOp]
-  simp [interp_ub]; simp_itree
-  simp [interp_ssa]; simp_itree
-  simp [Semantics.handle, ArithE.handle]; simp_itree
+  simp [interp_ub, SSAEnv.get]; simp_itree
+  simp [interp_ssa, SSAEnv.get]; simp_itree
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
   simp [FinInt.add_comm]

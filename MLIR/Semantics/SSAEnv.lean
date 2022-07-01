@@ -28,6 +28,7 @@ care when proving the correction of transformations.
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.Types
 import MLIR.Util.WriterT
+import MLIR.Util.Tactics
 
 import MLIR.AST
 open MLIR.AST
@@ -52,8 +53,11 @@ def SSAScope.get {δ: Dialect α σ ε} (name: SSAVal):
   SSAScope δ → (τ: MLIRType δ) → Option τ.eval
   | [], _ => none
   | ⟨name', τ', v'⟩ :: l, τ =>
-      if H: name' = name && τ' = τ then
-        some (cast (by simp at H; simp [H]) v')
+      if H: name' = name then
+        if H': τ' = τ then
+          some (cast (by simp [H']) v')
+        else
+          none
       else get name l τ
 
 @[simp]
@@ -81,38 +85,100 @@ def SSAScope.free (name: SSAVal) (l: SSAScope): Bool :=
 def SSAScope.maps (l: SSAScope) (name: SSAVal) (τ: MLIRTy) (v: τ.eval) :=
   l.Mem ⟨name, τ, v⟩ -/
 
+-- SSAScope proofs
+
+theorem SSAScope.getT_set_ne (v v': SSAVal):
+    v' ≠ v →
+    ∀ (scope: SSAScope δ) (τ: MLIRType δ) val,
+    getT v (set v' τ val scope) = getT v scope := by
+  intros Hne scope τ val
+  induction scope with
+  | nil => simp [Hne]
+  | cons head tail => 
+    simp
+    byCases H: head.fst = v'
+    . simp [Hne]
+    . byCases H2: head.fst = v
+      assumption
+
+theorem SSAScope.getT_set_eq (scope: SSAScope δ) (v: SSAVal) (τ: MLIRType δ) val:
+    getT v (set v τ val scope) = some ⟨τ, val⟩  := by
+  induction scope with
+  | nil => simp
+  | cons head tail =>
+    simp
+    byCases H: head.fst = v
+    assumption
+
+theorem SSAScope.get_set_ne_val (v v': SSAVal):
+    v' ≠ v →
+    ∀ (scope: SSAScope δ) (τ τ': MLIRType δ) val,
+    get v (set v' τ val scope) τ' = get v scope τ' := by
+  intros Hne scope τ τ' val
+  induction scope with
+  | nil => simp [Hne]
+  | cons head nil =>
+    simp
+    byCases H: head.fst = v'
+    . simp [Hne]
+    . byCases H2: head.fst = v <;> try assumption
+
+theorem SSAScope.get_set_ne_type (τ τ': MLIRType δ):
+    τ' ≠ τ →
+    ∀ (scope: SSAScope δ) (v: SSAVal) val,
+    get v (set v τ' val scope) τ = none := by
+  intros Hne scope v val
+  induction scope with
+  | nil => simp [Hne]
+  | cons head tail Hind =>
+    simp
+    byCases H: head.fst = v
+    . simp [Hne]
+    . byCases H2: head.fst = v <;> try assumption
+
+theorem SSAScope.get_set_eq (v: SSAVal) (scope: SSAScope δ) (τ: MLIRType δ) val:
+    get v (set v τ val scope) τ = some val := by
+  induction scope with
+  | nil => simp; apply cast_eq
+  | cons head nil =>
+    simp
+    byCases H: head.fst = v <;> try apply cast_eq
+    assumption
 
 -- SSAEnv
 
-def SSAEnv (δ: Dialect α σ ε) :=
-  List (SSAScope δ)
+inductive SSAEnv (δ: Dialect α σ ε) :=
+  | One (scope: SSAScope δ)
+  | Cons (head: SSAScope δ) (tail: SSAEnv δ)
 
 -- An SSA environment with a single empty SSAScope
-def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := [[]]
+def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := One []
 
 def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
-  "---\n".intercalate <| env.map toString
+  match env with
+  | One s => s.toString
+  | Cons head tail => head.toString ++ "---\n" ++ tail.str
 
 instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
   toString := SSAEnv.str
 
-@[simp]
+-- TODO: Add this to simp_itree
 def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
   SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
-  | [] => none
-  | l :: s => l.getT name <|> getT name s
+  | One s => s.getT name
+  | Cons s l => s.getT name <|> getT name l
 
-@[simp]
+-- TODO: Add this to simp_itree
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   SSAEnv δ → Option τ.eval
-  | [] => none
-  | l :: s => l.get name τ <|> get name τ s
+  | One s => s.get name τ
+  | Cons s l => s.get name τ <|> get name τ l
 
-@[simp]
+-- TODO: Add this to simp_itree
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
-  | [] => [] -- cannot happen in practice
-  | l :: s => l.set name τ v :: s
+  | One s => One (s.set name τ v)
+  | Cons s l => Cons (s.set name τ v) l
 
 instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
   fun ⟨τ₁, v₁⟩ ⟨τ₂, v₂⟩ =>
@@ -125,12 +191,57 @@ instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
 def SSAEnv.eqOn (l: List SSAVal) (env₁ env₂: SSAEnv δ): Bool :=
   l.all (fun v => env₁.getT v == env₂.getT v)
 
-/- Useful for proofs
-def SSAEnv.refines (new old: SSAEnv) :=
-  ∀ ⦃name τ v⦄, old.get name τ = some v → new.get name τ = some v
+-- SSAEnv theorems
 
-instance: LE SSAEnv where
-  le := SSAEnv.refines -/
+theorem SSAEnv.getT_set_ne (v v': SSAVal):
+    v' ≠ v →
+    ∀ (env: SSAEnv δ) (τ: MLIRType δ) val,
+    getT v (set v' τ val env) = getT v env := by
+  intros Hne env τ val
+  cases env with
+  | One s =>
+    simp [getT, set]
+    rw [SSAScope.getT_set_ne]
+    assumption
+  | Cons head tail => 
+    simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
+    rw [SSAScope.getT_set_ne]
+    assumption
+
+theorem SSAEnv.getT_set_eq (env: SSAEnv δ) (v: SSAVal) (τ: MLIRType δ) val:
+    getT v (SSAEnv.set v τ val env) = some ⟨τ, val⟩  := by
+  cases env with
+  | One s =>
+    simp [getT, set]
+    rw [SSAScope.getT_set_eq]
+  | Cons head tail => 
+    simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
+    simp [SSAScope.getT_set_eq]
+
+theorem SSAEnv.get_set_ne_val (v v': SSAVal):
+    v' ≠ v →
+    ∀ (env: SSAEnv δ) (τ τ': MLIRType δ) val,
+    get v τ' (set v' τ val env) = get v τ' env := by
+  intros Hne env τ τ' val
+  cases env with
+  | One s =>
+    simp [get, set]
+    rw [SSAScope.get_set_ne_val]
+    assumption
+  | Cons head tail =>
+    simp [get, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
+    rw [SSAScope.get_set_ne_val]
+    assumption
+
+theorem SSAEnv.get_set_eq (v: SSAVal) (env: SSAEnv δ) (τ: MLIRType δ) val:
+    get v τ (set v τ val env) = some val := by
+  cases env with
+  | One s =>
+    simp [get, set]
+    rw [SSAScope.get_set_eq]
+  | Cons head tail =>
+    simp [get, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
+    rw [SSAScope.get_set_eq]
 
 
 -- Interactions manipulating the environment
@@ -200,3 +311,4 @@ def interp_ssa {E R} (t: Fitree (SSAEnvE δ +' E) R):
 def interp_ssa_logged {E R} (t: Fitree (SSAEnvE δ +' E) R):
     WriterT (StateT (SSAEnv δ) (Fitree E)) R :=
   interp_writer (Fitree.case_ SSAEnvE.handleLogged writerT_defaultHandler) t
+

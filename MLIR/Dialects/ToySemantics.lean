@@ -139,25 +139,26 @@ def double_transpose: BasicBlock builtin := [mlir_bb|
     %t3 = "toy.transpose"(%t2): tensor<4×2×i32> -> tensor<2×4×i32>
 ]
 
-#eval Fitree.run <| run_toy (toy_semantics_bbstmt transpose_stmt) [[]]
+#eval Fitree.run <| run_toy (toy_semantics_bbstmt transpose_stmt) SSAEnv.empty
 
-#eval Fitree.run <| run_toy (toy_semantics_bbstmt constant_stmt) [[]]
+#eval Fitree.run <| run_toy (toy_semantics_bbstmt constant_stmt) SSAEnv.empty
 
 theorem double_transpose_correct:
   ∀ (t1: RankedTensor [.Known 2, .Known 4] .i32),
     run_toy (toy_semantics_bb double_transpose)
-      [[("t1", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)]]
+      (SSAEnv.One [("t1", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)])
     =
-    Fitree.ret ((), [[
+    Fitree.ret ((), SSAEnv.One [
       (SSAVal.SSAVal "t1", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩),
       (SSAVal.SSAVal "t2", ⟨builtin.tensor [.Known 4, .Known 2] .i32,
                            transpose t1⟩),
       (SSAVal.SSAVal "t3", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)
-    ]]) := by
+    ]) := by
   intros t1
   unfold double_transpose
   simp
   simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
-  simp [interp_ub!]; simp_itree
-  simp [interp_ssa]; simp_itree
+  simp [interp_ub!, interp_ssa]; simp_itree
+  simp [SSAEnv.get, SSAEnv.set]; simp_itree
+  simp [SSAEnv.get, SSAEnv.set]; simp_itree
   rw [transpose_involutive]
