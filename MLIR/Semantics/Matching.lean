@@ -239,3 +239,31 @@ def MTerm.inferSortList: List MTerm → Option (List MSort)
   | [] => some []
   | t::l => do return (← inferSort t) :: (← inferSortList l)
 end
+
+@[reducible]
+def MSort.toType (δ: Dialect α σ ε): MSort -> Type
+| .MOp => Bool -- TODO MLIR.AST.BasicBlockStmt δ
+| .MOperand => MLIR.AST.SSAVal × MLIR.AST.MLIRType δ
+| .MMLIRType => MLIR.AST.MLIRType δ
+| .MSSAVal => MLIR.AST.SSAVal
+| .MAttrValue => Bool -- TODO MLIR.AST.AttrValue δ
+| .MNat => Nat
+| .MString => String
+| .MDimension => Dimension
+| .MSignedness => MLIR.AST.Signedness
+| .MList mTerm => List (mTerm.toType δ)
+
+def MSort_toType_decEq {δ: Dialect α σ ε} (s: MSort): DecidableEq (s.toType δ) :=
+  match s with
+  | .MOp => decEq
+  | .MOperand => decEq 
+  | .MMLIRType => decEq
+  | .MSSAVal => decEq
+  | .MAttrValue => decEq
+  | .MNat => decEq
+  | .MString => decEq
+  | .MDimension => decEq
+  | .MSignedness => decEq
+  | .MList term => @List.hasDecEq _ (MSort_toType_decEq term)
+
+instance {δ: Dialect α σ ε} (s: MSort): DecidableEq (s.toType δ) := MSort_toType_decEq s
