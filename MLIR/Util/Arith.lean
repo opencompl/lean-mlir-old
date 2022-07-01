@@ -27,6 +27,9 @@ theorem add_sub_assoc (n m k: Int): n + m - k = n + (m - k) := by
 theorem add_sub (n m: Int): n + (m - n) = m := by
   sorry
 
+theorem sub_add_dist (n m p: Int): n - (m + p) = n - m - p := by
+  sorry
+
 /-
 ### Multiplication and power of Int
 -/
