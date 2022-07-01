@@ -8,4 +8,4 @@
  or `y` by `x` depending on which one will work.
  `simp [H]` will be called on both subgoals. -/
 macro "byCases" Hname:ident ":" lhs:ident "=" rhs:ident : tactic =>   
-  `(tactic| apply Decidable.byCases (p:= $lhs = $rhs) <;> (intros $Hname) <;> (try simp [$Hname:ident]) <;> (try subst $lhs) <;> (try subst $rhs))
+  `(tactic| apply Decidable.byCases (p:= $lhs = $rhs) <;> (intros $Hname) <;> (simp [$Hname:ident]) <;> (try subst $lhs) <;> (try subst $rhs))
