@@ -267,3 +267,102 @@ def MSort_toType_decEq {δ: Dialect α σ ε} (s: MSort): DecidableEq (s.toType 
   | .MList term => @List.hasDecEq _ (MSort_toType_decEq term)
 
 instance {δ: Dialect α σ ε} (s: MSort): DecidableEq (s.toType δ) := MSort_toType_decEq s
+
+/-
+### Variable context for MTerms
+
+This structure contains an assignment from MTerm variables to concrete structures.
+It is used both for matching, and for concretizing MTerms into concrete strucctures.
+-/
+
+-- Matching context. Contains the assignment of matching variables.
+abbrev VarCtx (δ: Dialect α σ ε) := List ((s: MSort) × List (String × (s.toType δ)))
+
+-- Get the assignment of a variable.
+def VarCtx.get (ctx: VarCtx δ) (s: MSort) (name: String) : Option (s.toType δ) :=
+  match ctx with
+  | {fst := so, snd := sortCtx}::ctx' => 
+    match H: so == s with
+    | false => get ctx' s name 
+    | true => (List.find? (·.fst == name) ((of_decide_eq_true H) ▸ sortCtx)).map (·.snd)
+  | [] => none
+
+-- Assign a variable.
+def VarCtx.set (ctx: VarCtx δ) (s: MSort) (name: String) (value: s.toType δ) : VarCtx δ :=
+  match ctx with
+  | {fst := so, snd := sortCtx}::ctx' => 
+    match H: so == s with
+    | false => {fst := so, snd := sortCtx}::(set ctx' s name value) 
+    | true => {fst := so, snd := (name, (of_decide_eq_true H) ▸ value)::sortCtx}::ctx' 
+  | [] => [{fst := s, snd := [(name, value)]}]
+
+/-
+### Concretization of MTerm
+
+This section defines some functions to transform a MTerm into some
+concrete structure, given a variable context.
+-/
+
+-- We provide an expected sort, since we do not want to carry the
+-- proof that terms are well typed.
+def MTerm.concretizeVariable (m: MTerm) (s: MSort) (ctx: VarCtx δ) : Option (s.toType δ) :=
+  match m with
+  | Var _ name sort =>
+    if s == sort then ctx.get s name else none
+  | _ => none
+
+def MTerm.concretizeSign (m: MTerm) (ctx: VarCtx δ) : Option Signedness := 
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MSignedness ctx
+  | ConstSignedness s => some s
+  | _ => none
+
+def MTerm.concretizeNat (m: MTerm) (ctx: VarCtx δ) : Option Nat := 
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MNat ctx
+  | ConstNat n => some n
+  | _ => none
+
+def MTerm.concretizeDim (m: MTerm) (ctx: VarCtx δ) : Option Dimension := 
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MDimension ctx
+  | ConstDimension d => some d
+  | _ => none
+
+def MTerm.concretizeType (m: MTerm) (ctx: VarCtx δ) : Option (MLIR.AST.MLIRType δ) :=
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MMLIRType ctx
+  | .App .INT [mSign, mNat] => do
+    let sign ← mSign.concretizeSign ctx
+    let nat ← mNat.concretizeNat ctx
+    return MLIRType.int sign nat
+  | _ => none
+
+def MTerm.concretizeOperand (m: MTerm) (ctx: VarCtx δ) : Option (MLIR.AST.SSAVal × MLIR.AST.MLIRType δ) :=
+  match m with
+  | Var _ _ _ => m.concretizeVariable .MOperand ctx 
+  | .App .OPERAND [mVal, mType] => do
+    let val ← mVal.concretizeVariable .MSSAVal ctx
+    let type ← mType.concretizeType ctx
+    return (val, type)
+  | _ => none
+
+def MTerm.concretizeOperands (m: MTerm) (ctx: VarCtx δ) : Option (List (MLIR.AST.SSAVal × MLIR.AST.MLIRType δ)) :=
+  match m with
+  | .App (.LIST .MOperand) l => l.mapM (fun m' => m'.concretizeOperand ctx)
+  | _ => none
+
+def MTerm.concretizeOp (m: MTerm) (ctx: VarCtx δ) : Option (BasicBlockStmt δ) :=
+  match m with
+  | .App .OP [ .ConstString mName, mOperands, mRes ] => do
+    let operands ← MTerm.concretizeOperands mOperands ctx
+    let res ← MTerm.concretizeOperands mRes ctx
+    let operandsVal := operands.map (fun p => p.fst)
+    let operandsTy := operands.map (fun p => p.snd)
+    match res with
+    | [(resVal, resTy)] => return .StmtAssign resVal none (.mk mName operandsVal [] [] (AttrDict.mk []) (MLIRType.fn (MLIRType.tuple operandsTy) (MLIRType.tuple [resTy])))
+    | _ => none
+  | _ => none
+
+def MTerm.concretizeProg (m: List MTerm) (ctx: VarCtx δ) : Option (List (BasicBlockStmt δ)) :=
+  m.mapM (fun m' => m'.concretizeOp ctx)
