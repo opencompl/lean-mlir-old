@@ -370,7 +370,13 @@ def changeLhs (lhs' : Expr) : TacticM Unit := do
 
 open Lean Elab Meta Tactic in 
 def unfoldIfUseful (e: Expr) (names: Array Name): TacticM TransformStep := do
-  let e? <- Meta.delta? e (fun name => names.contains name)
+  -- let e? <- Meta.delta? e (fun name => names.contains name)
+  let e? <- names.foldlM (init := Option.none) (fun accum name => do
+      match accum with 
+      | .some e => return .some e 
+      | .none => match (<- Meta.delta? e (. == name)) with 
+                 | .some e => dbg_trace "ran {name}"; return .some e
+                 | .none => return .none) 
   match e? with 
   | .some e => do 
     let e' <- whnf e
@@ -452,7 +458,7 @@ private theorem th2_cbn:
   intros C X C2
   cbn! [th2_input, th2_org, th2_out]
   cbn! [run, denoteBB, denoteBBStmt, denoteOp]; 
-  cbn_itree;
+--   cbn_itree;
 
  /-
   cbn_itree;
