@@ -87,18 +87,19 @@ def unary_semantics_op (op: IOp Δ)
       return BlockResult.Next ⟨.int sgn sz, r⟩
   | IOp.mk _ _ _ _ _ _ => none
 
-def binary_semantics_op (op: IOp Δ)
+def binary_semantics_op {Δ: Dialect α' σ' ε'}
+      (name: String) (args: List ((τ: MLIRType Δ) × τ.eval))
       (ctor: (sz: Nat) → FinInt sz → FinInt sz → ArithE (FinInt sz)):
     Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
-  match op with
-  | IOp.mk name [⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] [] 0 _ _ => some do
+  match args with
+  | [⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] => some do
       if EQ: sgn = sgn' /\ sz = sz' then
         let r ← Fitree.trigger (ctor sz lhs (EQ.2 ▸ rhs))
         return BlockResult.Next ⟨.int sgn sz, r⟩
       else
         Fitree.trigger <| UBE.DebugUB s!"{name}: incompatible operand types"
         return BlockResult.Ret []
-  | IOp.mk _ _ _ _ _ _ => none
+  | _ => none
 
 def arith_semantics_op (o: IOp Δ):
     Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
@@ -145,17 +146,17 @@ def arith_semantics_op (o: IOp Δ):
 
   | IOp.mk "negi" _ _ _ _ _ =>
       unary_semantics_op o ArithE.NegI
-  | IOp.mk name _ _ _ _ _ =>
+  | IOp.mk name args _ _ _ _ =>
       if name = "addi" then
-        binary_semantics_op o ArithE.AddI
+        binary_semantics_op name args ArithE.AddI
       else if name = "subi" then
-        binary_semantics_op o ArithE.SubI
+        binary_semantics_op name args ArithE.SubI
       else if name = "andi" then
-        binary_semantics_op o ArithE.AndI
+        binary_semantics_op name args ArithE.AndI
       else if name = "ori" then
-        binary_semantics_op o ArithE.OrI
+        binary_semantics_op name args ArithE.OrI
       else if name = "xori" then
-        binary_semantics_op o ArithE.XorI
+        binary_semantics_op name args ArithE.XorI
       else
         none
 
@@ -292,6 +293,86 @@ private def th2_input (C X C2: FinInt 32): SSAEnv arith := SSAEnv.One [
 /- LLVM InstCombine: `~X + C --> (C-1) - X`
    https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L882 -/
 
+
+
+-- In principle we would compute the semantics of entire programs simply by
+-- unfolding the definitions. But simp and dsimp have many problems which makes
+-- this extremely slow, buggy, or infeasible even for programs with only a
+-- couple of operations. We work around this issue by precomputing the
+-- semantics of individual operations and then substituting them as needed.
+
+private abbrev ops.constant (output: SSAVal) (value: Int):
+    BasicBlockStmt arith :=
+  .StmtAssign output none <|
+    .mk "constant" [] [] [] (.mk [.mk "value" (.int value .i32)]) (.fn (.tuple []) .i32)
+
+private abbrev ops.negi (output input: SSAVal): BasicBlockStmt arith :=
+  .StmtAssign output none <|
+    .mk "negi" [input] [] [] (.mk []) (.fn (.tuple [.i32]) .i32)
+
+private abbrev ops._binary (name: String) (output lhs rhs: SSAVal):
+    BasicBlockStmt arith :=
+  .StmtAssign output none <|
+    .mk name [lhs, rhs] [] [] (.mk []) (.fn (.tuple [.i32, .i32]) .i32)
+
+private abbrev ops.addi := ops._binary "addi"
+private abbrev ops.subi := ops._binary "subi"
+private abbrev ops.andi := ops._binary "andi"
+private abbrev ops.ori  := ops._binary "ori"
+private abbrev ops.xori := ops._binary "xori"
+
+private theorem ops.constant.sem output value:
+    denoteBBStmt arith (ops.constant output value) =
+  Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
+    (Sum.inr <| Sum.inl <| SSAEnvE.Set .i32 output (FinInt.ofInt .Signless 32 value)) fun _ =>
+  Fitree.ret (BlockResult.Next (δ := arith)
+    ⟨.i32, FinInt.ofInt Signedness.Signless 32 value⟩) := by
+  simp [ops.constant, denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+  simp [arith_semantics_op, AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  simp_itree
+
+private theorem ops.negi.sem output input:
+    denoteBBStmt arith (ops.negi output input) =
+  Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
+    (Sum.inr <| Sum.inl <| SSAEnvE.Get .i32 input) fun r =>
+  Fitree.Vis (Sum.inr <| Sum.inr <| ArithE.NegI 32 r) fun r =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
+  Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
+  simp [ops.negi, denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+
+private theorem ops._binary.sem name ctor output lhs rhs:
+    (forall (n m: FinInt 32),
+      arith_semantics_op (Δ := arith)
+        (IOp.mk name [⟨.i32, n⟩, ⟨.i32, m⟩] [] 0 (.mk []) (.fn (.tuple [.i32, .i32]) .i32)) =
+      binary_semantics_op name [⟨.i32, n⟩, ⟨.i32, m⟩] ctor) →
+    denoteBBStmt arith (ops._binary name output lhs rhs) =
+  Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
+    (Sum.inr <| Sum.inl <| SSAEnvE.Get .i32 lhs) fun lhs =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| SSAEnvE.Get .i32 rhs) fun rhs =>
+  Fitree.Vis (Sum.inr <| Sum.inr <| ctor 32 lhs rhs) fun r =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
+  Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
+  intro h
+  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+  simp [h, binary_semantics_op]
+  simp_itree
+
+private abbrev ops.addi.sem output lhs rhs :=
+  ops._binary.sem "addi" ArithE.AddI output lhs rhs (fun _ _ => rfl)
+private abbrev ops.subi.sem output lhs rhs :=
+  ops._binary.sem "subi" ArithE.SubI output lhs rhs (fun _ _ => rfl)
+private abbrev ops.andi.sem output lhs rhs :=
+  ops._binary.sem "andi" ArithE.AndI output lhs rhs (fun _ _ => rfl)
+private abbrev ops.ori.sem output lhs rhs :=
+  ops._binary.sem "ori" ArithE.OrI output lhs rhs (fun _ _ => rfl)
+private abbrev ops.xori.sem output lhs rhs :=
+  ops._binary.sem "xori" ArithE.XorI output lhs rhs (fun _ _ => rfl)
+
+-- ////////
+
 theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
     comp X + C = (C - FinInt.ofUint sz 1) - X := by
   intros h_sz X C
@@ -309,18 +390,6 @@ private def th3_org: BasicBlock arith := [mlir_bb|
     %r = "addi"(%m, %C): (i32, i32) -> i32
 ]
 
-private abbrev th3_org_1: BasicBlockStmt arith := [mlir_bb_stmt|
-    %o = "constant"() {value = 1: i32}: () -> i32
-]
-
-private abbrev th3_org_2: BasicBlockStmt arith := [mlir_bb_stmt|
-    %m = "negi"(%o): (i32) -> i32
-]
-
-private abbrev th3_org_3: BasicBlockStmt arith := [mlir_bb_stmt|
-    %r = "addi"(%m, %C): (i32, i32) -> i32
-]
-
 private def th3_out: BasicBlock arith := [mlir_bb|
   ^bb:
     %o = "constant"() {value = 1: i32}: () -> i32
@@ -331,74 +400,27 @@ private def th3_input (C X: FinInt 32): SSAEnv arith := SSAEnv.One [
     ("C", ⟨.i32, C⟩), ("X", ⟨.i32, X⟩)
 ]
 
-theorem Fitree.bind_Ret: Fitree.bind (Fitree.Ret r) k = k r := rfl
-
-theorem Fitree.bind_ret: Fitree.bind (Fitree.ret r) k = k r := rfl
-
-theorem Fitree.bind_Vis: Fitree.bind (Fitree.Vis e k) k' =
-  Fitree.Vis e (fun r => bind (k r) k') := rfl
-
-
-private theorem semantics_constant_stmt : denoteBBStmt arith th3_org_1 =
-  (Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
-    (Sum.inr
-      (Sum.inl
-        (SSAEnvE.Set (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "o")
-          (FinInt.ofInt Signedness.Signless 32 1))))
-    fun r =>
-    Fitree.ret
-      (BlockResult.Next (δ := arith) { fst := MLIRType.int Signedness.Signless 32, snd := FinInt.ofInt Signedness.Signless 32 1 })) := by
-  simp [th3_org_1]
-  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
-  simp_itree
-  simp [arith_semantics_op]
-  simp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
-  simp [pure]
-  simp_itree
-
-private theorem semantics_neg_stmt : denoteBBStmt arith th3_org_2 = 
-  (Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith) (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "o")))) fun r =>
-    Fitree.Vis (Sum.inr (Sum.inr (ArithE.NegI 32 r))) fun r =>
-      Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Set (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "m") r)))
-        fun r_1 => Fitree.ret (BlockResult.Next { fst := MLIRType.int Signedness.Signless 32, snd := r })) := by 
-  simp [th3_org_2]
-  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
-  simp_itree
-
-private theorem semantics_addi_stmt : denoteBBStmt arith th3_org_3 = 
-  (Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith) (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "m")))) fun r =>
-    Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "C")))) fun r_1 =>
-      Fitree.Vis (Sum.inr (Sum.inr (ArithE.AddI 32 r r_1))) fun r =>
-        Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Set (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "r") r)))
-          fun r_2 => Fitree.ret (BlockResult.Next { fst := MLIRType.int Signedness.Signless 32, snd := r })) := by
-  simp [th3_org_3]
-  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
-  simp_itree
-
-def state_res (C X: FinInt 32) : Option (BlockResult arith) × SSAEnv arith := ((some 
-    (BlockResult.Next (δ := arith)
-      { fst := MLIRType.int Signedness.Signless 32, snd := -FinInt.ofInt Signedness.Signless 32 1 + C })),
+def state_res (C X: FinInt 32) : Option (BlockResult arith) × SSAEnv arith := (
+    some (BlockResult.Next (δ := arith) ⟨.i32, -FinInt.ofInt .Signless 32 1 + C⟩),
     SSAEnv.One (δ := arith)
-      [(SSAVal.SSAVal "C", { fst := MLIRType.i32, snd := C }), (SSAVal.SSAVal "X", { fst := MLIRType.i32, snd := X }),
-        (SSAVal.SSAVal "o",
-          { fst := MLIRType.int Signedness.Signless 32, snd := FinInt.ofInt Signedness.Signless 32 1 }),
-        (SSAVal.SSAVal "m",
-          { fst := MLIRType.int Signedness.Signless 32, snd := -FinInt.ofInt Signedness.Signless 32 1 }),
-        (SSAVal.SSAVal "r",
-          { fst := MLIRType.int Signedness.Signless 32, snd := -FinInt.ofInt Signedness.Signless 32 1 + C })])
+      [(SSAVal.SSAVal "C", ⟨.i32, C⟩),
+       (SSAVal.SSAVal "X", ⟨.i32, X⟩),
+       (SSAVal.SSAVal "o", ⟨.i32, FinInt.ofInt .Signless 32 1⟩),
+       (SSAVal.SSAVal "m", ⟨.i32, -FinInt.ofInt .Signless 32 1⟩),
+       (SSAVal.SSAVal "r", ⟨.i32, -FinInt.ofInt .Signless 32 1 + C⟩)])
 
 private theorem th3_left: forall (C X: FinInt 32),
     run (denoteBB _ th3_org) (th3_input C X) = state_res C X := by
   intros C X
   dsimp [th3_input, th3_org, th3_out, run]
   unfold denoteBB
-  rw [semantics_constant_stmt]
+  rw [ops.constant.sem "o" 1]
   simp
   unfold denoteBB
-  rw [semantics_neg_stmt]
+  rw [ops.negi.sem "m" "o"]
   simp
   unfold denoteBB
-  rw [semantics_addi_stmt]
+  rw [ops.addi.sem "r" "m" "C"]
   simp [interp_ub]
   simp [interp]
   simp_itree
