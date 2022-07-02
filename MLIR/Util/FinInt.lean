@@ -139,13 +139,16 @@ theorem scong2_to_eq (n: Nat):
   intros h ha hb
   rw [←smod2_idem ha, ←smod2_idem hb]; assumption
 
-theorem mod2_add: mod2 (a+b) n ≡ mod2 a n + mod2 b n [2^n] := by
+@[simp]
+theorem mod2_add_l: mod2 (mod2 a n + b) n = mod2 (a + b) n := by
   sorry
 
-theorem mod2_mul: mod2 (a*b) n ≡ mod2 a n * mod2 b n [2^n] := by
+@[simp]
+theorem mod2_add_r: mod2 (a + mod2 b n) n = mod2 (a + b) n := by
   sorry
 
-theorem mod2_neg: mod2 (-a) n ≡ -mod2 a n [2^n] := by
+@[simp]
+theorem mod2_neg: mod2 (-mod2 a n) n = mod2 (-a) n := by
   sorry
 
 @[simp]

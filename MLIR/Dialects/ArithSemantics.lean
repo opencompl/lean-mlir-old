@@ -433,3 +433,44 @@ theorem equivalent (C X: FinInt 32):
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.comp_add (by decide)
 end th3
+
+/- LLVM InstCombine: `-A + -B --> -(A + B)`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1316 -/
+
+theorem FinInt.neg_add_dist (A B: FinInt sz):
+    -(A + B) = -A + -B := by
+  apply eq_of_toUint_cong2
+  simp [cong2, neg_toUint, add_toUint]
+  apply mod2_equal
+  sorry_arith
+
+section th4
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "negi"(%A): (i32) -> i32
+    %_2 = "negi"(%B): (i32) -> i32
+    %r = "addi"(%_1, %_2): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "addi"(%A, %B): (i32, i32) -> i32
+    %r = "negi"(%_1): (i32) -> i32
+]
+def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
+]
+
+theorem equivalent (A B: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+  simp [LHS, RHS, INPUT]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [interp_ub]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  apply Eq.symm
+  apply FinInt.neg_add_dist
+end th4
