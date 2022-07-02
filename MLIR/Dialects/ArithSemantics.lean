@@ -367,7 +367,6 @@ def changeLhs (lhs' : Expr) : TacticM Unit := do
     replaceTargetDefEq mvarId ((← mkEq lhs' rhs))
 
 
-
 open Lean Elab Meta Tactic in 
 def unfoldIfUseful (e: Expr) (names: Array Name): TacticM TransformStep := do
   -- let e? <- Meta.delta? e (fun name => names.contains name)
@@ -444,8 +443,24 @@ elab "cbn_itree" "[" rewrites:term,* "]" : tactic => withMainContext do
   let new <- Meta.transform target (pre := unfoldIfUseful
                                             (names := unfoldLemmas ++ treeLemmas ++ rewriteNames))
   let new <- zetaReduce new
-  changeLhs new
+  changeLhs  new
 
+/-
+open Lean Elab Meta Tactic in
+def unfoldLocalDeclOurs (declName : Name) (fvarId : FVarId) : TacticM Unit := do
+  replaceMainGoal [← Meta.unfoldLocalDecl (← getMainGoal) fvarId declName]
+
+open Lean Elab Meta Tactic in
+def unfoldTargetOurs (declName : Name) : TacticM Unit := do
+  replaceMainGoal [← Meta.unfoldTarget (← getMainGoal) declName]
+
+open Lean Elab Meta Tactic in
+elab "_unfold" name:term : tactic => do
+    let declName ← resolveGlobalConstNoOverload name
+    withLocation Location.wildcard 
+           (unfoldLocalDeclOurs declName)
+           (unfoldTargetOurs declName) (throwTacticEx `unfold · m!"did not unfold '{declName}'")
+-/
 #check Fitree.run
 private theorem th2_cbn:
   forall (C X C2: FinInt 32),
@@ -454,14 +469,8 @@ private theorem th2_cbn:
   intros C X C2
   cbn! [th2_input, th2_org, th2_out]
   cbn! [run, denoteBB, denoteBBStmt, denoteOp];
-  unfold Fitree.run 
-  -- cbn_itree []
-  -- cbn_itree []
-  -- cbn_itree [SSAEnv.get]
-  -- cbn_itree [SSAEnv.get]
+  cbn! [Fitree.run];
   
-  
-  -- cbn_itree [Fitree.run]
   
    
 
