@@ -309,6 +309,18 @@ private def th3_org: BasicBlock arith := [mlir_bb|
     %r = "addi"(%m, %C): (i32, i32) -> i32
 ]
 
+private abbrev th3_org_1: BasicBlockStmt arith := [mlir_bb_stmt|
+    %o = "constant"() {value = 1: i32}: () -> i32
+]
+
+private abbrev th3_org_2: BasicBlockStmt arith := [mlir_bb_stmt|
+    %m = "negi"(%o): (i32) -> i32
+]
+
+private abbrev th3_org_3: BasicBlockStmt arith := [mlir_bb_stmt|
+    %r = "addi"(%m, %C): (i32, i32) -> i32
+]
+
 private def th3_out: BasicBlock arith := [mlir_bb|
   ^bb:
     %o = "constant"() {value = 1: i32}: () -> i32
@@ -326,51 +338,89 @@ theorem Fitree.bind_ret: Fitree.bind (Fitree.ret r) k = k r := rfl
 theorem Fitree.bind_Vis: Fitree.bind (Fitree.Vis e k) k' =
   Fitree.Vis e (fun r => bind (k r) k') := rfl
 
-private theorem th3_left: forall (C X: FinInt 32),
-    run (denoteBB _ th3_org) (th3_input C X) = x := by
-  intros C X
-  dsimp [th3_input, th3_org, th3_out, run]
-  unfold denoteBB, denoteBBStmt, denoteOp
-  simp [List.zip, List.mapM, bind]
-  dsimp [Semantics.semantics_op, arith_semantics_op]
-  dsimp_itree
-  dsimp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
-  simp
-  dsimp [interp, pure]
-  simp [Fitree.bind_ret]
-  dsimp [interp_ub]
-  simp_itree
---  rw [Fitree.bind_Vis]
 
-/- private theorem th3:
-  forall (C X: FinInt 32),
-    (run (denoteBB _ th3_org) (th3_input C X) |>.snd.get "r" .i32) =
-    (run (denoteBB _ th3_out) (th3_input C X) |>.snd.get "r" .i32) := by
+private theorem semantics_constant_stmt : denoteBBStmt arith th3_org_1 =
+  (Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
+    (Sum.inr
+      (Sum.inl
+        (SSAEnvE.Set (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "o")
+          (FinInt.ofInt Signedness.Signless 32 1))))
+    fun r =>
+    Fitree.ret
+      (BlockResult.Next (δ := arith) { fst := MLIRType.int Signedness.Signless 32, snd := FinInt.ofInt Signedness.Signless 32 1 })) := by
+  simp [th3_org_1]
+  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+  simp [arith_semantics_op]
+  simp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  simp [pure]
+  simp_itree
+
+private theorem semantics_neg_stmt : denoteBBStmt arith th3_org_2 = 
+  (Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith) (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "o")))) fun r =>
+    Fitree.Vis (Sum.inr (Sum.inr (ArithE.NegI 32 r))) fun r =>
+      Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Set (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "m") r)))
+        fun r_1 => Fitree.ret (BlockResult.Next { fst := MLIRType.int Signedness.Signless 32, snd := r })) := by 
+  simp [th3_org_2]
+  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+
+private theorem semantics_addi_stmt : denoteBBStmt arith th3_org_3 = 
+  (Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith) (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "m")))) fun r =>
+    Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "C")))) fun r_1 =>
+      Fitree.Vis (Sum.inr (Sum.inr (ArithE.AddI 32 r r_1))) fun r =>
+        Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Set (MLIRType.int Signedness.Signless 32) (SSAVal.SSAVal "r") r)))
+          fun r_2 => Fitree.ret (BlockResult.Next { fst := MLIRType.int Signedness.Signless 32, snd := r })) := by
+  simp [th3_org_3]
+  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+
+def state_res (C X: FinInt 32) : Option (BlockResult arith) × SSAEnv arith := ((some 
+    (BlockResult.Next (δ := arith)
+      { fst := MLIRType.int Signedness.Signless 32, snd := -FinInt.ofInt Signedness.Signless 32 1 + C })),
+    SSAEnv.One (δ := arith)
+      [(SSAVal.SSAVal "C", { fst := MLIRType.i32, snd := C }), (SSAVal.SSAVal "X", { fst := MLIRType.i32, snd := X }),
+        (SSAVal.SSAVal "o",
+          { fst := MLIRType.int Signedness.Signless 32, snd := FinInt.ofInt Signedness.Signless 32 1 }),
+        (SSAVal.SSAVal "m",
+          { fst := MLIRType.int Signedness.Signless 32, snd := -FinInt.ofInt Signedness.Signless 32 1 }),
+        (SSAVal.SSAVal "r",
+          { fst := MLIRType.int Signedness.Signless 32, snd := -FinInt.ofInt Signedness.Signless 32 1 + C })])
+
+private theorem th3_left: forall (C X: FinInt 32),
+    run (denoteBB _ th3_org) (th3_input C X) = state_res C X := by
   intros C X
   dsimp [th3_input, th3_org, th3_out, run]
-  unfold denoteBB, denoteBBStmt, denoteOp; simp
-  save
-  -- Fully simplify the semantics
-  dsimp [Semantics.semantics_op, arith_semantics_op, List.zip, List.mapM]
-  dsimp_itree
-  dsimp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  unfold denoteBB
+  rw [semantics_constant_stmt]
   simp
-  dsimp [interp, pure] -/
---  simp [Fitree.bind]
---  dsimp_itree
-/-  simp_itree
-  simp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  unfold denoteBB
+  rw [semantics_neg_stmt]
+  simp
+  unfold denoteBB
+  rw [semantics_addi_stmt]
+  simp [interp_ub]
+  simp [interp]
   simp_itree
-  save
-  -- Interpret events
-  dsimp [interp_ub]
-  dsimp_itree
-  save
-  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]
+  simp [interp_ssa]
   simp_itree
-  save -/
-/-
-  simp [SSAEnv.get]; simp_itree
-  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree -/
+  simp [interp_state, interp]
+  simp_itree
+  simp [SSAEnvE.handle]
+  rw [SSAEnv.get_set_eq]
+  simp
+  simp_itree
+  rw [SSAEnv.get_set_eq]
+  simp_itree
+  rw [SSAEnv.get_set_ne_val] <;> (try intros _; contradiction)
+  rw [SSAEnv.get_set_ne_val] <;> (try intros _; contradiction)
+  simp [SSAEnv.get]
+  simp [Fitree.bind]
+  simp [interp]
+  simp [Semantics.handle, ArithE.handle]
+  simp_itree
+  simp [Fitree.run, Fitree.ret]
+  simp [SSAEnv.get, SSAEnv.set]
+  unfold state_res
+  rfl
+
