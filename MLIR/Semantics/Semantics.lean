@@ -174,7 +174,7 @@ def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
   | _ => do
       Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}")
       return BlockResult.Next ⟨.unit, ()⟩
-
+end
 
 instance
     {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
@@ -188,7 +188,7 @@ instance
     (S₂.semantics_op op).map (.translate Member.inject)
   handle := Fitree.case_ S₁.handle S₂.handle
 
-end
+
 
 def semanticsRegionRec
     [S: Semantics Δ]
