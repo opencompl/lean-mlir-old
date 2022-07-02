@@ -14,6 +14,7 @@ open MLIR.AST
 
 
 -- | Abbreviation with a typeclass context?
+@[simp]
 abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.eval τ)
 
 -- | TODO: throw error if we don't have enough names
@@ -59,8 +60,8 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
-inductive RegionE (Δ: Dialect α' σ' ε'): Type -> Type
-| RunRegion (ix: Nat) (xs: TypedArgs Δ): RegionE Δ (BlockResult Δ)
+inductive RegionE (Δ: Dialect α σ ε): Type -> Type
+| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
 
 class Semantics (δ: Dialect α σ ε)  where
   -- Events modeling the dialect's computational behavior. Usually operations

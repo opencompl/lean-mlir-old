@@ -67,15 +67,28 @@ def index (shape: List Nat) (ix: List Nat): Option Nat :=
   let zippedOption := zip_same_size (shape.tailList.snoc 1) ix
   zippedOption.map (List.sum ∘ List.pointwiseMul)
 
-#check forM
-def linalg_parallel_iter (ts: List (Tensor τ)) (iter_vec: List Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) (BlockResult Δ) := do
+def listTensorToTypedArgs [δ: Dialect α σ ε] [CoeDialect builtin δ]:
+  List (Tensor τ) → List ((τ: MLIRType δ) × τ.eval)
+| [] => []
+| t::ts => ⟨builtin.tensor_unranked τ, sorry⟩ :: listTensorToTypedArgs ts
+
+
+-- TODO: how do I write the semantics for this in a way that 
+-- I can get access to the `tensor` type?
+def linalg_parallel_iter [CoeDialect builtin Δ]
+   (ts: List (Tensor τ))
+   (iter_vec: List Nat):
+     Fitree ((RegionE Δ) +' UBE +' LinalgE)
+            (BlockResult Δ) := do
  let ts' := ts.mapM (fun t => 
    (index t.shape iter_vec).map (fun ix => t.data.get? ix)
  )
- let k <- Fitree.trigger (RegionE.RunRegion 0 [])
+ let result <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0) 
+   (args := listTensorToTypedArgs ts))
  return BlockResult.Ret []
 
-def linalg_parallel (ts: List (Tensor τ)): Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ) :=  sorry
+def linalg_parallel (ts: List (Tensor τ)):
+   Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ) :=  sorry
   
   
 
@@ -104,9 +117,9 @@ its own AffineMap.
 -/
 
 #check RankedTensor
-def LinalgE.handle [δ: Dialect α σ ε] {E}: LinalgE δ ~> Fitree E := fun T e =>
+def LinalgE.handle [δ: Dialect α σ ε] {E}: LinalgE ~> Fitree E := fun T e =>
    match e with 
-    | .GenericParallel args τ rgn  => sorry
+    | .GenericParallel => sorry
 /-
 def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
   match e with
