@@ -279,6 +279,10 @@ def BasicBlock.name (bb: BasicBlock δ): BBName :=
   match bb with
   | BasicBlock.mk name args stmts => BBName.mk name
 
+def BasicBlock.args (bb: BasicBlock δ): List (SSAVal × MLIRType δ) :=
+  match bb with
+  | BasicBlock.mk name args stmts => args
+
 
 def BasicBlock.stmts (bb: BasicBlock δ): List (BasicBlockStmt δ) :=
   match bb with

@@ -31,26 +31,62 @@ instance linalg: Dialect Void Void (fun x => Unit) where
 ### Dialect operations
 -/
 
-inductive LinalgE (δ: Dialect α σ ϵ): Type → Type :=
-| GenericParallel: (args: List (RankedTensor D τ))
-           → (τ: MLIRTy)
-           → (r: Region δ)
-           → LinalgE δ (RankedTensor D τ) -- can't wait to write the real type of this.
+inductive LinalgE: Type → Type :=
+| GenericParallel: LinalgE (RankedTensor D τ) 
+  
+
+def List.tailList (xs: List α): List α :=
+  match xs with 
+  | [] => []
+  | (x::xs') => xs'
+
+-- snoc is 'cons' at the end / 'cons' on the reverse of the list.
+def List.snoc (xs: List α) (a: α): List α := 
+  match xs with 
+  | [] => [a]
+  | (x::xs') => x::(xs'.snoc a)
+
+def zip_same_size (xs: List α) (ys: List β): Option (List (α × β)) :=
+ match xs with 
+ | [] => match ys with 
+         | [] => .some []
+         | _ => .none
+ | (x::xs') => match ys with 
+         | [] => .none
+         | (y::ys') => (zip_same_size xs' ys').map (fun zipped => (x,y)::zipped)
+
+def List.sum (xs: List Nat): Nat := 
+  xs.foldl (fun x y => x + y) 0
+
+def List.pointwiseMul (xys: List (Nat × Nat)): List Nat := 
+  xys.map (fun xy => xy.fst * xy.snd) 
+
+-- xs[α] for xs of shape 10: α
+-- xs[α][β] for xs of shape 40x50: α*50 + β * 1 ~= [50, 1] *+ [α, β]
+def index (shape: List Nat) (ix: List Nat): Option Nat := 
+  let zippedOption := zip_same_size (shape.tailList.snoc 1) ix
+  zippedOption.map (List.sum ∘ List.pointwiseMul)
+
+#check forM
+def linalg_parallel_iter (ts: List (Tensor τ)) (iter_vec: List Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) (BlockResult Δ) := do
+ let ts' := ts.mapM (fun t => 
+   (index t.shape iter_vec).map (fun ix => t.data.get? ix)
+ )
+ let k <- Fitree.trigger (RegionE.RunRegion 0 [])
+ return BlockResult.Ret []
+
+def linalg_parallel (ts: List (Tensor τ)): Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ) :=  sorry
+  
   
 
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
-def linalg_semantics_op (ret: Option SSAVal):
-    -- p builtin → Option (Fitree (SSAEnvE builtin +' LinalgE builtin) (BlockResult builtin))
-    Op builtin → Option (Fitree (SSAEnvE builtin +' LinalgE builtin) (BlockResult builtin))
-  | Op.mk "linalg.generic" args [] [r] attrs (.fn (.tuple []) (.tuple [builtin.tensor D τ])) => some do
-      let args <-
-           args.mapM (fun arg => Fitree.trigger (SSAEnvE.Get (builtin.tensor D τ) arg))
-      let out_tensor <- Fitree.trigger (LinalgE.GenericParallel args τ r)
-      SSAEnv.set? (builtin.tensor D τ) ret out_tensor
-      pure BlockResult.Next
+def linalg_semantics_op: IOp Δ →
+      Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
+  | IOp.mk "linalg.generic" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
+    let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
+    pure $ BlockResult.Next ⟨MLIRType.unit, ()⟩
   | _ => none
-
 /-
 Hook to provide a custom AffineMap used to construct the
 hyperrectangular loop iteration space given all the operand subshapes.
