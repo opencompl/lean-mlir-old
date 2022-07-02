@@ -19,6 +19,13 @@ import MLIR.Dialects.BuiltinModel
 import MLIR.Util.Metagen
 import MLIR.AST
 import MLIR.EDSL
+import Lean.Meta.Tactic.Rewrite
+import Lean.Meta.Tactic.Replace
+import Lean.Elab.Tactic.Basic
+import Lean.Elab.Tactic.Rewrite
+import Lean.Elab.Tactic.ElabTerm
+import Lean.Elab.Tactic.Location
+import Lean.Elab.Tactic.Config
 open MLIR.AST
 
 /-
@@ -215,7 +222,7 @@ private def cst1: BasicBlock arith := [mlir_bb|
     %b2 = "cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
 ]
 
-#eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
+-- #eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
 
 
 /-
@@ -223,8 +230,6 @@ private def cst1: BasicBlock arith := [mlir_bb|
 -/
 
 open FinInt(mod2)
-private theorem mod2_equal: x = y → mod2 x n = mod2 y n :=
-  fun | .refl _ => rfl
 
 /-===  n+m  <-->  m+n  ===-/
 
@@ -251,14 +256,6 @@ private def th1_out: BasicBlockStmt arith := [mlir_bb_stmt|
 /- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`
    https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1794 -/
 
-theorem FinInt.sub_add_dist: forall (C X C2: FinInt sz),
-    C - (X + C2) = (C - C2) - X := by
-  intros C X C2
-  apply eq_of_toUint_cong2
-  simp [cong2, FinInt.sub_toUint, FinInt.add_toUint]
-  apply mod2_equal
-  simp [Int.sub_add_dist]
-  sorry_arith -- rearrange terms
 
 private def th2_org: BasicBlock arith := [mlir_bb|
   ^bb:
@@ -274,33 +271,11 @@ private def th2_input (C X C2: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("C", ⟨.i32, C⟩), ("X", ⟨.i32, X⟩), ("C2", ⟨.i32, C2⟩)
 ]
 
-/- private theorem th2:
-  forall (C X C2: FinInt 32),
-    (run (denoteBB _ th2_org) (th2_input C X C2) |>.snd.get "r" .i32) =
-    (run (denoteBB _ th2_out) (th2_input C X C2) |>.snd.get "r" .i32) := by
-  intros C X C2
-  simp [th2_input, th2_org, th2_out]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
-  simp [interp_ub]; simp_itree
-  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  apply FinInt.sub_add_dist -/
+
 
 /- LLVM InstCombine: `~X + C --> (C-1) - X`
    https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L882 -/
 
-theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
-    comp X + C = (C - FinInt.ofUint sz 1) - X := by
-  intros h_sz X C
-  apply eq_of_toUint_cong2
-  simp [cong2, FinInt.add_toUint, FinInt.comp_toUint, FinInt.sub_toUint]
-  simp [FinInt.toUint_ofUint]
-  have h: mod2 1 sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
-  simp [h]
-  sorry_arith -- eliminate 2^sz in lhs, then mod2_equal
 
 private def th3_org: BasicBlock arith := [mlir_bb|
   ^bb:
@@ -326,9 +301,10 @@ theorem Fitree.bind_ret: Fitree.bind (Fitree.ret r) k = k r := rfl
 theorem Fitree.bind_Vis: Fitree.bind (Fitree.Vis e k) k' =
   Fitree.Vis e (fun r => bind (k r) k') := rfl
 
-private theorem th3_left: forall (C X: FinInt 32),
+/-
+private theorem th3_left_timeout: forall (C X: FinInt 32),
     run (denoteBB _ th3_org) (th3_input C X) = x := by
-  intros C X
+
   dsimp [th3_input, th3_org, th3_out, run]
   unfold denoteBB, denoteBBStmt, denoteOp
   simp [List.zip, List.mapM, bind]
@@ -341,11 +317,163 @@ private theorem th3_left: forall (C X: FinInt 32),
   dsimp [interp_ub]
   simp_itree
 --  rw [Fitree.bind_Vis]
+-/
 
-/- private theorem th3:
+/-
+elab "cbn" : tactic => do 
+  let t <- Core.transform
+  let target <- getMainTarget
+  let target_unfolded? <- Meta.delta? target
+  match target_unfolded? with 
+  | some unfolded => 
+     let new <- whnf unfolded
+     -- replaceMainGoal
+  | none => throwError "nothing to δ reduce at {target}"
+-/
+
+-- Stolen from conv/basic.lean
+
+open Lean Elab Meta Tactic in 
+def getLhsRhsCore (mvarId : MVarId) : MetaM (Expr × Expr) :=
+  withMVarContext mvarId do
+    let some (_, lhs, rhs) ← matchEq? (← getMVarType mvarId) | throwError "invalid 'conv' goal"
+    return (lhs, rhs)
+
+
+open Lean Elab Meta Tactic in 
+def getLhsRhs : TacticM (Expr × Expr) := do
+  getLhsRhsCore (← getMainGoal)
+
+open Lean Elab Meta Tactic in 
+def getRhs : TacticM Expr :=
+  return (← getLhsRhs).2
+
+
+open Lean Elab Meta Tactic in 
+def getLhs : TacticM Expr :=
+  return (← getLhsRhs).1
+
+open Lean Elab Meta Tactic in 
+def updateLhs (lhs' : Expr) (h : Expr) : TacticM Unit := do
+  let rhs ← getRhs
+  let newGoal ← mkFreshExprSyntheticOpaqueMVar (mkLHSGoal (← mkEq lhs' rhs))
+  assignExprMVar (← getMainGoal) (← mkEqTrans h newGoal)
+  replaceMainGoal [newGoal.mvarId!]
+
+open Lean Elab Meta Tactic in 
+def changeLhs (lhs' : Expr) : TacticM Unit := do
+  let rhs ← getRhs
+  liftMetaTactic1 fun mvarId => do
+    replaceTargetDefEq mvarId ((← mkEq lhs' rhs))
+
+
+
+open Lean Elab Meta Tactic in 
+def unfoldIfUseful (e: Expr) (names: Array Name): TacticM TransformStep := do
+  let e? <- Meta.delta? e (fun name => names.contains name)
+  match e? with 
+  | .some e => do 
+    let e' <- whnf e
+    let e' := e'.headBeta;
+    if (<- isDefEq e e')
+    /-
+    then return TransformStep.done (<- zetaReduce (<- Core.betaReduce e))
+    else return TransformStep.visit (<- zetaReduce (<- Core.betaReduce e'))
+    -/
+    then return TransformStep.done e.headBeta
+    else return TransformStep.visit e'.headBeta
+  | .none => return TransformStep.done e.headBeta
+
+open Lean Elab Meta Tactic in
+elab "cbn!" "[" rewrites:ident,* "]"  : tactic => withMainContext do
+  let target <- getLhs
+  let declNames <- rewrites.getElems.mapM  resolveGlobalConstNoOverload
+  let new <- (Meta.transform target (post := unfoldIfUseful (names := declNames)))
+  changeLhs new
+
+
+
+/-
+private theorem th2:
+  forall (C X C2: FinInt 32),
+    (run (denoteBB _ th2_org) (th2_input C X C2) |>.snd.get "r" .i32) =
+    (run (denoteBB _ th2_out) (th2_input C X C2) |>.snd.get "r" .i32) := by
+  intros C X C2
+  simp [th2_input, th2_org, th2_out]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [interp_ub]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  sorry
+-/
+
+open Lean Elab Meta Tactic in 
+elab "cbn_itree" : tactic => withMainContext do
+  -- TODO: Also handle .lemmaNames, not just unfolding!
+  let unfoldLemmas <- (← SimpItreeExtension.getTheorems).toUnfold.foldM
+  --  (init := #[]) (fun acc n => do acc.push (<- resolveGlobalConstNoOverload n))
+     (init := #[]) (fun acc n => return acc.push n)
+  let treeLemmas := #[`Member.inject,
+    `StateT.bind, `StateT.pure, `StateT.lift,
+    `OptionT.bind, `OptionT.pure, `OptionT.mk, `OptionT.lift,
+    `bind, `pure, `cast_eq, `Eq.mpr]
+  let target <- getLhs
+  dbg_trace unfoldLemmas
+  let smallUnfoldLemmas : Array Name :=
+            #[`UBE.handleSafe,
+              `Fitree.run,
+              `interp,
+              `SSAEnv.get?,
+              `interp',
+              `MLIR.AST.MLIRType.eval,
+              `UBE.handle,
+              `Fitree.ret,
+              `Fitree.translate,
+              `writerT_defaultHandler,
+              `Fitree.trigger,
+              `optionT_defaultHandler, 
+              `Fitree.bind,
+              `interp_state,
+              `Fitree.case_, `SSAEnvE.handle, `interp_writer, `SSAEnv.set?, `UBE.handle!,
+              `stateT_defaultHandler,
+              `interp_option]
+  let new <- (Meta.transform target (post := unfoldIfUseful (names := smallUnfoldLemmas ++  treeLemmas)))
+  let new <- zetaReduce new
+  changeLhs new
+
+
+private theorem th2_cbn:
+  forall (C X C2: FinInt 32),
+    (run (denoteBB _ th2_org) (th2_input C X C2) |>.snd.get "r" .i32) =
+    (run (denoteBB _ th2_out) (th2_input C X C2) |>.snd.get "r" .i32) := by
+  intros C X C2
+  cbn! [th2_input, th2_org, th2_out]
+  cbn! [run, denoteBB, denoteBBStmt, denoteOp]; 
+  cbn_itree;
+
+ /-
+  cbn_itree;
+  simp [interp_ub]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+-/
+  sorry
+
+
+
+/-
+ private theorem th3:
   forall (C X: FinInt 32),
     (run (denoteBB _ th3_org) (th3_input C X) |>.snd.get "r" .i32) =
     (run (denoteBB _ th3_out) (th3_input C X) |>.snd.get "r" .i32) := by
+
+/-
   intros C X
   dsimp [th3_input, th3_org, th3_out, run]
   unfold denoteBB, denoteBBStmt, denoteOp; simp
@@ -374,3 +502,31 @@ private theorem th3_left: forall (C X: FinInt 32),
   simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree -/
+
+-/
+
+/-
+theorem FinInt.sub_add_dist: forall (C X C2: FinInt sz),
+    C - (X + C2) = (C - C2) - X := by
+  intros C X C2
+  apply eq_of_toUint_cong2
+  simp [cong2, FinInt.sub_toUint, FinInt.add_toUint]
+
+  apply mod2_equal
+  simp [Int.sub_add_dist]
+  sorry_arith -- rearrange terms
+
+theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
+    comp X + C = (C - FinInt.ofUint sz 1) - X := by
+  intros h_sz X C
+  apply eq_of_toUint_cong2
+  simp [cong2, FinInt.add_toUint, FinInt.comp_toUint, FinInt.sub_toUint]
+  simp [FinInt.toUint_ofUint]
+  have h: mod2 1 sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
+  simp [h]
+  sorry_arith -- eliminate 2^sz in lhs, then mod2_equal
+
+private theorem mod2_equal: x = y → mod2 x n = mod2 y n :=
+  fun | .refl _ => rfl
+
+-/

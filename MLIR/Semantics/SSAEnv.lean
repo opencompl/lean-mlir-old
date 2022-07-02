@@ -296,11 +296,11 @@ def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
 -- Handlers
 
 @[simp_itree]
-private def stateT_defaultHandler: E ~> StateT (SSAEnv δ) (Fitree E) :=
+def stateT_defaultHandler: E ~> StateT (SSAEnv δ) (Fitree E) :=
   fun _ e => StateT.lift $ Fitree.trigger e
 
 @[simp_itree]
-private def writerT_defaultHandler:
+def writerT_defaultHandler:
     E ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
   fun _ e => WriterT.lift $ StateT.lift $ Fitree.trigger e
 
