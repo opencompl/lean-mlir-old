@@ -379,22 +379,16 @@ def unfoldIfUseful (e: Expr) (names: Array Name): TacticM TransformStep := do
                  | .none => return .none) 
   match e? with 
   | .some e => do 
-    let e' <- whnf e
-    let e' := e'.headBeta;
-    if (<- isDefEq e e')
-    /-
-    then return TransformStep.done (<- zetaReduce (<- Core.betaReduce e))
-    else return TransformStep.visit (<- zetaReduce (<- Core.betaReduce e'))
-    -/
-    then return TransformStep.done e.headBeta
-    else return TransformStep.visit e'.headBeta
-  | .none => return TransformStep.done e.headBeta
+    -- let e' <- whnf e
+    return TransformStep.done e
+  | .none => return TransformStep.visit e
 
 open Lean Elab Meta Tactic in
 elab "cbn!" "[" rewrites:ident,* "]"  : tactic => withMainContext do
   let target <- getLhs
   let declNames <- rewrites.getElems.mapM  resolveGlobalConstNoOverload
-  let new <- (Meta.transform target (post := unfoldIfUseful (names := declNames)))
+  let new <- (Core.transform target (pre := unfoldIfUseful (names := declNames)))
+  let new <- zetaReduce new
   changeLhs new
 
 
@@ -417,8 +411,9 @@ private theorem th2:
 -/
 
 open Lean Elab Meta Tactic in 
-elab "cbn_itree" : tactic => withMainContext do
+elab "cbn_itree" "[" rewrites:term,* "]" : tactic => withMainContext do
   -- TODO: Also handle .lemmaNames, not just unfolding!
+  let rewriteNames <- rewrites.getElems.mapM  resolveGlobalConstNoOverload
   let unfoldLemmas <- (← SimpItreeExtension.getTheorems).toUnfold.foldM
   --  (init := #[]) (fun acc n => do acc.push (<- resolveGlobalConstNoOverload n))
      (init := #[]) (fun acc n => return acc.push n)
@@ -446,19 +441,29 @@ elab "cbn_itree" : tactic => withMainContext do
               `Fitree.case_, `SSAEnvE.handle, `interp_writer, `SSAEnv.set?, `UBE.handle!,
               `stateT_defaultHandler,
               `interp_option]
-  let new <- (Meta.transform target (post := unfoldIfUseful (names := smallUnfoldLemmas ++  treeLemmas)))
+  let new <- Meta.transform target (pre := unfoldIfUseful
+                                            (names := unfoldLemmas ++ treeLemmas ++ rewriteNames))
   let new <- zetaReduce new
   changeLhs new
 
-
+#check Fitree.run
 private theorem th2_cbn:
   forall (C X C2: FinInt 32),
     (run (denoteBB _ th2_org) (th2_input C X C2) |>.snd.get "r" .i32) =
     (run (denoteBB _ th2_out) (th2_input C X C2) |>.snd.get "r" .i32) := by
   intros C X C2
   cbn! [th2_input, th2_org, th2_out]
-  cbn! [run, denoteBB, denoteBBStmt, denoteOp]; 
---   cbn_itree;
+  cbn! [run, denoteBB, denoteBBStmt, denoteOp];
+  unfold Fitree.run 
+  -- cbn_itree []
+  -- cbn_itree []
+  -- cbn_itree [SSAEnv.get]
+  -- cbn_itree [SSAEnv.get]
+  
+  
+  -- cbn_itree [Fitree.run]
+  
+   
 
  /-
   cbn_itree;

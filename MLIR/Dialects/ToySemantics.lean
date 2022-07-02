@@ -139,6 +139,7 @@ def double_transpose: BasicBlock builtin := [mlir_bb|
     %t3 = "toy.transpose"(%t2): tensor<4×2×i32> -> tensor<2×4×i32>
 ]
 
+
 #eval Fitree.run <| run_toy (toy_semantics_bbstmt transpose_stmt) SSAEnv.empty
 
 #eval Fitree.run <| run_toy (toy_semantics_bbstmt constant_stmt) SSAEnv.empty
@@ -160,4 +161,5 @@ theorem double_transpose_correct:
   simp [interp_ssa, interp_state, SSAEnvE.handle]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
-  rw [transpose_involutive]
+  sorry
+  -- rw [transpose_involutive]
