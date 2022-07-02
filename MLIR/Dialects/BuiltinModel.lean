@@ -91,9 +91,9 @@ def RankedTensor.str {τ D} (t: RankedTensor D τ): String :=
 def RankedTensor.ofTensorLiteral (lit: TensorLiteral D τ): RankedTensor D τ :=
   match τ, lit, lit.h_rank with
   | .int sgn 1, lit, .UniformBool b _ _ =>
-      RankedTensor.uniform D (FinInt.ofUint 1 (if b then 1 else 0))
+      RankedTensor.uniform D (FinInt.ofInt 1 (if b then 1 else 0))
   | .int sgn sz, lit, .UniformInt i _ _ _ _ =>
-      RankedTensor.uniform D (FinInt.ofInt sgn sz i)
+      RankedTensor.uniform D (FinInt.ofInt sz i)
   | .float bitsize, lit, .UniformFloat f _ _ =>
       RankedTensor.uniform D f
   | τ, lit, .HasShape s _ Hshape Hrefines =>

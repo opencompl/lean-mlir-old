@@ -24,13 +24,13 @@ def dummy_semantics_op: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' DummyE) (BlockResult Δ))
   | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.Dummy
-      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
   | IOp.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.True
-      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
   | IOp.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
       let i ← Fitree.trigger DummyE.False
-      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sgn sz i⟩
+      return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
   | _ => none
 
 def DummyE.handle {E}: DummyE ~> Fitree E :=

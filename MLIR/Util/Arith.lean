@@ -60,6 +60,12 @@ theorem pow_zero (n: Int): n^0 = 1 := by rfl
 
 theorem pow_succ (n: Int) (m: Nat): n^(m+1) = n^m * n := by rfl
 
+theorem mod_zero (n: Int): 0 % n = 0 := by
+  sorry
+
+theorem mod_bounds (a b: Int): a ≥ 0 → a < b → a % b = a := by
+  sorry
+
 /-
 ### Order of Int
 -/
