@@ -145,12 +145,13 @@ def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
 
 def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) := do
-  -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
-  -- TODO: Any checks on the BlockResults of intermediate ops?
-  let bbFormalArgsAndTypes : List (SSAVal × MLIRType Δ) := bb.args 
-  let bbFormalArgs : List SSAVal:= bbFormalArgsAndTypes.map Prod.fst
-  Fitree.inject (denoteTypedArgs args bbFormalArgs)
-  denoteBBStmts (bb.stmts)
+  match bb with 
+  | BasicBlock.mk name formalArgsAndTypes stmts => 
+     -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
+     -- TODO: Any checks on the BlockResults of intermediate ops?
+     let formalArgs : List SSAVal:= formalArgsAndTypes.map Prod.fst
+     Fitree.inject (denoteTypedArgs args formalArgs)
+     denoteBBStmts stmts
 
 
 def denoteRegion (args: List ((τ: MLIRType Δ) × τ.eval))(r: Region Δ):
