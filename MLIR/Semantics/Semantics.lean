@@ -101,6 +101,9 @@ def denoteOp (op: Op Δ):
       let args ← (List.zip args0 τs).mapM (fun (name, τ) => do
           return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩)
       -- Evaluate regions
+      -- We write it this way to make the structurral recursion
+      -- clear to lean.
+      let regions := denoteRegions regions0
       -- Built the interpreted operation
       let iop : IOp Δ := IOp.mk name args bbargs regions0.length attrs (.fn (.tuple τs) t)
       -- Use the dialect-provided semantics, and substitute regions
@@ -108,7 +111,8 @@ def denoteOp (op: Op Δ):
       | some t =>
           interp (fun _ e =>
             match e with
-            | Sum.inl (RegionE.RunRegion i xs) => denoteRegion xs (regions0.get! i)
+            | Sum.inl (RegionE.RunRegion i xs) => 
+                 regions.get! i xs
             | Sum.inr <| Sum.inl ube => Fitree.trigger ube
             | Sum.inr <| Sum.inr se => Fitree.trigger se
           ) t
@@ -153,8 +157,13 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
      Fitree.inject (denoteTypedArgs args formalArgs)
      denoteBBStmts stmts
 
+def denoteRegions (rs: List (Region Δ)):
+    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)) := 
+ match rs with 
+ | [] => []
+ | r :: rs => (denoteRegion r) :: denoteRegions rs
 
-def denoteRegion (args: List ((τ: MLIRType Δ) × τ.eval))(r: Region Δ):
+def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   -- We only define semantics for single-basic-block regions
   -- TODO: Pass region arguments
