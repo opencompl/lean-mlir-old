@@ -27,7 +27,7 @@ open MLIR.AST
 `arith` has no extended types or attributes.
 -/
 
-instance arith: Dialect Void Void (fun x => Unit) where
+instance arith: Dialect Void Void (fun _ => Unit) where
   iα := inferInstance
   iε := inferInstance
 
@@ -71,10 +71,38 @@ inductive ArithE: Type → Type :=
           ArithE (FinInt sz)
   | NegI: (sz: Nat) → (op: FinInt sz) →
           ArithE (FinInt sz)
+  | AndI: (sz: Nat) → (lhs rhs: FinInt sz) →
+          ArithE (FinInt sz)
+  | OrI: (sz: Nat) → (lhs rhs: FinInt sz) →
+          ArithE (FinInt sz)
+  | XorI: (sz: Nat) → (lhs rhs: FinInt sz) →
+          ArithE (FinInt sz)
 
-def arith_semantics_op: IOp Δ →
-    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ))
+def unary_semantics_op (op: IOp Δ)
+      (ctor: (sz: Nat) → FinInt sz → ArithE (FinInt sz)):
+    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
+  match op with
+  | IOp.mk name [⟨.int sgn sz, arg⟩] [] 0 _ _ => some do
+      let r ← Fitree.trigger (ctor sz arg)
+      return BlockResult.Next ⟨.int sgn sz, r⟩
+  | IOp.mk _ _ _ _ _ _ => none
 
+def binary_semantics_op (op: IOp Δ)
+      (ctor: (sz: Nat) → FinInt sz → FinInt sz → ArithE (FinInt sz)):
+    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
+  match op with
+  | IOp.mk name [⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] [] 0 _ _ => some do
+      if EQ: sgn = sgn' /\ sz = sz' then
+        let r ← Fitree.trigger (ctor sz lhs (EQ.2 ▸ rhs))
+        return BlockResult.Next ⟨.int sgn sz, r⟩
+      else
+        Fitree.trigger <| UBE.DebugUB s!"{name}: incompatible operand types"
+        return BlockResult.Ret []
+  | IOp.mk _ _ _ _ _ _ => none
+
+def arith_semantics_op (o: IOp Δ):
+    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
+  match o with
   | IOp.mk "constant" [] [] 0 attrs (.fn (.tuple []) τ₁) => some <|
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
@@ -90,7 +118,8 @@ def arith_semantics_op: IOp Δ →
           else do
                 Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
                 return BlockResult.Ret []
-      | _ => do
+      | some _
+      | none => do
             Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
             return BlockResult.Ret []
 
@@ -106,48 +135,41 @@ def arith_semantics_op: IOp Δ →
                 | none =>
                   Fitree.trigger $ UBE.DebugUB "unable to create ComparisonPred"
                   return BlockResult.Ret []
-            | _ => do
+            | some _
+            | none => do
                 Fitree.trigger $ UBE.DebugUB "unable to find predicate"
                 return BlockResult.Ret []
       else do
         Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (cmp)"
         return BlockResult.Ret []
 
-  | IOp.mk "addi" [⟨.int sgn sz, lhs⟩, ⟨ .int sgn' sz', rhs⟩] [] 0 _ _ => some do
-      if EQ: sgn = sgn' /\ sz = sz' then
-          have rhs': (MLIRType.int sgn sz).eval := by (
-            simp [EQ.1, EQ.2];
-            exact rhs)
-          let r ← Fitree.trigger (ArithE.AddI sz lhs rhs')
-          return BlockResult.Next ⟨.int sgn sz, r⟩
+  | IOp.mk "negi" _ _ _ _ _ =>
+      unary_semantics_op o ArithE.NegI
+  | IOp.mk name _ _ _ _ _ =>
+      if name = "addi" then
+        binary_semantics_op o ArithE.AddI
+      else if name = "subi" then
+        binary_semantics_op o ArithE.SubI
+      else if name = "andi" then
+        binary_semantics_op o ArithE.AndI
+      else if name = "ori" then
+        binary_semantics_op o ArithE.OrI
+      else if name = "xori" then
+        binary_semantics_op o ArithE.XorI
       else
-        Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (add)"
-        return BlockResult.Ret []
-
-  | IOp.mk "subi" [⟨.int sgn sz, lhs⟩, ⟨ .int sgn' sz', rhs⟩] [] 0 _ _ => some do
-      if EQ: sgn = sgn' /\ sz = sz' then
-          have rhs': (MLIRType.int sgn sz).eval := by (
-            simp [EQ.1, EQ.2];
-            exact rhs)
-          let r ← Fitree.trigger (ArithE.SubI sz lhs rhs')
-          return BlockResult.Next ⟨.int sgn sz, r⟩
-      else
-        Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (add)"
-        return BlockResult.Ret []
-
-  | _ => none
+        none
 
 def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
   match e with
-  | AddI sz lhs rhs =>
-      return (lhs + rhs)
+  | AddI _ lhs rhs =>
+      return lhs + rhs
   | AddT sz D lhs rhs =>
       -- TODO: Implementation of ArithE.AddT (tensor addition)
       return default
   | AddV sz sc fx lhs rhs =>
       -- TODO: Implementation of ArithE.AddV (vector addition)
       return default
-  | CmpI sz pred lhs rhs =>
+  | CmpI _ pred lhs rhs =>
       let b: Bool :=
         match pred with
         | .eq  => lhs = rhs
@@ -161,10 +183,16 @@ def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
         | .ugt => lhs.toUint >  rhs.toUint
         | .uge => lhs.toUint >= rhs.toUint
       return FinInt.ofInt .Signless 1 (if b then 1 else 0)
-  | SubI sz lhs rhs =>
-      return (lhs - rhs)
-  | NegI sz op =>
+  | SubI _ lhs rhs =>
+      return lhs - rhs
+  | NegI _ op =>
       return -op
+  | AndI _ lhs rhs =>
+      return lhs &&& rhs
+  | OrI _ lhs rhs =>
+      return lhs ||| rhs
+  | XorI _ lhs rhs =>
+      return lhs ^^^ rhs
 
 instance: Semantics arith where
   E := ArithE
@@ -191,10 +219,14 @@ private def cst1: BasicBlock arith := [mlir_bb|
 
 
 /-
-### Theorems
+### Rewriting heorems
 -/
 
--- n+m = m+n
+open FinInt(mod2)
+private theorem mod2_equal: x = y → mod2 x n = mod2 y n :=
+  fun | .refl _ => rfl
+
+/-===  n+m  <-->  m+n  ===-/
 
 private def th1_org: BasicBlockStmt arith := [mlir_bb_stmt|
   %r = "addi"(%n, %m): (i32, i32) -> i32
@@ -203,7 +235,7 @@ private def th1_out: BasicBlockStmt arith := [mlir_bb_stmt|
   %r = "addi"(%m, %n): (i32, i32) -> i32
 ]
 
-theorem th1_add_comm:
+/- private theorem th1:
   forall (n m: FinInt 32),
     run ⟦th1_org⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
     run ⟦th1_out⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
@@ -212,49 +244,133 @@ theorem th1_add_comm:
   simp [run, th1_org, th1_out, denoteBBStmt, denoteOp]
   simp [interp_ub, SSAEnv.get]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
-  simp [FinInt.add_comm]
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [FinInt.add_comm] -/
 
--- n-(m+p) = n-m-p
+/- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1794 -/
 
-open FinInt(mod2)
-private theorem mod2_equal: x = y → mod2 x n = mod2 y n := fun | .refl _ => rfl
-
--- We would really like setoid rewriting for this
-theorem FinInt.sub_add_dist: forall (n m p: FinInt sz),
-    n - (m + p) = n - m - p := by
-  intros n m p
+theorem FinInt.sub_add_dist: forall (C X C2: FinInt sz),
+    C - (X + C2) = (C - C2) - X := by
+  intros C X C2
   apply eq_of_toUint_cong2
   simp [cong2, FinInt.sub_toUint, FinInt.add_toUint]
   apply mod2_equal
   simp [Int.sub_add_dist]
+  sorry_arith -- rearrange terms
 
 private def th2_org: BasicBlock arith := [mlir_bb|
   ^bb:
-    %t = "addi"(%m, %p): (i32, i32) -> i32
-    %r = "subi"(%n, %t): (i32, i32) -> i32
+    %t = "addi"(%X, %C2): (i32, i32) -> i32
+    %r = "subi"(%C, %t): (i32, i32) -> i32
 ]
 private def th2_out: BasicBlock arith := [mlir_bb|
   ^bb:
-    %t = "subi"(%n, %m): (i32, i32) -> i32
-    %r = "subi"(%t, %p): (i32, i32) -> i32
+    %t = "subi"(%C, %C2): (i32, i32) -> i32
+    %r = "subi"(%t, %X): (i32, i32) -> i32
 ]
-abbrev th2_mem (n m p: FinInt 32): SSAEnv arith := SSAEnv.One [
-  ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩), ("p", ⟨.i32,p⟩)
+private def th2_input (C X C2: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("C", ⟨.i32, C⟩), ("X", ⟨.i32, X⟩), ("C2", ⟨.i32, C2⟩)
 ]
 
-theorem th2_sub_add_dist:
-  forall (n m p: FinInt 32),
-    (run (denoteBB _ th2_org) (th2_mem n m p) |>.snd.get "r" .i32) =
-    (run (denoteBB _ th2_out) (th2_mem n m p) |>.snd.get "r" .i32) := by
-  intros n m p
-  simp [th2_mem, th2_org, th2_out]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]
+/- private theorem th2:
+  forall (C X C2: FinInt 32),
+    (run (denoteBB _ th2_org) (th2_input C X C2) |>.snd.get "r" .i32) =
+    (run (denoteBB _ th2_out) (th2_input C X C2) |>.snd.get "r" .i32) := by
+  intros C X C2
+  simp [th2_input, th2_org, th2_out]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
   simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
+  apply FinInt.sub_add_dist -/
+
+/- LLVM InstCombine: `~X + C --> (C-1) - X`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L882 -/
+
+theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
+    comp X + C = (C - FinInt.ofUint sz 1) - X := by
+  intros h_sz X C
+  apply eq_of_toUint_cong2
+  simp [cong2, FinInt.add_toUint, FinInt.comp_toUint, FinInt.sub_toUint]
+  simp [FinInt.toUint_ofUint]
+  have h: mod2 1 sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
+  simp [h]
+  sorry_arith -- eliminate 2^sz in lhs, then mod2_equal
+
+private def th3_org: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %o = "constant"() {value = 1: i32}: () -> i32
+    %m = "negi"(%o): (i32) -> i32
+    %r = "addi"(%m, %C): (i32, i32) -> i32
+]
+
+private def th3_out: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %o = "constant"() {value = 1: i32}: () -> i32
+    %t = "subi"(%C, %o): (i32, i32) -> i32
+    %r = "subi"(%t, %X): (i32, i32) -> i32
+]
+private def th3_input (C X: FinInt 32): SSAEnv arith := SSAEnv.One [
+    ("C", ⟨.i32, C⟩), ("X", ⟨.i32, X⟩)
+]
+
+theorem Fitree.bind_Ret: Fitree.bind (Fitree.Ret r) k = k r := rfl
+
+theorem Fitree.bind_ret: Fitree.bind (Fitree.ret r) k = k r := rfl
+
+theorem Fitree.bind_Vis: Fitree.bind (Fitree.Vis e k) k' =
+  Fitree.Vis e (fun r => bind (k r) k') := rfl
+
+private theorem th3_left: forall (C X: FinInt 32),
+    run (denoteBB _ th3_org) (th3_input C X) = x := by
+  intros C X
+  dsimp [th3_input, th3_org, th3_out, run]
+  unfold denoteBB, denoteBBStmt, denoteOp
+  simp [List.zip, List.mapM, bind]
+  dsimp [Semantics.semantics_op, arith_semantics_op]
+  dsimp_itree
+  dsimp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  simp
+  dsimp [interp, pure]
+  simp [Fitree.bind_ret]
+  dsimp [interp_ub]
+  simp_itree
+--  rw [Fitree.bind_Vis]
+
+/- private theorem th3:
+  forall (C X: FinInt 32),
+    (run (denoteBB _ th3_org) (th3_input C X) |>.snd.get "r" .i32) =
+    (run (denoteBB _ th3_out) (th3_input C X) |>.snd.get "r" .i32) := by
+  intros C X
+  dsimp [th3_input, th3_org, th3_out, run]
+  unfold denoteBB, denoteBBStmt, denoteOp; simp
+  save
+  -- Fully simplify the semantics
+  dsimp [Semantics.semantics_op, arith_semantics_op, List.zip, List.mapM]
+  dsimp_itree
+  dsimp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  simp
+  dsimp [interp, pure] -/
+--  simp [Fitree.bind]
+--  dsimp_itree
+/-  simp_itree
+  simp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value]
+  simp_itree
+  save
+  -- Interpret events
+  dsimp [interp_ub]
+  dsimp_itree
+  save
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]
+  simp_itree
+  save -/
+/-
   simp [SSAEnv.get]; simp_itree
-  apply FinInt.sub_add_dist
+  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree -/

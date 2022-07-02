@@ -741,7 +741,7 @@ syntax str: mlir_attr_val
 syntax mlir_type : mlir_attr_val
 syntax affine_map : mlir_attr_val
 syntax mlir_attr_val_symbol : mlir_attr_val
-syntax num (":" mlir_type)? : mlir_attr_val
+syntax "-"? num (":" mlir_type)? : mlir_attr_val
 syntax scientificLit (":" mlir_type)? : mlir_attr_val
 syntax ident: mlir_attr_val
 
@@ -755,6 +755,8 @@ macro_rules
 macro_rules
 | `([mlir_attr_val|  $x:num ]) => `(AttrValue.int $x (MLIRType.int .Signless 64))
 | `([mlir_attr_val| $x:num : $t:mlir_type]) => `(AttrValue.int $x [mlir_type| $t])
+| `([mlir_attr_val| - $x:num ]) => `(AttrValue.int (- $x) (MLIRType.int .Signed 64))
+| `([mlir_attr_val| - $x:num : $t:mlir_type]) => `(AttrValue.int (- $x) [mlir_type| $t])
 
 macro_rules
 | `([mlir_attr_val| true ]) => `(AttrValue.bool True)
@@ -842,8 +844,8 @@ def attrVal4Symbol : AttrValue builtin := [mlir_attr_val| @"foo" ]
 def attrVal5int: AttrValue builtin := [mlir_attr_val| 42 ]
 #reduce attrVal5int
 
--- def attrVal5bint: AttrVal := [mlir_attr_val| -42 ]
--- #reduce attrVal5bint
+def attrVal5bint: AttrVal := [mlir_attr_val| -42 ]
+#reduce attrVal5bint
 
 
 def attrVal6Symbol : AttrVal := [mlir_attr_val| @func_foo ]
@@ -926,6 +928,10 @@ def attr2Escape : AttrEntry builtin :=
 def attr3Unit : AttrEntry builtin :=
    [mlir_attr_entry| sym_name]
 #print attr3Unit
+
+def attr4Negative : AttrEntry builtin :=
+   [mlir_attr_entry| value = -1: i32]
+#print attr4Negative
 
 
 declare_syntax_cat mlir_attr_dict
