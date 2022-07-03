@@ -364,7 +364,7 @@ theorem equivalent (C X C2: FinInt 32):
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
-  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   apply FinInt.sub_add_dist
@@ -379,8 +379,8 @@ theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
   simp [←FinInt.comp_eq_xor_minusOne]
   apply eq_of_toUint_cong2
   simp [cong2, FinInt.add_toUint, FinInt.comp_toUint, FinInt.sub_toUint]
-  simp [FinInt.toUint_ofInt]
-  have h: mod2 1 sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
+  simp [toUint_ofNat]
+  have h: mod2 (Int.ofNat 1) sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
   simp [h]
   sorry_arith -- eliminate 2^sz in lhs, then mod2_equal
 
@@ -405,7 +405,7 @@ def INPUT (C X: FinInt 32): SSAEnv arith := SSAEnv.One [
 theorem LHS.sem (C X: FinInt 32):
     (run (denoteBB _ LHS) (INPUT C X) |>.snd.get "r" .i32) =
       ((X ^^^ -1) + C: FinInt 32) := by
-  simp [INPUT, LHS, RHS, run, denoteBB]
+  simp [INPUT, LHS, run, denoteBB]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.xori.sem]
@@ -418,7 +418,7 @@ theorem LHS.sem (C X: FinInt 32):
 theorem RHS.sem (C X: FinInt 32):
     (run (denoteBB _ RHS) (INPUT C X) |>.snd.get "r" .i32) =
       (C - 1 - X: FinInt 32) := by
-  simp [INPUT, LHS, RHS, run, denoteBB]
+  simp [INPUT, RHS, run, denoteBB]
   rw [ops.constant.sem]
   rw [ops.subi.sem]
   rw [ops.subi.sem]
@@ -444,7 +444,7 @@ theorem FinInt.neg_add_dist (A B: FinInt sz):
   apply mod2_equal
   sorry_arith
 
-section th4
+namespace th4
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
     %_1 = "negi"(%A): (i32) -> i32
@@ -468,9 +468,106 @@ theorem equivalent (A B: FinInt 32):
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
-  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   apply Eq.symm
   apply FinInt.neg_add_dist
 end th4
+
+/- LLVM InstCombine: `-(X - Y) --> (Y - X)`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L2290 -/
+
+theorem FinInt.neg_sub_dist (X Y: FinInt sz):
+    -(X - Y) = Y - X := by
+  apply eq_of_toUint_cong2
+  simp [cong2, neg_toUint, sub_toUint]
+  apply mod2_equal
+  sorry_arith
+
+namespace th5
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "subi"(%X, %Y): (i32, i32) -> i32
+    %r = "negi"(%_1): (i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %r = "subi"(%Y, %X): (i32, i32) -> i32
+]
+def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("X", ⟨.i32, X⟩), ("Y", ⟨.i32, Y⟩)
+]
+
+theorem equivalent (X Y: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) := by
+  simp [LHS, RHS, INPUT]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [interp_ub]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  simp [SSAEnv.get]; simp_itree
+  apply FinInt.neg_sub_dist
+end th5
+
+/- LLVM InstCombine: `(A + 1) + ~B --> A - B`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1331 -/
+
+theorem FinInt.plus_one_plus_comp (A B: FinInt sz):
+    (A + 1) + (B ^^^ -1) = A - B := by
+  simp [←FinInt.comp_eq_xor_minusOne]
+  apply eq_of_toUint_cong2
+  simp [cong2, neg_toUint, add_toUint, sub_toUint, comp_toUint]
+  simp [toUint_ofNat]
+  have h: mod2 (Int.ofNat 1) sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
+  simp [h]
+  sorry_arith -- rearrange, eliminate 2^sz on the left, then mod2_equal
+
+namespace th6
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "addi"(%A, %_1): (i32, i32) -> i32
+    %_3 = "negi"(%_1): (i32) -> i32
+    %_4 = "xori"(%B, %_3): (i32, i32) -> i32
+    %r = "addi"(%_2, %_4): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %r = "subi"(%A, %B): (i32, i32) -> i32
+]
+def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
+]
+
+theorem LHS.sem (A B: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+      ((A + 1) + (B ^^^ -1): FinInt 32) := by
+  simp [INPUT, LHS, run, denoteBB]
+  rw [ops.constant.sem]
+  rw [ops.addi.sem]
+  rw [ops.negi.sem]
+  rw [ops.xori.sem]
+  rw [ops.addi.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+  rfl
+
+theorem RHS.sem (A B: FinInt 32):
+    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) =
+      (A - B: FinInt 32) := by
+  simp [INPUT, RHS, run, denoteBB]
+  rw [ops.subi.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+
+theorem equivalent (A B: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+  rw [LHS.sem, RHS.sem]; simp
+  apply FinInt.plus_one_plus_comp
+end th6

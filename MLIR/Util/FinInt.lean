@@ -383,6 +383,10 @@ theorem toUint_ofInt (sz: Nat) (n: Int):
   case succ sz ih =>
     sorry
 
+theorem toUint_ofNat (sz: Nat) (n: Nat):
+    (OfNat.ofNat n: FinInt sz).toUint = mod2 n sz := by
+  simp [OfNat.ofNat, toUint_ofInt]
+
 theorem toSint_ofSint (sz: Nat)(n: Int):
     (ofInt (sz+1) n).toSint = smod2 n sz := by
   sorry
