@@ -82,3 +82,7 @@ $ cd examples; lit -v . # run all examples, report failures.
 
 - [`tydeu/lean4-papyrus`](https://github.com/tydeu/lean4-papyrus) is an LLVM interface for Lean 4.
 - [`GaloisInc/lean-llvm`](https://github.com/GaloisInc/lean-llvm) is Lean4 bindings to the LLVM library.
+
+# License
+
+Some source code from Mathlib4 is included in `MLIR/Util/Mathlib4`, licenser under [Apache 2.0](https://github.com/leanprover-community/mathlib4/blob/master/LICENSE).
