@@ -45,12 +45,12 @@ def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
           match TensorLiteral.ofTensorElem elem D₁ τ₁ with
           | none =>
-              Fitree.trigger (UBE.DebugUB s!"{op}")
+             (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"{op}"))
           | some t_lit => do
               let t ← Fitree.trigger <| ToyOp.Constant D₁ τ₁ t_lit
               SSAEnv.set? (builtin.tensor D₁ τ₁) ret_name t
       | _ =>
-          Fitree.trigger (UBE.DebugUB s!"{op}")
+          (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"{op}"))
 
   | Op.mk "toy.transpose" [t_name] [] [] _ (.fn (builtin.tensor D τ) τ₂) =>
       match D with
@@ -61,7 +61,7 @@ def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
           SSAEnv.set? (builtin.tensor [Dimension.Known m, Dimension.Known n] τ)
             ret_name t'
       | _ =>
-          Fitree.trigger (UBE.DebugUB s!"{op}")
+          (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"{op}"))
 
   | Op.mk "toy.reshape" [t_name] [] [] _
         (.fn (builtin.tensor D τ₁) (builtin.tensor D' τ₂)) =>
@@ -75,10 +75,10 @@ def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
         let t': RankedTensor D' τ₂ := cast (by rw [H.1]) t';
         SSAEnv.set? (builtin.tensor D' τ₂) ret_name t'
       else
-        Fitree.trigger (UBE.DebugUB s!"{op}")
+        (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"{op}"))
 
   | _ =>
-      Fitree.trigger (UBE.DebugUB s!"{op}")
+      (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"{op}"))
 
 def toy_semantics_bbstmt: BasicBlockStmt builtin →
       Fitree (UBE +' (SSAEnvE builtin) +' ToyOp) Unit

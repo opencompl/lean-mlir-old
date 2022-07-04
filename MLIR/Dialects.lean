@@ -147,6 +147,8 @@ used in a couple of aliases, eg. `MLIRTy` (for `MLIRType Dialect.empty`) and
 inductive Void :=
 deriving DecidableEq
 
+def Void.explode (v: Void) {α: Type}: αlpha := nomatch v
+
 instance: DialectTypeIntf Void (fun _ => Unit) where
   inhabited s := nomatch s
   typeEq      := inferInstance

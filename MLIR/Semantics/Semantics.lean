@@ -120,11 +120,10 @@ def denoteOp (op: Op Δ):
             | Sum.inr <| Sum.inr se => Fitree.trigger se
           ) t
       | none => do
-          Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
-          return default
+          (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"invalid op: {op}"))
 
   | _ => do
-      Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
+      (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"invalid denoteOp: {op}"))
       return .Next ⟨.unit, ()⟩
 
 def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
@@ -136,7 +135,7 @@ def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
       | .Next ⟨τ, v⟩ =>
           Fitree.trigger (SSAEnvE.Set τ val v)
       | _ =>
-          Fitree.trigger (UBE.DebugUB s!"invalid denoteBBStmt: {bbstmt}")
+          (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"invalid denoteBBStmt: {bbstmt}"))
       return br
   | .StmtOp op =>
       denoteOp op
@@ -176,7 +175,7 @@ def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
   | .mk [bb] =>
       denoteBB bb args
   | _ => do
-      Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}")
+      (Void.explode (α := Unit)) <$> (Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}"))
       return BlockResult.Next ⟨.unit, ()⟩
 end
 
