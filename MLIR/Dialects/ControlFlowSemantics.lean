@@ -179,6 +179,59 @@ def ex_assert_false := [mlir_region| {
 #eval run_dummy_cf_region' ex_assert_false
 
 section cf_if_true
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "ori"(%A, %B): (i32, i32) -> i32
+    %_4 = "xori"(%_3, %_2): (i32, i32) -> i32
+    %_5 = "andi"(%A, %B): (i32, i32) -> i32
+    %r = "ori"(%_5, %_4): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "xori"(%A, %B): (i32, i32) -> i32
+    %r = "xori"(%_3, %_2): (i32, i32) -> i32
+]
+def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
+]
+
+theorem LHS.sem (A B: FinInt 32):
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+      ((A &&& B) ||| ((A ||| B) ^^^ -1): FinInt 32) := by
+  simp [INPUT, LHS, run, denoteBB, denoteBBStmts]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.ori.sem]
+  rw [ops.xori.sem]
+  rw [ops.andi.sem]
+  rw [ops.ori.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  rfl
+
+theorem RHS.sem (A B: FinInt 32):
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) =
+      ((A ^^^ B) ^^^ -1: FinInt 32) := by
+  simp [INPUT, RHS, run, denoteBB, denoteBBStmts]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.xori.sem]
+  rw [ops.xori.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  rfl
+
+theorem equivalent (A B: FinInt 32):
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) := by
+  rw [LHS.sem, RHS.sem]; simp
+  apply FinInt.and_or_not_or
 end cf_if_true
 
 section cf_if_false
