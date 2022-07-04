@@ -47,7 +47,7 @@ def scf_semantics_op: IOp Δ →
       (lo := (FinInt.toSint' lo))
       (step := (FinInt.toSint' step))
       (accum := default)
-      (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0))
+      (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
   | _ => none
 
 def handleScf: ScfE ~> Fitree PVoid :=
