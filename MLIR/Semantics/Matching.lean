@@ -104,7 +104,7 @@ def MCtor.eq {args_sort₁ ctor_sort₁ args_sort₂ ctor_sort₂}:
     MCtor args_sort₁ ctor_sort₁ → MCtor args_sort₂ ctor_sort₂ → Bool :=
   fun c₁ c₂ =>
     if H: args_sort₁ = args_sort₂ ∧ ctor_sort₁ = ctor_sort₂ then
-      cast (by rw [H.1, H.2]) c₁ = c₂
+      cast (by simp [H.1, H.2]) c₁ = c₂
     else
       false
 
@@ -199,7 +199,7 @@ def MTerm.subst (t: MTerm δ) (name: String) (repl: MTerm δ): MTerm δ :=
   | .App ctor args => .App ctor (MTerm.substList args name repl)
   | t => t
 
-protected def MTerm.substList (l: List (MTerm δ)) (name: String) 
+protected def MTerm.substList (l: List (MTerm δ)) (name: String)
                               (repl: MTerm δ) : List (MTerm δ) :=
   match l with
   | [] => []
@@ -261,7 +261,7 @@ def MSort_toType_decEq {δ: Dialect α σ ε} (s: MSort)
     : DecidableEq (s.toType δ) :=
   match s with
   | .MOp => decEq
-  | .MOperand => decEq 
+  | .MOperand => decEq
   | .MMLIRType => decEq
   | .MSSAVal => decEq
   | .MAttrValue => decEq
@@ -290,9 +290,9 @@ abbrev VarCtx (δ: Dialect α σ ε) :=
 def VarCtx.get (ctx: VarCtx δ) (s: MSort) (name: String) :
     Option (s.toType δ) :=
   match ctx with
-  | ⟨so, sortCtx⟩::ctx' => 
+  | ⟨so, sortCtx⟩::ctx' =>
     match H: so == s with
-    | false => get ctx' s name 
+    | false => get ctx' s name
     | true => do
       let res ← List.find? (·.fst == name) ((of_decide_eq_true H) ▸ sortCtx)
       return res.snd
@@ -302,9 +302,9 @@ def VarCtx.get (ctx: VarCtx δ) (s: MSort) (name: String) :
 def VarCtx.set (ctx: VarCtx δ) (s: MSort) (name: String) (value: s.toType δ):
     VarCtx δ :=
   match ctx with
-  | ⟨so, sortCtx⟩::ctx' => 
+  | ⟨so, sortCtx⟩::ctx' =>
     match H: so == s with
-    | false => ⟨so, sortCtx⟩::(set ctx' s name value) 
+    | false => ⟨so, sortCtx⟩::(set ctx' s name value)
     | true => ⟨so, (name, (of_decide_eq_true H) ▸ value)::sortCtx⟩::ctx'
   | [] => [{fst := s, snd := [(name, value)]}]
 
@@ -324,19 +324,19 @@ def MTerm.concretizeVariable (m: MTerm δ) (s: MSort) (ctx: VarCtx δ) :
     if s == sort then ctx.get s name else none
   | _ => none
 
-def MTerm.concretizeSign (m: MTerm δ) (ctx: VarCtx δ) : Option Signedness := 
+def MTerm.concretizeSign (m: MTerm δ) (ctx: VarCtx δ) : Option Signedness :=
   match m with
   | Var _ _ _ => m.concretizeVariable .MSignedness ctx
   | ConstSignedness s => some s
   | _ => none
 
-def MTerm.concretizeNat (m: MTerm δ) (ctx: VarCtx δ) : Option Nat := 
+def MTerm.concretizeNat (m: MTerm δ) (ctx: VarCtx δ) : Option Nat :=
   match m with
   | Var _ _ _ => m.concretizeVariable .MNat ctx
   | ConstNat n => some n
   | _ => none
 
-def MTerm.concretizeDim (m: MTerm δ) (ctx: VarCtx δ) : Option Dimension := 
+def MTerm.concretizeDim (m: MTerm δ) (ctx: VarCtx δ) : Option Dimension :=
   match m with
   | Var _ _ _ => m.concretizeVariable .MDimension ctx
   | ConstDimension d => some d
@@ -355,7 +355,7 @@ def MTerm.concretizeType (m: MTerm δ) (ctx: VarCtx δ) :
 def MTerm.concretizeOperand (m: MTerm δ) (ctx: VarCtx δ) :
     Option (MLIR.AST.SSAVal × MLIR.AST.MLIRType δ) :=
   match m with
-  | Var _ _ _ => m.concretizeVariable .MOperand ctx 
+  | Var _ _ _ => m.concretizeVariable .MOperand ctx
   | .App .OPERAND [mVal, mType] => do
     let val ← mVal.concretizeVariable .MSSAVal ctx
     let type ← mType.concretizeType ctx
@@ -399,8 +399,8 @@ structure.
 
 -- Match a MTerm variable.
 def matchVariable {δ: Dialect α σ ε} (s: MSort) (name: String)
-                  (val: s.toType δ) (ctx: VarCtx δ) : Option (VarCtx δ) := 
-  match ctx.get s name with 
+                  (val: s.toType δ) (ctx: VarCtx δ) : Option (VarCtx δ) :=
+  match ctx.get s name with
   | some matchedVal => if val == matchedVal then some ctx else none
   | none => some (ctx.set s name val)
 
@@ -491,7 +491,7 @@ We first define functions that match all possible ops in the IR. Then, we use
 this to match a program in an IR.
 -/
 
-mutual 
+mutual
 -- Get all possible operations matching an MTerm in a basic block statement.
 def matchAllMOpInBBStmt (stmt: BasicBlockStmt δ) (mOp: MTerm δ)
                         (ctx: VarCtx δ) :
@@ -509,7 +509,7 @@ def matchAllMOpInBBStmt (stmt: BasicBlockStmt δ) (mOp: MTerm δ)
 def matchAllMOpInBBStmts (stmts: List (BasicBlockStmt δ)) (mOp: MTerm δ)
                         (ctx: VarCtx δ) : List (BasicBlockStmt δ × VarCtx δ) :=
   match stmts with
-  | stmt::stmts' => (matchAllMOpInBBStmt stmt mOp ctx).append 
+  | stmt::stmts' => (matchAllMOpInBBStmt stmt mOp ctx).append
     (matchAllMOpInBBStmts stmts' mOp ctx)
   | [] => []
 
@@ -568,7 +568,7 @@ def matchMProgInOp (op: Op δ) (mOps: List (MTerm δ)) (ctx: VarCtx δ) :
     Option ((List (BasicBlockStmt δ)) × VarCtx δ) :=
   match mOps with
   -- Try all matches of the first operation.
-  | mOp::mOps' => 
+  | mOp::mOps' =>
     matchMProgInOpAux op mOps' (matchAllMOpInOp op mOp ctx)
   | [] => some ([], ctx)
 

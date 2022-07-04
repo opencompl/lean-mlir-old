@@ -94,7 +94,7 @@ theorem SSAScope.getT_set_ne (v v': SSAVal):
   intros Hne scope τ val
   induction scope with
   | nil => simp [Hne]
-  | cons head tail => 
+  | cons head tail =>
     simp
     byCases H: head.fst = v'
     . simp [Hne]
@@ -183,7 +183,7 @@ def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.ev
 instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
   fun ⟨τ₁, v₁⟩ ⟨τ₂, v₂⟩ =>
     if H: τ₁ = τ₂ then
-      if H': cast (by rw [H]) v₁ = v₂ then
+      if H': cast (by simp [H]) v₁ = v₂ then
         isTrue (by cases H; cases H'; simp [cast_eq])
       else isFalse fun h => by cases h; cases H' rfl
     else isFalse fun h => by cases h; cases H rfl
@@ -203,7 +203,7 @@ theorem SSAEnv.getT_set_ne (v v': SSAVal):
     simp [getT, set]
     rw [SSAScope.getT_set_ne]
     assumption
-  | Cons head tail => 
+  | Cons head tail =>
     simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
     rw [SSAScope.getT_set_ne]
     assumption
@@ -214,7 +214,7 @@ theorem SSAEnv.getT_set_eq (env: SSAEnv δ) (v: SSAVal) (τ: MLIRType δ) val:
   | One s =>
     simp [getT, set]
     rw [SSAScope.getT_set_eq]
-  | Cons head tail => 
+  | Cons head tail =>
     simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
     simp [SSAScope.getT_set_eq]
 
@@ -281,7 +281,7 @@ def SSAEnvE.handleLogged {E}:
 
 @[simp_itree]
 def SSAEnv.get? {E} (δ: Dialect α σ ε) [Member (SSAEnvE δ) E]
-  (τ: MLIRType δ) (name: SSAVal): Fitree E τ.eval := 
+  (τ: MLIRType δ) (name: SSAVal): Fitree E τ.eval :=
     Fitree.trigger (SSAEnvE.Get τ name)
 
 @[simp_itree]

@@ -382,9 +382,9 @@ namespace MLIR.AST.TensorElem
 def flatten {τ: MLIRTy} (e: TensorElem) (h: e.hasType τ): List τ.eval :=
   match e, τ with
   | TensorElem.int i, .int sgn sz =>
-      [FinInt.ofInt sgn sz i]
+      [FinInt.ofInt sz i]
   | TensorElem.bool b, .int sgn sz =>
-      [FinInt.ofInt sgn sz (if b then 1 else 0)]
+      [FinInt.ofInt sz (if b then 1 else 0)]
   | TensorElem.float f, .float _ =>
       [f]
   | TensorElem.nested [], _ =>

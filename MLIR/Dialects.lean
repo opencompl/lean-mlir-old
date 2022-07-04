@@ -59,9 +59,9 @@ instance {σ ε} [i: DialectTypeIntf σ ε] (s: σ): Inhabited (ε s) where
   default := i.inhabited s
 instance {σ ε} [i: DialectTypeIntf σ ε] (s: σ): ToString (ε s) where
   toString := i.str s
-instance {σ ε} [i: DialectTypeIntf σ ε]: DecidableEq σ :=
+instance _DEq1 {σ ε} [i: DialectTypeIntf σ ε]: DecidableEq σ :=
   i.typeEq
-instance {σ ε} [i: DialectTypeIntf σ ε] (s: σ): DecidableEq (ε s) :=
+instance _DEq2 {σ ε} [i: DialectTypeIntf σ ε] (s: σ): DecidableEq (ε s) :=
   i.eq s
 
 
@@ -80,7 +80,7 @@ class DialectAttrIntf (α: Type) where
 
 def DialectAttrIntf.type {α} (_: DialectAttrIntf α): Type := α
 
-instance {α} [i: DialectAttrIntf α]: DecidableEq α := i.eq
+instance _DEq3 {α} [i: DialectAttrIntf α]: DecidableEq α := i.eq
 
 
 /-
