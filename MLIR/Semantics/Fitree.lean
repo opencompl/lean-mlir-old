@@ -100,6 +100,13 @@ def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 
+ -- TODO: consider making this a coercion
+def Fitree.inject {E: Type → Type} {F: Type → Type} {T} [Member E F]
+    (fe: Fitree E T): Fitree F T :=
+  match fe with 
+  | Ret r => Ret r
+  | Vis e k' => Vis (Member.inject _ e) (fun r => inject (k' r))
+
 @[simp_itree]
 def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with

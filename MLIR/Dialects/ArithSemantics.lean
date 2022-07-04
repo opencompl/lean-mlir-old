@@ -362,10 +362,10 @@ def INPUT (C X C2: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (C X C2: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT C X C2) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT C X C2) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT C X C2) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT C X C2) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
@@ -410,9 +410,9 @@ def INPUT (C X: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem LHS.sem (C X: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT C X) |>.snd.get "r" .i32) =
+    (run (denoteBB _ LHS []) (INPUT C X) |>.snd.get "r" .i32) =
       ((X ^^^ -1) + C: FinInt 32) := by
-  simp [INPUT, LHS, run, denoteBB]
+  simp [INPUT, LHS, run, denoteBBStmts, denoteBB]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.xori.sem]
@@ -423,9 +423,9 @@ theorem LHS.sem (C X: FinInt 32):
   rfl
 
 theorem RHS.sem (C X: FinInt 32):
-    (run (denoteBB _ RHS) (INPUT C X) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT C X) |>.snd.get "r" .i32) =
       (C - 1 - X: FinInt 32) := by
-  simp [INPUT, RHS, run, denoteBB]
+  simp [INPUT, RHS, run, denoteBBStmts, denoteBB]
   rw [ops.constant.sem]
   rw [ops.subi.sem]
   rw [ops.subi.sem]
@@ -435,8 +435,8 @@ theorem RHS.sem (C X: FinInt 32):
   rfl
 
 theorem equivalent (C X: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT C X) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT C X) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT C X) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT C X) |>.snd.get "r" .i32) := by
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.comp_add (by decide)
 end th3
@@ -468,10 +468,10 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
@@ -507,10 +507,10 @@ def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (X Y: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT X Y) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT X Y) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
@@ -555,9 +555,9 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem LHS.sem (A B: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
       ((A + 1) + (B ^^^ -1): FinInt 32) := by
-  simp [INPUT, LHS, run, denoteBB]
+  simp [INPUT, LHS, run, denoteBBStmts, denoteBB]
   rw [ops.constant.sem]
   rw [ops.addi.sem]
   rw [ops.negi.sem]
@@ -569,17 +569,17 @@ theorem LHS.sem (A B: FinInt 32):
   rfl
 
 theorem RHS.sem (A B: FinInt 32):
-    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) =
       (A - B: FinInt 32) := by
-  simp [INPUT, RHS, run, denoteBB]
+  simp [INPUT, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.subi.sem]
   simp [interp_ub]; dsimp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
 
 theorem equivalent (A B: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) := by
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.plus_one_plus_comp
 end th6
@@ -620,9 +620,9 @@ def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem LHS.sem (X Y: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
+    (run (denoteBB _ LHS []) (INPUT X Y) |>.snd.get "r" .i32) =
       ((X ^^^ -1) - (Y ^^^ -1): FinInt 32) := by
-  simp [INPUT, LHS, run, denoteBB]
+  simp [INPUT, LHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.xori.sem]
@@ -634,17 +634,17 @@ theorem LHS.sem (X Y: FinInt 32):
   rfl
 
 theorem RHS.sem (X Y: FinInt 32):
-    (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT X Y) |>.snd.get "r" .i32) =
       (Y - X: FinInt 32) := by
-  simp [INPUT, RHS, run, denoteBB]
+  simp [INPUT, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.subi.sem]
   simp [interp_ub]; dsimp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
 
 theorem equivalent (X Y: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT X Y) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT X Y) |>.snd.get "r" .i32) := by
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.comp_sub_comp
 end th7
@@ -683,10 +683,10 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; dsimp_itree
+  simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; dsimp_itree
   simp [interp_ub]; dsimp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
   repeat (simp [SSAEnv.get]; dsimp_itree)
@@ -723,10 +723,10 @@ def INPUT (B: FinInt 1) (C: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (B: FinInt 1) (C: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT B C) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT B C) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT B C) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT B C) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; dsimp_itree
+  simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; dsimp_itree
   simp [Semantics.semantics_op, arith_semantics_op, AttrDict.find, List.find?,
         AttrEntry.key, AttrEntry.value]; dsimp_itree
   simp [interp_ub]; dsimp_itree
@@ -773,9 +773,9 @@ def INPUT (A B C: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem LHS.sem (A B C: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B C) |>.snd.get "r" .i32) =
+    (run (denoteBB _ LHS []) (INPUT A B C) |>.snd.get "r" .i32) =
       ((A &&& (B ^^^ -1)) &&& (C ^^^ -1): FinInt 32) := by
-  simp [INPUT, LHS, run, denoteBB]
+  simp [INPUT, LHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.xori.sem]
@@ -788,9 +788,9 @@ theorem LHS.sem (A B C: FinInt 32):
   rfl
 
 theorem RHS.sem (A B C: FinInt 32):
-    (run (denoteBB _ RHS) (INPUT A B C) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B C) |>.snd.get "r" .i32) =
       (A &&& ((B ||| C) ^^^ -1): FinInt 32) := by
-  simp [INPUT, RHS, run, denoteBB]
+  simp [INPUT, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.ori.sem]
@@ -802,8 +802,8 @@ theorem RHS.sem (A B C: FinInt 32):
   rfl
 
 theorem equivalent (A B C: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B C) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT A B C) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT A B C) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B C) |>.snd.get "r" .i32) := by
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.and_not_and_not
 end th10
@@ -845,9 +845,9 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem LHS.sem (A B: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
       ((A &&& B) ||| ((A ||| B) ^^^ -1): FinInt 32) := by
-  simp [INPUT, LHS, run, denoteBB]
+  simp [INPUT, LHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.ori.sem]
@@ -860,9 +860,9 @@ theorem LHS.sem (A B: FinInt 32):
   rfl
 
 theorem RHS.sem (A B: FinInt 32):
-    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) =
       ((A ^^^ B) ^^^ -1: FinInt 32) := by
-  simp [INPUT, RHS, run, denoteBB]
+  simp [INPUT, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
   rw [ops.xori.sem]
@@ -873,8 +873,8 @@ theorem RHS.sem (A B: FinInt 32):
   rfl
 
 theorem equivalent (A B: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT A B) |>.snd.get "r" .i32) := by
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.and_or_not_or
 end th11
@@ -910,10 +910,10 @@ def INPUT (X C₁ C₂: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (X C₁ C₂: FinInt 32):
-    (run (denoteBB _ LHS) (INPUT X C₁ C₂) |>.snd.get "r" .i32) =
-    (run (denoteBB _ RHS) (INPUT X C₁ C₂) |>.snd.get "r" .i32) := by
+    (run (denoteBB _ LHS []) (INPUT X C₁ C₂) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS []) (INPUT X C₁ C₂) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
   repeat (simp [SSAEnv.get]; simp_itree)
