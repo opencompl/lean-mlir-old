@@ -29,8 +29,10 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SS
         return ()
     
 
+-- TODO: Consider changing BlockResult.Branch.args into
+--       a TypedArgs (?)
 inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
-| Branch (bb: BBName) (args: List SSAVal) -- TODO: make this typed
+| Branch (bb: BBName) (args: List SSAVal)
 | Ret (rets:  TypedArgs δ)
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
@@ -148,7 +150,7 @@ def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
       let _ ← denoteBBStmt stmt
       denoteBBStmts stmts
 
-def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
+def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) := do
   match bb with 
   | BasicBlock.mk name formalArgsAndTypes stmts => 
@@ -167,8 +169,9 @@ def denoteRegions (rs: List (Region Δ)):
 def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   -- We only define semantics for single-basic-block regions
-  -- TODO: Pass region arguments
-  -- TODO: Forward region's return type and value
+  -- Furthermore, we tacticly assume that the region that we run will
+  -- return a `BlockResult.Ret`, since we don't bother handling
+  -- `BlockResult.Branch`.
   match r with
   | .mk [bb] =>
       denoteBB bb args
@@ -200,7 +203,6 @@ def semanticsRegionRec
   | fuel' + 1 => do
       match ← denoteBB Δ bb entryArgs with
         | .Branch bbname args =>
-            -- TODO: Pass the block arguments
             match r.getBasicBlock bbname with
             | some bb' => semanticsRegionRec fuel' r bb' []
             | none => return .Next ⟨.unit, ()⟩
@@ -256,8 +258,8 @@ instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
 instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
   denote bbstmt := denoteBBStmt δ bbstmt
 
--- TODO: this a pretty big back tbh, because we assume
--- that a BB has no args.
+-- TODO: this a small hack, because we assume
+-- that when we call `denote`, BB has no args.
 instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
   denote bb := denoteBB δ bb (args := [])
 
