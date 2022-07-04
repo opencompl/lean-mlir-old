@@ -16,9 +16,14 @@ import MLIR.Dialects
 import MLIR.AST
 open MLIR.AST
 
+
+@[extern c "lean_panic_fn"]
+private def voidPanic (msg : String) : Void := sorry
+
 inductive UBE: Type → Type :=
-  | UB: UBE Unit
-  | DebugUB: String → UBE Unit
+  | UB: UBE Void
+  | DebugUB: String → UBE Void
+
 
 @[simp_itree]
 def UBE.handle {E}: UBE ~> OptionT (Fitree E) := fun _ e =>
@@ -27,16 +32,10 @@ def UBE.handle {E}: UBE ~> OptionT (Fitree E) := fun _ e =>
   | DebugUB str => do panic! str; Fitree.Ret none
 
 @[simp_itree]
-def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>
+def UBE.handle! {E}: UBE ~> Fitree E := fun _ e => do
   match e with
-  | UB => panic! "Undefined Behavior raised!"
-  | DebugUB str => panic! str
-
-@[simp_itree]
-def UBE.handleSafe {E}: UBE ~> Fitree E := fun _ e =>
-  match e with
-  | UB => return ()
-  | DebugUB str => return ()
+  | UB => return (voidPanic "Undefined Behavior raised!")
+  | DebugUB str => return (voidPanic str)
 
 -- We interpret (UBE +' E ~> E)
 
@@ -49,7 +48,3 @@ def interp_ub {E} (t: Fitree (UBE +' E) R): OptionT (Fitree E) R :=
 
 def interp_ub! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
   interp (Fitree.case_ UBE.handle! (fun T => @Fitree.trigger E E T _)) t
-
-def interp_ub_safe {E} (t: Fitree (UBE +' E) R)
-    (H: Fitree.no_event_l t): Fitree E R :=
-  interp (Fitree.case_ UBE.handleSafe (fun T => @Fitree.trigger E E T _)) t
