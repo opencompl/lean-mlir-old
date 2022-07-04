@@ -7,10 +7,6 @@ open MLIR.AST (Signedness)
 -- tactic is used to dispatch them. We only use `sorry` for incomplete proofs.
 macro "sorry_arith": tactic => `(tactic| sorry)
 
--- Write 2^n in Int contexts instead of (2:Int)^n
-instance: HPow Nat Nat Int where
-  hPow x y := (x:Int)^y
-
 -- Stored as most significant bit first
 inductive FinInt: Nat → Type :=
   | nil: FinInt 0
@@ -31,28 +27,27 @@ namespace FinInt
 -- Standard modulo: mod2 a n = a % 2^n
 
 def mod2 (a: Int) (n: Nat): Int :=
-  match a with
-  | .ofNat p => .ofNat (p % 2^n)
-  | .negSucc p => .negSucc (p % 2^n) + 2^n
+  ((a % 2^n) + 2^n) % 2^n
 
 theorem mod2_ge: mod2 a n ≥ 0 := by
-  cases a <;> simp [mod2]
-  . simp [Int.ge_zero_eq_nonneg]; constructor
-  . sorry_arith
+  simp [mod2]
+  apply Int.mod_ge
+  have h := Int.ge_add_ge_right (2^n) (@Int.mod_ge_neg a (2^n))
+  rw [Int.add_left_neg] at h
+  assumption
 
 theorem mod2_lt: mod2 a n < 2^n := by
-  cases a <;> simp [mod2]
-  . sorry_arith
-  . sorry_arith
+  simp [mod2]
+  apply Int.mod_lt Int.two_pow_pos
 
 theorem mod2_bounds: mod2 a n ≥ 0 ∧ mod2 a n < 2^n :=
   ⟨mod2_ge, mod2_lt⟩
 
 theorem mod2_idem {a: Int}: a ≥ 0 ∧ a < 2^n → mod2 a n = a := by
   intros h
-  cases a <;> simp [mod2]
-  . sorry_arith
-  . sorry_arith
+  simp [mod2]
+  rw [Int.add_mod_right Int.two_pow_pos (Int.mod_ge h.1), Int.mod_mod]
+  apply Int.mod_bounds _ h.1 h.2
 
 theorem mod2_idem_iff_bounds {a: Int}:
     mod2 a n = a ↔ (a ≥ 0 ∧ a < 2^n) :=
@@ -62,35 +57,49 @@ theorem mod2_idem_iff_bounds {a: Int}:
 theorem mod2_mod2: mod2 (mod2 a n) n = mod2 a n :=
   mod2_idem mod2_bounds
 
+theorem mod2_fequal: x = y → mod2 x n = mod2 y n := by
+  intros h; simp [h]
+
 theorem mod2_zero: mod2 0 n = 0 := by
   simp [mod2]
+  rw [Int.add_mod_right Int.two_pow_pos (by simp [Int.zero_mod])]
+  simp [Int.zero_mod]
 
 theorem mod2_exp_n: mod2 (2^n) n = 0 := by
+  simp [mod2]
+  rw [Int.add_mod_right Int.two_pow_pos (Int.mod_ge Int.two_pow_ge)]
+  simp [Int.mod_mod]
+  simp [Int.mod_self]
+
+theorem mod2_add_left: mod2 (2^n + x) n = mod2 x n := by
   sorry
 
--- Symmetric modulo : smod2 a n = a % 2^(n+1) spread over -2^n ... 2^n-1
+theorem mod2_add_right: mod2 (x + 2^n) n = mod2 x n := by
+  sorry
+
+-- Symmetric modulo : smod2 a n = a % 2^(n+1) spread over -(2^n) ... 2^n-1
 
 def smod2 (a: Int) (n: Nat): Int :=
   if mod2 a (n+1) ≥ 2^n then mod2 a (n+1) - 2^(n+1) else mod2 a (n+1)
 
-theorem smod2_ge: smod2 a n ≥ -2^n := by
+theorem smod2_ge: smod2 a n ≥ -(2^n) := by
   simp [smod2]; split
   . sorry_arith
-  . sorry_arith -- it's ≥ 0 anyway
+  . apply Int.ge_trans 0 mod2_ge (Int.zero_ge_neg Int.two_pow_ge)
 
 theorem smod2_lt: smod2 a n < 2^n := by
   simp [smod2]; split
   . sorry_arith -- it's < 0 anyway
   . sorry_arith
 
-theorem smod2_bounds: smod2 a n ≥ -2^n ∧ smod2 a n < 2^n :=
+theorem smod2_bounds: smod2 a n ≥ -(2^n) ∧ smod2 a n < 2^n :=
   ⟨smod2_ge, smod2_lt⟩
 
-theorem smod2_idem {a: Int}: a ≥ -2^n ∧ a < 2^n → smod2 a n = a := by
+theorem smod2_idem {a: Int}: a ≥ -(2^n) ∧ a < 2^n → smod2 a n = a := by
   sorry
 
 theorem smod2_idem_iff_bounds {a: Int}:
-    smod2 a n = a ↔ (a ≥ -2^n ∧ a < 2^n) :=
+    smod2 a n = a ↔ (a ≥ -(2^n) ∧ a < 2^n) :=
   ⟨(. ▸ smod2_bounds), smod2_idem⟩
 
 theorem smod2_smod2: smod2 (smod2 a n) n = smod2 a n :=
@@ -109,9 +118,8 @@ def cong2 (n: Nat): Int → Int → Prop :=
 def scong2 (n: Nat): Int → Int → Prop :=
   fun a b => smod2 a n = smod2 b n
 
-macro a:term " ≡ " b:term "[2^" n:term "]": term => `(cong2 $n $a $b)
-
-macro a:term " ≡ " b:term "[±2^" n:term "]": term => `(scong2 $n $a $b)
+notation a " ≡ " b  " [2^" n "]" =>  cong2 n a b
+notation a " ≡ " b " [±2^" n "]" => scong2 n a b
 
 instance {n}: Equivalence (cong2 n) where
   refl _ := rfl
@@ -133,8 +141,8 @@ theorem cong2_to_eq (n: Nat):
 
 theorem scong2_to_eq (n: Nat):
     a ≡ b [±2^n] →
-    a ≥ -2^n ∧ a < 2^n →
-    b ≥ -2^n ∧ b < 2^n →
+    a ≥ -(2^n) ∧ a < 2^n →
+    b ≥ -(2^n) ∧ b < 2^n →
     a = b := by
   intros h ha hb
   rw [←smod2_idem ha, ←smod2_idem hb]; assumption
@@ -192,7 +200,7 @@ def isInBounds (sgn: Signedness) (sz: Nat) (i: Int): Bool :=
   match sgn with
   | .Signless => i ≥ 0 ∧ i < 2^sz
   | .Unsigned => i ≥ 0 ∧ i < 2^sz
-  | .Signed   => i ≥ -2^(sz-1) ∧ i < 2^(sz-1)
+  | .Signed   => i ≥ -(2^(sz-1)) ∧ i < 2^(sz-1)
 
 private def ofIntAux (sz: Nat) (n: Int): FinInt sz × Int :=
   match sz with
@@ -280,20 +288,20 @@ theorem toUint_bounds {n: FinInt sz}:
 theorem toUint_mod2 {n: FinInt sz}: mod2 n.toUint sz = n.toUint :=
   mod2_idem toUint_bounds
 
-theorem toSint_ge {n: FinInt (sz+1)}: n.toSint ≥ -(2:Int)^sz := by
+theorem toSint_ge {n: FinInt (sz+1)}: n.toSint ≥ -(2^sz) := by
   cases n; case next bn n' =>
   cases bn <;> simp [toSint]
   . apply Int.le_trans 0 <;> sorry_arith
   . sorry_arith
 
-theorem toSint_lt {n: FinInt (sz+1)}: n.toSint < (2:Int)^sz := by
+theorem toSint_lt {n: FinInt (sz+1)}: n.toSint < 2^sz := by
   cases n; case next bn n' =>
   cases bn <;> simp [toSint]
   . apply toUint_lt
   . sorry_arith
 
 theorem toSint_bounds {n: FinInt (sz+1)}:
-    n.toSint ≥ -2^sz ∧ n.toSint < 2^sz :=
+    n.toSint ≥ -(2^sz) ∧ n.toSint < 2^sz :=
   ⟨toSint_ge, toSint_lt⟩
 
 theorem toSint_smod2 {n: FinInt (sz+1)}: smod2 n.toSint sz = n.toSint :=
@@ -774,5 +782,37 @@ theorem sub_toUint (n m: FinInt sz):
 theorem sub_toUint_cong2 (n: FinInt sz):
     (n - m).toUint ≡ n.toUint - m.toUint [2^sz] := by
   simp [cong2, toUint_mod2]; apply sub_toUint
+
+/-
+### Sign extensions
+-/
+
+-- TODO: The MSB first encoding makes it really hard to do zext structurally
+-- without type casts
+def zext {sz₁: Nat} (sz₂: Nat) (n: FinInt sz₁): FinInt sz₂ :=
+  .ofInt sz₂ n.toUint
+
+theorem zext_toUint: (@zext sz₁ sz₂ n).toUint = mod2 n.toUint sz₂ := by
+  simp [zext, toUint_ofInt]
+
+theorem zext_toUint': sz₁ < sz₂ → (@zext sz₁ sz₂ n).toUint = n.toUint := by
+  simp [zext, toUint_ofInt]
+  intros h
+  apply mod2_idem ⟨toUint_ge, _⟩
+  apply Int.lt_trans (2^sz₁) toUint_lt
+  exact (sorry: 2^sz₁ < 2^sz₂)
+
+/-
+### Select operation
+-/
+
+def select {α: Type} (b: FinInt 1) (a₁ a₂: α): α :=
+  if b.toUint = 1 then a₁ else a₂
+
+theorem bool_cases (b: FinInt 1):
+    b = .ofInt _ 0 ∨ b = .ofInt _ 1 :=
+  match b with
+  | .O .nil => .inl rfl
+  | .I .nil => .inr rfl
 
 end FinInt

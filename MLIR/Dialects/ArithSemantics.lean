@@ -77,12 +77,16 @@ inductive ArithE: Type → Type :=
           ArithE (FinInt sz)
   | XorI: (sz: Nat) → (lhs rhs: FinInt sz) →
           ArithE (FinInt sz)
+  | Zext: (sz₁: Nat) → (sz₂: Nat) → (FinInt sz₁) →
+          ArithE (FinInt sz₂)
+  | Select: (sz: Nat) → (b: FinInt 1) → (lhs rhs: FinInt sz) →
+          ArithE (FinInt sz)
 
 def unary_semantics_op (op: IOp Δ)
       (ctor: (sz: Nat) → FinInt sz → ArithE (FinInt sz)):
     Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
   match op with
-  | IOp.mk name [⟨.int sgn sz, arg⟩] [] 0 _ _ => some do
+  | IOp.mk _ [⟨.int sgn sz, arg⟩] [] 0 _ _ => some do
       let r ← Fitree.trigger (ctor sz arg)
       return BlockResult.Next ⟨.int sgn sz, r⟩
   | IOp.mk _ _ _ _ _ _ => none
@@ -104,45 +108,47 @@ def binary_semantics_op {Δ: Dialect α' σ' ε'}
 def arith_semantics_op (o: IOp Δ):
     Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
   match o with
-  | IOp.mk "constant" [] [] 0 attrs (.fn (.tuple []) τ₁) => some <|
+  | IOp.mk "constant" [] [] 0 attrs (.fn (.tuple []) τ₁) =>
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
           if τ₁ = τ₂ then
             match τ₂ with
-            | .int sgn sz => do
+            | .int sgn sz => some do
                 -- TODO: Check range of constants
                 let v := FinInt.ofInt sz value
                 return BlockResult.Next ⟨.int sgn sz, v⟩
-            | _ => do
-                Fitree.trigger $ UBE.DebugUB "non maching width of arith.const"
-                return BlockResult.Ret []
-          else do
-                Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
-                return BlockResult.Ret []
+            | _ => none
+          else none
       | some _
-      | none => do
-            Fitree.trigger $ UBE.DebugUB "non maching type of arith.const"
-            return BlockResult.Ret []
+      | none => none
 
   | IOp.mk "cmpi" [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
-    attrs _ => some <|
+    attrs _ =>
       if EQ: sgn = sgn' /\ sz = sz' then
             match attrs.find "predicate" with
-            | some (.int n (.int .Signless 64)) => do
+            | some (.int n (.int .Signless 64)) =>
                 match (ComparisonPred.ofInt n) with
-                | some pred => do
+                | some pred => some do
                   let r ← Fitree.trigger (ArithE.CmpI sz pred lhs (EQ.2 ▸ rhs))
                   return BlockResult.Next ⟨.i1, r⟩
-                | none =>
-                  Fitree.trigger $ UBE.DebugUB "unable to create ComparisonPred"
-                  return BlockResult.Ret []
+                | none => none
             | some _
-            | none => do
-                Fitree.trigger $ UBE.DebugUB "unable to find predicate"
-                return BlockResult.Ret []
-      else do
-        Fitree.trigger $ UBE.DebugUB "lhs, rhs, unequal sizes (cmp)"
-        return BlockResult.Ret []
+            | none => none
+      else none
+
+  | IOp.mk "zext" [⟨.int sgn₁ sz₁, value⟩] [] 0 _
+    (.fn (.tuple [.int _ _]) (.int sgn₂ sz₂)) =>
+      if sgn₁ = sgn₂ then some do
+        let r ← Fitree.trigger (ArithE.Zext sz₁ sz₂ value)
+        return BlockResult.Next ⟨.int sgn₂ sz₂, r⟩
+      else none
+
+  | IOp.mk "select" [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] [] 0
+    _ _ =>
+      if EQ: sgn = sgn' /\ sz = sz' then some do
+        let r ← Fitree.trigger (ArithE.Select sz b lhs (EQ.2 ▸ rhs))
+        return BlockResult.Next ⟨.int sgn sz, r⟩
+      else none
 
   | IOp.mk "negi" _ _ _ _ _ =>
       unary_semantics_op o ArithE.NegI
@@ -194,6 +200,10 @@ def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
       return lhs ||| rhs
   | XorI _ lhs rhs =>
       return lhs ^^^ rhs
+  | Zext _ sz₂ value =>
+      return FinInt.zext sz₂ value
+  | Select _ b lhs rhs =>
+      return if b.toUint = 1 then lhs else rhs
 
 instance: Semantics arith where
   E := ArithE
@@ -303,10 +313,6 @@ private def cst1: BasicBlock arith := [mlir_bb|
 ### Rewriting heorems
 -/
 
-open FinInt(mod2)
-private theorem mod2_equal: x = y → mod2 x n = mod2 y n :=
-  fun | .refl _ => rfl
-
 /- Commutativity of addition -/
 
 namespace th1
@@ -337,9 +343,8 @@ theorem FinInt.sub_add_dist: forall (C X C2: FinInt sz),
   intros C X C2
   apply eq_of_toUint_cong2
   simp [cong2, FinInt.sub_toUint, FinInt.add_toUint]
-  apply mod2_equal
-  simp [Int.sub_add_dist]
-  sorry_arith -- rearrange terms
+  apply FinInt.mod2_fequal
+  simp [Int.sub_add_dist, Int.sub_assoc]
 
 namespace th2
 def LHS: BasicBlock arith := [mlir_bb|
@@ -380,9 +385,11 @@ theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
   apply eq_of_toUint_cong2
   simp [cong2, FinInt.add_toUint, FinInt.comp_toUint, FinInt.sub_toUint]
   simp [toUint_ofNat]
-  have h: mod2 (Int.ofNat 1) sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
-  simp [h]
-  sorry_arith -- eliminate 2^sz in lhs, then mod2_equal
+  have h: Int.ofNat 1 = 1 := by decide
+  simp [h, mod2_idem ⟨by decide, Int.one_lt_two_pow h_sz⟩]
+  simp [Int.sub_eq_add_neg, Int.add_assoc, FinInt.mod2_add_left]
+  rw [←@Int.add_assoc _ (-1) _, @Int.add_comm _ (-1)]
+  simp [@Int.add_comm (-X.toUint), Int.add_assoc]
 
 namespace th3
 def LHS: BasicBlock arith := [mlir_bb|
@@ -441,8 +448,8 @@ theorem FinInt.neg_add_dist (A B: FinInt sz):
     -(A + B) = -A + -B := by
   apply eq_of_toUint_cong2
   simp [cong2, neg_toUint, add_toUint]
-  apply mod2_equal
-  sorry_arith
+  apply mod2_fequal
+  simp [Int.neg_add]
 
 namespace th4
 def LHS: BasicBlock arith := [mlir_bb|
@@ -482,8 +489,8 @@ theorem FinInt.neg_sub_dist (X Y: FinInt sz):
     -(X - Y) = Y - X := by
   apply eq_of_toUint_cong2
   simp [cong2, neg_toUint, sub_toUint]
-  apply mod2_equal
-  sorry_arith
+  apply mod2_fequal
+  simp [Int.neg_sub]
 
 namespace th5
 def LHS: BasicBlock arith := [mlir_bb|
@@ -520,10 +527,15 @@ theorem FinInt.plus_one_plus_comp (A B: FinInt sz):
   simp [←FinInt.comp_eq_xor_minusOne]
   apply eq_of_toUint_cong2
   simp [cong2, neg_toUint, add_toUint, sub_toUint, comp_toUint]
-  simp [toUint_ofNat]
-  have h: mod2 (Int.ofNat 1) sz = 1 := mod2_idem ⟨by decide, by sorry_arith⟩
-  simp [h]
-  sorry_arith -- rearrange, eliminate 2^sz on the left, then mod2_equal
+  simp [toUint_ofNat, (by decide: Int.ofNat 1 = 1)]
+  -- Rearranging terms without the powerful Mathlib tactics is quite tedious
+  simp [Int.add_comm _ (mod2 _ _), Int.add_assoc]
+  simp [Int.sub_eq_add_neg]
+  simp [←@Int.add_assoc A.toUint _, Int.add_comm A.toUint _]
+  simp [←@Int.add_assoc 1 _, Int.add_comm 1 _]
+  simp [Int.add_assoc, mod2_add_left]
+  simp [Int.add_comm _ 1, ←Int.add_assoc _ 1 _, Int.add_assoc 1 _ _]
+  simp [←Int.add_assoc, Int.add_right_neg, Int.zero_add]
 
 namespace th6
 def LHS: BasicBlock arith := [mlir_bb|
@@ -571,3 +583,154 @@ theorem equivalent (A B: FinInt 32):
   rw [LHS.sem, RHS.sem]; simp
   apply FinInt.plus_one_plus_comp
 end th6
+
+/- LLVM InstCombine: `(~X) - (~Y) --> Y - X`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1867 -/
+
+theorem FinInt.comp_sub_comp (X Y: FinInt sz):
+    (X ^^^ -1) - (Y ^^^ -1) = Y - X := by
+  simp [←FinInt.comp_eq_xor_minusOne]
+  apply eq_of_toUint_cong2
+  simp [cong2, sub_toUint, comp_toUint]
+  simp [Int.sub_eq_add_neg, Int.add_assoc, Int.neg_add, Int.neg_neg]
+  simp [mod2_add_left]
+  simp [←Int.add_assoc]
+  rw [Int.add_comm _ (-_)]
+  have h x: mod2 (-(2^sz) + x) sz = mod2 x sz := by sorry_arith
+  simp [Int.add_assoc, h]
+  rw [←Int.add_assoc (-1) _ _, Int.add_comm (-1) _]
+  rw [Int.add_assoc _ (-1) _, ←Int.add_assoc _ 1 _]
+  rw [Int.add_left_neg, Int.zero_add, Int.add_comm]
+
+namespace th7
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "xori"(%X, %_2): (i32, i32) -> i32
+    %_4 = "xori"(%Y, %_2): (i32, i32) -> i32
+    %r = "subi"(%_3, %_4): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %r = "subi"(%Y, %X): (i32, i32) -> i32
+]
+def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("X", ⟨.i32, X⟩), ("Y", ⟨.i32, Y⟩)
+]
+
+theorem LHS.sem (X Y: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
+      ((X ^^^ -1) - (Y ^^^ -1): FinInt 32) := by
+  simp [INPUT, LHS, run, denoteBB]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.xori.sem]
+  rw [ops.xori.sem]
+  rw [ops.subi.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+  rfl
+
+theorem RHS.sem (X Y: FinInt 32):
+    (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) =
+      (Y - X: FinInt 32) := by
+  simp [INPUT, RHS, run, denoteBB]
+  rw [ops.subi.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+
+theorem equivalent (X Y: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) := by
+  rw [LHS.sem, RHS.sem]; simp
+  apply FinInt.comp_sub_comp
+end th7
+
+/- LLVM InstCombine: `(add (xor A, B) (and A, B)) --> (or A, B)`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1411 -/
+
+theorem FinInt.addfull_xor_and (A B: FinInt sz):
+    addfull (A ^^^ B) (A &&& B) = .next false (A ||| B) := by
+  induction sz with
+  | zero => cases A; cases B; decide
+  | succ sz ih =>
+    match A, B with
+    | next bA A', next bB B' =>
+      simp [HXor.hXor, HAnd.hAnd, HOr.hOr, xor, and, or, logic2] at *
+      simp [addfull, ih]
+      cases bA <;> cases bB <;> decide
+
+theorem FinInt.add_xor_and (A B: FinInt sz):
+    (A ^^^ B) + (A &&& B) = (A ||| B) := by
+  simp [HAdd.hAdd, add, addfull_xor_and]
+
+namespace th8
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "xori"(%A, %B): (i32, i32) -> i32
+    %_2 = "andi"(%A, %B): (i32, i32) -> i32
+    %r = "addi"(%_1, %_2): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %r = "ori"(%A, %B): (i32, i32) -> i32
+]
+def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
+]
+
+theorem equivalent (A B: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+  simp [LHS, RHS, INPUT]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; dsimp_itree
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
+  repeat (simp [SSAEnv.get]; dsimp_itree)
+  apply FinInt.add_xor_and
+end th8
+
+/- LLVM InstCombine: `zext(bool) + C --> bool ? C + 1 : C`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L873 -/
+
+theorem FinInt.add_bool_eq_select (B: FinInt 1) (C: FinInt 32):
+    zext 32 B + C = select B (C + 1) C := by
+  apply eq_of_toUint_cong2
+  simp [cong2, add_toUint]
+  rw [zext_toUint' (by decide)]
+  cases bool_cases B <;> subst B <;> simp [select, Int.add_assoc, Int.zero_add]
+  rw [add_toUint]
+  simp [toUint, (by decide: 2^0 = 1), Int.add_zero]
+  simp [Int.add_comm]
+
+namespace th9
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "zext"(%B): (i1) -> i32
+    %r = "addi"(%_1, %C): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "addi"(%C, %_1): (i32, i32) -> i32
+    %r = "select"(%B, %_2, %C): (i1, i32, i32) -> i32
+]
+def INPUT (B: FinInt 1) (C: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("B", ⟨.i1, B⟩), ("C", ⟨.i32, C⟩)
+]
+
+theorem equivalent (B: FinInt 1) (C: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT B C) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT B C) |>.snd.get "r" .i32) := by
+  simp [LHS, RHS, INPUT]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; dsimp_itree
+  simp [Semantics.semantics_op, arith_semantics_op, AttrDict.find, List.find?,
+        AttrEntry.key, AttrEntry.value]; dsimp_itree
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
+  repeat (simp [SSAEnv.get]; dsimp_itree)
+  apply FinInt.add_bool_eq_select
+end th9
