@@ -100,6 +100,7 @@ def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 
+ 
 @[simp_itree]
 def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with
@@ -175,6 +176,10 @@ theorem Fitree_monad_assoc (ma: Fitree E α)
 def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
   | Ret r => Ret r
   | Vis e k => Vis (f _ e) (fun r => translate f (k r))
+
+-- TODO: consider making this a coercion
+def Fitree.inject {E: Type → Type} {F: Type → Type} {T} [Member E F]
+    (fe: Fitree E T): Fitree F T := Fitree.translate Member.inject fe
 
 -- Interpretation into the monad of finite ITrees
 @[simp_itree]
