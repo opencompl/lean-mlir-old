@@ -734,3 +734,188 @@ theorem equivalent (B: FinInt 1) (C: FinInt 32):
   repeat (simp [SSAEnv.get]; dsimp_itree)
   apply FinInt.add_bool_eq_select
 end th9
+
+/- LLVM InstCombine: `(A & ~B) & ~C --> A & ~(B | C)`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAndOrXor.cpp#L1340 -/
+
+theorem FinInt.and_not_and_not (A B C: FinInt sz):
+    (A &&& (B ^^^ -1)) &&& (C ^^^ -1) = A &&& ((B ||| C) ^^^ -1) := by
+  simp [←comp_eq_xor_minusOne]
+  induction sz with
+  | zero => cases A; cases B; cases C; decide
+  | succ sz ih =>
+      match A, B, C with
+      | .next bA A', .next bB B', .next bC C' =>
+          simp [HAnd.hAnd, HOr.hOr, and, or, comp] at *
+          simp [logic2, ih]
+          cases bA <;> cases bB <;> cases bC <;> decide
+
+namespace th10
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "xori"(%B, %_2): (i32, i32) -> i32
+    %_4 = "andi"(%A, %_3): (i32, i32) -> i32
+    %_5 = "xori"(%C, %_2): (i32, i32) -> i32
+    %r = "andi"(%_4, %_5): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "ori"(%B, %C): (i32, i32) -> i32
+    %_4 = "xori"(%_3, %_2): (i32, i32) -> i32
+    %r = "andi"(%A, %_4): (i32, i32) -> i32
+]
+def INPUT (A B C: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩), ("C", ⟨.i32, C⟩)
+]
+
+theorem LHS.sem (A B C: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B C) |>.snd.get "r" .i32) =
+      ((A &&& (B ^^^ -1)) &&& (C ^^^ -1): FinInt 32) := by
+  simp [INPUT, LHS, run, denoteBB]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.xori.sem]
+  rw [ops.andi.sem]
+  rw [ops.xori.sem]
+  rw [ops.andi.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  rfl
+
+theorem RHS.sem (A B C: FinInt 32):
+    (run (denoteBB _ RHS) (INPUT A B C) |>.snd.get "r" .i32) =
+      (A &&& ((B ||| C) ^^^ -1): FinInt 32) := by
+  simp [INPUT, RHS, run, denoteBB]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.ori.sem]
+  rw [ops.xori.sem]
+  rw [ops.andi.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  rfl
+
+theorem equivalent (A B C: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B C) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT A B C) |>.snd.get "r" .i32) := by
+  rw [LHS.sem, RHS.sem]; simp
+  apply FinInt.and_not_and_not
+end th10
+
+/- LLVM InstCombine: `(A & B) | ~(A | B) --> ~(A ^ B)`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAndOrXor.cpp#L1510 -/
+
+theorem FinInt.and_or_not_or (A B: FinInt sz):
+    (A &&& B) ||| ((A ||| B) ^^^ -1) = ((A ^^^ B) ^^^ -1) := by
+  simp [←comp_eq_xor_minusOne]
+  induction sz with
+  | zero => cases A; cases B; decide
+  | succ sz ih =>
+      match A, B with
+      | .next bA A', .next bB B' =>
+          simp [HXor.hXor, HAnd.hAnd, HOr.hOr, xor, and, or, comp] at *
+          simp [logic1, logic2, ih]
+          cases bA <;> cases bB <;> decide
+
+namespace th11
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "ori"(%A, %B): (i32, i32) -> i32
+    %_4 = "xori"(%_3, %_2): (i32, i32) -> i32
+    %_5 = "andi"(%A, %B): (i32, i32) -> i32
+    %r = "ori"(%_5, %_4): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "constant"() {value = 1: i32}: () -> i32
+    %_2 = "negi"(%_1): (i32) -> i32
+    %_3 = "xori"(%A, %B): (i32, i32) -> i32
+    %r = "xori"(%_3, %_2): (i32, i32) -> i32
+]
+def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
+]
+
+theorem LHS.sem (A B: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+      ((A &&& B) ||| ((A ||| B) ^^^ -1): FinInt 32) := by
+  simp [INPUT, LHS, run, denoteBB]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.ori.sem]
+  rw [ops.xori.sem]
+  rw [ops.andi.sem]
+  rw [ops.ori.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  rfl
+
+theorem RHS.sem (A B: FinInt 32):
+    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) =
+      ((A ^^^ B) ^^^ -1: FinInt 32) := by
+  simp [INPUT, RHS, run, denoteBB]
+  rw [ops.constant.sem]
+  rw [ops.negi.sem]
+  rw [ops.xori.sem]
+  rw [ops.xori.sem]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  rfl
+
+theorem equivalent (A B: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT A B) |>.snd.get "r" .i32) := by
+  rw [LHS.sem, RHS.sem]; simp
+  apply FinInt.and_or_not_or
+end th11
+
+/- LLVM InstCombine: `(X ^ C1) & C2 --> (X & C2) ^ (C1&C2)`
+   https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAndOrXor.cpp#L1778 -/
+
+theorem FinInt.xor_and (X C₁ C₂: FinInt sz):
+    (X ^^^ C₁) &&& C₂ = (X &&& C₂) ^^^ (C₁ &&& C₂) := by
+  induction sz with
+  | zero => cases X; cases C₁; cases C₂; decide
+  | succ sz ih =>
+      match X, C₁, C₂ with
+      | .next bX X', .next bC₁ C₁', .next bC₂ C₂' =>
+          simp [HXor.hXor, HAnd.hAnd, HOr.hOr, xor, and, or] at *
+          simp [logic2, ih]
+          cases bX <;> cases bC₁ <;> cases bC₂ <;> decide
+
+namespace th12
+def LHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "xori"(%X, %C1): (i32, i32) -> i32
+    %r = "andi"(%_1, %C2): (i32, i32) -> i32
+]
+def RHS: BasicBlock arith := [mlir_bb|
+  ^bb:
+    %_1 = "andi"(%X, %C2): (i32, i32) -> i32
+    %_2 = "andi"(%C1, %C2): (i32, i32) -> i32
+    %r = "xori"(%_1, %_2): (i32, i32) -> i32
+]
+def INPUT (X C₁ C₂: FinInt 32): SSAEnv arith := SSAEnv.One [
+  ("X", ⟨.i32, X⟩), ("C1", ⟨.i32, C₁⟩), ("C2", ⟨.i32, C₂⟩)
+]
+
+theorem equivalent (X C₁ C₂: FinInt 32):
+    (run (denoteBB _ LHS) (INPUT X C₁ C₂) |>.snd.get "r" .i32) =
+    (run (denoteBB _ RHS) (INPUT X C₁ C₂) |>.snd.get "r" .i32) := by
+  simp [LHS, RHS, INPUT]
+  simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
+  simp [interp_ub]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  repeat (simp [SSAEnv.get]; simp_itree)
+  apply FinInt.xor_and
+end th12
