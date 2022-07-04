@@ -48,6 +48,8 @@ def scf_semantics_op: IOp Δ →
       (step := (FinInt.toSint' step))
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
+  | IOp.mk "scf.yield" vs [] 0 _ _ => .some do
+      return (BlockResult.Ret vs)
   | _ => none
 
 def handleScf: ScfE ~> Fitree PVoid :=

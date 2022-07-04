@@ -177,3 +177,9 @@ def ex_assert_false := [mlir_region| {
 #eval run_dummy_cf_region' ex_assert_true
 -- assert fails: prints an error
 #eval run_dummy_cf_region' ex_assert_false
+
+section cf_if_true
+end cf_if_true
+
+section cf_if_false
+end cf_if_false
