@@ -115,6 +115,8 @@ termination_by
 
 Check that SSA names are unique, even across regions.
 This simplifies a lot our proofs.
+This is not always implied by Dominance check, since with dominance check,
+two regions in a same operation can have operations defining the same ssa name.
 -/
 
 -- Contains the names that are already defined
