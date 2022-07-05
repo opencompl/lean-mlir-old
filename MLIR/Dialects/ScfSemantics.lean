@@ -82,32 +82,232 @@ def RHS (r1: Region scf) (r2: Region scf): Region scf := r1
 def INPUT: SSAEnv arith := SSAEnv.One [⟨"x", MLIRType.i1, 0⟩]
 
 
-#check @Fitree.Vis (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf)
-  (MLIRType.eval (MLIRType.int Signedness.Signless 1))
-  (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 1) (SSAVal.SSAVal "b")))) fun r =>
-  interp
-    (fun x e =>
-      match x, e with
-      | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) => List.get! (denoteRegions scf [r1, r2]) i xs
-      | x, Sum.inr (Sum.inl ube) => Fitree.Vis (Sum.inl ube) Fitree.ret
-      | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret)
-    (if (r == 0) = true then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
-    else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret) : Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf) 
-
-
+set_option pp.all true in
 theorem scf_if_sem:
   denoteBBStmt (Δ := scf)
      (BasicBlockStmt.StmtOp
      (Op.mk "scf.if" [SSAVal.SSAVal "b"] [] [r1, r2] (AttrDict.mk [])
      (MLIRType.fn (MLIRType.tuple [MLIRType.int Signedness.Signless 1])
-                  (MLIRType.tuple [])))) = _
+                  (MLIRType.tuple [])))) =
+  (@Fitree.Vis
+    (psum.{0, 0, 0} UBE
+      (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+        (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+    (@BlockResult Void Void (fun (x : Void) => Unit) scf)
+    (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+      (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+        (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))
+    (@Sum.inr.{0, 0}
+      (UBE
+        (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+          (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+            (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)))))
+      (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+        (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)
+        (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+          (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+            (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)))))
+      (@Sum.inl.{0, 0}
+        (@SSAEnvE Void Void (fun (x : Void) => Unit) scf
+          (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)))))
+        (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf
+          (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)))))
+        (@SSAEnvE.Get Void Void (fun (x : Void) => Unit) scf
+          (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+            (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)))
+          (@instInhabitedEval Void Void (fun (x : Void) => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))
+          (MLIR.AST.SSAVal.SSAVal "b"))))
+    fun
+      (r :
+        @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+          (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+            (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)))) =>
+    @interp.{1}
+      (Fitree
+        (psum.{0, 0, 0} UBE
+          (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+            (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf))))
+      (@instMonadFitree
+        (psum.{0, 0, 0} UBE
+          (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+            (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf))))
+      (psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf)
+        (psum.{0, 0, 0} UBE (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+      (fun (x : Type)
+          (e :
+            psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf)
+              (psum.{0, 0, 0} UBE (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)) x) =>
+        @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf
+          (fun (x : Type)
+              (e :
+                psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf)
+                  (psum.{0, 0, 0} UBE (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf))
+                  x) =>
+            Fitree
+              (psum.{0, 0, 0} UBE
+                (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                  (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+              x)
+          x e
+          (fun (i : Nat)
+              (xs :
+                List.{0}
+                  (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                    fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                    @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ)) =>
+            @List.get!.{1}
+              (List.{0}
+                  (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                    fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                    @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) →
+                Fitree
+                  (psum.{0, 0, 0} UBE
+                    (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                      (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+                  (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+              (@instInhabitedForAll_1.{1, 2}
+                (List.{0}
+                  (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                    fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                    @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ))
+                (fun
+                    (a :
+                      List.{0}
+                        (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                          fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                          @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ)) =>
+                  Fitree
+                    (psum.{0, 0, 0} UBE
+                      (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                        (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+                    (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+                fun
+                  (a :
+                    List.{0}
+                      (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                        fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                        @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ)) =>
+                @instInhabited.{0, 1} (@BlockResult Void Void (fun (x : Void) => Unit) scf)
+                  (Fitree
+                    (psum.{0, 0, 0} UBE
+                      (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                        (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf))))
+                  (@instMonadFitree
+                    (psum.{0, 0, 0} UBE
+                      (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                        (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf))))
+                  (@instInhabitedBlockResult Void Void (fun (x : Void) => Unit) scf))
+              (@denoteRegions Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf
+                (@List.cons.{0} (@MLIR.AST.Region Void Void (fun (x : Void) => Unit) scf) r1
+                  (@List.cons.{0} (@MLIR.AST.Region Void Void (fun (x : Void) => Unit) scf) r2
+                    (@List.nil.{0} (@MLIR.AST.Region Void Void (fun (x : Void) => Unit) scf)))))
+              i xs)
+          (fun (x : Type) (ube : UBE x) =>
+            @Fitree.Vis
+              (psum.{0, 0, 0} UBE
+                (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                  (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+              x x
+              (@Sum.inl.{0, 0} (UBE x)
+                (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                  (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf) x)
+                ube)
+              (@Fitree.ret
+                (psum.{0, 0, 0} UBE
+                  (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                    (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+                x))
+          fun (x : Type) (se : @Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf x) =>
+          @Fitree.Vis
+            (psum.{0, 0, 0} UBE
+              (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+            x x
+            (@Sum.inr.{0, 0} (UBE x)
+              (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf) x)
+              (@Sum.inr.{0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf x)
+                (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf x) se))
+            (@Fitree.ret
+              (psum.{0, 0, 0} UBE
+                (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+                  (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))
+              x))
+      (@BlockResult Void Void (fun (x : Void) => Unit) scf)
+      (@ite.{2}
+        (Fitree (psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf) (psum.{0, 0, 0} UBE ScfE))
+          (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+        (@Eq.{1} Bool
+          (@BEq.beq.{0}
+            (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+              (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf))
+            (@instBEq.{0}
+              (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+                (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf))
+              fun
+                (a b :
+                  @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+                    (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf)) =>
+              @instDecidableEqFinInt (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)) a b)
+            r
+            (@OfNat.ofNat.{0}
+              (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+                (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf))
+              0 (@FinInt.instOfNatFinInt (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)) 0)))
+          Bool.true)
+        (instDecidableEqBool
+          (@BEq.beq.{0}
+            (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+              (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf))
+            (@instBEq.{0}
+              (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+                (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf))
+              fun
+                (a b :
+                  @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+                    (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf)) =>
+              @instDecidableEqFinInt (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)) a b)
+            r
+            (@OfNat.ofNat.{0}
+              (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+                (@MLIR.AST.MLIRType.i1 Void Void (fun (x : Void) => Unit) scf))
+              0 (@FinInt.instOfNatFinInt (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1)) 0)))
+          Bool.true)
+        (@Fitree.Vis (psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf) (psum.{0, 0, 0} UBE ScfE))
+          (@BlockResult Void Void (fun (x : Void) => Unit) scf) (@BlockResult Void Void (fun (x : Void) => Unit) scf)
+          (@Sum.inl.{0, 0}
+            (@RegionE Void Void (fun (x : Void) => Unit) scf (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+            (psum.{0, 0, 0} UBE ScfE (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+            (@RegionE.RunRegion Void Void (fun (x : Void) => Unit) scf (@OfNat.ofNat.{0} Nat 0 (instOfNatNat 0))
+              (@List.nil.{0}
+                (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                  fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                  @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ))))
+          (@Fitree.ret (psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf) (psum.{0, 0, 0} UBE ScfE))
+            (@BlockResult Void Void (fun (x : Void) => Unit) scf)))
+        (@Fitree.Vis (psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf) (psum.{0, 0, 0} UBE ScfE))
+          (@BlockResult Void Void (fun (x : Void) => Unit) scf) (@BlockResult Void Void (fun (x : Void) => Unit) scf)
+          (@Sum.inl.{0, 0}
+            (@RegionE Void Void (fun (x : Void) => Unit) scf (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+            (psum.{0, 0, 0} UBE ScfE (@BlockResult Void Void (fun (x : Void) => Unit) scf))
+            (@RegionE.RunRegion Void Void (fun (x : Void) => Unit) scf (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))
+              (@List.nil.{0}
+                (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                  fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                  @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ))))
+          (@Fitree.ret (psum.{0, 0, 0} (@RegionE Void Void (fun (x : Void) => Unit) scf) (psum.{0, 0, 0} UBE ScfE))
+            (@BlockResult Void Void (fun (x : Void) => Unit) scf)))))
 := by {
   simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
   simp_itree
   simp [scf_semantics_op];
   simp_itree;
-  simp [interp];
-  
 }
 
 /-
