@@ -82,29 +82,32 @@ def RHS (r1: Region scf) (r2: Region scf): Region scf := r1
 def INPUT: SSAEnv arith := SSAEnv.One [⟨"x", MLIRType.i1, 0⟩]
 
 
+#check @Fitree.Vis (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf)
+  (MLIRType.eval (MLIRType.int Signedness.Signless 1))
+  (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 1) (SSAVal.SSAVal "b")))) fun r =>
+  interp
+    (fun x e =>
+      match x, e with
+      | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) => List.get! (denoteRegions scf [r1, r2]) i xs
+      | x, Sum.inr (Sum.inl ube) => Fitree.Vis (Sum.inl ube) Fitree.ret
+      | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret)
+    (if (r == 0) = true then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
+    else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret) : Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf) 
+
+
 theorem scf_if_sem:
   denoteBBStmt (Δ := scf)
-          (BasicBlockStmt.StmtOp
-          (Op.mk "scf.if" [SSAVal.SSAVal "b"] [] [r1, r2] (AttrDict.mk [])
-           (MLIRType.fn (MLIRType.tuple [MLIRType.int Signedness.Signless 1]) (MLIRType.tuple [])))) = _
-/-
- (Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 1) (SSAVal.SSAVal "b")))) 
-   fun r =>
-      interp
-        (fun x e =>
-          match x, e with
-          | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) => List.get! (denoteRegions [r1, r2]) i xs
-          | x, Sum.inr (Sum.inl ube) => Fitree.Vis (Sum.inl ube) Fitree.ret
-          | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret)
-        (if (r == 0) = true then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
-        else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret))
--/
-  := by {
+     (BasicBlockStmt.StmtOp
+     (Op.mk "scf.if" [SSAVal.SSAVal "b"] [] [r1, r2] (AttrDict.mk [])
+     (MLIRType.fn (MLIRType.tuple [MLIRType.int Signedness.Signless 1])
+                  (MLIRType.tuple [])))) = _
+:= by {
   simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
   simp_itree
   simp [scf_semantics_op];
-  simp_itree
-  rfl
+  simp_itree;
+  simp [interp];
+  
 }
 
 /-
