@@ -629,3 +629,48 @@ private def multiple_example_result : Option (List (BasicBlockStmt builtin)) := 
   res
 
 #eval multiple_example_result
+
+/-
+### Exact program matching
+
+This section defines functions to check if an operation is inside a bigger program.
+-/
+
+mutual
+variable (mOp: BasicBlockStmt δ)
+
+def isOpInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ regions _ _ => isOpInRegions regions
+
+def isOpInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isOpInRegion region || isOpInRegions regions'
+
+def isOpInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isOpInBBs bbs
+
+def isOpInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isOpInBB bb || isOpInBBs bbs'
+
+def isOpInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ stmts => isOpInBBStmts stmts
+
+def isOpInBBStmts (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => False
+  | stmt::stmts' => isOpInBBStmt stmt || isOpInBBStmts stmts'
+
+def isOpInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt, mOp with
+  | .StmtOp op, _ => isOpInOp op
+  | .StmtAssign res ix (Op.mk name operands [] [] (AttrDict.mk []) typ),
+    .StmtAssign res' ix' (Op.mk name' operands' [] [] (AttrDict.mk []) typ') =>
+    res == res' && ix == ix' && name == name' && operands == operands' && typ == typ'
+  | .StmtAssign _ _ op, _ => isOpInOp op
+end
