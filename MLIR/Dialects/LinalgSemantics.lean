@@ -82,38 +82,22 @@ def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
 -- I can get access to the `tensor` type?
 def linalg_parallel_iter [Δ: Dialect α σ ε]
    (inTensors: List (Tensor τ))
-   (iter_vec: List Nat):
+   (ix: Nat):
      Fitree ((RegionE Δ) +' UBE +' LinalgE)
             (TypedArgs Δ) := do
-  let data? := inTensors.mapM (fun inTensor => 
-   match linearizeIndex inTensor.shape iter_vec  with
-    | .some ix => inTensor.data.get? ix
-    | .none => .none)
+  let data? := inTensors.mapM (fun inTensor => inTensor.data.get? ix)
   match data? with 
   | .some data => do
-      let result <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
+      Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
        (args := makeUniformMLIRTypedArguments 
                   (δ := Δ)
                   (coeDialectType.coe τ)
                   (coe_type_eval_eq τ ▸ data)))
-      return result
   | .none => do 
       Fitree.trigger (UBE.DebugUB "unable to access tensor data")
       return []
-/-
-def generateIterationDomain (sizes: List Nat): List (List Nat) := 
-  match sizes with 
-  | [] => [[]]
-  | size::sizes => 
-      let rest := generateIterationDomain sizes 
-      (List.range size).foldl -- for each index `ix` in [0..size)
-       (init := [])
-        -- prepend `ix` to each iteration vector generated from recursion
-        (fun accum ix => accum ++ rest.map (fun vec =>  ix::vec))
 
-#eval generateIterationDomain [2, 3]
--- [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]]
-     
+
 def collectOutputsIntoTensorData [δ: Dialect α σ ε]
   (τ: MLIRTy) (argss: List (TypedArgs δ)): List τ.eval :=
   match argss with 
@@ -121,41 +105,34 @@ def collectOutputsIntoTensorData [δ: Dialect α σ ε]
   | (args::argss) => match args with  -- TODO: fix this semantics
                | [⟨τ', v⟩] => if H: τ = τ' then [] else []
                | _ => []
+
 def collectOutputsIntoTensor [δ: Dialect α σ ε]
-  (shape: List Nat)
+  (shape: Nat)
   (τ: MLIRTy) (argss: List (TypedArgs δ)): Tensor τ :=
-  Tensor.mk shape  (collectOutputsIntoTensorData τ argss) sorry
+  Tensor.mk [shape]  (collectOutputsIntoTensorData τ argss) sorry
 
 def linalg_parallel_all_iters
   [CoeDialect builtin Δ]
-   (maps: List AffineMap)
-   (inTensors: List (Tensor τ))
-   (shape: List Nat): 
+    (inTensors: List (Tensor τ))
+   (size: Nat): 
      Fitree ((RegionE Δ) +' UBE +' LinalgE)
             (TypedArgs Δ) := do
-  -- TODO: this needs to be refined to allow for different shapes etc.
-  let dims := (inTensors.get! 0).shape
-  let ixs := generateIterationDomain dims
+  let ixs := List.range size
   let outValues <- ixs.mapM (linalg_parallel_iter inTensors)
-  return [⟨builtin.tensor_unranked τ, collectOutputsIntoTensor shape τ outValues⟩]
+  return [⟨builtin.tensor_unranked τ,
+           (coe_type_eval_eq (builtin.tensor_unranked τ)) ▸ 
+            collectOutputsIntoTensor size τ outValues⟩]
 
-def linalg_parallel (ts: List (Tensor τ)):
-   Fitree (RegionE Δ +' UBE +' LinalgE) (TypedArgs Δ) :=  return []
--/  
-  
 
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
-def linalg_semantics_op: IOp Δ →
+def linalg_semantics_op [CoeDialect builtin Δ]: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
- /-
-  | IOp.mk "linalg.generic" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
-    let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
-    pure $ BlockResult.Next ⟨MLIRType.unit, ()⟩
--/
-  -- | super special case for 1 input, 1 output, with 1d tensors
-  | IOp.mk "linalg.parallel1d" [input] [] 1 _ _ => some do
+  | IOp.mk "linalg.parallel1d1" [⟨builtin.tensor_unranked τ, xs⟩] [] 1 _ _ => some do
+          linalg_parallel_all_iters [input]
+  | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
       sorry
+
   | _ => none
 
 /-
