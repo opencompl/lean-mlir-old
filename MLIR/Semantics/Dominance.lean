@@ -63,7 +63,9 @@ def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContex
   | Op.mk _ operands [] regions _ (MLIRType.fn (MLIRType.tuple operandsTy) _) => do
     let b := operandsDefinitionObeySSA operands operandsTy ctx
     match b with 
-    | true =>  (singleBBRegionRegionsObeySSA regions ctx)
+    | true => do
+      let _ ← singleBBRegionRegionsObeySSA regions ctx
+      ctx
     | false => none
   | _ => none
 
@@ -72,12 +74,12 @@ def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ
   | region::regions' => do 
     let _ <- (singleBBRegionRegionObeySSA region ctx)
     (singleBBRegionRegionsObeySSA regions' ctx)
-  | [] => none
+  | [] => some ctx
 
 def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match region with
   | .mk [] => ctx
-  | .mk [bb] => (singleBBRegionBBObeySSA bb ctx)
+  | .mk [bb] => singleBBRegionBBObeySSA bb ctx
   | _ => Option.none
 
 def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (DomContext δ) :=
@@ -93,13 +95,16 @@ def singleBBRegionStmtsObeySSA (stmts: List (BasicBlockStmt δ)) (ctx: DomContex
 
 def singleBBRegionStmtObeySSA (stmt: BasicBlockStmt δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match stmt with
-  | .StmtOp op => singleBBRegionOpObeySSA op ctx
+  | .StmtOp op => do
+    _ ← singleBBRegionOpObeySSA op ctx
+    ctx
   | .StmtAssign res none op => do
     -- TODO: replace it with an `as`, when I'll know how to do it
     let ctx' <- match op with
                | Op.mk _ _ _ _ _ (MLIRType.fn _ (MLIRType.tuple [τ])) => (valDefinitionObeySSA res τ ctx)
                | _ => none
-    singleBBRegionOpObeySSA op ctx
+    let _ ← singleBBRegionOpObeySSA op ctx
+    ctx'
   | _ => none
 end
 termination_by
