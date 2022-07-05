@@ -257,12 +257,13 @@ def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
   | τ::τs => coeMLIRType τ :: coeMLIRTypeList τs
 end
 
-instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
+
+instance coeDialectType {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [coeDialect: CoeDialect δ₁ δ₂]:
     Coe (MLIRType δ₁) (MLIRType δ₂) where
   coe := coeMLIRType
 
 -- Useful locally when dealing with tuple types
-instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
+instance coeDialectTypeList {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (List (MLIRType δ₁)) (List (MLIRType δ₂)) where
   coe := coeMLIRTypeList
 

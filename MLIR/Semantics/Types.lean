@@ -189,3 +189,60 @@ instance {τ: MLIRType δ}: ToString τ.eval where
   toString := MLIRType.eval.str
 
 end -- of section defining δ
+
+section coe_eq
+variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
+
+
+private theorem tuple_equal_inv 
+  (a a': A) (b b': B) (AEQ: a = a')  (BEQ: b = b'): (a, b) = (a', b') := by {
+ rewrite [AEQ, BEQ];
+ rfl;
+}
+
+mutual 
+theorem coe_type_tuple_eval_eq:
+   MLIRType.eval (MLIRType.tuple τs) = MLIRType.eval (coeMLIRType (c := c) (MLIRType.tuple τs)) := match τs with 
+  | [] => by {
+     simp [MLIRType.eval];
+     simp [coeMLIRType];
+     simp [coeMLIRTypeList];
+  }
+  | τ::τs' => by {
+    simp [coeMLIRType];
+    simp [MLIRType.eval];
+    simp [coeMLIRTypeList];
+    sorry
+  }
+  
+
+
+theorem coe_type_eval_eq (τ: MLIRType δ₁):
+   MLIRType.eval τ = MLIRType.eval (coeMLIRType (δ₁ := δ₁) (δ₂ := δ₂) τ) := 
+  match H: τ with 
+  | .fn τ1 τ2 => by {
+       simp [MLIRType.eval, coeMLIRType];
+    }
+  | .int sgn val => by {
+       simp [MLIRType.eval, coeMLIRType];
+  }
+  | .float n => by {
+       simp [MLIRType.eval, coeMLIRType];
+  }
+  | .index => by {
+       simp [MLIRType.eval, coeMLIRType];
+  }
+  | .tuple τs => by {
+      apply coe_type_tuple_eval_eq;
+  }
+  | .undefined n => by {
+      simp [MLIRType.eval, coeMLIRType];
+  }
+  | .extended s => by {
+   simp [MLIRType.eval];
+   simp [coeMLIRType];
+   rewrite [<- c.coe_ε_well_defined];
+   simp;
+  }
+end 
+

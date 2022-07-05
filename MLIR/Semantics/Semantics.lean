@@ -17,6 +17,7 @@ open MLIR.AST
 @[simp]
 abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.eval τ)
 
+
 -- | TODO: throw error if we don't have enough names
 def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SSAEnvE Δ) PUnit :=
  match args with 
@@ -61,7 +62,7 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
-| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
+| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (TypedArgs Δ)
 
 class Semantics (δ: Dialect α σ ε)  where
   -- Events modeling the dialect's computational behavior. Usually operations
@@ -113,7 +114,7 @@ def denoteOp (op: Op Δ):
           interp (fun _ e =>
             match e with
             | Sum.inl (RegionE.RunRegion i xs) => 
-                 regions.get! i xs
+                  regions.get! i xs
             | Sum.inr <| Sum.inl ube => Fitree.trigger ube
             | Sum.inr <| Sum.inr se => Fitree.trigger se
           ) t
@@ -159,22 +160,26 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
      denoteBBStmts stmts
 
 def denoteRegions (rs: List (Region Δ)):
-    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)) := 
+    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (TypedArgs Δ)) := 
  match rs with 
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
 def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
-    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (TypedArgs Δ) := do
   -- We only define semantics for single-basic-block regions
   -- TODO: Pass region arguments
   -- TODO: Forward region's return type and value
   match r with
   | .mk [bb] =>
-      denoteBB bb args
+      match (<- denoteBB bb args) with 
+      | BlockResult.Ret rets => return rets
+      | _ => do 
+        Fitree.trigger (UBE.DebugUB s!"invalid denote BB (expected to return)")
+        return []
   | _ => do
       Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}")
-      return BlockResult.Next ⟨.unit, ()⟩
+      return []
 end
 
 instance

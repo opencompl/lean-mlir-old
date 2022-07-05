@@ -61,45 +61,103 @@ def List.sum (xs: List Nat): Nat :=
 def List.pointwiseMul (xys: List (Nat × Nat)): List Nat := 
   xys.map (fun xy => xy.fst * xy.snd) 
 
+
 -- xs[α] for xs of shape 10: α
--- xs[α][β] for xs of shape 40x50: α*50 + β * 1 ~= [50, 1] *+ [α, β]
-def index (shape: List Nat) (ix: List Nat): Option Nat := 
-  let zippedOption := zip_same_size (shape.tailList.snoc 1) ix
-  zippedOption.map (List.sum ∘ List.pointwiseMul)
+-- xs[α][β][γ] for xs of shape 40x50x60: α*(50*60)+ β*60 + γ*1 ~= [50, 1] *+ [α, β]
+-- xs[α][β][γ] for xs of shape 40x50x60: ((0 + α)*50 + β)*60 + γ)*1 ~= [50, 1] *+ [α, β]
+def linearizeIndex (shape: List Nat) (ix: List Nat): Option Nat := 
+  (zip_same_size ix (shape.drop 1)).map $ List.foldr (init := 0)
+    (fun ix_and_shape linix => (linix + ix_and_shape.fst) * ix_and_shape.snd)
 
-def listTensorToTypedArgs [δ: Dialect α σ ε] [CoeDialect builtin δ]:
-  List (Tensor τ) → List ((τ: MLIRType δ) × τ.eval)
+def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
+  (τ: MLIRType δ):
+  List (MLIRType.eval τ) → TypedArgs δ
 | [] => []
-| t::ts => ⟨builtin.tensor_unranked τ, sorry⟩ :: listTensorToTypedArgs ts
+| t::ts => ⟨τ, t⟩ :: makeUniformMLIRTypedArguments τ ts
 
 
+
+#check MLIRType.eval
 -- TODO: how do I write the semantics for this in a way that 
 -- I can get access to the `tensor` type?
-def linalg_parallel_iter [CoeDialect builtin Δ]
-   (ts: List (Tensor τ))
+def linalg_parallel_iter [Δ: Dialect α σ ε]
+   (inTensors: List (Tensor τ))
    (iter_vec: List Nat):
      Fitree ((RegionE Δ) +' UBE +' LinalgE)
-            (BlockResult Δ) := do
- let ts' := ts.mapM (fun t => 
-   (index t.shape iter_vec).map (fun ix => t.data.get? ix)
- )
- let result <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0) 
-   (args := listTensorToTypedArgs ts))
- return BlockResult.Ret []
+            (TypedArgs Δ) := do
+  let data? := inTensors.mapM (fun inTensor => 
+   match linearizeIndex inTensor.shape iter_vec  with
+    | .some ix => inTensor.data.get? ix
+    | .none => .none)
+  match data? with 
+  | .some data => do
+      let result <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
+       (args := makeUniformMLIRTypedArguments 
+                  (δ := Δ)
+                  (coeDialectType.coe τ)
+                  (coe_type_eval_eq τ ▸ data)))
+      return result
+  | .none => do 
+      Fitree.trigger (UBE.DebugUB "unable to access tensor data")
+      return []
+/-
+def generateIterationDomain (sizes: List Nat): List (List Nat) := 
+  match sizes with 
+  | [] => [[]]
+  | size::sizes => 
+      let rest := generateIterationDomain sizes 
+      (List.range size).foldl -- for each index `ix` in [0..size)
+       (init := [])
+        -- prepend `ix` to each iteration vector generated from recursion
+        (fun accum ix => accum ++ rest.map (fun vec =>  ix::vec))
+
+#eval generateIterationDomain [2, 3]
+-- [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]]
+     
+def collectOutputsIntoTensorData [δ: Dialect α σ ε]
+  (τ: MLIRTy) (argss: List (TypedArgs δ)): List τ.eval :=
+  match argss with 
+  | [] => []
+  | (args::argss) => match args with  -- TODO: fix this semantics
+               | [⟨τ', v⟩] => if H: τ = τ' then [] else []
+               | _ => []
+def collectOutputsIntoTensor [δ: Dialect α σ ε]
+  (shape: List Nat)
+  (τ: MLIRTy) (argss: List (TypedArgs δ)): Tensor τ :=
+  Tensor.mk shape  (collectOutputsIntoTensorData τ argss) sorry
+
+def linalg_parallel_all_iters
+  [CoeDialect builtin Δ]
+   (maps: List AffineMap)
+   (inTensors: List (Tensor τ))
+   (shape: List Nat): 
+     Fitree ((RegionE Δ) +' UBE +' LinalgE)
+            (TypedArgs Δ) := do
+  -- TODO: this needs to be refined to allow for different shapes etc.
+  let dims := (inTensors.get! 0).shape
+  let ixs := generateIterationDomain dims
+  let outValues <- ixs.mapM (linalg_parallel_iter inTensors)
+  return [⟨builtin.tensor_unranked τ, collectOutputsIntoTensor shape τ outValues⟩]
 
 def linalg_parallel (ts: List (Tensor τ)):
-   Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ) :=  sorry
-  
+   Fitree (RegionE Δ +' UBE +' LinalgE) (TypedArgs Δ) :=  return []
+-/  
   
 
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
 def linalg_semantics_op: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
+ /-
   | IOp.mk "linalg.generic" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
     let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
     pure $ BlockResult.Next ⟨MLIRType.unit, ()⟩
+-/
+  -- | super special case for 1 input, 1 output, with 1d tensors
+  | IOp.mk "linalg.parallel1d" [input] [] 1 _ _ => some do
+      sorry
   | _ => none
+
 /-
 Hook to provide a custom AffineMap used to construct the
 hyperrectangular loop iteration space given all the operand subshapes.

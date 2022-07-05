@@ -188,7 +188,9 @@ common MLIR data such as `MLIRType`, `AttrValue` and `Op` across dialects.
 class CoeDialect (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) where
   coe_α: α₁ → α₂
   coe_σ: σ₁ → σ₂
-  coe_ε: forall s, ε₁ s → ε₂ (coe_σ s)
+  -- ε₁ s = ε₂ (CoeDialect.coe_σ δ₁ δ₂ s)
+  coe_ε: forall (s₁: σ₁), ε₁ s₁ → ε₂ (coe_σ s₁)
+  coe_ε_well_defined: ε₁ s = ε₂ (coe_σ s)
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
   Coe α₁ α₂ where coe := c.coe_α
@@ -201,20 +203,35 @@ instance (δ: Dialect α σ ε): CoeDialect δ δ where
   coe_α := id
   coe_σ := id
   coe_ε s := id
-
+  coe_ε_well_defined := by {
+   intros s;
+   simp; 
+  }
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
     CoeDialect δ₁ (δ₁ + δ₂) where
   coe_α := .inl
   coe_σ := .inl
   coe_ε s := id
+  coe_ε_well_defined := by {
+   intros s;
+   simp; 
+  }
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
     CoeDialect δ₂ (δ₁ + δ₂) where
   coe_α := .inr
   coe_σ := .inr
   coe_ε s := id
+  coe_ε_well_defined := by {
+   intros s;
+   simp; 
+  }
 
 instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
   coe_α a := nomatch a
   coe_σ s := nomatch s
   coe_ε s := nomatch s
+  coe_ε_well_defined := by {
+   intros s;
+   exact (nomatch s);
+  }
