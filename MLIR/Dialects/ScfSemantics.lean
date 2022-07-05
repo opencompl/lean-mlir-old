@@ -43,13 +43,13 @@ def scf_semantics_op: IOp Δ →
       if b == 0
       then Fitree.trigger <| RegionE.RunRegion 0 []
       else Fitree.trigger <| RegionE.RunRegion 1 []
-  | IOp.mk "scf.for" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
-    let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
+  | IOp.mk "scf.for" [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ _ => some do
+    let nsteps : Int := (hi - lo) / step
     run_loop_bounded
       (a := BlockResult Δ)
       (n := nsteps.toNat)
-      (lo := (FinInt.toSint' lo))
-      (step := (FinInt.toSint' step))
+      (lo := lo)
+      (step := step)
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
   | IOp.mk "scf.yield" vs [] 0 _ _ => .some do
@@ -68,7 +68,7 @@ instance: Semantics scf where
 ### Examples and testing
 -/
 
-section scf_if_true
+namespace scf_if_true
 def LHS (r1: Region scf) (r2: Region scf): Region scf := [mlir_region|
 {
   "scf.if" (%b) ($(r1), $(r2)) : (i1) -> ()
@@ -107,6 +107,7 @@ theorem scf_if_sem:
   rfl
 }
 
+/-
 theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv scf):
     (run (denoteRegion _ (LHS r1 r2) []) INPUT) = (r, env) := by {
   simp [INPUT, LHS, run, denoteRegion, denoteBB, denoteBBStmts]
@@ -121,6 +122,7 @@ theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv s
   simp;
   sorry
 }
+-/
 
 /-
 theorem equivalent (r1 r2: Region scf):
@@ -135,3 +137,62 @@ theorem equivalent (r1 r2: Region scf):
   apply FinInt.xor_and
 end scf_if_true
 -/
+namespace FOR_PEELING
+
+
+theorem LHS (r: Region scf): Region scf := [mlir_region|
+{
+  "scf.for" (%c0, %cn_plus_1, %c1) ($(r)) : (i1) -> ()
+}
+]
+
+
+theorem RHS  (r: Region scf): Region scf := [mlir_region|
+{
+  "scf.for" (%c0, %cn, %c1) ($(r)) : (i1) -> ()
+  "scf.execute_region" () ($(r)) : ()
+}]
+
+theorem INPUT (n m: Nat): SSAEnv scf :=
+    SSAEnv.One [⟨"cn", MLIRType.index, n⟩,
+                ⟨"cn_plus_1", MLIRType.index, n + 1⟩,
+                ⟨"c0", MLIRType.index, 0⟩,
+                ⟨"c1", MLIRType.index, 1⟩]
+
+theorem equivalent (n m: Nat) (r: Region scf):
+    (run (denoteRegion _ (LHS r) []) (INPUT n m)) =
+    (run (denoteRegion _ (RHS r) []) (INPUT n m)) := by sorry
+
+end FOR_PEELING
+
+
+
+namespace FOR_FUSION
+
+
+theorem LHS (r: Region scf): Region scf := [mlir_region|
+{
+  "scf.for" (%c0, %cn, %c1) ($(r)) : (i1) -> ()
+  "scf.for" (%cn, %cm, %c1) ($(r)) : (i1) -> ()
+}
+]
+
+
+theorem RHS (r: Region scf): Region scf := [mlir_region|
+{
+  "scf.for" (%c0, %cn_plus_m, %c1) ($(r)) : (i1) -> ()
+}]
+
+theorem INPUT (n m: Nat): SSAEnv scf :=
+    SSAEnv.One [⟨"cn", MLIRType.index, n⟩,
+                ⟨"cm", MLIRType.index, m⟩,
+                ⟨"cn_plus_m", MLIRType.index, n + m⟩,
+                ⟨"c0", MLIRType.index, 0⟩,
+                ⟨"c1", MLIRType.index, 1⟩]
+
+theorem equivalent (n m: Nat) (r: Region scf):
+    (run (denoteRegion _ (LHS r) []) (INPUT n m)) =
+    (run (denoteRegion _ (RHS r) []) (INPUT n m)) := by sorry
+
+end FOR_FUSION
+
