@@ -14,6 +14,7 @@ import MLIR.Examples.EndToEndLinalg
 import MLIR.Examples.EndToEndLz
 import MLIR.Examples.EndToEndDiff
 import MLIR.Examples.SemanticsTests
+import MLIR.Examples.FinIntBruteforce
 
 -- Testing imports for semantics
 import MLIR.Dialects.ToySemantics
