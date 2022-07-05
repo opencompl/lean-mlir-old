@@ -622,10 +622,10 @@ private def multiple_example: Op builtin := [mlir_op|
 
 -- Match an MTerm program in some IR, then concretize
 -- the MTerm using the resulting matching context.
-def multiple_example_result : Option (List (BasicBlockStmt builtin)) := do
-  let (val, ctx) ←
+private def multiple_example_result : Option (List (BasicBlockStmt builtin)) := do
+  let (_, ctx) ←
     matchMProgInOp multiple_example test_addi_multiple_pattern []
   let res ← MTerm.concretizeProg test_addi_multiple_pattern ctx
-  val
+  res
 
 #eval multiple_example_result
