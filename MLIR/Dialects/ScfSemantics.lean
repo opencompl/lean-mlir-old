@@ -39,6 +39,10 @@ def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: I
 -- | TODO: use the return type of Scf.For. For now, just do unit.
 def scf_semantics_op: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ))
+  | IOp.mk "scf.if" [⟨.i1, b⟩] [] 2 _ _ => some do
+      if b == 0
+      then Fitree.trigger <| RegionE.RunRegion 0 []
+      else Fitree.trigger <| RegionE.RunRegion 1 []
   | IOp.mk "scf.for" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
     let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
     run_loop_bounded
@@ -62,4 +66,72 @@ instance: Semantics scf where
 
 /-
 ### Examples and testing
+-/
+
+section scf_if_true
+def LHS (r1: Region scf) (r2: Region scf): Region scf := [mlir_region|
+{
+  "scf.if" (%b) ($(r1), $(r2)) : (i1) -> ()
+}
+]
+
+
+def RHS (r1: Region scf) (r2: Region scf): Region scf := r1
+
+-- | i1 true
+def INPUT: SSAEnv arith := SSAEnv.One [⟨"x", MLIRType.i1, 0⟩]
+
+
+theorem scf_if_sem:
+  denoteBBStmt (Δ := scf)
+          (BasicBlockStmt.StmtOp
+          (Op.mk "scf.if" [SSAVal.SSAVal "b"] [] [r1, r2] (AttrDict.mk [])
+           (MLIRType.fn (MLIRType.tuple [MLIRType.int Signedness.Signless 1]) (MLIRType.tuple [])))) = _
+/-
+ (Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 1) (SSAVal.SSAVal "b")))) 
+   fun r =>
+      interp
+        (fun x e =>
+          match x, e with
+          | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) => List.get! (denoteRegions [r1, r2]) i xs
+          | x, Sum.inr (Sum.inl ube) => Fitree.Vis (Sum.inl ube) Fitree.ret
+          | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret)
+        (if (r == 0) = true then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
+        else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret))
+-/
+  := by {
+  simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+  simp [scf_semantics_op];
+  simp_itree
+  rfl
+}
+
+theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv scf):
+    (run (denoteRegion _ (LHS r1 r2) []) INPUT) = (r, env) := by {
+  simp [INPUT, LHS, run, denoteRegion, denoteBB, denoteBBStmts]
+  simp [denoteBBStmt, denoteOp, Semantics.semantics_op];
+  simp [scf_semantics_op];
+  simp [List.zip];
+  simp [List.zipWith];
+  simp [List.mapM];
+  simp_itree;
+  simp [interp_ub]; simp_itree;
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; 
+  simp;
+  sorry
+}
+
+/-
+theorem equivalent (r1 r2: Region scf):
+    (run (denoteRegion _ (LHS r1 r2) []) (INPUT)) = 
+    (run (denoteRegion _ (RHS r1 r2) []) (INPUT)) := by {
+  simp [LHS, RHS, INPUT]
+  simp [run, denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
+  simp [interp_ub]; simp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+   
+  repeat (simp [SSAEnv.get]; simp_itree)
+  apply FinInt.xor_and
+end scf_if_true
 -/

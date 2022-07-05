@@ -179,28 +179,31 @@ def ex_assert_false := [mlir_region| {
 #eval run_dummy_cf_region' ex_assert_false
 
 section cf_if_true
-def LHS: BasicBlock arith := [mlir_bb|
-  ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "ori"(%A, %B): (i32, i32) -> i32
-    %_4 = "xori"(%_3, %_2): (i32, i32) -> i32
-    %_5 = "andi"(%A, %B): (i32, i32) -> i32
-    %r = "ori"(%_5, %_4): (i32, i32) -> i32
-]
-def RHS: BasicBlock arith := [mlir_bb|
-  ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "xori"(%A, %B): (i32, i32) -> i32
-    %r = "xori"(%_3, %_2): (i32, i32) -> i32
-]
-def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
-  ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
+def LHS: Region cf := [mlir_region|
+{
+  ^entry:
+    %x = "dummy.true" () : () -> i1
+    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
+
+  ^bbtrue:
+    %y = "dummy.dummy" () : () -> i32
+    "cf.ret" () : () -> ()
+
+  ^bbfalse:
+    %z = "dummy.dummy" () : () -> i32
+    "cf.ret" () : () -> ()
+}
 ]
 
+-- | this is mildly janky, but meh.
+def RHS (bb_true: BasicBlock cf): Region cf := 
+  Region.mk (δ := cf) bb_true
+
+def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One []
+
+
 theorem LHS.sem (A B: FinInt 32):
-    (run (denoteBB _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
+    (run (denoteRegion _ LHS []) (INPUT A B) |>.snd.get "r" .i32) =
       ((A &&& B) ||| ((A ||| B) ^^^ -1): FinInt 32) := by
   simp [INPUT, LHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]

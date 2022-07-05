@@ -580,7 +580,7 @@ syntax mlir_op_operand ":" numLit "=" mlir_op : mlir_bb_stmt
 syntax "[mlir_bb_stmt|" mlir_bb_stmt "]" : term
 
 macro_rules
-  | `([mlir_bb_stmt| $$($q)]) => `(coe $q)
+  | `([mlir_bb_stmt| $$($q)]) => `(Coe.coe $q)
 
 macro_rules
   | `([mlir_bb_stmt| $call:mlir_op ]) =>
@@ -625,7 +625,7 @@ macro_rules
       return l
 
 macro_rules
-  | `([mlir_bb_stmts| $$($q)]) => `(coe $q)
+  | `([mlir_bb_stmts| $$($q)]) => `(Coe.coe $q)
 
 
 
