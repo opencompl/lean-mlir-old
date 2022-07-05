@@ -749,3 +749,48 @@ def isSSAUseInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
   | .StmtOp op => isSSAUseInOp op
   | .StmtAssign res _ op => isSSAUseInOp op
 end
+
+mutual
+variable (mVar: SSAVal)
+
+def getDefiningOpInOp (op: Op δ) : Option (BasicBlockStmt δ) :=
+  match op with
+  | .mk _ _ _ regions _ _ => getDefiningOpInRegions regions
+
+def getDefiningOpInRegions (regions: List (Region δ)) : Option (BasicBlockStmt δ) :=
+  match regions with
+  | [] => none
+  | region::regions' => 
+    match getDefiningOpInRegion region with
+    | some op => some op
+    | none => getDefiningOpInRegions regions'
+
+def getDefiningOpInRegion (region: Region δ) : Option (BasicBlockStmt δ) :=
+  match region with
+  | .mk bbs => getDefiningOpInBBs bbs
+
+def getDefiningOpInBBs (bbs: List (BasicBlock δ)) : Option (BasicBlockStmt δ) :=
+  match bbs with
+  | [] => none
+  | bb::bbs' =>
+    match getDefiningOpInBB bb with
+    | some op => some op
+    | none => getDefiningOpInBBs bbs'
+
+def getDefiningOpInBB (bb: BasicBlock δ) : Option (BasicBlockStmt δ) :=
+  match bb with
+  | .mk _ _ stmts => getDefiningOpInBBStmts stmts
+
+def getDefiningOpInBBStmts (stmts: List (BasicBlockStmt δ)) : Option (BasicBlockStmt δ) :=
+  match stmts with
+  | [] => none
+  | stmt::stmts' =>
+    match getDefiningOpInBBStmt stmt with
+    | some op => some op
+    | none => getDefiningOpInBBStmts stmts'
+
+def getDefiningOpInBBStmt (stmt: BasicBlockStmt δ) : Option (BasicBlockStmt δ) :=
+  match stmt with
+  | .StmtOp op => getDefiningOpInOp op
+  | .StmtAssign res _ op => if res == mVar then some stmt else getDefiningOpInOp op
+end
