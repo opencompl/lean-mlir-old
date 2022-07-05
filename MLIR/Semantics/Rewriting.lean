@@ -4,9 +4,10 @@
 This file implements a rewriting system for MLIR, following the ideas of PDL.
 -/
 
+import MLIR.AST
 import MLIR.Semantics.Matching
 import MLIR.Semantics.Semantics
-import MLIR.AST
+import MLIR.Semantics.Dominance
 import MLIR.Semantics.Refinement
 open MLIR.AST
 
@@ -165,6 +166,11 @@ def postSSAEnv [Semantics δ] (op: BasicBlockStmt δ) (env: SSAEnv δ) : Prop :=
 def postSSAEnvList [Semantics δ] (op: List (BasicBlockStmt δ)) (env: SSAEnv δ) : Prop :=
   ∃ env', (run ⟦BasicBlock.mk "" [] op⟧ env').snd = env
 
+def varDefInProg (t: T) :  List SSAVal := []
+def varUseInProg (t: T) :  List SSAVal := []
+
+theorem cons_is_append (head: T) (tail: List T) : head :: tail = [head] ++ tail
+  := by rfl
 
 def termResName (m: MTerm δ) : Option String :=
   match m with
@@ -172,12 +178,14 @@ def termResName (m: MTerm δ) : Option String :=
         [.App .OPERAND [.Var _ ssaName .MSSAVal, _]] ] => some ssaName
   | _ => none
 
-def run_split_head_tail [S: Semantics δ] (mHead mTail: List (MTerm δ))
-                        (a: MTermAction δ) (σ: VarCtx δ) :
-  ∀ pHead, MTerm.concretizeProg mHead σ = some pHead -> 
-  ∀ pTail, MTerm.concretizeProg mTail σ = some pTail -> 
-  ∀ (env: SSAEnv δ), (run ⟦BasicBlock.mk "" [] (pHead ++ pTail)⟧ env).snd = 
-    (run ⟦BasicBlock.mk "" [] pTail⟧ (run ⟦BasicBlock.mk "" [] pHead⟧ env).snd).snd := sorry
+def getResName (stmt: BasicBlockStmt δ) : Option SSAVal :=
+  match stmt with
+  | .StmtAssign res _ _ => some res
+  | .StmtOp _ => none
+
+def run_split_head_tail [S: Semantics δ] :
+  ∀ (pHead pTail) (env: SSAEnv δ), (run ⟦BasicBlock.mk "" [] (pHead ++ pTail)⟧ env) = 
+    (run ⟦BasicBlock.mk "" [] pTail⟧ (run ⟦BasicBlock.mk "" [] pHead⟧ env).snd) := sorry
 
 def rewrite_equivalent_precondition_rewrite [S: Semantics δ] (mHead: List (MTerm δ))
     (mTail: MTerm δ) (mNewTail: List (MTerm δ)) (σ: VarCtx δ) :
@@ -190,3 +198,100 @@ def rewrite_equivalent_precondition_rewrite [S: Semantics δ] (mHead: List (MTer
   ∀ env, postSSAEnvList headProg env ->
     refinement (run ⟦BasicBlock.mk "" [] originProg⟧ env)
                (run ⟦BasicBlock.mk "" [] resProg⟧ env) := by sorry
+
+section MainTheorem
+variable (δ: Dialect δα δσ δε)
+         [S: Semantics δ]
+         (σ: VarCtx δ)
+         (mHead: List (MTerm δ))
+         (mOrigin: MTerm δ)
+         (mRes: List (MTerm δ))
+         (headPat originPat resPat: List (BasicBlockStmt δ))
+         (HHeadPat: MTerm.concretizeProg mHead σ = some headPat)
+         (HOriginPat: MTerm.concretizeProg [mOrigin] σ = some originPat)
+         (HResPat: MTerm.concretizeProg mRes σ = some resPat)
+         (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ originPat)⟧ env)
+                                   (run ⟦BasicBlock.mk "" [] (headPat ++ resPat)⟧ env)))
+         (origName: String)
+         (HOrigName: termResName mOrigin = some origName)
+         (prog: List (BasicBlockStmt δ))
+         (Hmatch: (headPat ++ originPat).all (fun op => isOpInBBStmts op prog))
+
+def main_theorem :
+  ∀ (p: List (BasicBlockStmt δ)),
+  ∀ ctx, (singleBBRegionStmtsObeySSA p ctx).isSome →
+  ∀ (env: SSAEnv δ),
+  (∀ val, ctx.isValDefined val →
+      ∀ op, getDefiningOpInBBStmts val prog = some op →
+      postSSAEnv op env) ->
+  ∀ resP, replaceOpInBBStmts headName resPat p = some resP →
+  refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
+             (run ⟦BasicBlock.mk "" [] resP⟧ env)
+  := by
+    intros p
+    induction p
+    -- We do an induction over the program we are rewriting
+    case nil =>
+      -- The base case is easy, we couldn't find the operation in the program,
+      -- thus we have a contradiction
+      intros _ _ _ _ resP HresP
+      simp [replaceOpInBBStmts] at HresP
+    
+    -- Induction case
+    case cons head tail Hind =>
+      intros ctx HSSA env HCtx resP HresP
+      -- We first do a case analysis if we have rewritten or not the head op of the program
+      simp [replaceOpInBBStmts] at HresP
+      cases Hreplace: replaceOpInBBStmt headName resPat head
+        <;> rw [Hreplace] at HresP <;> simp at HresP
+      
+      -- Here, the first operation has not been rewritten
+      case none =>
+        -- We first get the information that the rewrite must have worked in
+        -- the tail of the program
+        cases HreplaceTail: replaceOpInBBStmts headName resPat tail
+          <;> rw [HreplaceTail] at HresP <;> simp at HresP
+          <;> try contradiction
+        rename_i resTail
+        simp [bind, Option.bind] at HresP
+        subst resP
+
+        -- Then, we rewrite the `run` showing that we are first running the first statement,
+        -- and then the tail
+        rw [cons_is_append head tail]
+        rw [cons_is_append head resTail]
+        rw [run_split_head_tail]
+        rw [run_split_head_tail]
+
+        -- We get the dominance context for the tail
+        simp [singleBBRegionStmtsObeySSA] at HSSA
+        cases HSSAHead: singleBBRegionStmtObeySSA head ctx
+          <;> rw [HSSAHead] at HSSA <;> try contradiction
+        rename_i tailCtx
+        simp [Option.bind] at HSSA
+        specialize (Hind tailCtx HSSA)
+
+        -- Running the first statement becomes an environment env'
+        -- This is the environment that we are going to use for our induction
+        generalize Henv': (run ⟦ BasicBlock.mk "" [] [head] ⟧ env).snd = env'
+        specialize Hind env'
+
+        -- We prove that if we added an SSAValue in the context, then the defining
+        -- operation had to execute it.
+        specialize Hind (by
+          intros val Hval op HopInProg
+          sorry
+        )
+        
+        specialize Hind _ HreplaceTail
+        assumption
+
+      -- In this case, the first operation, or one operation of its region, was rewritten.
+      case some resHeadP => 
+        subst resP
+        rw [cons_is_append head tail]
+        rw [run_split_head_tail]
+        rw [run_split_head_tail]
+        sorry
+
+end MainTheorem
