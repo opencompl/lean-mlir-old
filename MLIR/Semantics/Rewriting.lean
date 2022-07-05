@@ -100,7 +100,9 @@ def MTermAction.apply (a: MTermAction δ) (prog: List (BasicBlockStmt δ)) (ctx:
     let concreteVarMatch ← ctx.get .MSSAVal varMatch
     let concreteVarMatchName := match concreteVarMatch with | .SSAVal name => name
     let newOps ← newOps.mapM (fun t => t.concretizeOp ctx)
-    replaceOpInBBStmts concreteVarMatchName newOps prog
+    match replaceOpInBBStmts concreteVarMatchName newOps prog with
+    | some res => res
+    | none => prog
 
 /-
 ### Simple example
