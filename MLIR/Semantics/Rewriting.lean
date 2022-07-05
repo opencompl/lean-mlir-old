@@ -20,45 +20,66 @@ TODO: Remove this restriction.
 mutual
 variable (nameMatch: SSAVal) (new_ops: List (BasicBlockStmt δ))
 
-def replaceOpInOp (op: Op δ) : Op δ := 
+def replaceOpInOp (op: Op δ) : Option (Op δ) := 
   match op with
-  | .mk name args bbs regions attrs ty => 
-    .mk name args bbs (replaceOpInRegions regions) attrs ty
+  | .mk name args bbs regions attrs ty => do
+    let regions' ← replaceOpInRegions regions
+    Op.mk name args bbs regions' attrs ty
 
-def replaceOpInRegions (regions: List (Region δ)) : List (Region δ) :=
+def replaceOpInRegions (regions: List (Region δ)) : Option (List (Region δ)) :=
   match regions with
-  | [] => []
-  | region::regions' => 
-    (replaceOpInRegion region)::(replaceOpInRegions regions')
+  | [] => none
+  | region::regions' =>
+    match replaceOpInRegion region with
+    | some region' => region'::regions'
+    | none => do
+        let regions'' ← replaceOpInRegions regions'
+        region::regions''
 
-def replaceOpInRegion (region: Region δ) : Region δ :=
+def replaceOpInRegion (region: Region δ) : Option (Region δ) :=
   match region with
-  | .mk bbs => .mk (replaceOpInBBs bbs)
+  | .mk bbs => do 
+    let bbs' ← replaceOpInBBs bbs
+    Region.mk bbs'
 
-def replaceOpInBBs (bbs: List (BasicBlock δ)) : List (BasicBlock δ) :=
+def replaceOpInBBs (bbs: List (BasicBlock δ)) : Option (List (BasicBlock δ)) :=
   match bbs with
-  | [] => []
-  | bb::bbs' => (replaceOpInBB bb)::(replaceOpInBBs bbs')
+  | [] => none
+  | bb::bbs' => 
+    match replaceOpInBB bb with
+    | some bb' => bb'::bbs'
+    | none => do
+        let bbs'' ← replaceOpInBBs bbs'
+        bb::bbs''
 
-def replaceOpInBB (bb: BasicBlock δ) : BasicBlock δ :=
+def replaceOpInBB (bb: BasicBlock δ) : Option (BasicBlock δ) :=
   match bb with
-  | .mk name args ops => .mk name args (replaceOpInBBStmts ops)
+  | .mk name args ops => do
+      let ops' ← replaceOpInBBStmts ops
+      BasicBlock.mk name args ops'
 
 def replaceOpInBBStmts (stmts: List (BasicBlockStmt δ)) :
-    List (BasicBlockStmt δ) :=
+    Option (List (BasicBlockStmt δ)) :=
   match stmts with
-  | [] => []
+  | [] => none
   | stmt::stmts' =>
-    (replaceOpInBBStmt stmt) ++ (replaceOpInBBStmts stmts')
+    match replaceOpInBBStmt stmt with
+    | some stmt' => some (stmt' ++ stmts')
+    | none => do
+        let stmts'' ← replaceOpInBBStmts stmts'
+        stmt::stmts''
 
-def replaceOpInBBStmt (stmt: BasicBlockStmt δ) : List (BasicBlockStmt δ) :=
+def replaceOpInBBStmt (stmt: BasicBlockStmt δ) : Option (List (BasicBlockStmt δ)) :=
   match stmt with
-  | .StmtOp op => [.StmtOp (replaceOpInOp op)]
+  | .StmtOp op => do
+    let op' ← replaceOpInOp op
+    [BasicBlockStmt.StmtOp op']
   | .StmtAssign var idx op =>
       if var == nameMatch then
-        new_ops
-      else 
-        [.StmtAssign var idx (replaceOpInOp op)]
+        some new_ops
+      else do
+        let op' ← replaceOpInOp op
+        some [BasicBlockStmt.StmtAssign var idx op']
 end
 
 /-
