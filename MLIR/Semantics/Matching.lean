@@ -633,7 +633,8 @@ private def multiple_example_result : Option (List (BasicBlockStmt builtin)) := 
 /-
 ### Exact program matching
 
-This section defines functions to check if an operation is inside a bigger program.
+This section defines functions to check if an operation, or SSA values
+definitions/uses are inside a bigger program.
 -/
 
 mutual
@@ -673,4 +674,78 @@ def isOpInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
     .StmtAssign res' ix' (Op.mk name' operands' [] [] (AttrDict.mk []) typ') =>
     res == res' && ix == ix' && name == name' && operands == operands' && typ == typ'
   | .StmtAssign _ _ op, _ => isOpInOp op
+end
+
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSADefInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ regions _ _ => isSSADefInRegions regions
+
+def isSSADefInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSADefInRegion region || isSSADefInRegions regions'
+
+def isSSADefInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSADefInBBs bbs
+
+def isSSADefInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSADefInBB bb || isSSADefInBBs bbs'
+
+def isSSADefInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ stmts => isSSADefInBBStmts stmts
+
+def isSSADefInBBStmts (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => False
+  | stmt::stmts' => isSSADefInBBStmt stmt || isSSADefInBBStmts stmts'
+
+def isSSADefInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt with
+  | .StmtOp op => isSSADefInOp op
+  | .StmtAssign res _ op => res == mVar || isSSADefInOp op
+end
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSAUseInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ args _ regions _ _ => 
+    args.contains mVar || isSSAUseInRegions regions
+
+def isSSAUseInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSAUseInRegion region || isSSAUseInRegions regions'
+
+def isSSAUseInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSAUseInBBs bbs
+
+def isSSAUseInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSAUseInBB bb || isSSAUseInBBs bbs'
+
+def isSSAUseInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ stmts => isSSAUseInBBStmts stmts
+
+def isSSAUseInBBStmts (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => False
+  | stmt::stmts' => isSSAUseInBBStmt stmt || isSSAUseInBBStmts stmts'
+
+def isSSAUseInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt with
+  | .StmtOp op => isSSAUseInOp op
+  | .StmtAssign res _ op => isSSAUseInOp op
 end
