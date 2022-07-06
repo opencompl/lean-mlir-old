@@ -82,29 +82,23 @@ def RHS (r1: Region scf) (r2: Region scf): Region scf := r1
 def INPUT: SSAEnv arith := SSAEnv.One [⟨"x", MLIRType.i1, 0⟩]
 
   
+def foo : Fitree Id Nat := Fitree.Vis () (fun _ => Fitree.Ret 20)
 
 def rhs (r1 r2: Region scf):
-  Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf) :=
-  (Fitree.Vis
-    (Sum.inr
-      (Sum.inl
-        (SSAEnvE.Get (ε := fun x => Unit) (MLIRType.int (ε := fun x => Unit) Signedness.Signless 1)
-          (SSAVal.SSAVal "b"))))
-    fun
-      (r : MLIRType.eval (α := Void) (ε := fun x => Unit) (MLIRType.int (ε := fun x => Unit) Signedness.Signless 1)) =>
-    interp (E := RegionE (ε := fun x => Unit) scf +' UBE +' Semantics.E (ε := fun x => Unit) scf)
-      (fun (x : Type) (e : psum (RegionE (ε := fun x => Unit) scf) (UBE +' Semantics.E (ε := fun x => Unit) scf) x) =>
-        (match x, e with
-        | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) =>
-          List.get! (denoteRegions (ε' := fun x => Unit) scf [r1, r2]) i xs
+  Fitree (UBE +' (SSAEnvE scf +' Semantics.E scf)) (BlockResult scf) :=
+  (Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 1) (SSAVal.SSAVal "b")))) 
+    (fun (r : FinInt 1) =>
+    interp (E := RegionE scf +' UBE +' Semantics.E scf) (M := Fitree (UBE +' SSAEnvE scf +' Semantics.E scf))
+      (fun x e  =>  -- returns:Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) x
+        match x, e with
+        | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) => List.get! (denoteRegions scf [r1, r2]) i xs
         | x, Sum.inr (Sum.inl ube) => Fitree.Vis (Sum.inl ube) Fitree.ret
-        | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret :
-          Fitree (UBE +' SSAEnvE (ε := fun x => Unit) scf +' Semantics.E (ε := fun x => Unit) scf) x))
-      (if (r == 0) = true then Fitree.Vis (Sum.inl (RegionE.RunRegion (ε := fun x => Unit) 0 [])) Fitree.ret
-      else Fitree.Vis (Sum.inl (RegionE.RunRegion (ε := fun x => Unit) 1 [])) Fitree.ret :
-        Fitree (RegionE (ε := fun x => Unit) scf +' UBE +' ScfE) (BlockResult (ε := fun x => Unit) scf)))
+        | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret
+      )
+      (if r = 0
+       then Fitree.Vis (Sum.inl (RegionE.RunRegion (Δ := scf) 0 [])) Fitree.ret
+       else Fitree.Vis (Sum.inl (RegionE.RunRegion (Δ := scf) 1 [])) Fitree.ret)))
 
-set_option pp.analyze true in 
 theorem scf_if_sem:
   (denoteBBStmt (Δ := scf)
      (BasicBlockStmt.StmtOp
@@ -116,9 +110,13 @@ theorem scf_if_sem:
   simp_itree
   simp [scf_semantics_op];
   simp_itree;
+  simp;
+  simp_itree;
   -- copy state from here and paste into rhs
   unfold rhs;
-  rfl;
+  simp;
+  funext r;
+  simp_itree;
   -- tactic 'rfl' failed...
 }
 
