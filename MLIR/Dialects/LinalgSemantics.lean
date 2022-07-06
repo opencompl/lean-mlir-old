@@ -126,11 +126,15 @@ def linalg_parallel_all_iters
 
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
-def linalg_semantics_op  [CoeDialect builtin Δ] [DialectProjection Δ builtin]: IOp Δ →
+def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
-  | IOp.mk "linalg.parallel1d1" [] [] 1 _ _ =>
-
+  | IOp.mk "linalg.parallel1d1" [⟨.extended sΔ, v⟩] [] 1 _ _ =>
+      match H: DialectProjection.project_σ (self := P) _ _ sΔ with
+      | some (builtin.σ.tensor_unranked τ) =>
+          let input: UnrankedTensor τ :=
+            cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
           linalg_parallel_all_iters [input]
+      | _ => none
   | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
       sorry
 
