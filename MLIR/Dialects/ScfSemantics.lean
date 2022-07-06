@@ -81,18 +81,21 @@ def RHS (r1: Region scf) (r2: Region scf): Region scf := r1
 -- | i1 true
 def INPUT: SSAEnv arith := SSAEnv.One [⟨"x", MLIRType.i1, 0⟩]
 
-  
+
 
 def rhs (r1 r2: Region scf):
   Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf) :=
   (Fitree.Vis
     (Sum.inr
       (Sum.inl
-        (SSAEnvE.Get (ε := fun x => Unit) (MLIRType.int (ε := fun x => Unit) Signedness.Signless 1)
+        (@SSAEnvE.Get _ _ _ scf (MLIRType.int (ε := fun x => Unit) Signedness.Signless 1)
+          (@instInhabitedEval Void Void (fun _ => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun _ => Unit) scf .Signless 1))
           (SSAVal.SSAVal "b"))))
     fun
       (r : MLIRType.eval (α := Void) (ε := fun x => Unit) (MLIRType.int (ε := fun x => Unit) Signedness.Signless 1)) =>
-    interp (E := RegionE (ε := fun x => Unit) scf +' UBE +' Semantics.E (ε := fun x => Unit) scf)
+    interp (M := Fitree (UBE +' SSAEnvE (ε := fun x => Unit) scf +' Semantics.E (ε := fun x => Unit) scf))
+      (E := RegionE (ε := fun x => Unit) scf +' UBE +' Semantics.E (ε := fun x => Unit) scf)
       (fun (x : Type) (e : psum (RegionE (ε := fun x => Unit) scf) (UBE +' Semantics.E (ε := fun x => Unit) scf) x) =>
         (match x, e with
         | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) =>
@@ -104,7 +107,7 @@ def rhs (r1 r2: Region scf):
       else Fitree.Vis (Sum.inl (RegionE.RunRegion (ε := fun x => Unit) 1 [])) Fitree.ret :
         Fitree (RegionE (ε := fun x => Unit) scf +' UBE +' ScfE) (BlockResult (ε := fun x => Unit) scf)))
 
-set_option pp.analyze true in 
+set_option pp.all true in
 theorem scf_if_sem:
   (denoteBBStmt (Δ := scf)
      (BasicBlockStmt.StmtOp
@@ -133,7 +136,7 @@ theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv s
   simp [List.mapM];
   simp_itree;
   simp [interp_ub]; simp_itree;
-  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; 
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get];
   simp;
   sorry
 }
@@ -141,13 +144,13 @@ theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv s
 
 /-
 theorem equivalent (r1 r2: Region scf):
-    (run (denoteRegion _ (LHS r1 r2) []) (INPUT)) = 
+    (run (denoteRegion _ (LHS r1 r2) []) (INPUT)) =
     (run (denoteRegion _ (RHS r1 r2) []) (INPUT)) := by {
   simp [LHS, RHS, INPUT]
   simp [run, denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
-   
+
   repeat (simp [SSAEnv.get]; simp_itree)
   apply FinInt.xor_and
 end scf_if_true
