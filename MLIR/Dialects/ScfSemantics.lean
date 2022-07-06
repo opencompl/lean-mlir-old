@@ -135,7 +135,6 @@ theorem diff4: @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf inst
   = scf_if_true.rhs.match_1.{2} := by rfl 
 
 set_option pp.all true in
-
 theorem scf_if_sem:
   (denoteBBStmt (Δ := scf)
      (BasicBlockStmt.StmtOp
@@ -147,9 +146,8 @@ theorem scf_if_sem:
   simp_itree
   simp [scf_semantics_op];
   simp_itree;
-  rewrite [diff4]; rfl;
+  rfl'; -- necessary to unfold through mutual inductives.
 }
-#check scf_if_sem
 
 /-
 theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv scf):
