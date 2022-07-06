@@ -134,35 +134,6 @@ theorem diff3 :
 theorem diff4: @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf 
   = scf_if_true.rhs.match_1.{2} := by rfl 
 
-theorem diff5:
-List.{0}
-                    (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
-                      fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
-                      @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) = 
- @TypedArgs Void Void (fun (x : Void) => Unit) scf := by rfl 
-
- theorem diff6: List.{0}
-                    (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
-                      fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
-                      @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) 
-   = (@TypedArgs Void Void (fun (x : Void) => Unit) scf) := by rfl 
-
-theorem diff7: (List.{0}
-                    (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
-                      fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
-                      @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ)) =
-   (@TypedArgs Void Void (fun (x : Void) => Unit) scf) := by rfl 
-
-theorem diff8: List.{0}
-                          (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
-                            fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
-                            @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) 
-  = @TypedArgs Void Void (fun (x : Void) => Unit) scf := by rfl 
-
-theorem diff9: @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf = 
- scf_if_true.rhs.match_1.{2} := by rfl 
-#check diff9
-
 set_option pp.all true in
 
 theorem scf_if_sem:
@@ -176,8 +147,7 @@ theorem scf_if_sem:
   simp_itree
   simp [scf_semantics_op];
   simp_itree;
-  simp only [diff4];
-  rfl;
+  rewrite [diff4]; rfl;
 }
 #check scf_if_sem
 
