@@ -124,7 +124,7 @@ def denoteOp (op: Op Δ):
           return default
 
   | _ => do
-      Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
+      Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}\nexpected fn type"
       return .Next ⟨.unit, ()⟩
 
 def denoteBBStmt (bbstmt: BasicBlockStmt Δ):

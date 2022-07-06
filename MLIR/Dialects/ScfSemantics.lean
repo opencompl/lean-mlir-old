@@ -23,17 +23,30 @@ inductive ScfE: Type -> Type :=
 
 -- | run a loop, decrementing i from n to -
 -- | ix := lo + (n - i) * step
-def run_loop_bounded_go [Monad m] (n: Nat) (i: Nat) (lo: Int) (step: Int)
+def run_loop_bounded_stepped_go [Monad m] (n: Nat) (i: Nat) (lo: Int) (step: Int)
   (accum: a) (eff: Int -> a -> m a): m a := do
    let ix : Int := lo + (n - i) * step
    let accum <- eff ix accum
    match i with
    | .zero => return accum
-   | .succ i' => run_loop_bounded_go n i' lo step accum eff
+   | .succ i' => run_loop_bounded_stepped_go n i' lo step accum eff
 
--- | TODO: use this to run regions.
-def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: Int -> a -> m a): m a :=
-  run_loop_bounded_go n n lo step accum eff
+-- | TODO: make this model the `yield` as well.
+def run_loop_bounded_stepped [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: Int -> a -> m a): m a :=
+  run_loop_bounded_stepped_go n n lo step accum eff
+
+
+-- | TODO: make this model the `yield` as well.
+def run_loop_bounded
+  (n: Nat)
+  (start: BlockResult Δ):
+    Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do 
+  match n with
+  | 0 => return start 
+  | .succ n' => do
+    let new <- Fitree.trigger (RegionE.RunRegion 0 [])
+    run_loop_bounded n' new
+
 
 -- | TODO: refactor to (1) an effect, (2) an interpretation
 -- | TODO: use the return type of Scf.For. For now, just do unit.
@@ -45,15 +58,20 @@ def scf_semantics_op: IOp Δ →
       else Fitree.trigger <| RegionE.RunRegion 1 []
   | IOp.mk "scf.for" [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ _ => some do
     let nsteps : Int := (hi - lo) / step
-    run_loop_bounded
+    run_loop_bounded_stepped
       (a := BlockResult Δ)
       (n := nsteps.toNat)
       (lo := lo)
       (step := step)
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
+  | IOp.mk "scf.for'" [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ _ => some do
+      run_loop_bounded (hi - lo) (BlockResult.Ret []) 
+
   | IOp.mk "scf.yield" vs [] 0 _ _ => .some do
       return (BlockResult.Ret vs)
+  | IOp.mk "scf.execute_region" [] [] 1 _ _ => .some do 
+    Fitree.trigger (RegionE.RunRegion 0 [])
   | _ => none
 
 def handleScf: ScfE ~> Fitree PVoid :=
@@ -68,7 +86,7 @@ instance: Semantics scf where
 ### Examples and testing
 -/
 
-namespace scf_if_true
+namespace SCF_IF_TRUE
 def LHS (r1: Region scf) (r2: Region scf): Region scf := [mlir_region|
 {
   "scf.if" (%b) ($(r1), $(r2)) : (i1) -> ()
@@ -172,32 +190,57 @@ theorem equivalent (r1 r2: Region scf):
 #check equivalent
 
 
-end scf_if_true
+end SCF_IF_TRUE
+
 namespace FOR_PEELING
 
 
 theorem LHS (r: Region scf): Region scf := [mlir_region|
 {
-  "scf.for" (%c0, %cn_plus_1, %c1) ($(r)) : (i1) -> ()
+  "scf.for'" (%c0, %cn_plus_1) ($(r)) : (index, index) -> ()
 }
 ]
 
 
 theorem RHS  (r: Region scf): Region scf := [mlir_region|
 {
-  "scf.for" (%c0, %cn, %c1) ($(r)) : (i1) -> ()
-  "scf.execute_region" () ($(r)) : ()
+  "scf.for'" (%c0, %cn) ($(r)) : (index, index) -> ()
+  "scf.execute_region" () ($(r)) : () -> ()
 }]
 
-theorem INPUT (n m: Nat): SSAEnv scf :=
+theorem INPUT (n: Nat): SSAEnv scf :=
     SSAEnv.One [⟨"cn", MLIRType.index, n⟩,
                 ⟨"cn_plus_1", MLIRType.index, n + 1⟩,
-                ⟨"c0", MLIRType.index, 0⟩,
-                ⟨"c1", MLIRType.index, 1⟩]
+                ⟨"c0", MLIRType.index, 0⟩]
 
-theorem equivalent (n m: Nat) (r: Region scf):
-    (run (denoteRegion _ (LHS r) []) (INPUT n m)) =
-    (run (denoteRegion _ (RHS r) []) (INPUT n m)) := by sorry
+set_option maxHeartbeats 999999999 in
+theorem equivalent: ∀ (n: Nat) (r: Region scf),
+    (run (denoteRegion _ (LHS r) []) (INPUT n)) =
+    (run (denoteRegion _ (RHS r) []) (INPUT n)) := by {
+  unfold INPUT, LHS, RHS;
+  intros n;
+  induction n;
+  case zero => {
+    intros r;
+    simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp];
+    simp_itree;
+    simp [Semantics.semantics_op];
+    simp [scf_semantics_op];
+    simp[run];
+    simp [interp_ub];
+    simp_itree;
+    simp [interp_ssa];
+    simp [interp_state];
+    simp_itree;
+    simp [SSAEnvE.handle];
+    simp[SSAEnv.get]; simp_itree;
+    simp[SSAEnv.get]; simp_itree;
+  }
+  case succ n' H => {
+    intros r;
+    sorry; -- TODO: do the induction tomorrow.
+  }
+}
 
 end FOR_PEELING
 
@@ -208,15 +251,15 @@ namespace FOR_FUSION
 
 theorem LHS (r: Region scf): Region scf := [mlir_region|
 {
-  "scf.for" (%c0, %cn, %c1) ($(r)) : (i1) -> ()
-  "scf.for" (%cn, %cm, %c1) ($(r)) : (i1) -> ()
+  "scf.for'" (%c0, %cn) ($(r)) : (i32, i32) -> ()
+  "scf.for'" (%cn, %cm) ($(r)) : (i32, i32) -> ()
 }
 ]
 
 
 theorem RHS (r: Region scf): Region scf := [mlir_region|
 {
-  "scf.for" (%c0, %cn_plus_m, %c1) ($(r)) : (i1) -> ()
+  "scf.for'" (%c0, %cn_plus_m) ($(r)) : (i32) -> ()
 }]
 
 theorem INPUT (n m: Nat): SSAEnv scf :=
