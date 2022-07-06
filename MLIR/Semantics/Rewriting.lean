@@ -174,22 +174,15 @@ def postSSAEnv [Semantics δ] (op: BasicBlockStmt δ) (env: SSAEnv δ) : Prop :=
 def postSSAEnvList [Semantics δ] (op: List (BasicBlockStmt δ)) (env: SSAEnv δ) : Prop :=
   ∃ env', (run ⟦BasicBlock.mk "" [] op⟧ env').snd = env
 
-def varDefInProg (t: T) :  List SSAVal := []
-def varUseInProg (t: T) :  List SSAVal := []
-
-theorem cons_is_append (head: T) (tail: List T) : head :: tail = [head] ++ tail
-  := by rfl
-
-def termResName (m: MTerm δ) : Option String :=
-  match m with
-  | .App .OP [ _, _, .App (.LIST .MOperand) 
-        [.App .OPERAND [.Var _ ssaName .MSSAVal, _]] ] => some ssaName
-  | _ => none
-
 def getResName (stmt: BasicBlockStmt δ) : Option SSAVal :=
   match stmt with
   | .StmtAssign res _ _ => some res
   | .StmtOp _ => none
+
+def getOp (stmt: BasicBlockStmt δ) : Op δ :=
+  match stmt with
+  | .StmtAssign _ _ op => op
+  | .StmtOp op => op
 
 def stmtHasNoRegions (stmt: BasicBlockStmt δ) : Bool :=
   match stmt with
@@ -201,6 +194,46 @@ def stmtsHaveNoRegions (stmts: List (BasicBlockStmt δ)) : Bool :=
   match stmts with
   | [] => true
   | stmt::stmts' => stmtHasNoRegions stmt && stmtsHaveNoRegions stmts'
+
+def run_preserves_env_set [Semantics δ] (stmt: BasicBlockStmt δ) (env env': SSAEnv δ) :
+    (run ⟦ stmt ⟧ env).snd = env' →
+    stmtHasNoRegions stmt →
+    ∀ name, getResName stmt ≠ some name →
+    name ∉ (getOp stmt).args → 
+    (run ⟦ stmt ⟧ (SSAEnv.set name τ v env)).snd = (SSAEnv.set name τ v env') := by
+  intros HRun name HNameRes HNameArgs
+  simp [run, Denote.denote]
+  unfold denoteBBStmt
+  split
+  . sorry
+  case h_2 op =>
+    unfold denoteOp
+    cases op
+    case mk name args bbs regions attrs ty =>
+
+def postSSAEnv_preserves [Semantics δ] (stmt: BasicBlockStmt δ) (env: SSAEnv δ) :
+    postSSAEnv stmt env → 
+    ∀ name, getResName stmt ≠ some name →
+    name ∉ (getOp stmt).args → 
+    postSSAEnv stmt (env.set name τ v) := by
+  intros HPost name HNameNeStmtName HNameNotInArgs 
+  unfold postSSAEnv at *
+  have ⟨env', HRunStmt⟩ := HPost
+  exists (env'.set name τ v)
+  apply run_preserves_env_set <;> assumption
+  
+
+def varDefInProg (t: T) :  List SSAVal := []
+def varUseInProg (t: T) :  List SSAVal := []
+
+theorem cons_is_append (head: T) (tail: List T) : head :: tail = [head] ++ tail
+  := by rfl
+
+def termResName (m: MTerm δ) : Option String :=
+  match m with
+  | .App .OP [ _, _, .App (.LIST .MOperand) 
+        [.App .OPERAND [.Var _ ssaName .MSSAVal, _]] ] => some ssaName
+  | _ => none
 
 theorem preserves_refinement [Semantics δ] (bb: BasicBlock δ): 
     SSAEnv.refinement env env' →
@@ -228,11 +261,6 @@ theorem no_regions_implies_no_replace (stmt: BasicBlockStmt δ) :
     ∀ val new_ops res, replaceOpInBBStmt val new_ops stmt = some res →
     (res = new_ops) ∧ (∃ ix op, stmt = BasicBlockStmt.StmtAssign val ix op) := by
   sorry
-
-def getOp (stmt: BasicBlockStmt δ) : Op δ :=
-  match stmt with
-  | .StmtAssign _ _ op => op
-  | .StmtOp op => op
 
 def getOneUser (val: SSAVal) (prog: List (BasicBlockStmt δ)) : Option (BasicBlockStmt δ) :=
   match prog with
@@ -303,7 +331,7 @@ def opGetResType (op: Op δ) : Option (MLIRType δ):=
 
 theorem stmt_obeys_ssa_implies_res_type (stmt: BasicBlockStmt δ) (ctx: DomContext δ):
   (singleBBRegionStmtObeySSA stmt ctx).isSome →
-  ∃ τ, opGetResType (getOp stmt) = some τ := by sorry
+  (opGetResType (getOp stmt)).isSome := by sorry
 
 theorem StmtAssign_obeys_ssa_some (res: SSAVal) ix (op: Op δ) (ctx: DomContext δ):
     (singleBBRegionStmtObeySSA (BasicBlockStmt.StmtAssign res ix op) ctx).isSome →
@@ -313,16 +341,16 @@ theorem StmtAssign_obeys_ssa_some (res: SSAVal) ix (op: Op δ) (ctx: DomContext 
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
-         (σ: VarCtx δ)
-         (headPat resPat: List (BasicBlockStmt δ))
+         (headPat : List (BasicBlockStmt δ))
          (originPat: BasicBlockStmt δ)
+         (resPat: List (BasicBlockStmt δ))
          (HRoot: allRootedToLast (headPat ++ [originPat]))
          (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ [originPat])⟧ env)
                                    (run ⟦BasicBlock.mk "" [] (headPat ++ resPat)⟧ env)))
          (origName: String)
          (HOrigName: getResName originPat = some origName)
          (prog: List (BasicBlockStmt δ))
-         (Hmatch: (headPat ++ originPat).all (fun op => isOpInBBStmts op prog))
+         (Hmatch: (headPat ++ [originPat]).all (fun op => isOpInBBStmts op prog))
 
 
 def main_theorem_stmt :
@@ -333,7 +361,7 @@ def main_theorem_stmt :
   recursiveContext ctx prog →
   (∀ val, ctx.isValDefined val →
       ∀ op, getDefiningOpInBBStmts val prog = some op →
-      postSSAEnv op env) →
+        postSSAEnv op env) →
   ∀ resP, replaceOpInBBStmts headName resPat p = some resP →
   refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
              (run ⟦BasicBlock.mk "" [] resP⟧ env)
