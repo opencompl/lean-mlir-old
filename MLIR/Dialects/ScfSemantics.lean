@@ -81,23 +81,89 @@ def RHS (r1: Region scf) (r2: Region scf): Region scf := r1
 -- | i1 true
 def INPUT: SSAEnv arith := SSAEnv.One [⟨"x", MLIRType.i1, 0⟩]
 
-  
-def foo : Fitree Id Nat := Fitree.Vis () (fun _ => Fitree.Ret 20)
-
 def rhs (r1 r2: Region scf):
-  Fitree (UBE +' (SSAEnvE scf +' Semantics.E scf)) (BlockResult scf) :=
-  (Fitree.Vis (Sum.inr (Sum.inl (SSAEnvE.Get (MLIRType.int Signedness.Signless 1) (SSAVal.SSAVal "b")))) 
-    (fun (r : FinInt 1) =>
-    interp (E := RegionE scf +' UBE +' Semantics.E scf) (M := Fitree (UBE +' SSAEnvE scf +' Semantics.E scf))
-      (fun x e  =>  -- returns:Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) x
-        match x, e with
-        | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) => List.get! (denoteRegions scf [r1, r2]) i xs
+  Fitree (UBE +' SSAEnvE scf +' ScfE) (BlockResult scf) :=
+  (Fitree.Vis
+    (Sum.inr
+      (Sum.inl
+        (@SSAEnvE.Get _ _ _ scf (MLIRType.int Signedness.Signless 1)
+          (@instInhabitedEval Void Void (fun _ => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun _ => Unit) scf .Signless 1))
+          (SSAVal.SSAVal "b"))))
+    fun
+      (r : MLIRType.eval (α := Void) (MLIRType.int Signedness.Signless 1)) =>
+    interp (M := Fitree (UBE +' SSAEnvE scf +' Semantics.E scf))
+      (E := RegionE scf +' UBE +' Semantics.E scf)
+      (fun (x : Type) (e : psum (RegionE scf) (UBE +' Semantics.E scf) x) =>
+        (match x, e with
+        | .(BlockResult scf), Sum.inl (RegionE.RunRegion i xs) =>
+          List.get! (denoteRegions (ε' := fun x => Unit) scf [r1, r2]) i xs
         | x, Sum.inr (Sum.inl ube) => Fitree.Vis (Sum.inl ube) Fitree.ret
-        | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret
-      )
-      (if r = 0
-       then Fitree.Vis (Sum.inl (RegionE.RunRegion (Δ := scf) 0 [])) Fitree.ret
-       else Fitree.Vis (Sum.inl (RegionE.RunRegion (Δ := scf) 1 [])) Fitree.ret)))
+        | x, Sum.inr (Sum.inr se) => Fitree.Vis (Sum.inr (Sum.inr se)) Fitree.ret))
+      (if (r == 0) = true
+      then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
+      else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret))
+
+theorem diff1 : @Fitree.Vis
+      (psum.{0, 0, 0} UBE
+        (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+          (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))  = 
+    @Fitree.Vis (psum.{0, 0, 0} UBE (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf) ScfE)) := by rfl
+
+theorem diff2 : 
+ (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
+          (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)
+          (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) =
+(psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf) ScfE
+          (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) := by rfl
+
+
+theorem diff3 : 
+(@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf
+            (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+              (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+                (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) = (ScfE
+            (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
+              (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
+                (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) := by rfl 
+  
+theorem diff4: @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf 
+  = scf_if_true.rhs.match_1.{2} := by rfl 
+
+theorem diff5:
+List.{0}
+                    (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                      fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                      @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) = 
+ @TypedArgs Void Void (fun (x : Void) => Unit) scf := by rfl 
+
+ theorem diff6: List.{0}
+                    (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                      fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                      @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) 
+   = (@TypedArgs Void Void (fun (x : Void) => Unit) scf) := by rfl 
+
+theorem diff7: (List.{0}
+                    (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                      fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                      @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ)) =
+   (@TypedArgs Void Void (fun (x : Void) => Unit) scf) := by rfl 
+
+theorem diff8: List.{0}
+                          (@Sigma.{0, 0} (@MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf)
+                            fun (τ : @MLIR.AST.MLIRType Void Void (fun (x : Void) => Unit) scf) =>
+                            @MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf τ) 
+  = @TypedArgs Void Void (fun (x : Void) => Unit) scf := by rfl 
+
+theorem diff9: @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf = 
+ scf_if_true.rhs.match_1.{2} := by rfl 
+#check diff9
+
+set_option pp.all true in
 
 theorem scf_if_sem:
   (denoteBBStmt (Δ := scf)
@@ -110,15 +176,10 @@ theorem scf_if_sem:
   simp_itree
   simp [scf_semantics_op];
   simp_itree;
-  simp;
-  simp_itree;
-  -- copy state from here and paste into rhs
-  unfold rhs;
-  simp;
-  funext r;
-  simp_itree;
-  -- tactic 'rfl' failed...
+  simp only [diff4];
+  rfl;
 }
+#check scf_if_sem
 
 /-
 theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv scf):
@@ -131,7 +192,7 @@ theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv s
   simp [List.mapM];
   simp_itree;
   simp [interp_ub]; simp_itree;
-  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; 
+  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get];
   simp;
   sorry
 }
@@ -139,13 +200,13 @@ theorem LHS.sem (r1 r2: Region scf) (r: Option (BlockResult scf)) (env: SSAEnv s
 
 /-
 theorem equivalent (r1 r2: Region scf):
-    (run (denoteRegion _ (LHS r1 r2) []) (INPUT)) = 
+    (run (denoteRegion _ (LHS r1 r2) []) (INPUT)) =
     (run (denoteRegion _ (RHS r1 r2) []) (INPUT)) := by {
   simp [LHS, RHS, INPUT]
   simp [run, denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
   simp [interp_ub]; simp_itree
   simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
-   
+
   repeat (simp [SSAEnv.get]; simp_itree)
   apply FinInt.xor_and
 end scf_if_true
