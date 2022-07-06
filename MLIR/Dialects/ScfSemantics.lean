@@ -40,9 +40,9 @@ def run_loop_bounded_stepped [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a)
 def run_loop_bounded
   (n: Nat)
   (start: BlockResult Δ):
-    Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do 
+    Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do
   match n with
-  | 0 => return start 
+  | 0 => return start
   | .succ n' => do
     let new <- Fitree.trigger (RegionE.RunRegion 0 [])
     run_loop_bounded n' new
@@ -66,11 +66,11 @@ def scf_semantics_op: IOp Δ →
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
   | IOp.mk "scf.for'" [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ _ => some do
-      run_loop_bounded (hi - lo) (BlockResult.Ret []) 
+      run_loop_bounded (hi - lo) (BlockResult.Ret [])
 
   | IOp.mk "scf.yield" vs [] 0 _ _ => .some do
       return (BlockResult.Ret vs)
-  | IOp.mk "scf.execute_region" [] [] 1 _ _ => .some do 
+  | IOp.mk "scf.execute_region" [] [] 1 _ _ => .some do
     Fitree.trigger (RegionE.RunRegion 0 [])
   | _ => none
 
@@ -164,7 +164,7 @@ theorem lhs_sem (r1 r2: Region scf):
               (IOp.mk "scf.if" [{ fst := MLIRType.int Signedness.Signless 1, snd := default }] []
                 (Nat.succ (Nat.succ 0)) (AttrDict.mk [])
                 (MLIRType.fn (MLIRType.tuple [MLIRType.int Signedness.Signless 1]) (MLIRType.tuple []))) with
-         
+
          -/
 set_option maxHeartbeats 999999999 in
 theorem equivalent (r1 r2: Region scf):
