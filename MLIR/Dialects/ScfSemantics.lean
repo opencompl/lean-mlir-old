@@ -123,6 +123,7 @@ def scfIfSem (r1 r2: Region scf):
       then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
       else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret))
 
+set_option pp.rawOnError true in
 theorem scf_if_sem:
   (denoteBBStmt (Δ := scf)
      (BasicBlockStmt.StmtOp
@@ -213,9 +214,71 @@ theorem INPUT (n: Nat): SSAEnv scf :=
                 ⟨"c0", MLIRType.index, 0⟩,
                 ⟨"c1", MLIRType.index, 1⟩]
 
+private def optionT_defaultHandler2: E ~> OptionT (Fitree E) :=
+  fun _ e => OptionT.lift $ Fitree.trigger e
 
+theorem interp_ub_Vis:
+    interp_ub (Fitree.Vis e k: Fitree (UBE +' E) R) =
+    interp (Fitree.case_ UBE.handle optionT_defaultHandler2) (.Vis e k) := by
+  rfl
 
-set_option maxHeartbeats 999999999 in
+private def stateT_defaultHandler2: E ~> StateT (SSAEnv δ) (Fitree E) :=
+  fun _ e => StateT.lift $ Fitree.trigger e
+
+theorem interp_ssa_Vis:
+    interp_ssa (Fitree.Vis e k: Fitree (SSAEnvE δ +' E) R ) =
+    interp (Fitree.case_ SSAEnvE.handle stateT_defaultHandler2) (.Vis e k) := by
+  rfl
+
+theorem interp_Vis {E M} [Monad M] (h: E ~> M) {T} (e: E T) (k: T → Fitree E R):
+    interp h (Fitree.Vis e k) =
+    bind (h _ e) (fun x => interp h (k x)) := by
+  rfl
+
+/-
+def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
+    (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
+    Option R × SSAEnv Δ :=
+-/
+
+theorem run_fequal {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
+    (k k': T → Fitree (UBE +' SSAEnvE Δ +' S.E) R) e env
+    interm_val interm_env:
+    run (.Vis e .Ret) env = (some interm_val, interm_env) →
+    (run (k interm_val) interm_env = run (k' interm_val) interm_env) →
+    run (.Vis e k) env = run (.Vis e k') env := by
+  intros h
+  cases e <;> simp
+  simp [run] at *
+  simp [interp_ub] at *
+  repeat sorry
+
+theorem run_Vis {Δ: Dialect α' σ' ε'} [S: Semantics Δ]
+  (k: T → Fitree (UBE +' SSAEnvE Δ +' S.E) R) e env
+  interm_val interm_env:
+    run (.Vis e .Ret) env = (some interm_val, interm_env) →
+    run (.Vis e k) env = run (k interm_val) interm_env :=
+  sorry
+
+theorem run_bind {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
+    t (k: T → Fitree (UBE +' SSAEnvE Δ +' S.E) R) env:
+  run (Fitree.bind t k) env =
+    match run t env with
+    | (none, env') => (none, env')
+    | (some x, env') => run (k x) env' := by
+  simp [run, bind]
+  unfold interp_ub
+  simp [interp_bind, bind, OptionT.bind, OptionT.mk]
+  simp [interp_ssa, interp_state]
+  simp [interp_bind, bind, StateT.bind]
+  simp [Fitree.run_bind]
+  sorry
+
+theorem CORRECT_r (n:Nat) (r: Region scf) args:
+    exists x,
+    (run (denoteRegion scf r args) (INPUT n)) = (some x, INPUT n) := by
+  sorry
+
 theorem equivalent: ∀ (n: Nat) (r: Region scf),
     (run (denoteRegion _ (LHS r) []) (INPUT n)) =
     (run (denoteRegion _ (RHS r) []) (INPUT n)) := by {
@@ -227,13 +290,30 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
   simp [Semantics.semantics_op];
   simp [scf_semantics_op];
   simp [denoteRegions];
-  simp [run];
-  -- rfl';
+
+  apply run_fequal _ _ _ _ (0:Nat) (INPUT n);
+  . sorry
+  simp [run_bind];
+  simp [interp_region, interp]; dsimp_itree
+  simp [List.get!];
+  have h := CORRECT_r n r [⟨.index, 0⟩];
+  cases h; rename_i temp_br I_HATE_YOU;
+  simp [I_HATE_YOU]
+  simp [run]
+  simp [interp_ub]; dsimp_itree
+  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
+  unfold INPUT;
+  simp [SSAEnv.get]; dsimp_itree
+  simp [SSAEnv.get]; dsimp_itree
+/-  have h (k: Nat → Fitree (UBE +' SSAEnvE scf +' ScfE) (BlockResult scf)) :=
+    run_Vis (Δ := scf) k (Sum.inr (Sum.inl (SSAEnvE.Get MLIRType.index (SSAVal.SSAVal "c1")))) (INPUT n) 1 (INPUT n);
+  rw [h] -/
+  rfl
+  done
 }
 
 
 
-set_option maxHeartbeats 999999999 in
 theorem equivalent: ∀ (n: Nat) (r: Region scf),
     (run (denoteRegion _ (LHS r) []) (INPUT n)) =
     (run (denoteRegion _ (RHS r) []) (INPUT n)) := by {

@@ -286,7 +286,7 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 set_option pp.notation false in
-def interp_of_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B):
+def interp_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B):
   interp h (Fitree.bind t k) = bind (interp h t) (fun x => interp h (k x)) := by {
   induction t;
   case Ret monadInstanceM r => {
@@ -331,6 +331,12 @@ def Fitree.run {R}: Fitree PVoid R → R
   | Ret r => r
   | Vis e k => nomatch e
 
+theorem Fitree.run_bind {T R} (t: Fitree PVoid T) (k: T → Fitree PVoid R):
+    run (bind t k) = run (k (run t)) := by
+  induction t with
+  | Ret r => simp [run, bind]
+  | Vis e k' _ => cases e
+
 
 /- Predicates to reason about the absence of events -/
 
@@ -361,11 +367,12 @@ elab "simp_itree" : tactic => do
     OptionT.bind, OptionT.pure, OptionT.mk, OptionT.lift,
     bind, pure, cast_eq, Eq.mpr])
 
+set_option hygiene false in
 elab "dsimp_itree" : tactic => do
   -- TODO: Also handle .lemmaNames, not just unfolding!
   let lemmas := (← SimpItreeExtension.getTheorems).toUnfold.fold
     (init := #[]) (fun acc n => acc.push (toSimpLemma n))
-  evalTactic $ ← `(tactic|dsimp [$(⟨lemmas.reverse⟩),*,
+  evalTactic $ ← `(tactic|dsimp [$(⟨lemmas.reverse⟩),*, -UBE.handle,
     Member.inject,
     StateT.bind, StateT.pure, StateT.lift,
     OptionT.bind, OptionT.pure, OptionT.mk, OptionT.lift,

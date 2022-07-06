@@ -96,6 +96,17 @@ class Semantics (δ: Dialect α σ ε)  where
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
+def interp_region
+    (regions: List <|
+      TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)):
+    RegionE Δ +' UBE +' Semantics.E Δ ~>
+    Fitree (UBE +' SSAEnvE Δ +' Semantics.E Δ) := fun _ e =>
+  match e with
+  | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs
+  | Sum.inr <| Sum.inl ube => Fitree.trigger ube
+  | Sum.inr <| Sum.inr se => Fitree.trigger se
+
+
 def denoteOp (op: Op Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match op with
@@ -112,13 +123,7 @@ def denoteOp (op: Op Δ):
       -- Use the dialect-provided semantics, and substitute regions
       match S.semantics_op iop with
       | some t =>
-          interp (fun _ e =>
-            match e with
-            | Sum.inl (RegionE.RunRegion i xs) =>
-                 regions.get! i xs
-            | Sum.inr <| Sum.inl ube => Fitree.trigger ube
-            | Sum.inr <| Sum.inr se => Fitree.trigger se
-          ) t
+          interp (interp_region regions) t
       | none => do
           Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
           return default
