@@ -185,7 +185,87 @@ theorem Fitree_monad_assoc (ma: Fitree E α)
   }
 }
 
+set_option pp.notation false in
+instance [Monad m] [LawfulMonad m] : LawfulMonad (OptionT m) where
+  id_map         := by {
+      intros α x;
+      simp[Functor.map, OptionT.bind];
+      simp [OptionT.bind.match_1];
+      sorry
+  }
+  map_const      := by intros; rfl
+  seqLeft_eq     := by {
+    intros α β x y;
+    simp [SeqLeft.seqLeft, Seq.seq, Function.const]
+    simp [Functor.map];
+    sorry
+  }
 
+  seqRight_eq    := by {
+    intros α β x y;
+    simp [SeqRight.seqRight, Seq.seq, Function.const]
+    simp [Functor.map];
+    sorry;
+  }
+  pure_seq       := by intros; sorry;
+  bind_pure_comp := by intros; rfl;
+  bind_map       := by intros; rfl
+  pure_bind      := by intros; sorry;
+  bind_assoc     := by intros; sorry;
+
+instance : LawfulMonad (Fitree F) where
+  id_map         := by {
+      intros α x;
+      simp[Functor.map];
+      induction x;
+      simp[Fitree.bind]; trivial;
+      case Vis β e k IH => {
+        simp[Fitree.bind, Fitree.ret];
+        funext x;
+        simp[Fitree.bind, Fitree.ret];
+        apply IH;
+      }
+  }
+  map_const      := by intros; rfl
+  seqLeft_eq     := by {
+    intros α β x y;
+    simp [SeqLeft.seqLeft, Seq.seq, Function.const]
+    simp [Functor.map];
+    induction x;
+    case Ret r => {
+      simp [Fitree.bind];
+      induction y <;> rfl;
+    }
+    case Vis e k IH => {
+      intros;
+      simp [Fitree.bind, IH];
+    }
+  }
+  seqRight_eq    := by {
+    intros α β x y;
+    simp [SeqRight.seqRight, Seq.seq, Function.const]
+    simp [Functor.map];
+    induction x;
+    case Ret r => {
+      simp [Fitree.bind];
+      induction y <;> try rfl
+      case Vis e k IH => {
+        simp [Fitree.bind];
+        funext a;
+        apply IH;
+      }
+    }
+    case Vis e k IH => {
+      simp [Fitree.bind, Fitree.ret];
+      funext a;
+      apply IH;
+    }
+  }
+  pure_seq       := by intros; rfl;
+  bind_pure_comp := by intros; rfl;
+  bind_map       := by intros; rfl
+  pure_bind      := by intros; rfl;
+  bind_assoc     := by intros; apply Fitree_monad_assoc;
 
 @[simp_itree]
 def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
@@ -206,21 +286,14 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 set_option pp.notation false in
-def interp_of_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B) (rhs: M B):
-  interp h (bind t k) = bind (interp h t) (fun x => interp h (k x)) := by {
+def interp_of_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B):
+  interp h (Fitree.bind t k) = bind (interp h t) (fun x => interp h (k x)) := by {
   induction t;
   case Ret monadInstanceM r => {
     simp [interp, bind, Fitree.bind];
   }
   case Vis lawful T' e' k' IND => {
       simp[interp, bind, Fitree.bind, IND];
-      suffices (fun t => interp h (Fitree.bind (k' t) k)) = fun x => bind (interp h (k' x)) fun x => interp h (k x) by {
-          rewrite [this];
-          rfl;
-      }
-      funext a2;
-      rewrite [<- IND a2];
-      rfl;
   }
 }
 

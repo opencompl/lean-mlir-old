@@ -186,7 +186,6 @@ theorem equivalent (r1 r2: Region scf):
   simp_itree;
   simp [denoteRegions];
   simp [List.get!];
-  simp [Fitree_monad_right_identity];
 }
 #check equivalent
 
@@ -214,6 +213,8 @@ theorem INPUT (n: Nat): SSAEnv scf :=
                 ⟨"c0", MLIRType.index, 0⟩,
                 ⟨"c1", MLIRType.index, 1⟩]
 
+
+
 set_option maxHeartbeats 999999999 in
 theorem equivalent: ∀ (n: Nat) (r: Region scf),
     (run (denoteRegion _ (LHS r) []) (INPUT n)) =
@@ -225,26 +226,8 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
   simp_itree;
   simp [Semantics.semantics_op];
   simp [scf_semantics_op];
-  simp [run_loop_bounded];
-  simp [run];
-  simp [interp_ub];
-  simp [interp_ssa];
-  simp [interp_state];
-  simp [interp];
-  simp_itree;
-  simp [Semantics.handle];
-  simp [handleScf];
-  simp [Fitree.run];
-  simp [SSAEnvE.handle]; simp [SSAEnv.get]; simp_itree;
-  simp [SSAEnvE.handle]; simp [SSAEnv.get]; simp_itree;
   simp [denoteRegions];
-  simp [List.get!];
-  simp [denoteRegion];
-  simp [Fitree.bind];
-  simp [Fitree_monad_right_identity];
-  simp [Fitree_bind_of_vis];
-  simp [interp];
-  simp_itree;
+  simp [run];
   -- rfl';
 }
 

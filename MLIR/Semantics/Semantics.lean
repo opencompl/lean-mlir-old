@@ -241,7 +241,6 @@ def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   let t := interp S.handle t
   t.run
 
-
 /-
 ### Denotation notation
 -/
