@@ -39,13 +39,14 @@ def run_loop_bounded_stepped [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a)
 -- | TODO: make this model the `yield` as well.
 def run_loop_bounded
   (n: Nat)
+  (ix: Nat)
   (start: BlockResult Δ):
     Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do
   match n with
   | 0 => return start
   | .succ n' => do
-    let new <- Fitree.trigger (RegionE.RunRegion 0 [])
-    run_loop_bounded n' new
+    let new <- Fitree.trigger (RegionE.RunRegion 0 [⟨MLIRType.index, ix⟩])
+    run_loop_bounded n' (ix + 1) new
 
 
 -- | TODO: refactor to (1) an effect, (2) an interpretation
@@ -66,12 +67,12 @@ def scf_semantics_op: IOp Δ →
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
   | IOp.mk "scf.for'" [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ _ => some do
-      run_loop_bounded (hi - lo) (BlockResult.Ret [])
+      run_loop_bounded (n := hi - lo) (ix := 0) (BlockResult.Ret [])
 
   | IOp.mk "scf.yield" vs [] 0 _ _ => .some do
       return (BlockResult.Ret vs)
-  | IOp.mk "scf.execute_region" [] [] 1 _ _ => .some do
-    Fitree.trigger (RegionE.RunRegion 0 [])
+  | IOp.mk "scf.execute_region" args [] 1 _ _ => .some do
+    Fitree.trigger (RegionE.RunRegion 0 args)
   | _ => none
 
 def handleScf: ScfE ~> Fitree PVoid :=
@@ -204,14 +205,50 @@ theorem LHS (r: Region scf): Region scf := [mlir_region|
 
 theorem RHS  (r: Region scf): Region scf := [mlir_region|
 {
-  "scf.for'" (%c0, %cn) ($(r)) : (index, index) -> ()
-  "scf.execute_region" () ($(r)) : () -> ()
+  "scf.execute_region" (%c0) ($(r)) : (index) -> ()
+  "scf.for'" (%c1, %cn_plus_1) ($(r)) : (index, index) -> ()
 }]
 
 theorem INPUT (n: Nat): SSAEnv scf :=
-    SSAEnv.One [⟨"cn", MLIRType.index, n⟩,
-                ⟨"cn_plus_1", MLIRType.index, n + 1⟩,
-                ⟨"c0", MLIRType.index, 0⟩]
+    SSAEnv.One [⟨"cn_plus_1", MLIRType.index, n + 1⟩,
+                ⟨"c0", MLIRType.index, 0⟩,
+                ⟨"c1", MLIRType.index, 1⟩]
+
+set_option maxHeartbeats 999999999 in
+theorem equivalent: ∀ (n: Nat) (r: Region scf),
+    (run (denoteRegion _ (LHS r) []) (INPUT n)) =
+    (run (denoteRegion _ (RHS r) []) (INPUT n)) := by {
+  unfold INPUT, LHS, RHS;
+  intros n;
+  intros r;
+  simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp];
+  simp_itree;
+  simp [Semantics.semantics_op];
+  simp [scf_semantics_op];
+  simp [run_loop_bounded];
+  simp [run];
+  simp [interp_ub];
+  simp [interp_ssa];
+  simp [interp_state];
+  simp [interp];
+  simp_itree;
+  simp [Semantics.handle];
+  simp [handleScf];
+  simp [Fitree.run];
+  simp [SSAEnvE.handle]; simp [SSAEnv.get]; simp_itree;
+  simp [SSAEnvE.handle]; simp [SSAEnv.get]; simp_itree;
+  simp [denoteRegions];
+  simp [List.get!];
+  simp [denoteRegion];
+  simp [Fitree.bind];
+  simp [Fitree_monad_right_identity];
+  simp [Fitree_bind_of_vis];
+  simp [interp];
+  simp_itree;
+  -- rfl';
+}
+
+
 
 set_option maxHeartbeats 999999999 in
 theorem equivalent: ∀ (n: Nat) (r: Region scf),
@@ -238,6 +275,7 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
   }
   case succ n' H => {
     intros r;
+
     sorry; -- TODO: do the induction tomorrow.
   }
 }

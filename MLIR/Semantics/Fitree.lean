@@ -100,7 +100,7 @@ def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 
- 
+
 @[simp_itree]
 def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with
@@ -156,6 +156,19 @@ theorem Fitree_monad_right_identity (ma: Fitree E α):
 }
 
 -- https://wiki.haskell.org/Monad_laws
+theorem Fitree_bind_vis_lhs (e: E T) (k: T → Fitree E R):
+  Fitree.bind (Fitree.Vis e k) f = (Fitree.Vis e fun r => Fitree.bind (k r) f) := by {
+  simp [Fitree.bind];
+}
+
+theorem Fitree_bind_vis_lhs_cont (e: E T) (k: T → Fitree E R) (l: R -> Fitree E R'):
+  Fitree.bind (Fitree.Vis e k) (fun r => l r) = (Fitree.Vis e fun r => Fitree.bind (k r) l) := by {
+  simp [Fitree.bind];
+}
+
+
+
+-- https://wiki.haskell.org/Monad_laws
 theorem Fitree_monad_assoc (ma: Fitree E α)
   (g: α → Fitree E β) (h: β → Fitree E γ):
   Fitree.bind (Fitree.bind ma g) h =
@@ -171,6 +184,8 @@ theorem Fitree_monad_assoc (ma: Fitree E α)
      apply IH;
   }
 }
+
+
 
 @[simp_itree]
 def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
@@ -189,6 +204,25 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     match t with
     | Fitree.Ret r => pure r
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
+
+set_option pp.notation false in
+def interp_of_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B) (rhs: M B):
+  interp h (bind t k) = bind (interp h t) (fun x => interp h (k x)) := by {
+  induction t;
+  case Ret monadInstanceM r => {
+    simp [interp, bind, Fitree.bind];
+  }
+  case Vis lawful T' e' k' IND => {
+      simp[interp, bind, Fitree.bind, IND];
+      suffices (fun t => interp h (Fitree.bind (k' t) k)) = fun x => bind (interp h (k' x)) fun x => interp h (k x) by {
+          rewrite [this];
+          rfl;
+      }
+      funext a2;
+      rewrite [<- IND a2];
+      rfl;
+  }
+}
 
 @[simp_itree]
 def interp' {E F} (h: E ~> Fitree PVoid):

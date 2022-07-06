@@ -19,15 +19,15 @@ abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.e
 
 -- | TODO: throw error if we don't have enough names
 def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SSAEnvE Δ) PUnit :=
- match args with 
+ match args with
  | [] => return ()
  | ⟨τ, val⟩::args =>
-    match names with 
+    match names with
     | [] => return ()
-    | name :: names => do 
+    | name :: names => do
         Fitree.trigger (SSAEnvE.Set τ name val)
         return ()
-    
+
 
 -- TODO: Consider changing BlockResult.Branch.args into
 --       a TypedArgs (?)
@@ -37,7 +37,7 @@ inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
 def BlockResult.toTypedArgs {δ: Dialect α σ ε} (blockResult: BlockResult δ) :=
-  match blockResult with 
+  match blockResult with
   | .Branch bb args => []
   | .Ret rets => rets
   | .Next val => []
@@ -114,7 +114,7 @@ def denoteOp (op: Op Δ):
       | some t =>
           interp (fun _ e =>
             match e with
-            | Sum.inl (RegionE.RunRegion i xs) => 
+            | Sum.inl (RegionE.RunRegion i xs) =>
                  regions.get! i xs
             | Sum.inr <| Sum.inl ube => Fitree.trigger ube
             | Sum.inr <| Sum.inr se => Fitree.trigger se
@@ -143,17 +143,17 @@ def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
 
 def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
   : Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
- match stmts with 
+ match stmts with
  | [] => return BlockResult.Next ⟨.unit, ()⟩
  | [stmt] => denoteBBStmt stmt
- | stmt::stmts => do 
+ | stmt::stmts => do
       let _ ← denoteBBStmt stmt
       denoteBBStmts stmts
 
 def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) := do
-  match bb with 
-  | BasicBlock.mk name formalArgsAndTypes stmts => 
+  match bb with
+  | BasicBlock.mk name formalArgsAndTypes stmts =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
      -- TODO: Any checks on the BlockResults of intermediate ops?
      let formalArgs : List SSAVal:= formalArgsAndTypes.map Prod.fst
@@ -161,8 +161,8 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
      denoteBBStmts stmts
 
 def denoteRegions (rs: List (Region Δ)):
-    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)) := 
- match rs with 
+    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)) :=
+ match rs with
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
