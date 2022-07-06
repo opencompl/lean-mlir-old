@@ -229,11 +229,6 @@ theorem no_regions_implies_no_replace (stmt: BasicBlockStmt δ) :
     (res = new_ops) ∧ (∃ ix op, stmt = BasicBlockStmt.StmtAssign val ix op) := by
   sorry
 
-def getOperands (stmt: BasicBlockStmt δ) : List SSAVal :=
-  match stmt with
-  | .StmtOp op => op.args
-  | .StmtAssign _ _ op => op.args
-
 def getOp (stmt: BasicBlockStmt δ) : Op δ :=
   match stmt with
   | .StmtAssign _ _ op => op
@@ -274,18 +269,58 @@ def allRootedToLast (prog: List (BasicBlockStmt δ)) : Bool :=
   | none => false
   | some (stmts', root) =>
     stmts'.all (fun stmt => isRootedBy stmt prog root (prog.length))
-    
+
+abbrev recursiveContext (ctx: DomContext δ) (p: List (BasicBlockStmt δ)) : Prop :=
+  (∀ val, ctx.isValDefined val →
+    ∀ op, getDefiningOpInBBStmts val p = some op →
+    ∀ operand, operand ∈ (getOp op).args →
+    ctx.isValDefined operand)
+
+theorem isRootedBy_implies_isValDefined :
+    ∀ (p: List (BasicBlockStmt δ)) (ctx: DomContext δ),
+    recursiveContext ctx p →
+    ∀ stmt, stmt ∈ p →
+    ∀ resName, getResName stmt = some resName →
+    ∀ root, root ∈ p →
+    (∀ val, val ∈ (getOp root).args → ctx.isValDefined val) →
+    ∀ fuel, isRootedBy stmt p root fuel →
+    ctx.isValDefined resName := by
+  intros p ctx HRecCtx stmt HStmtInP resName HResName root HRoot HRootOperands fuel
+  revert root resName stmt
+  induction fuel <;> try (intros; contradiction)
+  intros stmt HStmtInP resName HResName root HRoot HRootOperands HRooted
+  sorry
+
+theorem StmtOp_obeys_ssa_some_no_change (headOp: Op δ) (ctx: DomContext δ):
+    (singleBBRegionStmtObeySSA (BasicBlockStmt.StmtOp headOp) ctx).isSome →
+    singleBBRegionStmtObeySSA (BasicBlockStmt.StmtOp headOp) ctx = some ctx := by
+  sorry
+
+def opGetResType (op: Op δ) : Option (MLIRType δ):=
+  match op with
+  | .mk _ _ _ _ _ (MLIRType.fn _ (MLIRType.tuple [τ])) => some τ
+  | _ => none
+
+theorem stmt_obeys_ssa_implies_res_type (stmt: BasicBlockStmt δ) (ctx: DomContext δ):
+  (singleBBRegionStmtObeySSA stmt ctx).isSome →
+  ∃ τ, opGetResType (getOp stmt) = some τ := by sorry
+
+theorem StmtAssign_obeys_ssa_some (res: SSAVal) ix (op: Op δ) (ctx: DomContext δ):
+    (singleBBRegionStmtObeySSA (BasicBlockStmt.StmtAssign res ix op) ctx).isSome →
+    ∃ τ, opGetResType op = some τ ∧
+         singleBBRegionStmtObeySSA (BasicBlockStmt.StmtAssign res ix op) ctx = some (ctx.addVal res τ):= by sorry
 
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
          (σ: VarCtx δ)
-         (headPat originPat resPat: List (BasicBlockStmt δ))
-         (HRoot: allRootedToLast (headPat ++ originPat))
-         (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ originPat)⟧ env)
+         (headPat resPat: List (BasicBlockStmt δ))
+         (originPat: BasicBlockStmt δ)
+         (HRoot: allRootedToLast (headPat ++ [originPat]))
+         (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ [originPat])⟧ env)
                                    (run ⟦BasicBlock.mk "" [] (headPat ++ resPat)⟧ env)))
          (origName: String)
-         (HOrigName: termResName mOrigin = some origName)
+         (HOrigName: getResName originPat = some origName)
          (prog: List (BasicBlockStmt δ))
          (Hmatch: (headPat ++ originPat).all (fun op => isOpInBBStmts op prog))
 
@@ -295,9 +330,10 @@ def main_theorem_stmt :
   stmtsHaveNoRegions p →
   ∀ ctx, (singleBBRegionStmtsObeySSA p ctx).isSome →
   ∀ (env: SSAEnv δ),
+  recursiveContext ctx prog →
   (∀ val, ctx.isValDefined val →
       ∀ op, getDefiningOpInBBStmts val prog = some op →
-      postSSAEnv op env ∧ (∀ operand, operand ∈ getOperands op → ctx.isValDefined operand)) →
+      postSSAEnv op env) →
   ∀ resP, replaceOpInBBStmts headName resPat p = some resP →
   refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
              (run ⟦BasicBlock.mk "" [] resP⟧ env)
@@ -308,12 +344,12 @@ def main_theorem_stmt :
     case nil =>
       -- The base case is easy, we couldn't find the operation in the program,
       -- thus we have a contradiction
-      intros _ _ _ _ _ resP HresP
+      intros _ _ _ _ _ _ resP HresP
       simp [replaceOpInBBStmts] at HresP
     
     -- Induction case
     case cons head tail Hind =>
-      intros HNoRegions ctx HSSA env HCtx resP HresP
+      intros HNoRegions ctx HSSA env HCtx HCtxRec resP HresP
       -- We first do a case analysis if we have rewritten or not the head op of the program
       simp [replaceOpInBBStmts] at HresP
       cases Hreplace: replaceOpInBBStmt headName resPat head
@@ -355,10 +391,34 @@ def main_theorem_stmt :
         generalize Henv': (run ⟦ BasicBlock.mk "" [] [head] ⟧ env).snd = env'
         specialize Hind env'
 
+        -- We prove that if we added an SSAValue in the context, then the operands of
+        -- its definition were already in the context as well.
+        have HRec : recursiveContext tailCtx prog := by
+          cases HHead: head <;> subst head
+
+          -- StmtOp case, we do not change the context, and thus this is trivial
+          case StmtOp headOp =>
+            rw [StmtOp_obeys_ssa_some_no_change] at HSSAHead <;> 
+              try (rw [HSSAHead]; rfl)
+            simp at HSSAHead
+            subst tailCtx
+            assumption
+
+          -- StmtOp case, we do change the context, and since we know that the program
+          -- obeys SSA, then operands have to be in the context.
+          case StmtAssign resHead ixHead opHead =>
+            have HTailCtx := (StmtAssign_obeys_ssa_some _ _ _ _ (by rw [HSSAHead]; rfl))
+            have ⟨τ, ⟨HOpHeadType, HTailCtx⟩⟩ := HTailCtx
+            rw [HTailCtx] at HSSAHead; simp at HSSAHead; subst tailCtx
+            sorry
+
+        specialize Hind HRec
+
         -- We prove that if we added an SSAValue in the context, then the defining
-        -- operation had to execute it, and its operands are in the context.
+        -- operation had to execute it.
         specialize Hind (by
           intros val Hval op HopInProg
+
           sorry
         )
         
