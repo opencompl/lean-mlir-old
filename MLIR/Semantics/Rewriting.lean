@@ -160,6 +160,14 @@ the set of all possible `SSAEnv` that could result after the interpretation
 of the operation.
 -/
 
+def splitHeadTail (l: List T) : Option (List T × T) :=
+  match l with
+  | [] => none
+  | [t] => some ([], t)
+  | t::l' => match splitHeadTail l' with
+             | some (head, tail) => some (t::head, tail)
+             | none => none
+
 def postSSAEnv [Semantics δ] (op: BasicBlockStmt δ) (env: SSAEnv δ) : Prop :=
   ∃ env', (run ⟦op⟧ env').snd = env
 
@@ -221,12 +229,59 @@ theorem no_regions_implies_no_replace (stmt: BasicBlockStmt δ) :
     (res = new_ops) ∧ (∃ ix op, stmt = BasicBlockStmt.StmtAssign val ix op) := by
   sorry
 
+def getOperands (stmt: BasicBlockStmt δ) : List SSAVal :=
+  match stmt with
+  | .StmtOp op => op.args
+  | .StmtAssign _ _ op => op.args
+
+def getOp (stmt: BasicBlockStmt δ) : Op δ :=
+  match stmt with
+  | .StmtAssign _ _ op => op
+  | .StmtOp op => op
+
+def getOneUser (val: SSAVal) (prog: List (BasicBlockStmt δ)) : Option (BasicBlockStmt δ) :=
+  match prog with
+  | [] => none
+  | stmt::prog' =>
+    if val ∈ (getOp stmt).args then
+      some stmt
+    else
+      getOneUser val prog'
+
+def eqStmt (stmt stmt': BasicBlockStmt δ) : Bool :=
+  match stmt, stmt' with
+  | .StmtAssign res _ _, .StmtAssign res' _ _ => res == res'
+  | _, _ => false
+
+def isRootedBy (stmt: BasicBlockStmt δ) (prog: List (BasicBlockStmt δ))
+               (root: BasicBlockStmt δ) 
+               (fuel: Nat) : Bool :=
+  match fuel with
+  | 0 => false
+  | .succ fuel' =>
+    match stmt with
+    | .StmtAssign res _ _ =>
+      match getOneUser res prog with
+      | none => false
+      | some parentStmt =>
+          eqStmt parentStmt root || isRootedBy parentStmt prog root fuel'
+    | _ => false
+      
+
+def allRootedToLast (prog: List (BasicBlockStmt δ)) : Bool :=
+  let headTail := splitHeadTail prog
+  match headTail with
+  | none => false
+  | some (stmts', root) =>
+    stmts'.all (fun stmt => isRootedBy stmt prog root (prog.length))
+    
 
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
          (σ: VarCtx δ)
          (headPat originPat resPat: List (BasicBlockStmt δ))
+         (HRoot: allRootedToLast (headPat ++ originPat))
          (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ originPat)⟧ env)
                                    (run ⟦BasicBlock.mk "" [] (headPat ++ resPat)⟧ env)))
          (origName: String)
@@ -242,7 +297,7 @@ def main_theorem_stmt :
   ∀ (env: SSAEnv δ),
   (∀ val, ctx.isValDefined val →
       ∀ op, getDefiningOpInBBStmts val prog = some op →
-      postSSAEnv op env) ->
+      postSSAEnv op env ∧ (∀ operand, operand ∈ getOperands op → ctx.isValDefined operand)) →
   ∀ resP, replaceOpInBBStmts headName resPat p = some resP →
   refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
              (run ⟦BasicBlock.mk "" [] resP⟧ env)
@@ -301,7 +356,7 @@ def main_theorem_stmt :
         specialize Hind env'
 
         -- We prove that if we added an SSAValue in the context, then the defining
-        -- operation had to execute it.
+        -- operation had to execute it, and its operands are in the context.
         specialize Hind (by
           intros val Hval op HopInProg
           sorry
