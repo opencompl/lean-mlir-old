@@ -9,6 +9,7 @@ which define the custom attributes and type required to model the programs.
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.UB
+import MLIR.Dialects.BuiltinModel
 import MLIR.AST
 open MLIR.AST
 
@@ -20,15 +21,15 @@ abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.e
 
 -- | TODO: throw error if we don't have enough names
 def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SSAEnvE Δ) PUnit :=
- match args with 
+ match args with
  | [] => return ()
  | ⟨τ, val⟩::args =>
-    match names with 
+    match names with
     | [] => return ()
-    | name :: names => do 
+    | name :: names => do
         Fitree.trigger (SSAEnvE.Set τ name val)
         return ()
-    
+
 
 inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Branch (bb: BBName) (args: List SSAVal) -- TODO: make this typed
@@ -36,7 +37,7 @@ inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
 def BlockResult.toTypedArgs {δ: Dialect α σ ε} (blockResult: BlockResult δ) :=
-  match blockResult with 
+  match blockResult with
   | .Branch bb args => []
   | .Ret rets => rets
   | .Next val => []
@@ -64,7 +65,7 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
 | RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (TypedArgs Δ)
 
-class Semantics (δ: Dialect α σ ε)  where
+class Semantics (δ: Dialect α σ ε) where
   -- Events modeling the dialect's computational behavior. Usually operations
   -- are simply denoted by a trigger of such an event. This excludes, however,
   -- operations that have regions or otherwise call into other dialects, since
@@ -77,12 +78,14 @@ class Semantics (δ: Dialect α σ ε)  where
   -- any region calls then emits of event of E. This function runs on the
   -- program's entire dialect Δ but returns none for any operation that is not
   -- part of δ.
-  semantics_op:
+  -- TODO: make sure this coercion is from the dialect dependencies into Δ.
+  -- TODO: The dialect dependencies will be δ, plus whatever dialects δ depends on.
+  semantics_op [CoeDialect builtin Δ]:
     IOp Δ →
     Option (Fitree (RegionE Δ +' UBE +' E) (BlockResult Δ))
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
-  -- TODO| their branching behavior, instead of hardcoding it for cf
+  -- TODO: their branching behavior, instead of hardcoding it for cf
 
   -- Event handler used when interpreting the operations and running programs.
   -- This is where most of the computational semantics take place.
@@ -93,7 +96,7 @@ class Semantics (δ: Dialect α σ ε)  where
 -- The memory of a smaller dialect can be injected into a larger one.
 
 mutual
-variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
+variable (Δ: Dialect α' σ' ε') [S: Semantics Δ] [CoeDialect builtin Δ]
 
 def denoteOp (op: Op Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
@@ -113,7 +116,7 @@ def denoteOp (op: Op Δ):
       | some t =>
           interp (fun _ e =>
             match e with
-            | Sum.inl (RegionE.RunRegion i xs) => 
+            | Sum.inl (RegionE.RunRegion i xs) =>
                   regions.get! i xs
             | Sum.inr <| Sum.inl ube => Fitree.trigger ube
             | Sum.inr <| Sum.inr se => Fitree.trigger se
@@ -142,17 +145,17 @@ def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
 
 def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
   : Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
- match stmts with 
+ match stmts with
  | [] => return BlockResult.Next ⟨.unit, ()⟩
  | [stmt] => denoteBBStmt stmt
- | stmt::stmts => do 
+ | stmt::stmts => do
       let _ ← denoteBBStmt stmt
       denoteBBStmts stmts
 
 def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) := do
-  match bb with 
-  | BasicBlock.mk name formalArgsAndTypes stmts => 
+  match bb with
+  | BasicBlock.mk name formalArgsAndTypes stmts =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
      -- TODO: Any checks on the BlockResults of intermediate ops?
      let formalArgs : List SSAVal:= formalArgsAndTypes.map Prod.fst
@@ -160,8 +163,8 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
      denoteBBStmts stmts
 
 def denoteRegions (rs: List (Region Δ)):
-    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (TypedArgs Δ)) := 
- match rs with 
+    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (TypedArgs Δ)) :=
+ match rs with
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
@@ -172,9 +175,9 @@ def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
   -- TODO: Forward region's return type and value
   match r with
   | .mk [bb] =>
-      match (<- denoteBB bb args) with 
+      match (<- denoteBB bb args) with
       | BlockResult.Ret rets => return rets
-      | _ => do 
+      | _ => do
         Fitree.trigger (UBE.DebugUB s!"invalid denote BB (expected to return)")
         return []
   | _ => do
@@ -197,7 +200,7 @@ instance
 
 
 def semanticsRegionRec
-    [S: Semantics Δ]
+    [S: Semantics Δ] [CoeDialect builtin Δ]
     (fuel: Nat) (r: Region Δ) (bb: BasicBlock Δ) (entryArgs: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match fuel with
@@ -214,7 +217,7 @@ def semanticsRegionRec
 
 -- TODO: Pass region arguments
 -- TODO: Forward region's return type and value
-def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ]
+def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ] [CoeDialect builtin Δ]
     (fuel: Nat) (r: Region Δ) (entryArgs: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) Unit := do
   let _ ← semanticsRegionRec fuel r (r.bbs.get! 0) entryArgs
@@ -255,15 +258,15 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
+instance (δ: Dialect α σ ε) [Semantics δ] [CoeDialect builtin δ]: Denote δ Op where
   denote op := denoteOp δ op
 
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
+instance (δ: Dialect α σ ε) [Semantics δ] [CoeDialect builtin δ]: Denote δ BasicBlockStmt where
   denote bbstmt := denoteBBStmt δ bbstmt
 
 -- TODO: this a pretty big back tbh, because we assume
 -- that a BB has no args.
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
+instance (δ: Dialect α σ ε) [Semantics δ] [CoeDialect builtin δ]: Denote δ BasicBlock where
   denote bb := denoteBB δ bb (args := [])
 
 

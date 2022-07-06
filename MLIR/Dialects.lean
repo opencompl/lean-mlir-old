@@ -178,9 +178,21 @@ instance {α₁ σ₁ ε₁ α₂ σ₂ ε₂} [δ₁: Dialect α₁ σ₁ ε₁
 
 
 /-
+### Projections of dialects
+
+The `DialectProjection` class is used to partially project larger dialects
+into their smaller components.
+-/
+
+class DialectProjection (δlarge: Dialect α₁ σ₁ ε₁) (δsmall: Dialect α₂ σ₂ ε₂) where
+  project_α: α₁ → Option α₂
+  project_σ: σ₁ → Option σ₂
+  project_ε: ∀ (s₁: σ₁), ε₁ s₁ → (project_σ s₁).casesOn (motive := fun _ => Type) Unit ε₂
+
+/-
 ### Coercions of dialects
 
-The `CoeDialect` ckass is used to automatically inject individual dialects into
+The `CoeDialect` class is used to automatically inject individual dialects into
 sums of dialects, which in turn allows automatic conversion of instances of
 common MLIR data such as `MLIRType`, `AttrValue` and `Op` across dialects.
 -/
@@ -191,6 +203,8 @@ class CoeDialect (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ 
   -- ε₁ s = ε₂ (CoeDialect.coe_σ δ₁ δ₂ s)
   coe_ε: forall (s₁: σ₁), ε₁ s₁ → ε₂ (coe_σ s₁)
   coe_ε_well_defined: ε₁ s = ε₂ (coe_σ s)
+
+  -- rev_proj: DialectProjection δ₂ δ₁
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
   Coe α₁ α₂ where coe := c.coe_α
@@ -205,8 +219,9 @@ instance (δ: Dialect α σ ε): CoeDialect δ δ where
   coe_ε s := id
   coe_ε_well_defined := by {
    intros s;
-   simp; 
+   simp;
   }
+
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
     CoeDialect δ₁ (δ₁ + δ₂) where
   coe_α := .inl
@@ -214,7 +229,7 @@ instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
   coe_ε s := id
   coe_ε_well_defined := by {
    intros s;
-   simp; 
+   simp;
   }
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
@@ -224,7 +239,7 @@ instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
   coe_ε s := id
   coe_ε_well_defined := by {
    intros s;
-   simp; 
+   simp;
   }
 
 instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
