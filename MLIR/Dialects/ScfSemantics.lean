@@ -103,37 +103,6 @@ def rhs (r1 r2: Region scf):
       (if (r == 0) = true
       then Fitree.Vis (Sum.inl (RegionE.RunRegion 0 [])) Fitree.ret
       else Fitree.Vis (Sum.inl (RegionE.RunRegion 1 [])) Fitree.ret))
-
-theorem diff1 : @Fitree.Vis
-      (psum.{0, 0, 0} UBE
-        (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
-          (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)))  = 
-    @Fitree.Vis (psum.{0, 0, 0} UBE (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf) ScfE)) := by rfl
-
-theorem diff2 : 
- (psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf)
-          (@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf)
-          (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
-            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
-              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) =
-(psum.{0, 0, 0} (@SSAEnvE Void Void (fun (x : Void) => Unit) scf) ScfE
-          (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
-            (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
-              (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) := by rfl
-
-
-theorem diff3 : 
-(@Semantics.E Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf
-            (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
-              (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
-                (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) = (ScfE
-            (@MLIR.AST.MLIRType.eval Void Void (fun (x : Void) => Unit) scf
-              (@MLIR.AST.MLIRType.int Void Void (fun (x : Void) => Unit) scf MLIR.AST.Signedness.Signless
-                (@OfNat.ofNat.{0} Nat 1 (instOfNatNat 1))))) := by rfl 
-  
-theorem diff4: @denoteOp.match_2.{2} Void Void (fun (x : Void) => Unit) scf instSemanticsVoidUnitScf 
-  = scf_if_true.rhs.match_1.{2} := by rfl 
-
 set_option pp.all true in
 theorem scf_if_sem:
   (denoteBBStmt (Δ := scf)
