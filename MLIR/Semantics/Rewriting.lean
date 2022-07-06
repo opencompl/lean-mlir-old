@@ -183,6 +183,22 @@ def getResName (stmt: BasicBlockStmt δ) : Option SSAVal :=
   | .StmtAssign res _ _ => some res
   | .StmtOp _ => none
 
+def stmtHasNoRegions (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt with
+  | .StmtOp (.mk _ _ _ [] _ _) => true
+  | .StmtAssign _ _ (.mk _ _ _ [] _ _) => true
+  | _ => false
+
+def stmtsHaveNoRegions (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => true
+  | stmt::stmts' => stmtHasNoRegions stmt && stmtsHaveNoRegions stmts'
+
+theorem preserves_refinement [Semantics δ] (bb: BasicBlock δ): 
+    SSAEnv.refinement env env' →
+    refinement (run ⟦bb⟧ env) (run ⟦bb⟧ env') := by
+  sorry
+
 def run_split_head_tail [S: Semantics δ] :
   ∀ (pHead pTail) (env: SSAEnv δ), (run ⟦BasicBlock.mk "" [] (pHead ++ pTail)⟧ env) = 
     (run ⟦BasicBlock.mk "" [] pTail⟧ (run ⟦BasicBlock.mk "" [] pHead⟧ env).snd) := sorry
@@ -199,17 +215,18 @@ def rewrite_equivalent_precondition_rewrite [S: Semantics δ] (mHead: List (MTer
     refinement (run ⟦BasicBlock.mk "" [] originProg⟧ env)
                (run ⟦BasicBlock.mk "" [] resProg⟧ env) := by sorry
 
+theorem no_regions_implies_no_replace (stmt: BasicBlockStmt δ) :
+    stmtHasNoRegions stmt →
+    ∀ val new_ops res, replaceOpInBBStmt val new_ops stmt = some res →
+    (res = new_ops) ∧ (∃ ix op, stmt = BasicBlockStmt.StmtAssign val ix op) := by
+  sorry
+
+
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
          (σ: VarCtx δ)
-         (mHead: List (MTerm δ))
-         (mOrigin: MTerm δ)
-         (mRes: List (MTerm δ))
          (headPat originPat resPat: List (BasicBlockStmt δ))
-         (HHeadPat: MTerm.concretizeProg mHead σ = some headPat)
-         (HOriginPat: MTerm.concretizeProg [mOrigin] σ = some originPat)
-         (HResPat: MTerm.concretizeProg mRes σ = some resPat)
          (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ originPat)⟧ env)
                                    (run ⟦BasicBlock.mk "" [] (headPat ++ resPat)⟧ env)))
          (origName: String)
@@ -217,8 +234,10 @@ variable (δ: Dialect δα δσ δε)
          (prog: List (BasicBlockStmt δ))
          (Hmatch: (headPat ++ originPat).all (fun op => isOpInBBStmts op prog))
 
-def main_theorem :
+
+def main_theorem_stmt :
   ∀ (p: List (BasicBlockStmt δ)),
+  stmtsHaveNoRegions p →
   ∀ ctx, (singleBBRegionStmtsObeySSA p ctx).isSome →
   ∀ (env: SSAEnv δ),
   (∀ val, ctx.isValDefined val →
@@ -234,12 +253,12 @@ def main_theorem :
     case nil =>
       -- The base case is easy, we couldn't find the operation in the program,
       -- thus we have a contradiction
-      intros _ _ _ _ resP HresP
+      intros _ _ _ _ _ resP HresP
       simp [replaceOpInBBStmts] at HresP
     
     -- Induction case
     case cons head tail Hind =>
-      intros ctx HSSA env HCtx resP HresP
+      intros HNoRegions ctx HSSA env HCtx resP HresP
       -- We first do a case analysis if we have rewritten or not the head op of the program
       simp [replaceOpInBBStmts] at HresP
       cases Hreplace: replaceOpInBBStmt headName resPat head
@@ -262,6 +281,11 @@ def main_theorem :
         rw [cons_is_append head resTail]
         rw [run_split_head_tail]
         rw [run_split_head_tail]
+
+        -- The tail still has no regions
+        simp [stmtsHaveNoRegions] at HNoRegions
+        have ⟨HNoRegionsHead, HNoRegionsTail⟩ := HNoRegions
+        specialize Hind HNoRegionsTail
 
         -- We get the dominance context for the tail
         simp [singleBBRegionStmtsObeySSA] at HSSA
@@ -289,9 +313,24 @@ def main_theorem :
       -- In this case, the first operation, or one operation of its region, was rewritten.
       case some resHeadP => 
         subst resP
+
+        -- Since we interpret both heads and then the common tail, we just need to
+        -- prove that the interpretation of both heads will result in a refinement,
+        -- since then the interpretation of the same tail program will preserve that
+        -- refinement
         rw [cons_is_append head tail]
         rw [run_split_head_tail]
         rw [run_split_head_tail]
-        sorry
+        apply preserves_refinement
 
+        -- The operation has to be an StmtAssign, because we have done a rewrite,
+        -- and the rewrite was done on an stmt with no regions
+        simp [stmtsHaveNoRegions] at HNoRegions
+        have ⟨HNoRegionsHead, HNoRegionsTail⟩ := HNoRegions
+        have HHead := no_regions_implies_no_replace _ HNoRegionsHead _ _ _ Hreplace
+        have ⟨_, ⟨ix, headOp, _⟩⟩ := HHead
+        subst resHeadP
+        subst head
+        
+        sorry
 end MainTheorem
