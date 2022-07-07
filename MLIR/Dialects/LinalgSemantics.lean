@@ -78,6 +78,10 @@ def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
 -/
 
 
+-- TODO @lephe: could you perform the mutual induction please?
+def MLIRTy_eval_equal_after_coe [Δ: Dialect α σ ε] (τ: MLIRTy):
+    τ.eval = (coeMLIRType (c := CoeDialectEmpty (δ := Δ)) τ).eval := sorry
+
 #check MLIRType.eval
 def Matrix n m τ :=
   RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
@@ -88,20 +92,20 @@ def Matrix n m τ :=
 def linalg_parallel_iter [Δ: Dialect α σ ε]
    (d1 d2: Nat)
    (inTensor:  Matrix d1 d2 τ)
-   (ix1 ix2: Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) τ := do
+   (ix1 ix2: Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) (Option τ.eval) := do
   -- | lol, have fun reasoning with this...
-  let data? := inTensor.data.get? (ix1*(inTensor.shape.get! 0) + ix2)
+  let data? := inTensor.data.get? (ix1*d2 + ix2)
   match data? with
   | .some data => do
-      let out <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
+        let out <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
                 -- TODO, @lephe: please check that my theorem is correct!
-                   (args := [⟨ τ, coe_type_eval_eq τ ▸ data ⟩]))
-      match out with 
-      | [⟨ τ, v ⟩] => return v
-      | _ => 
+                   (args := [⟨ τ,  data ⟩]))
+        match out with
+        | [⟨ σ, v ⟩] =>  return (if H: σ = τ then  .some _ else .none)
+        | _ => return .none
   | .none => do
       Fitree.trigger (UBE.DebugUB "unable to access tensor data")
-      return []
+      return .none
 
 
 def collectOutputsIntoTensorData [δ: Dialect α σ ε]

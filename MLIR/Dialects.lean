@@ -191,7 +191,7 @@ class DialectProjection (δlarge: Dialect α₁ σ₁ ε₁) (δsmall: Dialect �
 
 
 /-
-def project_ε (δ: Dialect α σ ε) 
+def project_ε (δ: Dialect α σ ε)
      (s: σ) (es: ε s): (some s).casesOn (motive := fun _ => Type) Unit ε := by {
   simp;
   exact es;
@@ -199,7 +199,7 @@ def project_ε (δ: Dialect α σ ε)
 -/
 
 
-instance ReflProjection (δ: Dialect α σ ε): DialectProjection δ δ where 
+instance ReflProjection (δ: Dialect α σ ε): DialectProjection δ δ where
   project_α := .some
   project_σ := .some
   project_ε s₁ es₁ := es₁
@@ -209,34 +209,34 @@ instance ReflProjection (δ: Dialect α σ ε): DialectProjection δ δ where
 
 instance LeftProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂): DialectProjection (δ₁ + δ₂) δ₁ where
   project_α a1_plus_a2 :=
-     match a1_plus_a2 with 
+     match a1_plus_a2 with
       | .inl a1 => .some a1
       | .inr a2 => .none
 
-  project_σ s1_plus_s2:= 
-      match s1_plus_s2 with 
+  project_σ s1_plus_s2:=
+      match s1_plus_s2 with
       | .inl s1 => .some s1
       | .inr s2 => .none
 
-  project_ε s2 es2 := 
-      match s2 with 
+  project_ε s2 es2 :=
+      match s2 with
        | .inl s2l => es2
        | .inr s2r => ()
 
 
 instance RightProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂): DialectProjection (δ₁ + δ₂) δ₂ where
   project_α a1_plus_a2 :=
-     match a1_plus_a2 with 
+     match a1_plus_a2 with
       | .inl a1 => .none
       | .inr a2 => .some a2
 
-  project_σ s1_plus_s2:= 
-      match s1_plus_s2 with 
+  project_σ s1_plus_s2:=
+      match s1_plus_s2 with
       | .inl s1 => .none
       | .inr s2 => .some s2
 
-  project_ε s2 es2 := 
-      match s2 with 
+  project_ε s2 es2 :=
+      match s2 with
        | .inl s2l => ()
        | .inr s2r => es2
 
@@ -305,7 +305,7 @@ instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
   }
   rev_proj := inferInstance
 
-instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
+instance CoeDialectEmpty (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
   coe_α a := nomatch a
   coe_σ s := nomatch s
   coe_ε s := nomatch s
