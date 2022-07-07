@@ -39,9 +39,6 @@ instance linalg: Dialect Void Void (fun x => Unit) where
 ### Dialect operations
 -/
 
-inductive LinalgE: Type → Type :=
-| GenericParallel: LinalgE (RankedTensor D τ)
-
 
 def List.tailList (xs: List α): List α :=
   match xs with
@@ -157,6 +154,7 @@ def linalg_parallel_all_iters
 
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
+-- @lephe: do you want me to thread the dialect projection everywhere?
 def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
   | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 _ _ => do
@@ -172,56 +170,11 @@ def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builti
 
   | _ => none
 
-/-
-Hook to provide a custom AffineMap used to construct the
-hyperrectangular loop iteration space given all the operand subshapes.
-This is used to answer the question:
-"Given a list of operand ranges, what is the subportion of the iteration
-space involved in the computation".
-This is the inverse problem of `getLoopsToShapesMap`.
-Return the empty AffineMap when such an AffineMap cannot be constructed.
-The default behavior is based on a very simple inference procedure that
-only works with permutation affine maps.
-A more advanced Tensor-Comprehension like inference is possible but has
-proven to be ambiguous in unfavorable case.
-A safer and more robust alternative is to allow each op to define
-its own AffineMap.
--/
 
-#check RankedTensor
-def LinalgE.handle [δ: Dialect α σ ε] {E}: LinalgE ~> Fitree E := fun T e =>
-   match e with
-    | .GenericParallel => sorry
-/-
-def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
-  match e with
-  | AddI sz lhs rhs =>
-      return (lhs + rhs)
-  | AddT sz D lhs rhs =>
-      -- TODO: Implementation of ArithE.AddT (tensor addition)
-      return default
-  | AddV sz sc fx lhs rhs =>
-      -- TODO: Implementation of ArithE.AddV (vector addition)
-      return default
-  | CmpI sz pred lhs rhs =>
-      let b: Bool :=
-        match pred with
-        | .eq  => lhs = rhs
-        | .ne  => lhs != rhs
-        | .slt => lhs.toSint <  rhs.toSint
-        | .sle => lhs.toSint <= rhs.toSint
-        | .sgt => lhs.toSint >  rhs.toSint
-        | .sge => lhs.toSint >= rhs.toSint
-        | .ult => lhs.toUint <  rhs.toUint
-        | .ule => lhs.toUint <= rhs.toUint
-        | .ugt => lhs.toUint >  rhs.toUint
-        | .uge => lhs.toUint >= rhs.toUint
-      return FinInt.ofInt .Signless 1 (if b then 1 else 0)
-
-instance: Semantics arith where
-  E := ArithE
-  semantics_op := arith_semantics_op
-  handle := ArithE.handle
+instance: Semantics Linalg where
+  E := fun T => Void
+  semantics_op := linalg_semantics_op
+  handle T voidT := nomatch voidT
 
 /-
 ### Basic examples
