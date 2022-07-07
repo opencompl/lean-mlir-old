@@ -213,7 +213,7 @@ instance [Monad m] [LawfulMonad m] : LawfulMonad (OptionT m) where
   pure_bind      := by intros; sorry;
   bind_assoc     := by intros; sorry;
 
-instance : LawfulMonad (Fitree F) where
+instance FitreeMonadLaws : LawfulMonad (Fitree F) where
   id_map         := by {
       intros α x;
       simp[Functor.map];
@@ -286,8 +286,8 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 set_option pp.notation false in
-def interp_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B):
-  interp h (Fitree.bind t k) = bind (interp h t) (fun x => interp h (k x)) := by {
+def interp_bind [instM: Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B):
+  interp h (Fitree.bind t k) = instM.bind (interp h t) (fun x => interp h (k x)) := by {
   induction t;
   case Ret monadInstanceM r => {
     simp [interp, bind, Fitree.bind];

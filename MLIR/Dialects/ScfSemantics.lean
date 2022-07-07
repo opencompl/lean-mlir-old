@@ -230,6 +230,13 @@ theorem interp_ssa_Vis:
     interp (Fitree.case_ SSAEnvE.handle stateT_defaultHandler2) (.Vis e k) := by
   rfl
 
+  theorem interp_region_run_loop_bounded (r: Region scf) (n: Nat):
+      interp (interp_region (Δ := scf) [denoteRegion scf r]) (run_loop_bounded (Δ := scf) n 0 (BlockResult.Ret [])) = rhs := by {
+    simp [interp, interp_region];
+    induction n;
+    simp [run_loop_bounded];
+}
+
 theorem interp_Vis {E M} [Monad M] (h: E ~> M) {T} (e: E T) (k: T → Fitree E R):
     interp h (Fitree.Vis e k) =
     bind (h _ e) (fun x => interp h (k x)) := by
@@ -260,6 +267,39 @@ theorem run_Vis {Δ: Dialect α' σ' ε'} [S: Semantics Δ]
     run (.Vis e k) env = run (k interm_val) interm_env :=
   sorry
 
+theorem bind_fequal [Monad M] [LawfulMonad M] {A B: Type}
+  (lhs: M A) (rhs1 rhs2: A -> M B) (rhs_equal: ∀ (a: A), rhs1 a = rhs2 a):
+    lhs >>= rhs1 = lhs >>= rhs2 := by {
+      suffices (rhs1 = rhs2) by {
+        simp [this];
+      }
+      funext x;
+      simp [rhs_equal];
+}
+/-
+(interp_ssa
+  (Fitree.bind
+    (Fitree.case_ UBE.handle FOR_PEELING.optionT_defaultHandler2 (MLIRType.eval MLIRType.index)
+      (Sum.inr (Sum.inl (SSAEnvE.Get MLIRType.index (SSAVal.SSAVal "cn_plus_1")))))
+-/
+-- interp (Fitree.case_ SSAEnvE.handle stateT_defaultHandler) (k r)
+
+set_option pp.notation false in
+theorem interp_ssa_bind [Monad M] [LawfulMonad M]
+  (t: Fitree (SSAEnvE δ +' E) A)
+  (k: A -> Fitree (SSAEnvE δ +' E)  B):
+  interp_ssa (Fitree.bind t k) = StateT.bind (interp_ssa t) (fun a => interp_ssa (k a)) := by {
+  induction t;
+  case Ret lawful r => {
+    simp [interp, bind, Fitree.bind, StateT.bind, interp_ssa, interp_state];
+  }
+  case Vis lawful T' e' k' IND => {
+    simp [interp_ssa, interp, bind, Fitree.bind, StateT.bind, interp_state] at *;
+    funext s;
+    rw [Fitree_monad_assoc];
+    simp[IND];
+  }
+}
 theorem run_bind {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
     t (k: T → Fitree (UBE +' SSAEnvE Δ +' S.E) R) env:
   run (Fitree.bind t k) env =
@@ -289,22 +329,23 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
   simp_itree;
   simp [Semantics.semantics_op];
   simp [scf_semantics_op];
-  simp [denoteRegions];
-
   apply run_fequal _ _ _ _ (0:Nat) (INPUT n);
   . sorry
   simp [run_bind];
-  simp [interp_region, interp]; dsimp_itree
-  simp [List.get!];
+  simp [interp]; dsimp_itree
   have h := CORRECT_r n r [⟨.index, 0⟩];
   cases h; rename_i temp_br I_HATE_YOU;
   simp [I_HATE_YOU]
   simp [run]
-  simp [interp_ub]; dsimp_itree
-  simp [interp_ssa, interp_state, SSAEnvE.handle]; dsimp_itree
-  unfold INPUT;
-  simp [SSAEnv.get]; dsimp_itree
-  simp [SSAEnv.get]; dsimp_itree
+  simp [interp_ub_Vis];
+  simp [interp_Vis];
+  simp [bind, OptionT.bind, OptionT.mk];
+
+  simp [interp_bind]; dsimp_itree;
+  simp [interp_ssa_Vis]; dsimp_itree; unfold INPUT; simp [SSAEnvE.handle, INPUT, SSAEnv.get];
+  rw [FitreeMonadLaws.pure_bind];
+
+  simp [interp_region];
 /-  have h (k: Nat → Fitree (UBE +' SSAEnvE scf +' ScfE) (BlockResult scf)) :=
     run_Vis (Δ := scf) k (Sum.inr (Sum.inl (SSAEnvE.Get MLIRType.index (SSAVal.SSAVal "c1")))) (INPUT n) 1 (INPUT n);
   rw [h] -/
