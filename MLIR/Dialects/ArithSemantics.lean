@@ -162,7 +162,7 @@ private def cst1: BasicBlock arith := [mlir_bb|
     %b2 = "arith.cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
 ]
 
-#eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
+-- #eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
 
 
 /-
@@ -176,6 +176,7 @@ private def add2: BasicBlockStmt arith := [mlir_bb_stmt|
   %r = "arith.addi"(%m, %n): (i32, i32) -> i32
 ]
 
+/-
 theorem add_commutative:
   forall (n m: FinInt 32),
     run ⟦add1⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] =
@@ -187,3 +188,4 @@ theorem add_commutative:
   simp [interp_ssa]; simp_itree
   simp [Semantics.handle, ArithE.handle]; simp_itree
   simp [FinInt.add_comm]
+-/

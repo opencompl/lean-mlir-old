@@ -23,7 +23,7 @@ open MLIR.AST
 `linalg` has no extended types or attributes.
 -/
 
-@[inline]
+@[inline, simp, reducible]
 def Matrix n m τ :=
   RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
 
@@ -136,10 +136,8 @@ def list_option_to_option_list (xs: List (Option α)): Option (List α) :=
 def linalg_parallel_all_iters
   [CoeDialect builtin Δ]
    (d1 d2: Nat)
-   (inTensor: Matrix d1 d2 τ)
-   (size: Nat):
-     Fitree ((RegionE Δ) +' UBE +' LinalgE)
-            (TypedArgs Δ) := do
+   (inTensor: Matrix d1 d2 τ):
+     Fitree ((RegionE Δ) +' UBE +' LinalgE) (TypedArgs Δ) := do
   -- | TODO: Yeesh, we gotta worry about List.bind.
   let ixs : List (Nat × Nat) := (List.range d1).bind (fun ix1 => (List.range d2).map (fun ix2 => (ix1, ix2)))
   let outValues <- ixs.mapM (fun ix2d => linalg_parallel_iter d1 d2 inTensor ix2d.fst ix2d.snd)
@@ -152,7 +150,6 @@ def linalg_parallel_all_iters
         let out_tensor_τ := builtin.tensor dims τ
         let out_tensor := RankedTensor.mk (D := dims) (toTensor := t) sorry
         return [⟨out_tensor_τ, MLIRType_builtin_eval_equal_after_coe out_tensor_τ ▸ out_tensor⟩]
-
   | .none => do
       Fitree.trigger $ UBE.DebugUB "RankedTensor: unable to produce output args."
       return []
@@ -162,12 +159,13 @@ def linalg_parallel_all_iters
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
 def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
-  | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 _ _ =>
+  | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 _ _ => do
       match H: DialectProjection.project_σ (self := P) _ _ sΔ with
-      | some (builtin.σ.tensor [d1, d2] τ) =>
-          let input: RankedTensor [d1, d2] τ :=
+      | some (builtin.σ.tensor [Dimension.Known d1, Dimension.Known d2] τ) => .some do
+          let input: RankedTensor [Dimension.Known  d1, Dimension.Known  d2] τ :=
             cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
-          linalg_parallel_all_iters d1 d2 input
+          let out  <- linalg_parallel_all_iters d1 d2 input
+          return (BlockResult.Ret out)
       | _ => none
   | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
       sorry
