@@ -388,7 +388,8 @@ def allRootedToLast (prog: List (BasicBlockStmt δ)) : Bool :=
 
 abbrev recursiveContext (ctx: DomContext δ) (p: List (BasicBlockStmt δ)) : Prop :=
   (∀ val, ctx.isValDefined val →
-    ∀ op, getDefiningOpInBBStmts val p = some op →
+    ∀ op, op ∈ p →
+    getResName op = some val → 
     ∀ operand, operand ∈ (getOp op).args →
     ctx.isValDefined operand)
 
@@ -443,6 +444,13 @@ theorem is_cons_stmts_ssa_implies_is_head_ssa :
   (singleBBRegionStmtsObeySSA (head::tail) ctx).isSome →
   (singleBBRegionStmtObeySSA head ctx).isSome := by sorry
 
+theorem is_val_defined_add_cases :
+  DomContext.isValDefined (DomContext.addVal ctx val' τ) val →
+  val = val' ∨ DomContext.isValDefined ctx val := by sorry
+
+theorem is_val_defined_add :
+  DomContext.isValDefined ctx val →
+  DomContext.isValDefined (DomContext.addVal ctx val' τ) val := by sorry
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
@@ -541,13 +549,37 @@ def main_theorem_stmt :
             subst tailCtx
             assumption
 
-          -- StmtOp case, we do change the context, and since we know that the program
+          -- StmtAssign case, we do change the context, and since we know that the program
           -- obeys SSA, then operands have to be in the context.
           case StmtAssign resHead ixHead opHead =>
             have HTailCtx := (StmtAssign_obeys_ssa_some _ _ _ _ (by rw [HSSAHead]; rfl))
             have ⟨τ, ⟨HOpHeadType, HTailCtx⟩⟩ := HTailCtx
             rw [HTailCtx] at HSSAHead; simp at HSSAHead; subst tailCtx
-            sorry
+            unfold recursiveContext
+            intros val HValDefined op HOpInProg HOpRes operand HOperandInOp
+
+            -- We have two cases here. Either we are looking at a previously added variable,
+            -- or we are looking at the new variable we added.
+            cases (is_val_defined_add_cases HValDefined)
+            -- Here, we show that the previous variables kept their invariants
+            case inr HValDefinedCtx => 
+              apply is_val_defined_add
+              apply HCtxRec <;> assumption
+
+            -- Here, we are looking at the new variable we added in the context
+            case inl =>
+              subst val
+              unfold recursiveContext at HCtxRec
+              have _ : BasicBlockStmt.StmtAssign resHead ixHead opHead = op := by
+                apply eq_name_in_simple_prog_implies_eq <;> (try assumption) <;> try rfl
+                . rw [HOpRes]; rfl
+                . apply HPInProg; constructor
+              subst op
+              
+              apply is_val_defined_add
+              apply is_stmt_ssa_implies_operands_in_ctx <;> try assumption
+              rw [HTailCtx]
+              rfl
 
         specialize Hind HRec
 
