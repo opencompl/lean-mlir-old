@@ -96,7 +96,7 @@ class Semantics (δ: Dialect α σ ε)  where
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
-def interp_region
+def denoteOp_interp_region
     (regions: List <|
       TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)):
     RegionE Δ +' UBE +' Semantics.E Δ ~>
@@ -123,7 +123,7 @@ def denoteOp (op: Op Δ):
       -- Use the dialect-provided semantics, and substitute regions
       match S.semantics_op iop with
       | some t =>
-          interp (interp_region regions) t
+          interp (denoteOp_interp_region regions) t
       | none => do
           Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
           return default
