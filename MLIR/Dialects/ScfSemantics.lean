@@ -343,9 +343,19 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
 
   simp [interp_bind]; dsimp_itree;
   simp [interp_ssa_Vis]; dsimp_itree; unfold INPUT; simp [SSAEnvE.handle, INPUT, SSAEnv.get];
-  rw [FitreeMonadLaws.pure_bind];
+  simp [pure];
+  simp_itree;
+  simp [denoteRegions];
+  simp [interp_bind];
+  dsimp_itree;
+  simp [interp];
+  simp [denoteRegion];
+  simp [interp_region];
+  simp [List.get!];
 
   simp [interp_region];
+  cases REGION_BEHAVIOUR:(denoteRegion scf r)
+
 /-  have h (k: Nat → Fitree (UBE +' SSAEnvE scf +' ScfE) (BlockResult scf)) :=
     run_Vis (Δ := scf) k (Sum.inr (Sum.inl (SSAEnvE.Get MLIRType.index (SSAVal.SSAVal "c1")))) (INPUT n) 1 (INPUT n);
   rw [h] -/
