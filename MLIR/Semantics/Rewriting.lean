@@ -195,21 +195,78 @@ def stmtsHaveNoRegions (stmts: List (BasicBlockStmt δ)) : Bool :=
   | [] => true
   | stmt::stmts' => stmtHasNoRegions stmt && stmtsHaveNoRegions stmts'
 
-def run_preserves_env_set [Semantics δ] (stmt: BasicBlockStmt δ) (env env': SSAEnv δ) :
-    (run ⟦ stmt ⟧ env).snd = env' →
+instance [Monad m] [LawfulMonad m] : LawfulMonad (OptionT m) where
+  id_map         := by sorry
+  map_const      := by sorry
+  seqLeft_eq     := by sorry
+  seqRight_eq    := by sorry
+  pure_seq       := by sorry
+  bind_pure_comp := by sorry
+  bind_map       := by sorry
+  pure_bind      := by sorry
+  bind_assoc     := by sorry;
+
+instance : LawfulMonad (Fitree F) where
+  id_map         := by sorry
+  map_const      := by sorry
+  seqLeft_eq     := by sorry
+  seqRight_eq    := by sorry
+  pure_seq       := by sorry
+  bind_pure_comp := by sorry
+  bind_map       := by sorry
+  pure_bind      := by sorry
+  bind_assoc     := by sorry
+
+theorem interp_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A -> Fitree E B):
+  interp h (Fitree.bind t k) = bind (interp h t) (fun x => interp h (k x)) := by {
+  induction t;
+  case Ret monadInstanceM r => {
+    simp [interp, bind, Fitree.bind];
+  }
+  case Vis lawful T' e' k' IND => {
+      simp[interp, bind, Fitree.bind, IND];
+  }
+}
+
+def opArgsFitree {Δ: Dialect α σ ε} [S: Semantics Δ] (args: List SSAVal) (τs: List (MLIRType Δ)) 
+ : Fitree (UBE +' SSAEnvE Δ +' S.E) (List ((τ : MLIRType Δ) × MLIRType.eval τ))
+   := ((List.zip args τs).mapM (fun (name, τ) => do
+    return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩))
+
+theorem run_preserves_env_set {δ: Dialect α σ ε} [Semantics δ] (stmt: BasicBlockStmt δ) (env env': SSAEnv δ) :
+    ∀ r, run ⟦ stmt ⟧ env = (some r, env') →
     stmtHasNoRegions stmt →
     ∀ name, getResName stmt ≠ some name →
     name ∉ (getOp stmt).args → 
-    (run ⟦ stmt ⟧ (SSAEnv.set name τ v env)).snd = (SSAEnv.set name τ v env') := by
-  intros HRun name HNameRes HNameArgs
+    ∀ τ v, run ⟦ stmt ⟧ (SSAEnv.set name τ v env) = (some r, SSAEnv.set name τ v env') := by
+  intros r HRun HNoRegions name HNameRes HNameArgs τ v
   simp [run, Denote.denote]
+  simp [run, Denote.denote] at HRun
   unfold denoteBBStmt
-  split
-  . sorry
-  case h_2 op =>
+  unfold denoteBBStmt at HRun
+  cases stmt
+  case StmtAssign res ix op => sorry
+  case StmtOp op =>
     unfold denoteOp
-    cases op
-    case mk name args bbs regions attrs ty =>
+    unfold denoteOp at HRun
+    split
+    -- Non-UB case
+    . rename_i name args bbs regions args res
+      simp
+      simp at HRun
+      simp_itree
+      simp [interp_ub, interp_ssa, interp_state]
+      rw [interp_bind]
+      sorry
+    -- UB case because type does not match. We have a contradiction
+    . rename_i Hop
+      revert HRun
+      split
+      . rename_i oName oArgs oBbs oRegions oAttrs oArgsTy oResTy
+        specialize (Hop oName oArgs oBbs oRegions oAttrs oArgsTy oResTy)
+        contradiction
+      . simp [Fitree.run, interp_ssa, interp_ub, interp_state, interp, pure, Fitree.ret]
+      
 
 def postSSAEnv_preserves [Semantics δ] (stmt: BasicBlockStmt δ) (env: SSAEnv δ) :
     postSSAEnv stmt env → 
