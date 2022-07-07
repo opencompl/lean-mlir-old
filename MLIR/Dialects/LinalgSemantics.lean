@@ -82,6 +82,44 @@ def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
 | t::ts => ⟨τ, t⟩ :: makeUniformMLIRTypedArguments τ ts
 -/
 
+-- | the denotation of the affine map is indexes that
+-- tell us
+def DenoteAffineMap := Nat × Nat
+
+-- verify that an affine tuple has two components
+def liftA2_Option (a?: Option A) (b?: Option B): Option (A × B) :=
+  match a? with
+  | .some a => match b? with | .some b => .some (a, b) | _ => .none
+  | .none => .none
+
+
+-- | index the tuple (nat, nat) with the index. This is used to
+-- generate the semantics of the affine_map.
+def index_tuple (t: Nat × Nat) (ix: Nat): Option Nat :=
+  match ix with
+  | 0 => .some t.fst
+  | 1 => .some t.snd
+  | _ => none
+
+-- | TODO: generalize tuple of arguments to list
+-- | return which index to use.
+def rhs_affine_expr_to_var (l: String) (r: String) (v: String): Option (Nat) :=
+  if v == l
+  then .some (0)
+  else if v == r
+  then .some (1)
+  else .none
+
+-- | affine tuple must be of the form (a, b) -> (c, d)
+def verify_2d_to_2d_affine_map (aff_map: AffineMap): Option (Nat × Nat) :=
+  match aff_map with
+  | AffineMap.mk
+      (AffineTuple.mk [AffineExpr.Var i1, AffineExpr.Var i2])
+      (AffineTuple.mk [AffineExpr.Var o1, AffineExpr.Var o2])  =>
+          liftA2_Option (rhs_affine_expr_to_var i1 i2 o1) (rhs_affine_expr_to_var i1 i2 o2)
+  | _ => none
+
+
 
 -- TODO @lephe: could you perform the mutual induction please?
 def MLIRTy_eval_equal_after_coe [Δ: Dialect α σ ε] (τ: MLIRTy):
@@ -91,15 +129,23 @@ def MLIRTy_eval_equal_after_coe [Δ: Dialect α σ ε] (τ: MLIRTy):
 def MLIRType_builtin_eval_equal_after_coe [Δ: Dialect α σ ε] [coe: CoeDialect builtin Δ] (τ: MLIRType builtin):
     τ.eval = (coeMLIRType (c := coe) τ).eval := sorry
 
+-- | compose the index (ix0, ix1) with the permutation that is (affine_map) to arrive
+-- at the final indexing operation.
+def tensor_index (d0 d1: Nat) (ix0 ix1: Nat) (affine_map: Nat × Nat): Option Nat := do
+  let ixs := (ix0, ix1)
+  let ix0' <- (index_tuple affine_map 0) >>= (index_tuple ixs)
+  let ix1' <- (index_tuple affine_map 1) >>= (index_tuple ixs)
+  return (ix0' * d1 + ix1')
 
 -- TODO: how do I write the semantics for this in a way that
 -- I can get access to the `tensor` type?
 def linalg_parallel_iter [Δ: Dialect α σ ε]
-   (d1 d2: Nat)
-   (inTensor:  Matrix d1 d2 τ)
-   (ix1 ix2: Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) (Option τ.eval) := do
+   (d0 d1: Nat)
+   (inTensor:  Matrix d0 d1 τ)
+   (ix0 ix1: Nat)
+   (affine_map: Nat × Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) (Option τ.eval) := do
   -- | lol, have fun reasoning with this...
-  let data? := inTensor.data.get? (ix1*d2 + ix2)
+  let data? := (tensor_index d0 d1 ix0 ix1 affine_map) >>= inTensor.data.get?
   match data? with
   | .some data => do
         let out <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
@@ -129,21 +175,23 @@ def list_option_to_option_list (xs: List (Option α)): Option (List α) :=
   | (.some x)::xs =>  (list_option_to_option_list xs).map (fun xs' => x::xs' )
   | .none::xs => .none
 
+
 #check RankedTensor.mk
 def linalg_parallel_all_iters
   [CoeDialect builtin Δ]
-   (d1 d2: Nat)
-   (inTensor: Matrix d1 d2 τ):
+   (d0 d1: Nat)
+   (inTensor: Matrix d0 d1 τ)
+   (affine_map: Nat × Nat):
      Fitree ((RegionE Δ) +' UBE +' LinalgE) (TypedArgs Δ) := do
   -- | TODO: Yeesh, we gotta worry about List.bind.
-  let ixs : List (Nat × Nat) := (List.range d1).bind (fun ix1 => (List.range d2).map (fun ix2 => (ix1, ix2)))
-  let outValues <- ixs.mapM (fun ix2d => linalg_parallel_iter d1 d2 inTensor ix2d.fst ix2d.snd)
+  let ixs : List (Nat × Nat) := (List.range d0).bind (fun ix1 => (List.range d1).map (fun ix2 => (ix1, ix2)))
+  let outValues <- ixs.mapM (fun ix2d => linalg_parallel_iter d0 d1 inTensor ix2d.fst ix2d.snd affine_map)
   let outValues := list_option_to_option_list outValues
   match outValues with
   | .some outValues =>
         -- | TODO:
         let t : Tensor τ:= { inTensor.toTensor with data := outValues, h_data_size := sorry }
-        let dims : DimList :=  [Dimension.Known d1, Dimension.Known  d2]
+        let dims : DimList :=  [Dimension.Known d0, Dimension.Known  d1]
         let out_tensor_τ := builtin.tensor dims τ
         let out_tensor := RankedTensor.mk (D := dims) (toTensor := t) sorry
         return [⟨out_tensor_τ, MLIRType_builtin_eval_equal_after_coe out_tensor_τ ▸ out_tensor⟩]
@@ -152,41 +200,6 @@ def linalg_parallel_all_iters
       return []
 
 
--- Since we have a fully parallel 2D loop on 2D arrays, we will have two
--- iteration domain variables, and a 2D output [the index into the array]
-@[simp, inline, reducible]
-def AffineTuple2D := (String × String)
-
-@[simp, inline, reducible]
-def AffineMap2DTo2D := (AffineTuple2D ×AffineTuple2D)
-
--- extract the variable out of an affine expression
-def affine_expr_to_var (e: AffineExpr): String :=
-  match e with
-  | AffineExpr.Var v => v
-
--- verify that an affine tuple has two components
-def verify_2d_affine_tuple (t: AffineTuple): Option AffineTuple2D :=
-  match t with
-  | AffineTuple.mk [x, y] => .some (affine_expr_to_var x, affine_expr_to_var y)
-  | _ => .none
-
-def liftA2_Option (a?: Option A) (b?: Option B): Option (A × B) :=
-  match a? with
-  | .some a => match b? with | .some b => .some (a, b) | _ => .none
-  | .none => .none
-
--- | affine tuple must be of the form (a, b) -> (c, d)
-def verify_2d_to_2d_affine_map (a: AffineMap): Option (AffineMap2DTo2D) :=
-  match a with
-  | AffineMap.mk t t' => liftA2_Option (verify_2d_affine_tuple t) (verify_2d_affine_tuple t')
-
-def verify_linalg_indexing_map (a: AttrValue δ): Option (AffineMap2DTo2D × AffineMap2DTo2D) :=
-  match a with
-  | AttrValue.list [AttrValue.affine m1, AttrValue.affine m2]  =>
-        liftA2_Option (verify_2d_to_2d_affine_map m1) (verify_2d_to_2d_affine_map m2)
-  | _ => .none
-
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
 -- @lephe: do you want me to thread the dialect projection everywhere?
@@ -194,13 +207,16 @@ def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builti
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
   | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 attrs _ =>
         match AttrDict.find attrs "indexing_maps" with
-        | some (.affine affine_map) =>
-          match H: DialectProjection.project_σ (self := P) _ _ sΔ with
-          | some (builtin.σ.tensor [Dimension.Known d1, Dimension.Known d2] τ) => .some do
-              let input: RankedTensor [Dimension.Known  d1, Dimension.Known  d2] τ :=
-                cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
-              let out  <- linalg_parallel_all_iters d1 d2 input
-              return (BlockResult.Ret out)
+        | some (.affine affine_map?) =>
+          match (verify_2d_to_2d_affine_map affine_map?) with
+          | .some affine_map =>
+              match H: DialectProjection.project_σ (self := P) _ _ sΔ with
+              | some (builtin.σ.tensor [Dimension.Known d0, Dimension.Known d1] τ) => .some do
+                  let input: RankedTensor [Dimension.Known  d0, Dimension.Known  d1] τ :=
+                    cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
+                  let out  <- linalg_parallel_all_iters d0 d1 input affine_map
+                  return (BlockResult.Ret out)
+              | _ => none
           | _ => none
         | _ => none
   | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
