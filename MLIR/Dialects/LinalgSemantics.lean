@@ -28,6 +28,8 @@ def Matrix n m τ :=
   RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
 
 
+-- def Matrix.mk (n m: Nat) (t: Tensor)
+
 
 instance linalg: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
@@ -88,6 +90,9 @@ def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
 def MLIRTy_eval_equal_after_coe [Δ: Dialect α σ ε] (τ: MLIRTy):
     τ.eval = (coeMLIRType (c := CoeDialectEmpty (δ := Δ)) τ).eval := sorry
 
+-- TODO @lephe: another proof obligation
+def MLIRType_builtin_eval_equal_after_coe [Δ: Dialect α σ ε] [coe: CoeDialect builtin Δ] (τ: MLIRType builtin):
+    τ.eval = (coeMLIRType (c := coe) τ).eval := sorry
 
 
 -- TODO: how do I write the semantics for this in a way that
@@ -143,10 +148,10 @@ def linalg_parallel_all_iters
   | .some outValues =>
         -- | TODO:
         let t : Tensor τ:= { inTensor.toTensor with data := outValues, h_data_size := sorry }
-        return [⟨builtin.tensor_unranked τ,
-           (coe_type_eval_eq (builtin.tensor_unranked τ)) ▸
-            RankedTensor.mk
-            collectOutputsIntoTensor size τ outValues⟩]
+        let dims : DimList :=  [Dimension.Known d1, Dimension.Known  d2]
+        let out_tensor_τ := builtin.tensor dims τ
+        let out_tensor := RankedTensor.mk (D := dims) (toTensor := t) sorry
+        return [⟨out_tensor_τ, MLIRType_builtin_eval_equal_after_coe out_tensor_τ ▸ out_tensor⟩]
 
   | .none => do
       Fitree.trigger $ UBE.DebugUB "RankedTensor: unable to produce output args."
