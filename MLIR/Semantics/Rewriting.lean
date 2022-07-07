@@ -277,7 +277,8 @@ def postSSAEnv_preserves [Semantics δ] (stmt: BasicBlockStmt δ) (env: SSAEnv �
   unfold postSSAEnv at *
   have ⟨env', HRunStmt⟩ := HPost
   exists (env'.set name τ v)
-  apply run_preserves_env_set <;> assumption
+  sorry
+  
   
 
 def varDefInProg (t: T) :  List SSAVal := []
