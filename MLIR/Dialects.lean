@@ -224,12 +224,26 @@ instance LeftProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂
        | .inr s2r => ()
 
 
+instance RightProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂): DialectProjection (δ₁ + δ₂) δ₂ where
+  project_α a1_plus_a2 :=
+     match a1_plus_a2 with 
+      | .inl a1 => .none
+      | .inr a2 => .some a2
 
+  project_σ s1_plus_s2:= 
+      match s1_plus_s2 with 
+      | .inl s1 => .none
+      | .inr s2 => .some s2
 
+  project_ε s2 es2 := 
+      match s2 with 
+       | .inl s2l => ()
+       | .inr s2r => es2
 
-
-
-
+instance EmptyProjection (δ: Dialect α σ ε): DialectProjection δ Dialect.empty where
+  project_α a1_plus_a2 := .none
+  project_σ s1_plus_s2 := .none
+  project_ε s2 es2 := ()
 
 
 
@@ -267,6 +281,7 @@ instance (δ: Dialect α σ ε): CoeDialect δ δ where
    intros s;
    simp;
   }
+  rev_proj := inferInstance
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
     CoeDialect δ₁ (δ₁ + δ₂) where
@@ -277,6 +292,7 @@ instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
    intros s;
    simp;
   }
+  rev_proj := inferInstance
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
     CoeDialect δ₂ (δ₁ + δ₂) where
@@ -287,6 +303,7 @@ instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
    intros s;
    simp;
   }
+  rev_proj := inferInstance
 
 instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
   coe_α a := nomatch a
@@ -296,3 +313,4 @@ instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
    intros s;
    exact (nomatch s);
   }
+  rev_proj := inferInstance
