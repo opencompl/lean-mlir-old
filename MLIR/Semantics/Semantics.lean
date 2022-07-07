@@ -80,7 +80,7 @@ class Semantics (δ: Dialect α σ ε) where
   -- part of δ.
   -- TODO: make sure this coercion is from the dialect dependencies into Δ.
   -- TODO: The dialect dependencies will be δ, plus whatever dialects δ depends on.
-  semantics_op [CoeDialect builtin Δ]:
+  semantics_op [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]:
     IOp Δ →
     Option (Fitree (RegionE Δ +' UBE +' E) (BlockResult Δ))
 
@@ -96,7 +96,7 @@ class Semantics (δ: Dialect α σ ε) where
 -- The memory of a smaller dialect can be injected into a larger one.
 
 mutual
-variable (Δ: Dialect α' σ' ε') [S: Semantics Δ] [CoeDialect builtin Δ]
+variable (Δ: Dialect α' σ' ε') [S: Semantics Δ] [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]
 
 def denoteOp (op: Op Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
@@ -200,7 +200,7 @@ instance
 
 
 def semanticsRegionRec
-    [S: Semantics Δ] [CoeDialect builtin Δ]
+    [S: Semantics Δ] [CoeDialect builtin Δ] [DialectProjection Δ builtin]
     (fuel: Nat) (r: Region Δ) (bb: BasicBlock Δ) (entryArgs: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match fuel with
@@ -217,7 +217,7 @@ def semanticsRegionRec
 
 -- TODO: Pass region arguments
 -- TODO: Forward region's return type and value
-def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ] [CoeDialect builtin Δ]
+def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ] [CoeDialect builtin Δ] [DialectProjection Δ builtin]
     (fuel: Nat) (r: Region Δ) (entryArgs: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) Unit := do
   let _ ← semanticsRegionRec fuel r (r.bbs.get! 0) entryArgs
@@ -258,15 +258,15 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
-instance (δ: Dialect α σ ε) [Semantics δ] [CoeDialect builtin δ]: Denote δ Op where
+instance (δ: Dialect α σ ε) [Semantics δ] [DialectProjection δ builtin] [CoeDialect builtin δ]: Denote δ Op where
   denote op := denoteOp δ op
 
-instance (δ: Dialect α σ ε) [Semantics δ] [CoeDialect builtin δ]: Denote δ BasicBlockStmt where
+instance (δ: Dialect α σ ε) [Semantics δ] [DialectProjection δ builtin] [CoeDialect builtin δ]: Denote δ BasicBlockStmt where
   denote bbstmt := denoteBBStmt δ bbstmt
 
 -- TODO: this a pretty big back tbh, because we assume
 -- that a BB has no args.
-instance (δ: Dialect α σ ε) [Semantics δ] [CoeDialect builtin δ]: Denote δ BasicBlock where
+instance (δ: Dialect α σ ε) [Semantics δ] [DialectProjection δ builtin]  [CoeDialect builtin δ]: Denote δ BasicBlock where
   denote bb := denoteBB δ bb (args := [])
 
 

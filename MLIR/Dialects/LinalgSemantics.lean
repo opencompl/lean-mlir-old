@@ -176,44 +176,4 @@ instance: Semantics Linalg where
   semantics_op := linalg_semantics_op
   handle T voidT := nomatch voidT
 
-/-
-### Basic examples
--/
 
-private def cst1: BasicBlock arith := [mlir_bb|
-  ^bb:
-    %true = "arith.constant" () {value = 1: i1}: () -> i1
-    %false = "arith.constant" () {value = 0: i1}: () -> i1
-    %r1 = "arith.constant" () {value = 25: i32}: () -> i32
-    %r2 = "arith.constant" () {value = 17: i32}: () -> i32
-    %r = "arith.addi" (%r1, %r2): (i32, i32) -> i32
-    %b1 = "arith.cmpi" (%r, %r1) {predicate = 5 /- sge -/}: (i32, i32) -> i1
-    %b2 = "arith.cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
-]
-
-#eval run ⟦cst1⟧ (SSAEnv.empty (δ := arith))
-
-
-/-
-### Theorems
--/
-
-private def add1: BasicBlockStmt arith := [mlir_bb_stmt|
-  %r = "arith.addi"(%n, %m): (i32, i32) -> i32
-]
-private def add2: BasicBlockStmt arith := [mlir_bb_stmt|
-  %r = "arith.addi"(%m, %n): (i32, i32) -> i32
-]
-
-theorem add_commutative:
-  forall (n m: FinInt 32),
-    run ⟦add1⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] =
-    run ⟦add2⟧ [[ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]] := by
-  intros n m
-  simp [Denote.denote]
-  simp [run, semantics_bbstmt, semantics_op!, Semantics.semantics_op]
-  simp [arith_semantics_op, Semantics.handle, add1, add2]
-  simp [interp_ub!]; simp_itree
-  simp [interp_ssa]; simp_itree
-  rw [FinInt.add_comm]
--/
