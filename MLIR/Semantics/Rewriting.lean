@@ -232,10 +232,17 @@ theorem interp_bind [Monad M] [LawfulMonad M] (h: E ~> M) (t: Fitree E A) (k: A 
   }
 }
 
-def opArgsFitree {Δ: Dialect α σ ε} [S: Semantics Δ] (args: List SSAVal) (τs: List (MLIRType Δ)) 
- : Fitree (UBE +' SSAEnvE Δ +' S.E) (List ((τ : MLIRType Δ) × MLIRType.eval τ))
+def opArgsFitree {Δ: Dialect α σ ε} (E) [Member (SSAEnvE Δ) E]
+  (args: List SSAVal) (τs: List (MLIRType Δ)) 
+ : Fitree E (List ((τ : MLIRType Δ) × MLIRType.eval τ))
    := ((List.zip args τs).mapM (fun (name, τ) => do
     return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩))
+
+def interp_ub_opArgsFitree {Δ: Dialect α σ ε} [S: Semantics Δ] (args: List SSAVal) (τs: List (MLIRType Δ)):
+  interp_ub (opArgsFitree (UBE +' SSAEnvE Δ +' S.E) args τs) =
+    opArgsFitree (SSAEnvE Δ +' S.E) args τs := by
+  sorry
+
 
 theorem run_preserves_env_set {δ: Dialect α σ ε} [Semantics δ] (stmt: BasicBlockStmt δ) (env env': SSAEnv δ) :
     ∀ r, run ⟦ stmt ⟧ env = (some r, env') →
@@ -261,7 +268,7 @@ theorem run_preserves_env_set {δ: Dialect α σ ε} [Semantics δ] (stmt: Basic
       simp_itree
       simp [interp_ub, interp_ssa, interp_state]
       rw [interp_bind]
-      sorry
+      sorry-- rw [interp_ub_opArgsFitree]
     -- UB case because type does not match. We have a contradiction
     . rename_i Hop
       revert HRun
@@ -448,6 +455,17 @@ theorem is_val_defined_add_cases :
   DomContext.isValDefined (DomContext.addVal ctx val' τ) val →
   val = val' ∨ DomContext.isValDefined ctx val := by sorry
 
+theorem run_op_env_invariant [S: Semantics δ] : 
+  (run (S := S) ⟦ BasicBlock.mk "" [] [BasicBlockStmt.StmtOp op] ⟧ env).snd = env := by sorry
+
+theorem run_stmt_assign_exists_val [S: Semantics δ] res ix op env : 
+  ∃ τ val, (run (S := S) ⟦ BasicBlock.mk "" [] [BasicBlockStmt.StmtAssign res ix op] ⟧ env).snd =
+    env.set res τ val := by sorry
+
+theorem run_bb_one_stmt [S: Semantics δ] stmt bbName :
+    run (S := S) ⟦BasicBlock.mk bbName [] [stmt]⟧ = run (S := S) ⟦stmt⟧ :=
+  by sorry
+
 theorem is_val_defined_add :
   DomContext.isValDefined ctx val →
   DomContext.isValDefined (DomContext.addVal ctx val' τ) val := by sorry
@@ -477,7 +495,10 @@ def main_theorem_stmt :
   ∀ ctx, (singleBBRegionStmtsObeySSA p ctx).isSome →
   ∀ (env: SSAEnv δ),
   recursiveContext ctx prog →
-  (∀ stmt, stmt ∈ prog → (getResName stmt).isSome → postSSAEnv stmt env) →
+  (∀ stmt, stmt ∈ prog →
+      ∀ val, getResName stmt = some val →
+      ctx.isValDefined val →
+      postSSAEnv stmt env) →
   (∀ stmt, stmt ∈ p → stmt ∈ prog) →
   ∀ resP, replaceOpInBBStmts origName resPat p = some resP →
   refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
@@ -586,9 +607,60 @@ def main_theorem_stmt :
         -- We prove that if we added an SSAValue in the context, then the defining
         -- operation had to execute it.
         specialize Hind (by
-          sorry
+          intros stmt HstmtInProg stmtName HstmtHasName HStmtInContext
+          
+          -- We have two cases, either the operation has no results, in which case the
+          -- context and environment haven't changed, or it has one, in which case only
+          -- a single SSAVal was added
+          cases head
+
+          -- op case, nothing was added
+          case StmtOp headOp =>
+            rw [run_op_env_invariant] at Henv'
+            subst env'
+            apply HCtx <;> (try rfl) <;> try assumption
+            rw [StmtOp_obeys_ssa_some_no_change] at HSSAHead
+            . simp at HSSAHead; subst ctx; assumption
+            . rw [HSSAHead]; rfl
+
+          -- stmt case, the result was added in the context
+          case StmtAssign headRes headIx headOp =>
+            -- First, we show that the new context is the old one, plus the operation result
+            have ⟨τ, Hτ, HSSAHead'⟩ := StmtAssign_obeys_ssa_some headRes headIx headOp ctx (by rw [HSSAHead]; rfl)
+            rw [HSSAHead] at HSSAHead'
+            simp at HSSAHead'
+            subst tailCtx
+
+            -- Then, we show that the environment is the previous environment,
+            -- with a new value in the operation result.
+            have ⟨headτ, headVal, Henv''⟩ := run_stmt_assign_exists_val headRes headIx headOp env
+            rw [Henv'] at Henv''
+            revert Henv'
+            subst env'
+            intros Henv'
+
+            -- We have two cases, either we are looking at the operation we just added,
+            -- or we are looking at the operations that were added before
+            cases is_val_defined_add_cases HStmtInContext
+            . -- We are looking at the operation result we just added in the context 
+              -- We first retrieve the fact that this is indeed the same operation
+              subst stmtName
+              have : stmt = BasicBlockStmt.StmtAssign headRes headIx headOp := by
+                apply eq_name_in_simple_prog_implies_eq <;> (try assumption)
+                . rw [HstmtHasName]; rfl
+                . apply HPInProg
+                  constructor
+              subst stmt
+
+              unfold postSSAEnv
+              exists env
+              apply And.intro
+              . sorry
+              . rw [run_bb_one_stmt] at Henv'
+                rw [Henv']
         )
 
+        -- We prove that the remaining operations are all in the program
         specialize Hind (by
           sorry
         )
@@ -655,7 +727,7 @@ def main_theorem_stmt :
           assumption
 
         -- Now that we know it is defined, we can apply our induction invariant
-        apply HCtx <;> try rfl
+        apply HCtx <;> (try rfl) <;> try assumption
         apply Hmatch
         apply List.mem_append_of_mem_left
         assumption
