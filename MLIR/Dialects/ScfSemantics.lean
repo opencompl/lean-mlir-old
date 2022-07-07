@@ -306,7 +306,20 @@ theorem   run_denoteOp_interp_region'
         simp [interp_ub, denoteOp_interp_region, denoteRegions];
 }
 
+theorem run_denoteOp_interp_region''
+  [Δ: Dialect α σ ε]
+  [S: Semantics Δ]
+  (denotes: List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)))
+  (run_ix: Nat)
+  (run_args: TypedArgs Δ)
+  (env: SSAEnv Δ):
+    run (interp (denoteOp_interp_region scf (denoteRegions scf [r])) (run_loop_bounded n 0 (BlockResult.Ret [])))
+      = rhs := by {
+          simp [denoteRegions];
+          simp [denoteOp_interp_region];
+          simp [List.get!];
 
+}
 
 
 
@@ -431,23 +444,22 @@ theorem CORRECT_r_commute_run_denoteOp_interp_region_SSAEnvE_get
 theorem equivalent: ∀ (n: Nat) (r: Region scf),
     (run (denoteRegion _ (LHS r) []) (INPUT n)) =
     (run (denoteRegion _ (RHS r) []) (INPUT n)) := by {
-  unfold INPUT, LHS, RHS;
+  unfold LHS, RHS;
   intros n;
   intros r;
   simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp];
   simp_itree;
   simp [Semantics.semantics_op];
   simp [scf_semantics_op];
-  apply run_fequal _ _ _ _ (0:Nat) (INPUT n);
-  . sorry
-  have h := CORRECT_r n r [⟨.index, 0⟩];
-  cases h; rename_i temp_br I_HATE_YOU;
-  simp [I_HATE_YOU];
+  rewrite [run_SSAEnvE_get (name := "c0") (τ := MLIRType.index) (v := 0)];
+  rewrite [run_SSAEnvE_get (name := "cn") (τ := MLIRType.index) (v := n)];
+
+  rewrite [run_SSAEnvE_get (name := "c0") (τ := MLIRType.index) (v := 0)];
   simp [denoteRegions];
   simp_itree;
   simp [Fitree_monad_right_identity];
   rewrite [CORRECT_r_commute_run_denoteOp_interp_region_SSAEnvE_get];
-  rewrite [run_SSAEnvE_get (name := "cn") (τ := MLIRType.index) (v := n)];
+
   rewrite [run_SSAEnvE_get (name := "c1") (τ := MLIRType.index) (v := 1)];
   rewrite [CORRECT_r_commute_run_denoteOp_interp_region_SSAEnvE_get];
   rewrite [run_SSAEnvE_get (name := "cn") (τ := MLIRType.index) (v := n)];
@@ -456,6 +468,8 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
   simp [run_bind];
   rewrite [run_denoteOp_interp_region'];
   simp [List.get!];
+  have h := CORRECT_r n r [⟨.index, 0⟩];
+  cases h; rename_i temp_br I_HATE_YOU;
   simp [I_HATE_YOU];
 
   simp [run_loop_bounded];
@@ -547,6 +561,24 @@ end FOR_PEELING
 
 namespace FOR_FUSION
 
+set_option pp.notation false in
+theorem interp_region_of_run_loop_bounded
+(r: Region scf)
+(n: ℕ)
+(rhs: Fitree (UBE +' SSAEnvE scf +' Semantics.E scf) (BlockResult scf)):
+   (interp (denoteOp_interp_region scf (denoteRegions scf [r])) (run_loop_bounded n 0 (BlockResult.Ret []))) = rhs := by {
+    induction n;
+    case zero => {
+      simp [run_loop_bounded];
+      simp [interp];
+      sorry
+    }
+    case succ n' => {
+      simp [run_loop_bounded];
+      simp [interp];
+      simp[List.cons];
+    }
+   }
 
 theorem LHS (r: Region scf): Region scf := [mlir_region|
 {
@@ -558,8 +590,18 @@ theorem LHS (r: Region scf): Region scf := [mlir_region|
 
 theorem RHS (r: Region scf): Region scf := [mlir_region|
 {
-  "scf.for'" (%c0, %cn_plus_m) ($(r)) : (index) -> ()
+  "scf.for'" (%c0, %cn_plus_m) ($(r)) : (index, index) -> ()
 }]
+
+def fitreeExpand (f: Fitree E R) (h: (T: Type) -> E T ->  Fitree F T): Fitree F R :=
+ match f with
+ | .Ret r => .Ret r
+ | .Vis e k => Fitree.bind (h _ e) (fun t => fitreeExpand (k t) h)
+
+/-
+theorem interp_of_fitree_is_bind {M} [Monad M] {E} (h: E ~>  Fitree F)
+    (f: Fitree E R): interp (h := h) f = Fitree.translate h f := by sorry
+-/
 
 theorem INPUT (n m: Nat): SSAEnv scf :=
     SSAEnv.One [⟨"cn", MLIRType.index, n⟩,
@@ -579,10 +621,12 @@ theorem equivalent (n m: Nat) (r: Region scf):
   rewrite [run_SSAEnvE_get (name := "cn") (τ := MLIRType.index) (v := n)];
   simp [Semantics.semantics_op];
   simp [scf_semantics_op];
-  simp [run_denoteOp_interp_region];
-  simp [run_bind];
-  simp [run_denoteOp_interp_region];
 
+  simp [run_bind]
+  simp [run_denoteOp_interp_region];
+  rewrite [run_SSAEnvE_get (name := "c0") (τ := MLIRType.index) (v := 0)];
+  rewrite [run_SSAEnvE_get (name := "cn_plus_m") (τ := MLIRType.index) (v := n + m)];
+  simp;
 }
 
 end FOR_FUSION
