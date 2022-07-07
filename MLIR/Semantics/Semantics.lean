@@ -9,6 +9,7 @@ which define the custom attributes and type required to model the programs.
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.UB
+import MLIR.Dialects.BuiltinModel
 import MLIR.AST
 open MLIR.AST
 
@@ -16,6 +17,7 @@ open MLIR.AST
 -- | Abbreviation with a typeclass context?
 @[simp]
 abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.eval τ)
+
 
 -- | TODO: throw error if we don't have enough names
 def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SSAEnvE Δ) PUnit :=
@@ -29,10 +31,8 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SS
         return ()
 
 
--- TODO: Consider changing BlockResult.Branch.args into
---       a TypedArgs (?)
 inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
-| Branch (bb: BBName) (args: List SSAVal)
+| Branch (bb: BBName) (args: List SSAVal) -- TODO: make this typed
 | Ret (rets:  TypedArgs δ)
 | Next (val: (τ: MLIRType δ) × τ.eval)
 
@@ -63,9 +63,9 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
-| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
+| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (TypedArgs Δ)
 
-class Semantics (δ: Dialect α σ ε)  where
+class Semantics (δ: Dialect α σ ε) where
   -- Events modeling the dialect's computational behavior. Usually operations
   -- are simply denoted by a trigger of such an event. This excludes, however,
   -- operations that have regions or otherwise call into other dialects, since
@@ -78,12 +78,14 @@ class Semantics (δ: Dialect α σ ε)  where
   -- any region calls then emits of event of E. This function runs on the
   -- program's entire dialect Δ but returns none for any operation that is not
   -- part of δ.
-  semantics_op:
+  -- TODO: make sure this coercion is from the dialect dependencies into Δ.
+  -- TODO: The dialect dependencies will be δ, plus whatever dialects δ depends on.
+  semantics_op [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]:
     IOp Δ →
     Option (Fitree (RegionE Δ +' UBE +' E) (BlockResult Δ))
 
   -- TODO: Allow a dialects' semantics to specify their terminators along with
-  -- TODO| their branching behavior, instead of hardcoding it for cf
+  -- TODO: their branching behavior, instead of hardcoding it for cf
 
   -- Event handler used when interpreting the operations and running programs.
   -- This is where most of the computational semantics take place.
@@ -94,18 +96,7 @@ class Semantics (δ: Dialect α σ ε)  where
 -- The memory of a smaller dialect can be injected into a larger one.
 
 mutual
-variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
-
-def denoteOp_interp_region
-    (regions: List <|
-      TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)):
-    RegionE Δ +' UBE +' Semantics.E Δ ~>
-    Fitree (UBE +' SSAEnvE Δ +' Semantics.E Δ) := fun _ e =>
-  match e with
-  | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs
-  | Sum.inr <| Sum.inl ube => Fitree.trigger ube
-  | Sum.inr <| Sum.inr se => Fitree.trigger se
-
+variable (Δ: Dialect α' σ' ε') [S: Semantics Δ] [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]
 
 def denoteOp (op: Op Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
@@ -123,13 +114,19 @@ def denoteOp (op: Op Δ):
       -- Use the dialect-provided semantics, and substitute regions
       match S.semantics_op iop with
       | some t =>
-          interp (denoteOp_interp_region regions) t
+          interp (fun _ e =>
+            match e with
+            | Sum.inl (RegionE.RunRegion i xs) =>
+                  regions.get! i xs
+            | Sum.inr <| Sum.inl ube => Fitree.trigger ube
+            | Sum.inr <| Sum.inr se => Fitree.trigger se
+          ) t
       | none => do
           Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
           return default
 
   | _ => do
-      Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}\nexpected fn type"
+      Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
       return .Next ⟨.unit, ()⟩
 
 def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
@@ -155,7 +152,7 @@ def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
       let _ ← denoteBBStmt stmt
       denoteBBStmts stmts
 
-def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
+def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) := do
   match bb with
   | BasicBlock.mk name formalArgsAndTypes stmts =>
@@ -166,23 +163,26 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
      denoteBBStmts stmts
 
 def denoteRegions (rs: List (Region Δ)):
-    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)) :=
+    List (TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (TypedArgs Δ)) :=
  match rs with
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
 def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
-    Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
+    Fitree (UBE +' SSAEnvE Δ +' S.E) (TypedArgs Δ) := do
   -- We only define semantics for single-basic-block regions
-  -- Furthermore, we tacticly assume that the region that we run will
-  -- return a `BlockResult.Ret`, since we don't bother handling
-  -- `BlockResult.Branch`.
+  -- TODO: Pass region arguments
+  -- TODO: Forward region's return type and value
   match r with
   | .mk [bb] =>
-      denoteBB bb args
+      match (<- denoteBB bb args) with
+      | BlockResult.Ret rets => return rets
+      | _ => do
+        Fitree.trigger (UBE.DebugUB s!"invalid denote BB (expected to return)")
+        return []
   | _ => do
       Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}")
-      return BlockResult.Next ⟨.unit, ()⟩
+      return []
 end
 
 instance
@@ -200,7 +200,7 @@ instance
 
 
 def semanticsRegionRec
-    [S: Semantics Δ]
+    [S: Semantics Δ] [CoeDialect builtin Δ] [DialectProjection Δ builtin]
     (fuel: Nat) (r: Region Δ) (bb: BasicBlock Δ) (entryArgs: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   match fuel with
@@ -208,6 +208,7 @@ def semanticsRegionRec
   | fuel' + 1 => do
       match ← denoteBB Δ bb entryArgs with
         | .Branch bbname args =>
+            -- TODO: Pass the block arguments
             match r.getBasicBlock bbname with
             | some bb' => semanticsRegionRec fuel' r bb' []
             | none => return .Next ⟨.unit, ()⟩
@@ -216,7 +217,7 @@ def semanticsRegionRec
 
 -- TODO: Pass region arguments
 -- TODO: Forward region's return type and value
-def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ]
+def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ] [CoeDialect builtin Δ] [DialectProjection Δ builtin]
     (fuel: Nat) (r: Region Δ) (entryArgs: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) Unit := do
   let _ ← semanticsRegionRec fuel r (r.bbs.get! 0) entryArgs
@@ -246,6 +247,7 @@ def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
   let t := interp S.handle t
   t.run
 
+
 /-
 ### Denotation notation
 -/
@@ -256,17 +258,16 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
+instance (δ: Dialect α σ ε) [Semantics δ] [DialectProjection δ builtin] [CoeDialect builtin δ]: Denote δ Op where
   denote op := denoteOp δ op
 
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
+instance (δ: Dialect α σ ε) [Semantics δ] [DialectProjection δ builtin] [CoeDialect builtin δ]: Denote δ BasicBlockStmt where
   denote bbstmt := denoteBBStmt δ bbstmt
 
--- TODO: this a small hack, because we assume
--- that when we call `denote`, BB has no args.
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
+-- TODO: this a pretty big back tbh, because we assume
+-- that a BB has no args.
+instance (δ: Dialect α σ ε) [Semantics δ] [DialectProjection δ builtin]  [CoeDialect builtin δ]: Denote δ BasicBlock where
   denote bb := denoteBB δ bb (args := [])
 
 
 -- Not for regions because we need to specify the fuel
-
