@@ -23,6 +23,12 @@ open MLIR.AST
 `linalg` has no extended types or attributes.
 -/
 
+@[inline]
+def Matrix n m τ :=
+  RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
+
+
+
 instance linalg: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
@@ -82,9 +88,6 @@ def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
 def MLIRTy_eval_equal_after_coe [Δ: Dialect α σ ε] (τ: MLIRTy):
     τ.eval = (coeMLIRType (c := CoeDialectEmpty (δ := Δ)) τ).eval := sorry
 
-#check MLIRType.eval
-def Matrix n m τ :=
-  RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
 
 
 -- TODO: how do I write the semantics for this in a way that
@@ -99,9 +102,9 @@ def linalg_parallel_iter [Δ: Dialect α σ ε]
   | .some data => do
         let out <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
                 -- TODO, @lephe: please check that my theorem is correct!
-                   (args := [⟨ τ,  data ⟩]))
+                   (args := [⟨ τ, MLIRTy_eval_equal_after_coe τ ▸ data ⟩]))
         match out with
-        | [⟨ σ, v ⟩] =>  return (if H: σ = τ then  .some _ else .none)
+        | [⟨ σ, v ⟩] =>  return (if H: σ = τ then  .some (MLIRTy_eval_equal_after_coe τ ▸ (H ▸ v)) else .none)
         | _ => return .none
   | .none => do
       Fitree.trigger (UBE.DebugUB "unable to access tensor data")
@@ -116,10 +119,13 @@ def collectOutputsIntoTensorData [δ: Dialect α σ ε]
                | [⟨τ', v⟩] => if H: τ = τ' then [] else []
                | _ => []
 
-def collectOutputsIntoTensor [δ: Dialect α σ ε]
-  (shape: Nat)
-  (τ: MLIRTy) (argss: List (TypedArgs δ)): Tensor τ :=
-  Tensor.mk [shape]  (collectOutputsIntoTensorData τ argss) sorry
+-- This is haskell's `traverse: (Traversable t, Applicative f) => t (f a) -> f (t a)`
+-- specialize for `t = List`, `f = Option`
+def list_option_to_option_list (xs: List (Option α)): Option (List α) :=
+  match xs with
+  | [] => .some []
+  | (.some x)::xs =>  (list_option_to_option_list xs).map (fun xs' => x::xs' )
+  | .none::xs => .none
 
 #check RankedTensor.mk
 def linalg_parallel_all_iters
@@ -129,13 +135,22 @@ def linalg_parallel_all_iters
    (size: Nat):
      Fitree ((RegionE Δ) +' UBE +' LinalgE)
             (TypedArgs Δ) := do
-  let ixs := List.range size
-  let outValues <- ixs.mapM (linalg_parallel_iter d1 d2 inTensor)
-  let t : Tensor τ:= { inTensor.toTensor with data := outValues }
-  return [⟨builtin.tensor_unranked τ,
+  -- | TODO: Yeesh, we gotta worry about List.bind.
+  let ixs : List (Nat × Nat) := (List.range d1).bind (fun ix1 => (List.range d2).map (fun ix2 => (ix1, ix2)))
+  let outValues <- ixs.mapM (fun ix2d => linalg_parallel_iter d1 d2 inTensor ix2d.fst ix2d.snd)
+  let outValues := list_option_to_option_list outValues
+  match outValues with
+  | .some outValues =>
+        -- | TODO:
+        let t : Tensor τ:= { inTensor.toTensor with data := outValues, h_data_size := sorry }
+        return [⟨builtin.tensor_unranked τ,
            (coe_type_eval_eq (builtin.tensor_unranked τ)) ▸
             RankedTensor.mk
             collectOutputsIntoTensor size τ outValues⟩]
+
+  | .none => do
+      Fitree.trigger $ UBE.DebugUB "RankedTensor: unable to produce output args."
+      return []
 
 
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
