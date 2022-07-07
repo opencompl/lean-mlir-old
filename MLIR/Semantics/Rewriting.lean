@@ -344,6 +344,26 @@ def eqStmt (stmt stmt': BasicBlockStmt δ) : Bool :=
   | .StmtAssign res _ _, .StmtAssign res' _ _ => res == res'
   | _, _ => false
 
+def isUse {δ: Dialect α σ ε} (stmt user: BasicBlockStmt δ) :=
+  match getResName stmt with
+  | none => false
+  | some res => res ∈ (getOp user).args
+
+inductive DefChain (prog: List (BasicBlockStmt δ)) : BasicBlockStmt δ → BasicBlockStmt δ → Prop :=
+  | UCOne (stmt user: BasicBlockStmt δ) :
+      isUse stmt user → DefChain prog stmt user
+  | UCTrans (stmt stmt' user: BasicBlockStmt δ) :
+      DefChain prog stmt stmt' → DefChain prog stmt' user → DefChain prog stmt user
+
+theorem def_chain_implies_result (prog: List (BasicBlockStmt δ)) stmt user :
+    DefChain prog stmt user → ∃ res ix op, stmt = BasicBlockStmt.StmtAssign res ix op := by
+  sorry
+
+theorem def_chain_in_match (matchProg: List (BasicBlockStmt δ)) :
+    ∀ prog, (∀ stmt, stmt ∈ matchProg → stmt ∈ prog) →
+    ∀ stmt user, DefChain matchProg stmt user → DefChain prog stmt user := by
+  sorry
+
 def isRootedBy (stmt: BasicBlockStmt δ) (prog: List (BasicBlockStmt δ))
                (root: BasicBlockStmt δ) 
                (fuel: Nat) : Bool :=
@@ -372,19 +392,12 @@ abbrev recursiveContext (ctx: DomContext δ) (p: List (BasicBlockStmt δ)) : Pro
     ∀ operand, operand ∈ (getOp op).args →
     ctx.isValDefined operand)
 
-theorem isRootedBy_implies_isValDefined :
-    ∀ (p: List (BasicBlockStmt δ)) (ctx: DomContext δ),
-    recursiveContext ctx p →
-    ∀ stmt, stmt ∈ p →
-    ∀ resName, getResName stmt = some resName →
-    ∀ root, root ∈ p →
-    (∀ val, val ∈ (getOp root).args → ctx.isValDefined val) →
-    ∀ fuel, isRootedBy stmt p root fuel →
-    ctx.isValDefined resName := by
-  intros p ctx HRecCtx stmt HStmtInP resName HResName root HRoot HRootOperands fuel
-  revert root resName stmt
-  induction fuel <;> try (intros; contradiction)
-  intros stmt HStmtInP resName HResName root HRoot HRootOperands HRooted
+theorem def_chain_rec_ctx_implies_is_defined
+    (ctx: DomContext δ) (prog: List (BasicBlockStmt δ)) (HCtx: recursiveContext ctx prog)
+    (stmt root: BasicBlockStmt δ) :
+    DefChain prog stmt root →
+    (∀ operand, operand ∈ (getOp root).args → ctx.isValDefined operand) →
+    ∃ res, getResName stmt = some res ∧ ctx.isValDefined res := by
   sorry
 
 theorem eq_name_in_simple_prog_implies_eq {δ: Dialect δα δσ δε}:
@@ -421,13 +434,22 @@ def noBBRegionsOrAttr (stmt: BasicBlockStmt δ) : Bool :=
   | .StmtAssign _ _ (Op.mk _ _ [] [] (AttrDict.mk []) _) => true
   | _ => false
 
+theorem is_stmt_ssa_implies_operands_in_ctx :
+  (singleBBRegionStmtObeySSA stmt ctx).isSome →
+  ∀ operand, operand ∈ (getOp stmt).args → 
+  ctx.isValDefined operand := by sorry
+
+theorem is_cons_stmts_ssa_implies_is_head_ssa :
+  (singleBBRegionStmtsObeySSA (head::tail) ctx).isSome →
+  (singleBBRegionStmtObeySSA head ctx).isSome := by sorry
+
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
          (headPat : List (BasicBlockStmt δ))
          (originPat: BasicBlockStmt δ)
          (resPat: List (BasicBlockStmt δ))
-         (HRoot: allRootedToLast (headPat ++ [originPat]))
+         (HRoot: ∀ stmt, stmt ∈ headPat → DefChain (headPat ++ [originPat]) stmt originPat)
          (ctxPat: DomContext δ)
          (HPatOrigSSA: (singleBBRegionStmtsObeySSA (headPat ++ [originPat]) ctxPat).isSome)
          (HPatResSSA: (singleBBRegionStmtsObeySSA (headPat ++ resPat) ctxPat).isSome)
@@ -436,7 +458,7 @@ variable (δ: Dialect δα δσ δε)
          (origName: SSAVal)
          (HOrigName: getResName originPat = some origName)
          (prog: List (BasicBlockStmt δ))
-         (HProgSSA: Option.isSome (singleBBRegionStmtsObeySSA prog (One [[]])))
+         (HProgSSA: (singleBBRegionStmtsObeySSA prog []).isSome)
          (Hmatch: ∀ stmt, stmt ∈ (headPat ++ [originPat]) → stmt ∈ prog)
          (HSimplePatProg: stmtsHaveNoRegions prog)
 
@@ -447,7 +469,7 @@ def main_theorem_stmt :
   ∀ ctx, (singleBBRegionStmtsObeySSA p ctx).isSome →
   ∀ (env: SSAEnv δ),
   recursiveContext ctx prog →
-  (∀ val, ctx.isValDefined val → ∃ op, op ∈ prog ∧ getResName op = some val ∧ postSSAEnv op env) →
+  (∀ stmt, stmt ∈ prog → (getResName stmt).isSome → postSSAEnv stmt env) →
   (∀ stmt, stmt ∈ p → stmt ∈ prog) →
   ∀ resP, replaceOpInBBStmts origName resPat p = some resP →
   refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
@@ -581,10 +603,29 @@ def main_theorem_stmt :
         rw [postSSAEnvList.equiv_all]
         intros stmt HStmtInPat
 
-        -- We prove that the statements from the match sections are in the dominance context
-        have HHeadInCtx : DomContext.isValDefined ctx origName := by sorry
-
+        -- We now need to prove that one of the original match statement has been executed.
+        -- For that, we first need to prove that this statement is in the def chain
+        specialize HRoot _ HStmtInPat
+        have HStmtDefChain := def_chain_in_match _ _ (by assumption) _ _ (by assumption)
         
 
-        sorry
+        -- We then need to prove that this means that the statement result is defined
+        have ⟨sRes, sIx, sOp, _⟩ := def_chain_implies_result _ _ _ HStmtDefChain
+        subst stmt
+        have HResInCtx : ctx.isValDefined sRes := by
+          have HSSAHead := is_cons_stmts_ssa_implies_is_head_ssa HSSA
+          
+          have Hdef := def_chain_rec_ctx_implies_is_defined _ _ (by assumption) _ _ HStmtDefChain
+              (by apply is_stmt_ssa_implies_operands_in_ctx; assumption)
+          have ⟨sRes', HsRes', _⟩ := Hdef
+          simp [getResName] at HsRes'
+          subst sRes
+          assumption
+
+        -- Now that we know it is defined, we can apply our induction invariant
+        apply HCtx <;> try rfl
+        apply Hmatch
+        apply List.mem_append_of_mem_left
+        assumption
+
 end MainTheorem
