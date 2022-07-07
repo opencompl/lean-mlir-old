@@ -45,8 +45,8 @@ def run_loop_bounded
   match n with
   | 0 => return start
   | .succ n' => do
-    let new <- Fitree.trigger (RegionE.RunRegion 0 [⟨MLIRType.index, ix⟩])
-    run_loop_bounded n' (ix + 1) new
+    let (_: BlockResult Δ) <- Fitree.trigger (RegionE.RunRegion 0 [⟨MLIRType.index, ix⟩])
+    run_loop_bounded n' (ix + 1) (BlockResult.Ret [])
 
 
 -- | TODO: refactor to (1) an effect, (2) an interpretation
@@ -441,12 +441,34 @@ theorem CORRECT_r_commute_run_denoteOp_interp_region_SSAEnvE_get
       simp [CORRECT_r];
   }
 
-theorem equivalent: ∀ (n: Nat) (r: Region scf),
+/-
+
+-- | TODO: make this model the `yield` as well.
+def run_loop_bounded
+  (n: Nat)
+  (ix: Nat)
+  (start: BlockResult Δ):
+    Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do
+  match n with
+  | 0 => return start
+  | .succ n' => do
+    let new <- Fitree.trigger (RegionE.RunRegion 0 [⟨MLIRType.index, ix⟩])
+    run_loop_bounded n' (ix + 1) new
+-/
+
+theorem peel_run_loop_bounded {n ix: Nat} (start: BlockResult Δ):
+    run_loop_bounded (n+1) ix start =
+    bind (Fitree.trigger (RegionE.RunRegion 0 [⟨.index, ix⟩]))
+      (fun (_: BlockResult Δ) =>
+        run_loop_bounded n (ix+1) (BlockResult.Ret [])) := by
+  simp [run_loop_bounded]
+
+theorem equivalent: ∀ (n m: Nat) (r: Region scf),
+    n = Nat.succ m →
     (run (denoteRegion _ (LHS r) []) (INPUT n)) =
     (run (denoteRegion _ (RHS r) []) (INPUT n)) := by {
   unfold LHS, RHS;
-  intros n;
-  intros r;
+  intros n m r h_n_m;
   simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp];
   simp_itree;
   simp [Semantics.semantics_op];
@@ -463,17 +485,10 @@ theorem equivalent: ∀ (n: Nat) (r: Region scf),
   rewrite [run_SSAEnvE_get (name := "c1") (τ := MLIRType.index) (v := 1)];
   rewrite [CORRECT_r_commute_run_denoteOp_interp_region_SSAEnvE_get];
   rewrite [run_SSAEnvE_get (name := "cn") (τ := MLIRType.index) (v := n)];
-  have ARITH : n + 1 - 1 = n := by sorry
-  simp [ARITH];
-  simp [run_bind];
-  rewrite [run_denoteOp_interp_region'];
-  simp [List.get!];
-  have h := CORRECT_r n r [⟨.index, 0⟩];
-  cases h; rename_i temp_br I_HATE_YOU;
-  simp [I_HATE_YOU];
 
-  simp [run_loop_bounded];
-  simp [run_denoteOp_interp_region'];
+  simp [h_n_m, (by sorry: Nat.succ m - 1 = m)];
+  rw [peel_run_loop_bounded];
+  simp_itree;
 
   /-
   rewrite [run_denoteOp_interp_region'];
