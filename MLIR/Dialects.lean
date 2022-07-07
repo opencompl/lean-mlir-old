@@ -189,6 +189,50 @@ class DialectProjection (δlarge: Dialect α₁ σ₁ ε₁) (δsmall: Dialect �
   project_σ: σ₁ → Option σ₂
   project_ε: ∀ (s₁: σ₁), ε₁ s₁ → (project_σ s₁).casesOn (motive := fun _ => Type) Unit ε₂
 
+
+/-
+def project_ε (δ: Dialect α σ ε) 
+     (s: σ) (es: ε s): (some s).casesOn (motive := fun _ => Type) Unit ε := by {
+  simp;
+  exact es;
+}
+-/
+
+
+instance ReflProjection (δ: Dialect α σ ε): DialectProjection δ δ where 
+  project_α := .some
+  project_σ := .some
+  project_ε s₁ es₁ := es₁
+
+#print ReflProjection
+
+
+instance LeftProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂): DialectProjection (δ₁ + δ₂) δ₁ where
+  project_α a1_plus_a2 :=
+     match a1_plus_a2 with 
+      | .inl a1 => .some a1
+      | .inr a2 => .none
+
+  project_σ s1_plus_s2:= 
+      match s1_plus_s2 with 
+      | .inl s1 => .some s1
+      | .inr s2 => .none
+
+  project_ε s2 es2 := 
+      match s2 with 
+       | .inl s2l => es2
+       | .inr s2r => ()
+
+
+
+
+
+
+
+
+
+
+
 /-
 ### Coercions of dialects
 
@@ -203,15 +247,17 @@ class CoeDialect (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ 
   -- ε₁ s = ε₂ (CoeDialect.coe_σ δ₁ δ₂ s)
   coe_ε: forall (s₁: σ₁), ε₁ s₁ → ε₂ (coe_σ s₁)
   coe_ε_well_defined: ε₁ s = ε₂ (coe_σ s)
-
-  -- rev_proj: DialectProjection δ₂ δ₁
+  rev_proj: DialectProjection δ₂ δ₁
 
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
   Coe α₁ α₂ where coe := c.coe_α
+
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
   Coe σ₁ σ₂ where coe := c.coe_σ
+
 instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂] s:
   Coe (ε₁ s) (ε₂ /-coe-/s) where coe := c.coe_ε s
+
 
 instance (δ: Dialect α σ ε): CoeDialect δ δ where
   coe_α := id
