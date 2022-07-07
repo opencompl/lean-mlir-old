@@ -16,11 +16,11 @@ import MLIR.Examples.EndToEndDiff
 import MLIR.Examples.SemanticsTests
 
 -- Testing imports for semantics
-import MLIR.Dialects.ToySemantics
-import MLIR.Dialects.PDLSemantics
-import MLIR.Dialects.ControlFlowSemantics
-import MLIR.Dialects.ScfSemantics
-import MLIR.Dialects.ArithSemantics
+-- import MLIR.Dialects.ToySemantics
+-- import MLIR.Dialects.PDLSemantics
+-- import MLIR.Dialects.ControlFlowSemantics
+import MLIR.Dialects.LinalgSemantics
+-- import MLIR.Dialects.ArithSemantics
 
 open MLIR.MLIRParser
 open MLIR.P
@@ -40,24 +40,24 @@ def main (xs: List String): IO UInt32 := do
     main_end_to_end_lz
     main_end_to_end_diff
     return 0
-  else if xs == ["--run-semantic-tests"] then
-    let b ← SemanticsTests.runAllTests
-    return (if b then 0 else 1)
-  else if xs.length == 2 && xs.head! == "--extract-semantic-tests" then
-    SemanticsTests.allTests.forM fun t => do
-      let (SemanticsTests.Test.mk S name r) := t
-      let τv: MLIRType (S + cf) := .fn (.tuple []) (.tuple [])
-      let τi: MLIRType (S + cf) := .fn (.tuple []) (.tuple [.i32])
-      let fn: Op (S + cf) := .mk "func.func" [] [] [r]
-        (.mk [.mk "sym_name" $ .str "main",
-              .mk "function_type" $ .type τi]) τv
-      let bb: BasicBlock (S + cf) := .mk "entry" [] [.StmtOp fn]
-      let m: Op (S + cf) := .mk "builtin.module" [] [] [.mk [bb]] .empty τv
-      let out_folder := xs.drop 1 |>.head!
-      IO.println s!"extracting {out_folder}/{name}..."
-      let code := layout80col $ Pretty.doc m
-      FS.writeFile s!"{out_folder}/{name}" code
-    return 0
+  -- else if xs == ["--run-semantic-tests"] then
+  --   let b ← SemanticsTests.runAllTests
+  --   return (if b then 0 else 1)
+  -- else if xs.length == 2 && xs.head! == "--extract-semantic-tests" then
+  --   SemanticsTests.allTests.forM fun t => do
+  --     let (SemanticsTests.Test.mk S name r) := t
+  --     let τv: MLIRType (S + cf) := .fn (.tuple []) (.tuple [])
+  --     let τi: MLIRType (S + cf) := .fn (.tuple []) (.tuple [.i32])
+  --     let fn: Op (S + cf) := .mk "func.func" [] [] [r]
+  --       (.mk [.mk "sym_name" $ .str "main",
+  --             .mk "function_type" $ .type τi]) τv
+  --     let bb: BasicBlock (S + cf) := .mk "entry" [] [.StmtOp fn]
+  --     let m: Op (S + cf) := .mk "builtin.module" [] [] [.mk [bb]] .empty τv
+  --     let out_folder := xs.drop 1 |>.head!
+  --     IO.println s!"extracting {out_folder}/{name}..."
+  --     let code := layout80col $ Pretty.doc m
+  --     FS.writeFile s!"{out_folder}/{name}" code
+  --   return 0
   else
     -- let path : System.FilePath :=  xs.head!
     let path :=  xs.head!
