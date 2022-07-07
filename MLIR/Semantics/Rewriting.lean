@@ -169,10 +169,14 @@ def splitHeadTail (l: List T) : Option (List T × T) :=
              | none => none
 
 def postSSAEnv [Semantics δ] (op: BasicBlockStmt δ) (env: SSAEnv δ) : Prop :=
-  ∃ env', (run ⟦op⟧ env').snd = env
+  ∃ env', (run ⟦op⟧ env').fst.isSome ∧ (run ⟦op⟧ env').snd = env
 
 def postSSAEnvList [Semantics δ] (op: List (BasicBlockStmt δ)) (env: SSAEnv δ) : Prop :=
   ∃ env', (run ⟦BasicBlock.mk "" [] op⟧ env').snd = env
+
+def postSSAEnvList.equiv_all [Semantics δ] (stmts: List (BasicBlockStmt δ)) (env: SSAEnv δ) :
+    postSSAEnvList stmts env ↔ (∀ stmt, stmt ∈ stmts → postSSAEnv stmt env) := by
+  sorry
 
 def getResName (stmt: BasicBlockStmt δ) : Option SSAVal :=
   match stmt with
@@ -298,20 +302,26 @@ theorem preserves_refinement [Semantics δ] (bb: BasicBlock δ):
     refinement (run ⟦bb⟧ env) (run ⟦bb⟧ env') := by
   sorry
 
+def refinement_head_same_tail [S: Semantics δ] (env: SSAEnv δ): 
+  refinement 
+    (run ⟦ BasicBlock.mk "" [] head ⟧ env)
+    (run ⟦ BasicBlock.mk "" [] newHead ⟧ env) →
+  refinement 
+    (run ⟦ BasicBlock.mk "" [] (head ++ tail) ⟧ env)
+    (run ⟦ BasicBlock.mk "" [] (newHead ++ tail) ⟧ env) := by
+  sorry
+
+
 def run_split_head_tail [S: Semantics δ] :
   ∀ (pHead pTail) (env: SSAEnv δ), (run ⟦BasicBlock.mk "" [] (pHead ++ pTail)⟧ env) = 
     (run ⟦BasicBlock.mk "" [] pTail⟧ (run ⟦BasicBlock.mk "" [] pHead⟧ env).snd) := sorry
 
-def rewrite_equivalent_precondition_rewrite [S: Semantics δ] (mHead: List (MTerm δ))
-    (mTail: MTerm δ) (mNewTail: List (MTerm δ)) (σ: VarCtx δ) :
-  ∀ headProg, MTerm.concretizeProg mHead σ = some headProg →
-  ∀ originProg, MTerm.concretizeProg [mTail] σ = some originProg →
-  ∀ resProg, MTerm.concretizeProg mNewTail σ = some resProg →
+def rewrite_equivalent_precondition_rewrite [S: Semantics δ] :
   (∀ (env: SSAEnv δ), 
-    refinement (run ⟦BasicBlock.mk "" [] (headProg ++ originProg)⟧ env)
+    refinement (run ⟦BasicBlock.mk "" [] (headProg ++ [originProg])⟧ env)
                (run ⟦BasicBlock.mk "" [] (headProg ++ resProg)⟧ env)) -> 
   ∀ env, postSSAEnvList headProg env ->
-    refinement (run ⟦BasicBlock.mk "" [] originProg⟧ env)
+    refinement (run ⟦BasicBlock.mk "" [] [originProg]⟧ env)
                (run ⟦BasicBlock.mk "" [] resProg⟧ env) := by sorry
 
 theorem no_regions_implies_no_replace (stmt: BasicBlockStmt δ) :
@@ -377,6 +387,15 @@ theorem isRootedBy_implies_isValDefined :
   intros stmt HStmtInP resName HResName root HRoot HRootOperands HRooted
   sorry
 
+theorem eq_name_in_simple_prog_implies_eq {δ: Dialect δα δσ δε}:
+  ∀ (stmt: BasicBlockStmt δ), (getResName stmt).isSome →
+  ∀ stmt', getResName stmt = getResName stmt' →
+  ∀ prog, stmt ∈ prog →
+  stmt' ∈ prog →
+  ∀ ctx, (singleBBRegionStmtsObeySSA prog ctx).isSome →
+  stmtsHaveNoRegions prog →
+  stmt = stmt' := by sorry
+
 theorem StmtOp_obeys_ssa_some_no_change (headOp: Op δ) (ctx: DomContext δ):
     (singleBBRegionStmtObeySSA (BasicBlockStmt.StmtOp headOp) ctx).isSome →
     singleBBRegionStmtObeySSA (BasicBlockStmt.StmtOp headOp) ctx = some ctx := by
@@ -396,6 +415,12 @@ theorem StmtAssign_obeys_ssa_some (res: SSAVal) ix (op: Op δ) (ctx: DomContext 
     ∃ τ, opGetResType op = some τ ∧
          singleBBRegionStmtObeySSA (BasicBlockStmt.StmtAssign res ix op) ctx = some (ctx.addVal res τ):= by sorry
 
+def noBBRegionsOrAttr (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt with
+  | .StmtOp (Op.mk _ _ [] [] (AttrDict.mk []) _) => true
+  | .StmtAssign _ _ (Op.mk _ _ [] [] (AttrDict.mk []) _) => true
+  | _ => false
+
 section MainTheorem
 variable (δ: Dialect δα δσ δε)
          [S: Semantics δ]
@@ -403,12 +428,17 @@ variable (δ: Dialect δα δσ δε)
          (originPat: BasicBlockStmt δ)
          (resPat: List (BasicBlockStmt δ))
          (HRoot: allRootedToLast (headPat ++ [originPat]))
+         (ctxPat: DomContext δ)
+         (HPatOrigSSA: (singleBBRegionStmtsObeySSA (headPat ++ [originPat]) ctxPat).isSome)
+         (HPatResSSA: (singleBBRegionStmtsObeySSA (headPat ++ resPat) ctxPat).isSome)
          (HRef: (∀ env, refinement (run ⟦BasicBlock.mk "" [] (headPat ++ [originPat])⟧ env)
                                    (run ⟦BasicBlock.mk "" [] (headPat ++ resPat)⟧ env)))
-         (origName: String)
+         (origName: SSAVal)
          (HOrigName: getResName originPat = some origName)
          (prog: List (BasicBlockStmt δ))
-         (Hmatch: (headPat ++ [originPat]).all (fun op => isOpInBBStmts op prog))
+         (HProgSSA: Option.isSome (singleBBRegionStmtsObeySSA prog (One [[]])))
+         (Hmatch: ∀ stmt, stmt ∈ (headPat ++ [originPat]) → stmt ∈ prog)
+         (HSimplePatProg: stmtsHaveNoRegions prog)
 
 
 def main_theorem_stmt :
@@ -417,10 +447,9 @@ def main_theorem_stmt :
   ∀ ctx, (singleBBRegionStmtsObeySSA p ctx).isSome →
   ∀ (env: SSAEnv δ),
   recursiveContext ctx prog →
-  (∀ val, ctx.isValDefined val →
-      ∀ op, getDefiningOpInBBStmts val prog = some op →
-        postSSAEnv op env) →
-  ∀ resP, replaceOpInBBStmts headName resPat p = some resP →
+  (∀ val, ctx.isValDefined val → ∃ op, op ∈ prog ∧ getResName op = some val ∧ postSSAEnv op env) →
+  (∀ stmt, stmt ∈ p → stmt ∈ prog) →
+  ∀ resP, replaceOpInBBStmts origName resPat p = some resP →
   refinement (run ⟦BasicBlock.mk "" [] p⟧ env) 
              (run ⟦BasicBlock.mk "" [] resP⟧ env)
   := by
@@ -430,22 +459,22 @@ def main_theorem_stmt :
     case nil =>
       -- The base case is easy, we couldn't find the operation in the program,
       -- thus we have a contradiction
-      intros _ _ _ _ _ _ resP HresP
+      intros _ _ _ _ _ _ _ resP HresP
       simp [replaceOpInBBStmts] at HresP
     
     -- Induction case
     case cons head tail Hind =>
-      intros HNoRegions ctx HSSA env HCtx HCtxRec resP HresP
+      intros HNoRegions ctx HSSA env HCtxRec HCtx HPInProg resP HresP
       -- We first do a case analysis if we have rewritten or not the head op of the program
       simp [replaceOpInBBStmts] at HresP
-      cases Hreplace: replaceOpInBBStmt headName resPat head
+      cases Hreplace: replaceOpInBBStmt origName resPat head
         <;> rw [Hreplace] at HresP <;> simp at HresP
       
       -- Here, the first operation has not been rewritten
       case none =>
         -- We first get the information that the rewrite must have worked in
         -- the tail of the program
-        cases HreplaceTail: replaceOpInBBStmts headName resPat tail
+        cases HreplaceTail: replaceOpInBBStmts origName resPat tail
           <;> rw [HreplaceTail] at HresP <;> simp at HresP
           <;> try contradiction
         rename_i resTail
@@ -503,8 +532,10 @@ def main_theorem_stmt :
         -- We prove that if we added an SSAValue in the context, then the defining
         -- operation had to execute it.
         specialize Hind (by
-          intros val Hval op HopInProg
+          sorry
+        )
 
+        specialize Hind (by
           sorry
         )
         
@@ -520,9 +551,7 @@ def main_theorem_stmt :
         -- since then the interpretation of the same tail program will preserve that
         -- refinement
         rw [cons_is_append head tail]
-        rw [run_split_head_tail]
-        rw [run_split_head_tail]
-        apply preserves_refinement
+        apply refinement_head_same_tail
 
         -- The operation has to be an StmtAssign, because we have done a rewrite,
         -- and the rewrite was done on an stmt with no regions
@@ -533,5 +562,29 @@ def main_theorem_stmt :
         subst resHeadP
         subst head
         
+        -- The head of `p` is the operation that will be replaced by the pattern.
+        -- This is because both operations have the same result, and are in the program.
+        specialize HPInProg _ (by constructor)
+        have _ : originPat ∈ prog := by
+          apply Hmatch; apply List.mem_append_of_mem_right; constructor
+        have _ : (BasicBlockStmt.StmtAssign origName ix headOp) ∈ prog := by
+          apply HPInProg
+        have _ :=
+          eq_name_in_simple_prog_implies_eq originPat (by rw [HOrigName]; rfl)
+            (BasicBlockStmt.StmtAssign origName ix headOp) (by rw [HOrigName]; rfl)
+            prog (by assumption) (by assumption) _ (by assumption) (by assumption)
+        subst originPat
+
+        -- We now need to prove that we have the postcondition of the unchanged part of the pattern.
+        -- For this, it suffices to prove that all operations have their postcondition.
+        apply (rewrite_equivalent_precondition_rewrite HRef)
+        rw [postSSAEnvList.equiv_all]
+        intros stmt HStmtInPat
+
+        -- We prove that the statements from the match sections are in the dominance context
+        have HHeadInCtx : DomContext.isValDefined ctx origName := by sorry
+
+        
+
         sorry
 end MainTheorem
