@@ -201,7 +201,7 @@ private theorem tuple_equal_inv
 }
 
 mutual 
-theorem coe_type_tuple_eval_eq:
+theorem coe_type_tuple_eval_eq : 
    MLIRType.eval (MLIRType.tuple τs) = MLIRType.eval (coeMLIRType (c := c) (MLIRType.tuple τs)) := match τs with 
   | [] => by {
      simp [MLIRType.eval];
@@ -217,7 +217,7 @@ theorem coe_type_tuple_eval_eq:
   
 
 
-theorem coe_type_eval_eq (τ: MLIRType δ₁):
+theorem coe_type_eval_eq(τ: MLIRType δ₁):
    MLIRType.eval τ = MLIRType.eval (coeMLIRType (δ₁ := δ₁) (δ₂ := δ₂) τ) := 
   match H: τ with 
   | .fn τ1 τ2 => by {

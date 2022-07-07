@@ -69,30 +69,36 @@ def linearizeIndex (shape: List Nat) (ix: List Nat): Option Nat :=
   (zip_same_size ix (shape.drop 1)).map $ List.foldr (init := 0)
     (fun ix_and_shape linix => (linix + ix_and_shape.fst) * ix_and_shape.snd)
 
+/-
 def makeUniformMLIRTypedArguments [δ: Dialect α σ ε]
   (τ: MLIRType δ):
   List (MLIRType.eval τ) → TypedArgs δ
 | [] => []
 | t::ts => ⟨τ, t⟩ :: makeUniformMLIRTypedArguments τ ts
-
+-/
 
 
 #check MLIRType.eval
+def Matrix n m τ :=
+  RankedTensor [MLIR.AST.Dimension.Known n, MLIR.AST.Dimension.Known m] τ
+
+
 -- TODO: how do I write the semantics for this in a way that
 -- I can get access to the `tensor` type?
 def linalg_parallel_iter [Δ: Dialect α σ ε]
-   (inTensors: List (Tensor τ))
-   (ix: Nat):
-     Fitree ((RegionE Δ) +' UBE +' LinalgE)
-            (TypedArgs Δ) := do
-  let data? := inTensors.mapM (fun inTensor => inTensor.data.get? ix)
+   (d1 d2: Nat)
+   (inTensor:  Matrix d1 d2 τ)
+   (ix1 ix2: Nat): Fitree ((RegionE Δ) +' UBE +' LinalgE) τ := do
+  -- | lol, have fun reasoning with this...
+  let data? := inTensor.data.get? (ix1*(inTensor.shape.get! 0) + ix2)
   match data? with
   | .some data => do
-      Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
-       (args := makeUniformMLIRTypedArguments
-                  (δ := Δ)
-                  (coeDialectType.coe τ)
-                  (coe_type_eval_eq τ ▸ data)))
+      let out <- Fitree.trigger (RegionE.RunRegion (Δ := Δ) (ix := 0)
+                -- TODO, @lephe: please check that my theorem is correct!
+                   (args := [⟨ τ, coe_type_eval_eq τ ▸ data ⟩]))
+      match out with 
+      | [⟨ τ, v ⟩] => return v
+      | _ => 
   | .none => do
       Fitree.trigger (UBE.DebugUB "unable to access tensor data")
       return []
@@ -111,16 +117,20 @@ def collectOutputsIntoTensor [δ: Dialect α σ ε]
   (τ: MLIRTy) (argss: List (TypedArgs δ)): Tensor τ :=
   Tensor.mk [shape]  (collectOutputsIntoTensorData τ argss) sorry
 
+#check RankedTensor.mk
 def linalg_parallel_all_iters
   [CoeDialect builtin Δ]
-    (inTensors: List (Tensor τ))
+   (d1 d2: Nat)
+   (inTensor: Matrix d1 d2 τ)
    (size: Nat):
      Fitree ((RegionE Δ) +' UBE +' LinalgE)
             (TypedArgs Δ) := do
   let ixs := List.range size
-  let outValues <- ixs.mapM (linalg_parallel_iter inTensors)
+  let outValues <- ixs.mapM (linalg_parallel_iter d1 d2 inTensor)
+  let t : Tensor τ:= { inTensor.toTensor with data := outValues }
   return [⟨builtin.tensor_unranked τ,
            (coe_type_eval_eq (builtin.tensor_unranked τ)) ▸
+            RankedTensor.mk
             collectOutputsIntoTensor size τ outValues⟩]
 
 
@@ -128,12 +138,12 @@ def linalg_parallel_all_iters
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
 def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
-  | IOp.mk "linalg.parallel1d1" [⟨.extended sΔ, v⟩] [] 1 _ _ =>
+  | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 _ _ =>
       match H: DialectProjection.project_σ (self := P) _ _ sΔ with
-      | some (builtin.σ.tensor_unranked τ) =>
-          let input: UnrankedTensor τ :=
+      | some (builtin.σ.tensor [d1, d2] τ) =>
+          let input: RankedTensor [d1, d2] τ :=
             cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
-          linalg_parallel_all_iters [input]
+          linalg_parallel_all_iters d1 d2 input
       | _ => none
   | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
       sorry
