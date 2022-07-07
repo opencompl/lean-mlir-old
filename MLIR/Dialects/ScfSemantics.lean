@@ -598,7 +598,7 @@ theorem interp_region_of_run_loop_bounded
 theorem LHS (r: Region scf): Region scf := [mlir_region|
 {
   "scf.for'" (%c0, %cn) ($(r)) : (index, index) -> ()
-  "scf.for'" (%cn, %cm) ($(r)) : (index, index) -> ()
+  "scf.for'" (%cn, %cn_plus_m) ($(r)) : (index, index) -> ()
 }
 ]
 
@@ -620,10 +620,8 @@ theorem interp_of_fitree_is_bind {M} [Monad M] {E} (h: E ~>  Fitree F)
 
 theorem INPUT (n m: Nat): SSAEnv scf :=
     SSAEnv.One [⟨"cn", MLIRType.index, n⟩,
-                ⟨"cm", MLIRType.index, m⟩,
                 ⟨"cn_plus_m", MLIRType.index, n + m⟩,
-                ⟨"c0", MLIRType.index, 0⟩,
-                ⟨"c1", MLIRType.index, 1⟩]
+                ⟨"c0", MLIRType.index, 0⟩]
 
 theorem equivalent (n m: Nat) (r: Region scf):
     (run (denoteRegion _ (LHS r) []) (INPUT n m)) =
@@ -631,17 +629,18 @@ theorem equivalent (n m: Nat) (r: Region scf):
   unfold INPUT, LHS, RHS;
   simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp];
   simp_itree;
-  simp [run_Vis];
   rewrite [run_SSAEnvE_get (name := "c0") (τ := MLIRType.index) (v := 0)];
   rewrite [run_SSAEnvE_get (name := "cn") (τ := MLIRType.index) (v := n)];
   simp [Semantics.semantics_op];
   simp [scf_semantics_op];
 
-  simp [run_bind]
   simp [run_denoteOp_interp_region];
   rewrite [run_SSAEnvE_get (name := "c0") (τ := MLIRType.index) (v := 0)];
   rewrite [run_SSAEnvE_get (name := "cn_plus_m") (τ := MLIRType.index) (v := n + m)];
   simp;
+
+  simp [run_bind]
+  done
 }
 
 end FOR_FUSION
