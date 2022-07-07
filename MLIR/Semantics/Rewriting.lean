@@ -400,6 +400,11 @@ abbrev recursiveContext (ctx: DomContext δ) (p: List (BasicBlockStmt δ)) : Pro
     ∀ operand, operand ∈ (getOp op).args →
     ctx.isValDefined operand)
 
+theorem recursiveContext_set (ctx: DomContext δ) (p: List (BasicBlockStmt δ)) : 
+  recursiveContext (ctx.addVal val τ) p →
+  ctx.isValDefined val = false →
+  recursiveContext ctx p := by sorry
+
 theorem def_chain_rec_ctx_implies_is_defined
     (ctx: DomContext δ) (prog: List (BasicBlockStmt δ)) (HCtx: recursiveContext ctx prog)
     (stmt root: BasicBlockStmt δ) :
@@ -436,6 +441,10 @@ theorem StmtAssign_obeys_ssa_some (res: SSAVal) ix (op: Op δ) (ctx: DomContext 
     ∃ τ, opGetResType op = some τ ∧
          singleBBRegionStmtObeySSA (BasicBlockStmt.StmtAssign res ix op) ctx = some (ctx.addVal res τ):= by sorry
 
+theorem StmtAssign_obeys_ssa_name_notin_ctx (res: SSAVal) ix (op: Op δ) (ctx: DomContext δ):
+    (singleBBRegionStmtObeySSA (BasicBlockStmt.StmtAssign res ix op) ctx).isSome →
+    ctx.isValDefined res = false := by sorry
+
 def noBBRegionsOrAttr (stmt: BasicBlockStmt δ) : Bool :=
   match stmt with
   | .StmtOp (Op.mk _ _ [] [] (AttrDict.mk []) _) => true
@@ -453,7 +462,7 @@ theorem is_cons_stmts_ssa_implies_is_head_ssa :
 
 theorem is_val_defined_add_cases :
   DomContext.isValDefined (DomContext.addVal ctx val' τ) val →
-  val = val' ∨ DomContext.isValDefined ctx val := by sorry
+  val = val' ∨ (DomContext.isValDefined ctx val ∧ val ≠ val') := by sorry
 
 theorem run_op_env_invariant [S: Semantics δ] : 
   (run (S := S) ⟦ BasicBlock.mk "" [] [BasicBlockStmt.StmtOp op] ⟧ env).snd = env := by sorry
@@ -585,6 +594,7 @@ def main_theorem_stmt :
             -- Here, we show that the previous variables kept their invariants
             case inr HValDefinedCtx => 
               apply is_val_defined_add
+              cases HValDefinedCtx
               apply HCtxRec <;> assumption
 
             -- Here, we are looking at the new variable we added in the context
@@ -658,6 +668,24 @@ def main_theorem_stmt :
               . sorry
               . rw [run_bb_one_stmt] at Henv'
                 rw [Henv']
+
+            -- Here, we are looking at one of the operations that was previously added.
+            case inr HValDefined => 
+              cases HValDefined
+              apply postSSAEnv_preserves
+              . apply HCtx <;> assumption
+              . rw [HstmtHasName]
+                simp
+                assumption
+              . intros HHeadInOp
+                have HHeadResDef : DomContext.isValDefined ctx headRes = false := by
+                  apply StmtAssign_obeys_ssa_name_notin_ctx _ _ _ _ (by rw [HSSAHead]; rfl)
+
+                have HRecCtx := recursiveContext_set _ _ HRec HHeadResDef
+                unfold recursiveContext at HRecCtx
+                specialize HRecCtx stmtName (by assumption) stmt (by assumption) (by assumption) headRes (by assumption)
+                rw [HRecCtx] at HHeadResDef
+                contradiction
         )
 
         -- We prove that the remaining operations are all in the program
