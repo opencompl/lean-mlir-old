@@ -152,19 +152,57 @@ def linalg_parallel_all_iters
       return []
 
 
+-- Since we have a fully parallel 2D loop on 2D arrays, we will have two
+-- iteration domain variables, and a 2D output [the index into the array]
+@[simp, inline, reducible]
+def AffineTuple2D := (String × String)
+
+@[simp, inline, reducible]
+def AffineMap2DTo2D := (AffineTuple2D ×AffineTuple2D)
+
+-- extract the variable out of an affine expression
+def affine_expr_to_var (e: AffineExpr): String :=
+  match e with
+  | AffineExpr.Var v => v
+
+-- verify that an affine tuple has two components
+def verify_2d_affine_tuple (t: AffineTuple): Option AffineTuple2D :=
+  match t with
+  | AffineTuple.mk [x, y] => .some (affine_expr_to_var x, affine_expr_to_var y)
+  | _ => .none
+
+def liftA2_Option (a?: Option A) (b?: Option B): Option (A × B) :=
+  match a? with
+  | .some a => match b? with | .some b => .some (a, b) | _ => .none
+  | .none => .none
+
+-- | affine tuple must be of the form (a, b) -> (c, d)
+def verify_2d_to_2d_affine_map (a: AffineMap): Option (AffineMap2DTo2D) :=
+  match a with
+  | AffineMap.mk t t' => liftA2_Option (verify_2d_affine_tuple t) (verify_2d_affine_tuple t')
+
+def verify_linalg_indexing_map (a: AttrValue δ): Option (AffineMap2DTo2D × AffineMap2DTo2D) :=
+  match a with
+  | AttrValue.list [AttrValue.affine m1, AttrValue.affine m2]  =>
+        liftA2_Option (verify_2d_to_2d_affine_map m1) (verify_2d_to_2d_affine_map m2)
+  | _ => .none
+
 -- def toy_semantics_op (ret_name: Option SSAVal) (op: Op builtin):
 -- | TODO: we need a way to say that `builtin` is a member of Gδ
 -- @lephe: do you want me to thread the dialect projection everywhere?
 def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builtin]: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' LinalgE) (BlockResult Δ))
-  | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 _ _ => do
-      match H: DialectProjection.project_σ (self := P) _ _ sΔ with
-      | some (builtin.σ.tensor [Dimension.Known d1, Dimension.Known d2] τ) => .some do
-          let input: RankedTensor [Dimension.Known  d1, Dimension.Known  d2] τ :=
-            cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
-          let out  <- linalg_parallel_all_iters d1 d2 input
-          return (BlockResult.Ret out)
-      | _ => none
+  | IOp.mk "linalg.parallel2d1" [⟨.extended sΔ, v⟩] [] 1 attrs _ =>
+        match AttrDict.find attrs "indexing_maps" with
+        | some (.affine affine_map) =>
+          match H: DialectProjection.project_σ (self := P) _ _ sΔ with
+          | some (builtin.σ.tensor [Dimension.Known d1, Dimension.Known d2] τ) => .some do
+              let input: RankedTensor [Dimension.Known  d1, Dimension.Known  d2] τ :=
+                cast (by rw [H]) <| DialectProjection.project_ε (self := P) sΔ v
+              let out  <- linalg_parallel_all_iters d1 d2 input
+              return (BlockResult.Ret out)
+          | _ => none
+        | _ => none
   | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
       sorry
 
