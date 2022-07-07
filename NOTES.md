@@ -1,4 +1,9 @@
+- Can we take the free comcmpletion of dialects? We are told
+  that it is sufficient to take dialect -> Hom(-, dialect) by yoneda. So whenever
+  someone adds a new dialect, they need to state how one can compile
+  other dialects into this dialect (lowering).
 - `Lean/Parser/Extension.lean`: `runParserAttributeHooks` seems to be for extending the parser.
+
 
 - How does CompCert use SSA?
 - Talk to the MLIR C infrastructure to compile our rewrites to PDL.
