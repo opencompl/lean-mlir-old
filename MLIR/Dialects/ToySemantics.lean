@@ -116,7 +116,7 @@ def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
 
 @[simp]
 def run_toy (t: Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit)
-    (env: SSAEnv builtin): Fitree PVoid (Unit × SSAEnv builtin) :=
+    (env: SSAEnv builtin): Fitree Void1 (Unit × SSAEnv builtin) :=
   interp ToyOp.handle (interp_ssa (interp_ub! t) env)
 
 /-

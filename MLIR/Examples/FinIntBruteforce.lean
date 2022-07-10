@@ -66,6 +66,8 @@ def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("X", ⟨.i32, X⟩), ("Y", ⟨.i32, Y⟩)
 ]
 
+-- Too long... times out during type checking
+/-
 theorem equivalent (X Y: FinInt 32):
     (run (denoteBB _ LHS) (INPUT X Y) |>.snd.get "r" .i32) =
     (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) := by
@@ -76,4 +78,5 @@ theorem equivalent (X Y: FinInt 32):
   repeat (simp [SSAEnv.get]; simp_itree)
   have h := alive2 _ P₂_tautology8 _ X Y
   simp [P₂] at h; assumption
+-/
 end BruteforceThm1

@@ -110,7 +110,7 @@ def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
   let t := interp_ssa t SSAEnv.empty
   let t: Fitree ControlFlowOp _ := interp (Fitree.case_ DummyE.handle
     (fun _ e => Fitree.trigger e: ControlFlowOp ~> Fitree _)) t
-  let t: WriterT (Fitree PVoid) _ := interp ControlFlowOp.handleLogged t
+  let t: WriterT (Fitree Void1) _ := interp ControlFlowOp.handleLogged t
   t.run.run.snd
 
 --

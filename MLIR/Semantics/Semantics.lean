@@ -88,7 +88,7 @@ class Semantics (δ: Dialect α σ ε)  where
   -- Event handler used when interpreting the operations and running programs.
   -- This is where most of the computational semantics take place.
   -- TODO: Allow dialect handlers to emit events into other dialects
-  handle: E ~> Fitree PVoid
+  handle: E ~> Fitree Void1
 
 
 -- The memory of a smaller dialect can be injected into a larger one.

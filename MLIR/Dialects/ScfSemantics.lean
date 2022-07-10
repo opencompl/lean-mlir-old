@@ -50,7 +50,7 @@ def scf_semantics_op: IOp Δ →
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0))
   | _ => none
 
-def handleScf: ScfE ~> Fitree PVoid :=
+def handleScf: ScfE ~> Fitree Void1 :=
   fun _ e => nomatch e
 
 instance: Semantics scf where

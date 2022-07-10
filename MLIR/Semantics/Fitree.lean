@@ -24,9 +24,9 @@ interactions and environment transforms and all of them have to be studied and
 defined independently.
 
 The datatype of interaction trees normally has built-in non-termination by
-being defined coinductively. Support for coinduction is still limited in Lean4,
-so we currently use a finite version of ITrees (hence called Fitree) which can
-only model programs that always terminate.
+being defined coinductively. Support for coinduction is still limited in
+Lean 4, so we currently use a finite version of ITrees (hence called Fitree)
+and we only model programs that always terminate.
 
 [1]: https://github.com/vellvm/vellvm
 -/
@@ -37,15 +37,14 @@ import MLIR.Util.WriterT
 
 /- Extendable effect families -/
 
--- | Polymorphic to and sum.
-def pto (E: Type u → Type v₁) (F: Type u → Type v₂) :=
+abbrev to1 (E: Type → Type u) (F: Type → Type v) :=
   ∀ T, E T → F T
-def psum (E: Type u → Type v₁) (F: Type u → Type v₂) :=
+abbrev sum1 (E F: Type → Type) :=
   fun T => E T ⊕ F T
-inductive PVoid: Type -> Type u
+inductive Void1: Type → Type :=
 
-infixr:40 " ~> " => pto
-infixr:60 " +' " => psum
+infixr:40 " ~> " => to1
+infixr:60 " +' " => sum1
 
 class Member (E: Type → Type) (F: Type → Type) where
   inject : E ~> F
@@ -100,77 +99,17 @@ def Fitree.trigger {E: Type → Type} {F: Type → Type} {T} [Member E F]
     (e: E T): Fitree F T :=
   Fitree.Vis (Member.inject _ e) Fitree.ret
 
- 
+
 @[simp_itree]
 def Fitree.bind {E R T} (t: Fitree E T) (k: T → Fitree E R) :=
   match t with
   | Ret r => k r
   | Vis e k' => Vis e (fun r => bind (k' r) k)
 
-def Fitree.map {E } (f: α → β) (fa: Fitree E α): Fitree E β :=
-   match fa with
-   | .Ret r => .Ret (f r)
-   | .Vis e k' => .Vis e (fun r => map f (k' r))
-
-theorem Fitree_map_functorial (f: α → β) (g: β → γ) (fa: Fitree E α):
-   fa.map (g ∘ f) = (fa.map f).map g := by {
-  intros;
-  unfold Fitree.map;
-  induction fa;
-  simp;
-  unfold Fitree.map;
-  simp;
-  case Vis IH => {
-   simp;
-   unfold Fitree.map;
-   simp;
-   funext x; -- classical!
-   apply IH;
-  }
-}
-
 instance {E}: Monad (Fitree E) where
   pure := Fitree.ret
   bind := Fitree.bind
 
--- https://wiki.haskell.org/Monad_laws
-theorem Fitree_monad_left_identity (a: α) (h: α → Fitree E β):
-  Fitree.bind (Fitree.ret a) h = h a := by {
-  unfold Fitree.ret;
-  unfold Fitree.bind;
-  simp;
-}
-
--- https://wiki.haskell.org/Monad_laws
-theorem Fitree_monad_right_identity (ma: Fitree E α):
-  Fitree.bind ma Fitree.ret = ma := by {
-  unfold Fitree.ret;
-  unfold Fitree.bind;
-  induction ma;
-  simp;
-  simp;
-  funext x; -- classical
-  unfold Fitree.bind;
-  case Vis IH =>
-  apply IH;
-}
-
--- https://wiki.haskell.org/Monad_laws
-theorem Fitree_monad_assoc (ma: Fitree E α)
-  (g: α → Fitree E β) (h: β → Fitree E γ):
-  Fitree.bind (Fitree.bind ma g) h =
-  Fitree.bind ma (fun x => Fitree.bind (g x) h) := by {
-  induction ma;
-  case Ret r => {
-    simp [Fitree.bind];
-  }
-  case Vis T e k IH => {
-     simp [Fitree.bind];
-     funext v;
-     simp [Fitree.bind];
-     apply IH;
-  }
-}
 
 @[simp_itree]
 def Fitree.translate {E F R} (f: E ~> F): Fitree E R → Fitree F R
@@ -191,7 +130,7 @@ def interp {M} [Monad M] {E} (h: E ~> M):
     | Fitree.Vis e k => bind (h _ e) (fun t => interp h (k t))
 
 @[simp_itree]
-def interp' {E F} (h: E ~> Fitree PVoid):
+def interp' {E F} (h: E ~> Fitree Void1):
     forall {R}, Fitree (E +' F) R → Fitree F R :=
   fun t =>
     interp (Fitree.case_
@@ -220,9 +159,9 @@ def interp_option {M} [Monad M] {E} (h: E ~> OptionT M):
 -- Since we only use finite ITrees, we can actually run them when they're
 -- fully interpreted (which leaves only the Ret constructor)
 @[simp_itree]
-def Fitree.run {R}: Fitree PVoid R → R
+def Fitree.run {R}: Fitree Void1 R → R
   | Ret r => r
-  | Vis e k => nomatch e
+  | Vis e _ => nomatch e
 
 
 /- Predicates to reason about the absence of events -/
