@@ -2,55 +2,52 @@
 ## WriterT monad transformer
 -/
 
-structure WriterT (m: Type _ -> Type _) (a: Type _) where
-  val: m (a × String)
+def WriterT (m: Type _ -> Type _) (a: Type _) := m (a × String)
 
-def WriterT.run (wm: WriterT m a ): m (a × String) := wm.val
+def WriterT.run (wm: WriterT m a ): m (a × String) := wm
+
+def WriterT.mk (x: m (a × String)): WriterT m a := x
 
 instance [Functor m]: Functor (WriterT m) where
-  map f w := { val := Functor.map (fun (a, log) => (f a, log)) w.val }
+  map f w := Functor.map (f := m) (fun (a, log) => (f a, log)) w
 
 instance [Pure m]: Pure (WriterT m) where
-  pure x := { val := pure (x, "") }
+  pure x := pure (f := m) (x, "")
 
 instance [Monad m]: Seq (WriterT m) where
-   seq mx my :=
-     { val := do
-        let wx <- mx.val
-        let wy <- (my ()).val
-        let wb := wx.fst wy.fst
-        return (wb, wx.snd ++ wy.snd) }
+   seq mx my := WriterT.mk do
+    let wx <- mx
+    let wy <- (my ())
+    let wb := wx.fst wy.fst
+    return (wb, wx.snd ++ wy.snd)
 
 instance [Monad m] : SeqLeft (WriterT m) where
-   seqLeft mx my :=
-     { val := do
-        let wx <- mx.val
-        let wy <- (my ()).val
-        return (wx.fst, wx.snd ++ wy.snd) }
+   seqLeft mx my := WriterT.mk do
+    let wx <- mx
+    let wy <- (my ())
+    return (wx.fst, wx.snd ++ wy.snd)
 
 instance [Monad m] : SeqRight (WriterT m) where
-   seqRight mx my :=
-     { val := do
-        let wx <- mx.val
-        let wy <- (my ()).val
-        return (wy.fst, wx.snd  ++ wy.snd ) }
+   seqRight mx my := WriterT.mk do
+    let wx <- mx
+    let wy <- (my ())
+    return (wy.fst, wx.snd  ++ wy.snd )
 
 instance [Bind m] [Pure m]: Bind (WriterT m) where
-  bind wma a2wmb :=
-    let v := do
-      let (va, loga) <- wma.val
-      let wb <- (a2wmb va).val
-      let (vb, logb) := wb
-      return (vb, loga ++ logb)
-    { val := v }
+  bind wma a2wmb := WriterT.mk do
+    let (va, loga) <- wma
+    let wb <- (a2wmb va)
+    let (vb, logb) := wb
+    return (vb, loga ++ logb)
 
 def WriterT.lift [Monad m] {α : Type u} (ma: m α): WriterT m α :=
-  { val := do let a <- ma; return (a, "") }
+  bind (m := m) ma (fun a => return (a, ""))
 
 instance [Monad m]: MonadLift m (WriterT m) where
   monadLift := WriterT.lift
 
-instance : MonadFunctor m (WriterT m) := ⟨fun f mx => { val := f (mx.val) } ⟩
+instance : MonadFunctor m (WriterT m) where
+  monadMap f := f
 
 instance [Monad m] : Applicative (WriterT m) where
   pure := Pure.pure
@@ -63,4 +60,4 @@ instance [Monad m]: Monad (WriterT m) where
   map  := Functor.map
 
 def logWriterT [Monad m] (s: String): WriterT.{u} m PUnit.{u+1} :=
-  { val := pure (.unit, s) }
+  pure (f := m) (.unit, s)
