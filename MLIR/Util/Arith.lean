@@ -55,13 +55,13 @@ theorem pow_zero (n: Int): n^0 = 1 := by rfl
 
 theorem pow_succ (n: Int) (m: Nat): n^(m+1) = n^m * n := by rfl
 
-theorem two_pow_ge {n: Nat}: 2^n ≥ 0 := by
+theorem two_pow_ge {n: Nat}: (2^n: Int) ≥ 0 := by
   sorry
 
-theorem two_pow_pos {n: Nat}: 2^n > 0 := by
+theorem two_pow_pos {n: Nat}: (2^n: Int) > 0 := by
   sorry
 
-theorem one_le_two_pow {n: Nat}: 1 ≤ 2^n := by
+theorem one_le_two_pow {n: Nat}: 1 ≤ (2^n: Int) := by
   sorry
 
 theorem one_lt_two_pow {n: Nat}: n > 0 → 1 < (2^n: Int) := by

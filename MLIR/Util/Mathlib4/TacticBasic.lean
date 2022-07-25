@@ -233,7 +233,7 @@ elab "any_goals " seq:tacticSeq : tactic => do
   let mut mvarIdsNew := #[]
   let mut anySuccess := false
   for mvarId in mvarIds do
-    unless (← Term.isExprMVarAssigned mvarId) do
+    unless (← isExprMVarAssigned mvarId) do
       setGoals [mvarId]
       try
         evalTactic seq

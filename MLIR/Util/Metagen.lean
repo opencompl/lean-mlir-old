@@ -154,7 +154,8 @@ elab "genInductive" inductiveName:ident xs:term : command => do
     binders := Syntax.missing,
     type? := some $ ← `(Type → Type 1),
     ctors := xargs.map make_ctor,
-    derivingClasses := #[]
+    derivingClasses := #[],
+    computedFields := #[]
   }
   elabInductiveViews #[indView]
 

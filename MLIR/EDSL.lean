@@ -73,14 +73,12 @@ partial def consumeCloseBracket(c: Bracket)
   (brackets: List Bracket)
   (ctx: ParserContext)
   (s: ParserState): ParserState := Id.run do
-    dbg_trace "consumeCloseBracket"
     match brackets with
     | b::bs =>
       if b == c
       then
         if bs == []
         then
-          dbg_trace f!"closed brackets at {i}"
           let parser_fn := Lean.Parser.mkNodeToken `balanced_brackets startPos
           parser_fn ctx (s.setPos (input.next i)) -- consume the input here.
         else balancedBracketsFnAux startPos (input.next i) input bs ctx s

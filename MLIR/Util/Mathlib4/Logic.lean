@@ -188,8 +188,6 @@ theorem and_congr (h₁ : a ↔ c) (h₂ : b ↔ d) : a ∧ b ↔ c ∧ d := ⟨
 theorem and_congr_right (h : a → (b ↔ c)) : (a ∧ b) ↔ (a ∧ c) :=
 ⟨fun ⟨ha, hb⟩ => ⟨ha, (h ha).1 hb⟩, fun ⟨ha, hb⟩ => ⟨ha, (h ha).2 hb⟩⟩
 
-theorem And.comm : a ∧ b ↔ b ∧ a := ⟨And.symm, And.symm⟩
-
 theorem and_comm (a b : Prop) : a ∧ b ↔ b ∧ a := And.comm
 
 theorem And.assoc : (a ∧ b) ∧ c ↔ a ∧ (b ∧ c) :=
@@ -585,7 +583,6 @@ variable {α : Sort u} {C : α → Sort v} {r : α → α → Prop}
 unsafe def fix'.impl (hwf : WellFounded r) (F : ∀ x, (∀ y, r y x → C y) → C x) (x : α) : C x :=
   F x fun y _ => impl hwf F y
 
-set_option codegen false in
 @[implementedBy fix'.impl]
 def fix' (hwf : WellFounded r) (F : ∀ x, (∀ y, r y x → C y) → C x) (x : α) : C x := hwf.fix F x
 
