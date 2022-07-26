@@ -90,11 +90,26 @@ class Semantics (δ: Dialect α σ ε)  where
   -- TODO: Allow dialect handlers to emit events into other dialects
   handle: E ~> Fitree Void1
 
-
--- The memory of a smaller dialect can be injected into a larger one.
+-- This attribute allows matching explicit effect families like `ArithE`, which
+-- often appear from bottom-up inference like in `Fitree.trigger`, with their
+-- implicit form like `Semantics.E arith`, which often appears from top-down
+-- type inference due to the type signatures in this module. Without this
+-- attribute, instances of `Member` could not be derived, preventing most
+-- lemmas about `Fitree.trigger` from applying.
+attribute [reducible] Semantics.E
 
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
+
+def interpRegion
+    (regions: List <|
+      TypedArgs Δ → Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ)):
+    RegionE Δ +' UBE +' Semantics.E Δ ~>
+    Fitree (UBE +' SSAEnvE Δ +' Semantics.E Δ) := fun _ e =>
+  match e with
+  | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs
+  | Sum.inr <| Sum.inl ube => Fitree.trigger ube
+  | Sum.inr <| Sum.inr se => Fitree.trigger se
 
 def denoteOp (op: Op Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
@@ -112,13 +127,7 @@ def denoteOp (op: Op Δ):
       -- Use the dialect-provided semantics, and substitute regions
       match S.semantics_op iop with
       | some t =>
-          Fitree.interp (fun _ e =>
-            match e with
-            | Sum.inl (RegionE.RunRegion i xs) =>
-                 regions.get! i xs
-            | Sum.inr <| Sum.inl ube => Fitree.trigger ube
-            | Sum.inr <| Sum.inr se => Fitree.trigger se
-          ) t
+          t.interp (interpRegion regions)
       | none => do
           Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
           return default
@@ -252,17 +261,23 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
+instance DenoteOp (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
   denote op := denoteOp δ op
 
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlockStmt where
+instance DenoteBBStmt (δ: Dialect α σ ε) [Semantics δ]:
+    Denote δ BasicBlockStmt where
   denote bbstmt := denoteBBStmt δ bbstmt
 
 -- TODO: this a small hack, because we assume
 -- that when we call `denote`, BB has no args.
-instance (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
+instance DenoteBB (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
   denote bb := denoteBB δ bb (args := [])
-
 
 -- Not for regions because we need to specify the fuel
 
+@[simp] theorem Denote.denoteOp [Semantics δ]:
+  Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
+@[simp] theorem Denote.denoteBBStmt [Semantics δ]:
+  Denote.denote (self := DenoteBBStmt δ) bbstmt = denoteBBStmt δ bbstmt := rfl
+@[simp] theorem Denote.denoteBB [Semantics δ]:
+  Denote.denote (self := DenoteBB δ) bb = denoteBB δ bb := rfl
