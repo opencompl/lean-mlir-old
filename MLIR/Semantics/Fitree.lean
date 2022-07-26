@@ -433,29 +433,24 @@ inductive Fitree.noEventL {E F R}: Fitree (E +' F) R → Prop :=
 
 open Lean Elab.Tactic Parser.Tactic
 
-def toSimpLemma (name : Name) : Syntax :=
-  mkNode `Lean.Parser.Tactic.simpLemma
-    #[mkNullNode, mkNullNode, mkIdent name]
+def toSimpLemma (name: Name): Syntax :=
+  mkNode `Lean.Parser.Tactic.simpLemma #[mkNullNode, mkNullNode, mkIdent name]
 
-elab "simp_itree" : tactic => do
+def tacticSimpItree (definitional: Bool): TacticM Unit := do
   -- TODO: Also handle .lemmaNames, not just unfolding!
   let lemmas := (← SimpItreeExtension.getTheorems).toUnfold.fold
     (init := #[]) (fun acc n => acc.push (toSimpLemma n))
-  let trlemmas: Syntax.TSepArray `Lean.Parser.Tactic.simpStar "," :=
-    ⟨lemmas.reverse⟩
-  evalTactic $ ← `(tactic|simp [$trlemmas,*,
-    Fitree.liftHandler,
-    Member.inject,
-    StateT.bind, StateT.pure, StateT.lift,
-    OptionT.bind, OptionT.pure, OptionT.mk, OptionT.lift,
-    bind, pure, cast_eq, Eq.mpr])
+  let others := [
+    ``Fitree.liftHandler, ``Member.inject,
+    ``StateT.bind, ``StateT.pure, ``StateT.lift,
+    ``OptionT.bind, ``OptionT.pure, ``OptionT.mk, ``OptionT.lift,
+    ``bind, ``pure, ``cast_eq, ``Eq.mpr].map toSimpLemma
+  let fullSet :=
+    (lemmas.reverse ++ others).toList.intersperse (mkAtom ",") |>.toArray
+  if definitional then
+    evalTactic $ ← `(tactic|dsimp [$(⟨fullSet⟩),*])
+  else
+    evalTactic $ ← `(tactic|simp [$(⟨fullSet⟩),*])
 
-elab "dsimp_itree" : tactic => do
-  -- TODO: Also handle .lemmaNames, not just unfolding!
-  let lemmas := (← SimpItreeExtension.getTheorems).toUnfold.fold
-    (init := #[]) (fun acc n => acc.push (toSimpLemma n))
-  evalTactic $ ← `(tactic|dsimp [$(⟨lemmas.reverse⟩),*,
-    Member.inject,
-    StateT.bind, StateT.pure, StateT.lift,
-    OptionT.bind, OptionT.pure, OptionT.mk, OptionT.lift,
-    bind, pure, cast_eq, Eq.mpr])
+elab "simp_itree":  tactic => tacticSimpItree false
+elab "dsimp_itree": tactic => tacticSimpItree true

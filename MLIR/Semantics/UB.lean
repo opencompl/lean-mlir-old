@@ -40,12 +40,8 @@ def UBE.handleSafe {E}: UBE ~> Fitree E := fun _ e =>
 
 -- We interpret (UBE +' E ~> E)
 
-@[simp_itree]
-private def optionT_defaultHandler: E ~> OptionT (Fitree E) :=
-  fun _ e => OptionT.lift $ Fitree.trigger e
-
 def interp_ub {E} (t: Fitree (UBE +' E) R): OptionT (Fitree E) R :=
-  Fitree.interp (Fitree.case UBE.handle optionT_defaultHandler) t
+  Fitree.interp (Fitree.case UBE.handle Fitree.liftHandler) t
 
 def interp_ub! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
   Fitree.interp (Fitree.case UBE.handle! (fun T => @Fitree.trigger E E T _)) t

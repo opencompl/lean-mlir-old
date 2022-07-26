@@ -328,6 +328,19 @@ theorem equivalent (n m: FinInt 32):
   simp [SSAEnv.get]; simp_itree
   simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
   simp [FinInt.add_comm]
+
+/-
+This is what the rewriting-style proof without simp_itree looks like. That one
+normally works, but th2 fails spectacularly.
+  simp [LHS, RHS, run, Semantics.handle]
+  rw [ops.addi.sem]
+  rw [ops.addi.sem]
+  simp
+  simp [interpSSA', SSAEnvE.handle, SSAEnv.get, SSAEnv.set, cast_eq]
+  simp [Fitree.interp_bind]
+  -- Unfold ArithE.handle only where it is applied to an explicit effect
+  repeat conv in ArithE.handle _ _ => simp [ArithE.handle]
+-/
 end th1
 
 /- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`
