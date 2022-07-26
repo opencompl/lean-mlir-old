@@ -151,6 +151,9 @@ inductive SSAEnv (δ: Dialect α σ ε) :=
   | One (scope: SSAScope δ)
   | Cons (head: SSAScope δ) (tail: SSAEnv δ)
 
+instance: Inhabited (SSAEnv δ) where
+  default := .One []
+
 -- An SSA environment with a single empty SSAScope
 def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := One []
 
@@ -162,19 +165,19 @@ def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
 instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
   toString := SSAEnv.str
 
--- TODO: Add this to simp_itree
 def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
   SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
   | One s => s.getT name
   | Cons s l => s.getT name <|> getT name l
 
--- TODO: Add this to simp_itree
 def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   SSAEnv δ → Option τ.eval
   | One s => s.get name τ
   | Cons s l => s.get name τ <|> get name τ l
 
--- TODO: Add this to simp_itree
+@[simp] def SSAEnv.get_One:
+  SSAEnv.get name τ (SSAEnv.One scope) = scope.get name τ := rfl
+
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
   | One s => One (s.set name τ v)
@@ -295,20 +298,17 @@ def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
 
 -- Handlers
 
-@[simp_itree]
-private def stateT_defaultHandler: E ~> StateT (SSAEnv δ) (Fitree E) :=
-  fun _ e => StateT.lift $ Fitree.trigger e
+def interpSSA (t: Fitree (SSAEnvE δ) R): StateT (SSAEnv δ) (Fitree Void1) R :=
+  t.interpState SSAEnvE.handle
 
-@[simp_itree]
-private def writerT_defaultHandler:
-    E ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
-  fun _ e => WriterT.lift $ StateT.lift $ Fitree.trigger e
-
-def interp_ssa {E R} (t: Fitree (SSAEnvE δ +' E) R):
+def interpSSA' {E} (t: Fitree (SSAEnvE δ +' E) R):
     StateT (SSAEnv δ) (Fitree E) R :=
-  interp_state (Fitree.case_ SSAEnvE.handle stateT_defaultHandler) t
+  t.interpState (Fitree.case SSAEnvE.handle Fitree.liftHandler)
 
-def interp_ssa_logged {E R} (t: Fitree (SSAEnvE δ +' E) R):
+def interpSSALogged (t: Fitree (SSAEnvE δ) R):
+    WriterT (StateT (SSAEnv δ) (Fitree Void1)) R :=
+  t.interp SSAEnvE.handleLogged
+
+def interpSSALogged' {E} (t: Fitree (SSAEnvE δ +' E) R):
     WriterT (StateT (SSAEnv δ) (Fitree E)) R :=
-  interp_writer (Fitree.case_ SSAEnvE.handleLogged writerT_defaultHandler) t
-
+  t.interp (Fitree.case SSAEnvE.handleLogged Fitree.liftHandler)

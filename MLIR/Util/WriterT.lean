@@ -33,15 +33,22 @@ instance [Monad m] : SeqRight (WriterT m) where
     let wy <- (my ())
     return (wy.fst, wx.snd  ++ wy.snd )
 
+def WriterT.bindCont [Bind m] [Pure m] (k: α → WriterT m β) (x: α × String):
+    WriterT m β := WriterT.mk do
+  let y ← k x.fst
+  return (y.fst, x.snd ++ y.snd)
+
+def WriterT.bind [Bind m] [Pure m] (wma: WriterT m α) (a2wmb: α → WriterT m β):
+    WriterT m β :=
+  WriterT.mk do
+    let x <- wma
+    WriterT.bindCont a2wmb x
+
 instance [Bind m] [Pure m]: Bind (WriterT m) where
-  bind wma a2wmb := WriterT.mk do
-    let (va, loga) <- wma
-    let wb <- (a2wmb va)
-    let (vb, logb) := wb
-    return (vb, loga ++ logb)
+  bind wma a2wmb := WriterT.bind wma a2wmb
 
 def WriterT.lift [Monad m] {α : Type u} (ma: m α): WriterT m α :=
-  bind (m := m) ma (fun a => return (a, ""))
+  Bind.bind (m := m) ma (fun a => return (a, ""))
 
 instance [Monad m]: MonadLift m (WriterT m) where
   monadLift := WriterT.lift

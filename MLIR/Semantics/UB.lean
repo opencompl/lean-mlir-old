@@ -45,11 +45,7 @@ private def optionT_defaultHandler: E ~> OptionT (Fitree E) :=
   fun _ e => OptionT.lift $ Fitree.trigger e
 
 def interp_ub {E} (t: Fitree (UBE +' E) R): OptionT (Fitree E) R :=
-  interp (Fitree.case_ UBE.handle optionT_defaultHandler) t
+  Fitree.interp (Fitree.case UBE.handle optionT_defaultHandler) t
 
 def interp_ub! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
-  interp (Fitree.case_ UBE.handle! (fun T => @Fitree.trigger E E T _)) t
-
-def interp_ub_safe {E} (t: Fitree (UBE +' E) R)
-    (H: Fitree.no_event_l t): Fitree E R :=
-  interp (Fitree.case_ UBE.handleSafe (fun T => @Fitree.trigger E E T _)) t
+  Fitree.interp (Fitree.case UBE.handle! (fun T => @Fitree.trigger E E T _)) t

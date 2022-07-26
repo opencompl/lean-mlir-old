@@ -112,12 +112,12 @@ def ToyOp.handle {E}: ToyOp ~> Fitree E :=
 -- Interpretation in context
 
 def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
-  interp (Fitree.case_ ToyOp.handle (fun T => @Fitree.trigger E E T _)) t
+  t.interp (Fitree.case ToyOp.handle (fun T => @Fitree.trigger E E T _))
 
 @[simp]
 def run_toy (t: Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit)
     (env: SSAEnv builtin): Fitree Void1 (Unit × SSAEnv builtin) :=
-  interp ToyOp.handle (interp_ssa (interp_ub! t) env)
+  Fitree.interp ToyOp.handle (interpSSA' (interp_ub! t) env)
 
 /-
 ### Examples and testing
@@ -157,7 +157,7 @@ theorem double_transpose_correct:
   intros t1
   simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
   simp [interp_ub!]; simp_itree
-  simp [interp_ssa, interp_state, SSAEnvE.handle]; simp_itree
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
   rw [transpose_involutive]

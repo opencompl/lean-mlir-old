@@ -107,10 +107,10 @@ def run_dummy_cf_region: Region (dummy + cf) → String := fun r =>
 def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
   let t := semanticsRegion 99 r []
   let t := interp_ub! t
-  let t := interp_ssa t SSAEnv.empty
-  let t: Fitree ControlFlowOp _ := interp (Fitree.case_ DummyE.handle
-    (fun _ e => Fitree.trigger e: ControlFlowOp ~> Fitree _)) t
-  let t: WriterT (Fitree Void1) _ := interp ControlFlowOp.handleLogged t
+  let t := interpSSA' t SSAEnv.empty
+  let t: Fitree ControlFlowOp _ := t.interp (Fitree.case DummyE.handle
+    (fun _ e => Fitree.trigger e: ControlFlowOp ~> Fitree _))
+  let t: WriterT (Fitree Void1) _ := t.interp ControlFlowOp.handleLogged
   t.run.run.snd
 
 --

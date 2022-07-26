@@ -613,6 +613,17 @@ def AttrDict.find (attrs: AttrDict δ) (name: String): Option (AttrValue δ) :=
       | some v => v.value
       | none => none
 
+@[simp] theorem AttrDict.find_none {δ: Dialect α σ ε}:
+    AttrDict.find (δ := δ) (AttrDict.mk []) n' = none := by
+  simp [AttrDict.find, List.find?]
+
+@[simp] theorem AttrDict.find_next {δ: Dialect α σ ε} (v: AttrValue δ)
+  (l: List (AttrEntry δ)):
+    AttrDict.find (AttrDict.mk (AttrEntry.mk n v :: l)) n' =
+    if n == n' then some v else AttrDict.find (AttrDict.mk l) n' := by
+  cases H: n == n' <;>
+  simp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value, H]
+
 def AttrDict.addString (attrs: AttrDict δ) (k: String) (v: String): AttrDict δ :=
     AttrEntry.mk k (v: AttrValue δ) :: attrs
 
