@@ -73,8 +73,8 @@ theorem equivalent (X Y: FinInt 32):
     (run (denoteBB _ RHS) (INPUT X Y) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmt, denoteOp]; simp_itree
-  simp [interp_ub]; simp_itree
-  simp [interp_ssa, interp_state, SSAEnvE.handle, SSAEnv.get]; simp_itree
+  simp [interpUB']; simp_itree
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
   repeat (simp [SSAEnv.get]; simp_itree)
   have h := alive2 _ P₂_tautology8 _ X Y
   simp [P₂] at h; assumption

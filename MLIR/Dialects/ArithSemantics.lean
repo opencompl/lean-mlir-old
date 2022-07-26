@@ -323,7 +323,7 @@ theorem equivalent (n m: FinInt 32):
     run ⟦LHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
   simp [run, LHS, RHS, denoteBBStmt, denoteOp]
-  simp [interp_ub, SSAEnv.get]; simp_itree
+  simp [interpUB', SSAEnv.get]; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
@@ -374,7 +374,7 @@ theorem equivalent (C X C2: FinInt 32):
     (run ⟦RHS⟧ (INPUT C X C2) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interp_ub]; simp_itree
+  simp [interpUB']; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
@@ -428,7 +428,7 @@ theorem equivalent (C X: FinInt 32):
   rw [ops.constant.sem]
   rw [ops.subi.sem]
   rw [ops.subi.sem]
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
   apply FinInt.comp_add (by decide)
@@ -465,7 +465,7 @@ theorem equivalent (A B: FinInt 32):
     (run ⟦RHS⟧ (INPUT A B) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interp_ub]; simp_itree
+  simp [interpUB']; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
@@ -504,7 +504,7 @@ theorem equivalent (X Y: FinInt 32):
     (run ⟦RHS⟧ (INPUT X Y) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interp_ub]; simp_itree
+  simp [interpUB']; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
@@ -557,7 +557,7 @@ theorem equivalent (A B: FinInt 32):
   rw [ops.xori.sem]
   rw [ops.addi.sem]
   rw [ops.subi.sem]
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
   apply FinInt.plus_one_plus_comp
@@ -608,7 +608,7 @@ theorem equivalent (X Y: FinInt 32):
   rw [ops.xori.sem]
   rw [ops.subi.sem]
   rw [ops.subi.sem]
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
   apply FinInt.comp_sub_comp
@@ -652,7 +652,7 @@ theorem equivalent (A B: FinInt 32):
     (run ⟦RHS⟧ (INPUT A B) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; dsimp_itree
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
   repeat (simp [SSAEnv.get]; dsimp_itree)
   apply FinInt.add_xor_and
@@ -694,7 +694,7 @@ theorem equivalent (B: FinInt 1) (C: FinInt 32):
   simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; dsimp_itree
   simp [Semantics.semantics_op, arith_semantics_op, AttrDict.find, List.find?,
         AttrEntry.key, AttrEntry.value]; dsimp_itree
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
   repeat (simp [SSAEnv.get]; dsimp_itree)
   apply FinInt.add_bool_eq_select
@@ -750,7 +750,7 @@ theorem equivalent (A B C: FinInt 32):
   rw [ops.ori.sem]
   rw [ops.xori.sem]
   rw [ops.andi.sem]
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
   apply FinInt.and_not_and_not
@@ -804,7 +804,7 @@ theorem equivalent (A B: FinInt 32):
   rw [ops.ori.sem]
   rw [ops.xori.sem]
   rw [ops.xori.sem]
-  simp [interp_ub]; dsimp_itree
+  simp [interpUB']; dsimp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
   repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
   apply FinInt.and_or_not_or
@@ -845,7 +845,7 @@ theorem equivalent (X C₁ C₂: FinInt 32):
     (run ⟦RHS⟧ (INPUT X C₁ C₂) |>.snd.get "r" .i32) := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interp_ub]; simp_itree
+  simp [interpUB']; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
   repeat (simp [SSAEnv.get]; simp_itree)
   apply FinInt.xor_and

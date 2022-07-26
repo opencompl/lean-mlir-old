@@ -229,7 +229,7 @@ def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ]
 def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
     (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
     R × SSAEnv Δ :=
-  let t := interp_ub! t
+  let t := interpUB'! t
   let t := interpSSA' t env
   let t := t.interp S.handle
   t.run
@@ -237,7 +237,7 @@ def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
 def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
     (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
     Option R × SSAEnv Δ :=
-  let t := interp_ub t
+  let t := interpUB' t
   let t := interpSSA' t env
   let t := t.interp S.handle
   t.run
@@ -245,7 +245,7 @@ def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
 def runLogged {Gα Gσ Gε} {Gδ: Dialect Gα Gσ Gε} [S: Semantics Gδ]
     {R} (t: Fitree (UBE +' SSAEnvE Gδ +' S.E) R) (env: SSAEnv Gδ):
     (R × String) × SSAEnv Gδ :=
-  let t := interp_ub! t
+  let t := interpUB'! t
   let t := (interpSSALogged' t).run env
   let t := t.interp S.handle
   t.run

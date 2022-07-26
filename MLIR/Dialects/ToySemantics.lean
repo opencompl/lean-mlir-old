@@ -117,7 +117,7 @@ def interp_toy {E} (t: Fitree (ToyOp +' E) R): Fitree E R :=
 @[simp]
 def run_toy (t: Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit)
     (env: SSAEnv builtin): Fitree Void1 (Unit × SSAEnv builtin) :=
-  Fitree.interp ToyOp.handle (interpSSA' (interp_ub! t) env)
+  Fitree.interp ToyOp.handle (interpSSA' (interpUB'! t) env)
 
 /-
 ### Examples and testing
@@ -156,7 +156,7 @@ theorem double_transpose_correct:
     ]) := by
   intros t1
   simp [double_transpose, toy_semantics_bb, toy_semantics_bbstmt]; simp_itree
-  simp [interp_ub!]; simp_itree
+  simp [interpUB'!]; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree

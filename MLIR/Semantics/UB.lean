@@ -32,16 +32,21 @@ def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>
   | UB => panic! "Undefined Behavior raised!"
   | DebugUB str => panic! str
 
-@[simp_itree]
-def UBE.handleSafe {E}: UBE ~> Fitree E := fun _ e =>
-  match e with
-  | UB => return ()
-  | DebugUB str => return ()
+def interpUB (t: Fitree UBE R): OptionT (Fitree Void1) R :=
+  t.interpOption UBE.handle
 
--- We interpret (UBE +' E ~> E)
+def interpUB! (t: Fitree UBE R): Fitree Void1 R :=
+  t.interp UBE.handle!
 
-def interp_ub {E} (t: Fitree (UBE +' E) R): OptionT (Fitree E) R :=
-  Fitree.interp (Fitree.case UBE.handle Fitree.liftHandler) t
+def interpUB' {E} (t: Fitree (UBE +' E) R): OptionT (Fitree E) R :=
+  Fitree.interpOption (Fitree.case UBE.handle Fitree.liftHandler) t
 
-def interp_ub! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
+def interpUB'! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
   Fitree.interp (Fitree.case UBE.handle! (fun T => @Fitree.trigger E E T _)) t
+
+@[simp] theorem interpUB'_Vis_right:
+  interpUB' (Fitree.Vis (Sum.inr e) k) =
+  Fitree.Vis e (fun x => interpUB' (k x)) := rfl
+
+@[simp] theorem interpUB'_ret:
+  @interpUB' _ E (Fitree.ret r) = Fitree.ret (some r) := rfl
