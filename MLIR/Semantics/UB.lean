@@ -12,25 +12,24 @@ practical yet.)
 -/
 
 import MLIR.Semantics.Fitree
-import MLIR.Dialects
-import MLIR.AST
-open MLIR.AST
 
 inductive UBE: Type → Type :=
-  | UB: UBE Unit
-  | DebugUB: String → UBE Unit
+  | UB {α: Type} [Inhabited α]: Option String → UBE α
 
 @[simp_itree]
 def UBE.handle {E}: UBE ~> OptionT (Fitree E) := fun _ e =>
   match e with
-  | UB => Fitree.Ret none
-  | DebugUB str => do panic! str; Fitree.Ret none
+  | UB (some str) => do panic! str; Fitree.Ret none
+  | UB none => Fitree.ret none
 
 @[simp_itree]
 def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>
   match e with
-  | UB => panic! "Undefined Behavior raised!"
-  | DebugUB str => panic! str
+  | UB (some str) => panic! str
+  | UB none => panic! "Undefined Behavior raised!"
+
+def raiseUB (msg: String) {E α} [Member UBE E] [Inhabited α]: Fitree E α :=
+  Fitree.trigger <| UBE.UB (some msg)
 
 def interpUB (t: Fitree UBE R): OptionT (Fitree Void1) R :=
   t.interpOption UBE.handle
@@ -50,3 +49,11 @@ def interpUB'! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
 
 @[simp] theorem interpUB'_ret:
   @interpUB' _ E (Fitree.ret r) = Fitree.ret (some r) := rfl
+
+theorem interpUB'_bind (k: T → Fitree (UBE +' E) R):
+  interpUB' (Fitree.bind t k) =
+  Fitree.bind (interpUB' t) fun x? =>
+    match x? with
+    | some x => interpUB' (k x)
+    | none => Fitree.ret none := by
+  apply Fitree.interpOption_bind

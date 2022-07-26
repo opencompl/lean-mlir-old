@@ -322,16 +322,6 @@ def RHS: BasicBlockStmt arith := [mlir_bb_stmt|
 theorem equivalent (n m: FinInt 32):
     run ⟦LHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
-  simp [run, LHS, RHS, denoteBBStmt, denoteOp]
-  simp [interpUB', SSAEnv.get]; simp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [Semantics.handle, ArithE.handle, SSAEnv.get]; simp_itree
-  simp [FinInt.add_comm]
-
-/-
-This is what the rewriting-style proof without simp_itree looks like. That one
-normally works, but th2 fails spectacularly.
   simp [LHS, RHS, run, Semantics.handle]
   rw [ops.addi.sem]
   rw [ops.addi.sem]
@@ -340,7 +330,7 @@ normally works, but th2 fails spectacularly.
   simp [Fitree.interp_bind]
   -- Unfold ArithE.handle only where it is applied to an explicit effect
   repeat conv in ArithE.handle _ _ => simp [ArithE.handle]
--/
+  simp [FinInt.add_comm]
 end th1
 
 /- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`
@@ -381,6 +371,32 @@ theorem equivalent (C X C2: FinInt 32):
   simp [SSAEnv.get]; simp_itree
   simp [SSAEnv.get]; simp_itree
   apply FinInt.sub_add_dist
+
+/-
+-- This proof works, but triggers a Lean performance issue and basically loops.
+-- During testing, the trigger was unfolding `denoteTypedArgs`, though the
+-- culprit is specifically the combination of conditions that led to reducing
+-- WF-induction proofs within the terms. Changing `denoteTypedArgs` to a simple
+-- event `SSAEnvE.SetMultiple` did not eliminate the problem.
+theorem equivalent2 (C X C2: FinInt 32):
+    (run ⟦LHS⟧ (INPUT C X C2) |>.snd.get "r" .i32) =
+    (run ⟦RHS⟧ (INPUT C X C2) |>.snd.get "r" .i32) := by
+  simp [LHS, RHS, INPUT, run, Semantics.handle]
+  simp [denoteBB, denoteBBStmts]
+  rw [ops.addi.sem]
+  rw [ops.subi.sem]
+  rw [ops.subi.sem]
+  rw [ops.subi.sem]
+  simp [interpUB'_bind]
+  simp [interpSSA'_bind]
+  repeat conv in SSAEnvE.handle _ _ => simp [SSAEnvE.handle]
+  simp [Fitree.interp_bind]
+  repeat conv in ArithE.handle _ _ => simp [ArithE.handle]
+  simp [cast_eq]
+  repeat conv in SSAEnvE.handle _ _ => simp [SSAEnvE.handle]
+  simp [cast_eq]
+  apply FinInt.sub_add_dist
+-/
 end th2
 
 /- LLVM InstCombine: `~X + C --> (C-1) - X`

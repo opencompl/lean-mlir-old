@@ -18,7 +18,7 @@ open MLIR.AST
 abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.eval τ)
 
 -- | TODO: throw error if we don't have enough names
-def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): Fitree (UBE +' SSAEnvE Δ) PUnit :=
+def denoteTypedArgs [Member (SSAEnvE Δ) E] (args: TypedArgs Δ) (names: List SSAVal): Fitree E Unit :=
  match args with
  | [] => return ()
  | ⟨τ, val⟩::args =>
@@ -128,13 +128,10 @@ def denoteOp (op: Op Δ):
       match S.semantics_op iop with
       | some t =>
           t.interp (interpRegion regions)
-      | none => do
-          Fitree.trigger <| UBE.DebugUB s!"invalid op: {op}"
-          return default
+      | none =>
+          raiseUB s!"invalid op: {op}"
 
-  | _ => do
-      Fitree.trigger <| UBE.DebugUB s!"invalid denoteOp: {op}"
-      return .Next ⟨.unit, ()⟩
+  | _ => raiseUB s!"invalid denoteOp: {op}"
 
 def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
@@ -144,9 +141,9 @@ def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
       match br with
       | .Next ⟨τ, v⟩ =>
           Fitree.trigger (SSAEnvE.Set τ val v)
+          return br
       | _ =>
-          Fitree.trigger (UBE.DebugUB s!"invalid denoteBBStmt: {bbstmt}")
-      return br
+          raiseUB s!"invalid denoteBBStmt: {bbstmt}"
   | .StmtOp op =>
       denoteOp op
 
@@ -165,8 +162,8 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
   | BasicBlock.mk name formalArgsAndTypes stmts =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
      -- TODO: Any checks on the BlockResults of intermediate ops?
-     let formalArgs : List SSAVal:= formalArgsAndTypes.map Prod.fst
-     Fitree.translate Member.inject (denoteTypedArgs args formalArgs)
+     let formalArgs : List SSAVal := formalArgsAndTypes.map Prod.fst
+     denoteTypedArgs args formalArgs
      denoteBBStmts stmts
 
 def denoteRegions (rs: List (Region Δ)):
@@ -184,9 +181,8 @@ def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
   match r with
   | .mk [bb] =>
       denoteBB bb args
-  | _ => do
-      Fitree.trigger (UBE.DebugUB s!"invalid denoteRegion (>1 bb): {r}")
-      return BlockResult.Next ⟨.unit, ()⟩
+  | _ =>
+      raiseUB s!"invalid denoteRegion (>1 bb): {r}"
 end
 
 instance

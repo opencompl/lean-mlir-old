@@ -176,12 +176,15 @@ def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
   | Cons s l => s.get name τ <|> get name τ l
 
 @[simp] def SSAEnv.get_One:
-  SSAEnv.get name τ (SSAEnv.One scope) = scope.get name τ := rfl
+  SSAEnv.get name τ (.One scope) = scope.get name τ := rfl
 
 def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
   SSAEnv δ → SSAEnv δ
   | One s => One (s.set name τ v)
   | Cons s l => Cons (s.set name τ v) l
+
+@[simp] def SSAEnv.set_One:
+  SSAEnv.set name τ v (.One scope) = .One (scope.set name τ v) := rfl
 
 instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
   fun ⟨τ₁, v₁⟩ ⟨τ₂, v₂⟩ =>
@@ -312,3 +315,23 @@ def interpSSALogged (t: Fitree (SSAEnvE δ) R):
 def interpSSALogged' {E} (t: Fitree (SSAEnvE δ +' E) R):
     WriterT (StateT (SSAEnv δ) (Fitree E)) R :=
   t.interp (Fitree.case SSAEnvE.handleLogged Fitree.liftHandler)
+
+@[simp] theorem interpSSA'_Vis_left {δ: Dialect α σ ε}
+    (k: T → Fitree (SSAEnvE δ +' E) R) (e: SSAEnvE δ T) (s₁: SSAEnv δ):
+  interpSSA' (Fitree.Vis (Sum.inl e) k) s₁ =
+  Fitree.bind (SSAEnvE.handle _ e s₁) (fun (x,s₂) => interpSSA' (k x) s₂) :=
+  rfl
+
+@[simp] theorem interpSSA'_Vis_right (k: T → Fitree (SSAEnvE Δ +' E) R):
+  interpSSA' (Fitree.Vis (Sum.inr e) k) =
+  fun s => Fitree.Vis e (fun x => interpSSA' (k x) s) := rfl
+
+@[simp] theorem interpSSA'_ret {δ: Dialect α σ ε}:
+  @interpSSA' _ _ _ δ _ E (Fitree.ret r) = fun s => Fitree.ret (r,s) := rfl
+
+theorem interpSSA'_bind {δ: Dialect α σ ε}
+    (t: Fitree (SSAEnvE δ +' E) T) (k: T → Fitree (SSAEnvE δ +' E) R)
+    (s₁: SSAEnv δ):
+  interpSSA' (δ := δ) (Fitree.bind t k) s₁ =
+  Fitree.bind (interpSSA' t s₁) (fun (x,s₂) => interpSSA' (k x) s₂) := by
+  apply Fitree.interpState_bind
