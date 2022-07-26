@@ -24,7 +24,7 @@ inductive UBE: Type → Type :=
 def UBE.handle {E}: UBE ~> OptionT (Fitree E) := fun _ e =>
   match e with
   | UB => Fitree.Ret none
-  | DebugUB str => do panic! str; Fitree.Ret none
+  | DebugUB _ => /-do panic! str;-/ Fitree.Ret none
 
 @[simp_itree]
 def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>

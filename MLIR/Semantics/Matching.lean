@@ -622,10 +622,175 @@ private def multiple_example: Op builtin := [mlir_op|
 
 -- Match an MTerm program in some IR, then concretize
 -- the MTerm using the resulting matching context.
-def multiple_example_result : Option (List (BasicBlockStmt builtin)) := do
-  let (val, ctx) ←
+private def multiple_example_result : Option (List (BasicBlockStmt builtin)) := do
+  let (_, ctx) ←
     matchMProgInOp multiple_example test_addi_multiple_pattern []
   let res ← MTerm.concretizeProg test_addi_multiple_pattern ctx
-  val
+  res
 
 #eval multiple_example_result
+
+/-
+### Exact program matching
+
+This section defines functions to check if an operation, or SSA values
+definitions/uses are inside a bigger program.
+-/
+
+mutual
+variable (mOp: BasicBlockStmt δ)
+
+def isOpInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ regions _ _ => isOpInRegions regions
+
+def isOpInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isOpInRegion region || isOpInRegions regions'
+
+def isOpInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isOpInBBs bbs
+
+def isOpInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isOpInBB bb || isOpInBBs bbs'
+
+def isOpInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ stmts => isOpInBBStmts stmts
+
+def isOpInBBStmts (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => False
+  | stmt::stmts' => isOpInBBStmt stmt || isOpInBBStmts stmts'
+
+def isOpInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt, mOp with
+  | .StmtOp op, _ => isOpInOp op
+  | .StmtAssign res ix (Op.mk name operands [] [] (AttrDict.mk []) typ),
+    .StmtAssign res' ix' (Op.mk name' operands' [] [] (AttrDict.mk []) typ') =>
+    res == res' && ix == ix' && name == name' && operands == operands' && typ == typ'
+  | .StmtAssign _ _ op, _ => isOpInOp op
+end
+
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSADefInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ regions _ _ => isSSADefInRegions regions
+
+def isSSADefInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSADefInRegion region || isSSADefInRegions regions'
+
+def isSSADefInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSADefInBBs bbs
+
+def isSSADefInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSADefInBB bb || isSSADefInBBs bbs'
+
+def isSSADefInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ stmts => isSSADefInBBStmts stmts
+
+def isSSADefInBBStmts (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => False
+  | stmt::stmts' => isSSADefInBBStmt stmt || isSSADefInBBStmts stmts'
+
+def isSSADefInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt with
+  | .StmtOp op => isSSADefInOp op
+  | .StmtAssign res _ op => res == mVar || isSSADefInOp op
+end
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSAUseInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ args _ regions _ _ => 
+    args.contains mVar || isSSAUseInRegions regions
+
+def isSSAUseInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSAUseInRegion region || isSSAUseInRegions regions'
+
+def isSSAUseInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSAUseInBBs bbs
+
+def isSSAUseInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSAUseInBB bb || isSSAUseInBBs bbs'
+
+def isSSAUseInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ stmts => isSSAUseInBBStmts stmts
+
+def isSSAUseInBBStmts (stmts: List (BasicBlockStmt δ)) : Bool :=
+  match stmts with
+  | [] => False
+  | stmt::stmts' => isSSAUseInBBStmt stmt || isSSAUseInBBStmts stmts'
+
+def isSSAUseInBBStmt (stmt: BasicBlockStmt δ) : Bool :=
+  match stmt with
+  | .StmtOp op => isSSAUseInOp op
+  | .StmtAssign res _ op => isSSAUseInOp op
+end
+
+mutual
+variable (mVar: SSAVal)
+
+def getDefiningOpInOp (op: Op δ) : Option (BasicBlockStmt δ) :=
+  match op with
+  | .mk _ _ _ regions _ _ => getDefiningOpInRegions regions
+
+def getDefiningOpInRegions (regions: List (Region δ)) : Option (BasicBlockStmt δ) :=
+  match regions with
+  | [] => none
+  | region::regions' => 
+    match getDefiningOpInRegion region with
+    | some op => some op
+    | none => getDefiningOpInRegions regions'
+
+def getDefiningOpInRegion (region: Region δ) : Option (BasicBlockStmt δ) :=
+  match region with
+  | .mk bbs => getDefiningOpInBBs bbs
+
+def getDefiningOpInBBs (bbs: List (BasicBlock δ)) : Option (BasicBlockStmt δ) :=
+  match bbs with
+  | [] => none
+  | bb::bbs' =>
+    match getDefiningOpInBB bb with
+    | some op => some op
+    | none => getDefiningOpInBBs bbs'
+
+def getDefiningOpInBB (bb: BasicBlock δ) : Option (BasicBlockStmt δ) :=
+  match bb with
+  | .mk _ _ stmts => getDefiningOpInBBStmts stmts
+
+def getDefiningOpInBBStmts (stmts: List (BasicBlockStmt δ)) : Option (BasicBlockStmt δ) :=
+  match stmts with
+  | [] => none
+  | stmt::stmts' =>
+    match getDefiningOpInBBStmt stmt with
+    | some op => some op
+    | none => getDefiningOpInBBStmts stmts'
+
+def getDefiningOpInBBStmt (stmt: BasicBlockStmt δ) : Option (BasicBlockStmt δ) :=
+  match stmt with
+  | .StmtOp op => getDefiningOpInOp op
+  | .StmtAssign res _ op => if res == mVar then some stmt else getDefiningOpInOp op
+end
