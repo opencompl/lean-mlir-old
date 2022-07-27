@@ -39,6 +39,8 @@ def run_loop_bounded [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a) (eff: I
 -- | TODO: use the return type of Scf.For. For now, just do unit.
 def scf_semantics_op: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ))
+  | IOp.mk "scf.if" [⟨.i1, b⟩] [] 2 _ _ =>
+      some (Fitree.trigger <| RegionE.RunRegion (if b == 1 then 0 else 1) [])
   | IOp.mk "scf.for" [⟨.i32, lo⟩, ⟨.i32, hi⟩, ⟨.i32, step⟩] [] 1 _ _ => some do
     let nsteps : Int := ((FinInt.toSint'  hi) - (FinInt.toSint' lo)) / FinInt.toSint' step
     run_loop_bounded
@@ -48,6 +50,8 @@ def scf_semantics_op: IOp Δ →
       (step := (FinInt.toSint' step))
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
+  | IOp.mk "scf.yield" vs [] 0 _ _ =>
+    some <| return BlockResult.Ret vs
   | _ => none
 
 def handleScf: ScfE ~> Fitree Void1 :=
@@ -59,5 +63,31 @@ instance: Semantics scf where
   handle := handleScf
 
 /-
-### Examples and testing
+### Theorems
 -/
+
+namespace scf_th1
+-- Proof that `scf.if` with a fixed condition simplifies to its "then" or
+-- "else" region depending on the value
+
+def LHS (r₁ r₂: Region scf): Region scf := [mlir_region|
+{
+  "scf.if" (%b) ($(r₁), $(r₂)) : (i1) -> ()
+}]
+def INPUT (b: Bool): SSAEnv scf := SSAEnv.One [
+  ⟨"b", MLIRType.i1, if b then 1 else 0⟩
+]
+
+-- Pure unfolding-style proof
+theorem equivalent (b: Bool):
+    run (denoteRegion _ (LHS r₁ r₂) []) (INPUT b) =
+    run (denoteRegion _ (if b then r₁ else r₂) []) (INPUT b) := by
+  simp [LHS, INPUT, denoteRegion, denoteBB, denoteBBStmts, denoteTypedArgs]
+  simp [denoteBBStmt, denoteOp, List.zip, List.zipWith, List.mapM]
+  simp [Semantics.semantics_op, scf_semantics_op]
+  simp [interpRegion, denoteRegions]
+  simp [run, interpUB'_bind, interpSSA'_bind]
+  conv in interpUB' (Fitree.trigger _) => simp [Fitree.trigger]
+  simp [SSAEnvE.handle, cast_eq]
+  cases b <;> simp [List.get!]
+end scf_th1

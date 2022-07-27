@@ -20,6 +20,7 @@ import MLIR.Examples.FinIntBruteforce
 import MLIR.Dialects.ToySemantics
 import MLIR.Dialects.PDLSemantics
 import MLIR.Dialects.ControlFlowSemantics
+import MLIR.Dialects.ScfSemantics
 import MLIR.Dialects.ArithSemantics
 
 open MLIR.MLIRParser

@@ -20,7 +20,7 @@ def Test.run (t: Test): String :=
   let t := interpUB'! t
   let t := interpSSA' t SSAEnv.empty
   let t := t.interp' S.handle
-  let t := t.interp ControlFlowOp.handleLogged
+  let t := t.interp ControlFlowE.handleLogged
   t.run.run.snd
 
 def trueval := Test.mk (func_ + arith) "trueval.mlir" [mlir_region| {

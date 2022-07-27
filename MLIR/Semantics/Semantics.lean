@@ -172,7 +172,7 @@ def denoteRegions (rs: List (Region Δ)):
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
-def denoteRegion(r: Region Δ)  (args: TypedArgs Δ):
+def denoteRegion (r: Region Δ) (args: TypedArgs Δ):
     Fitree (UBE +' SSAEnvE Δ +' S.E) (BlockResult Δ) :=
   -- We only define semantics for single-basic-block regions
   -- Furthermore, we tacticly assume that the region that we run will

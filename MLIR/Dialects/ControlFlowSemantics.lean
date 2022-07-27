@@ -56,11 +56,11 @@ instance cf: Dialect Void Void (fun x => Unit) where
 -- Since basic block branching semantics are currently implemented at the
 -- language level, we have little to do in this dialect; branching instructions
 -- just use the existing definitions.
-inductive ControlFlowOp: Type → Type :=
-  | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowOp Unit
+inductive ControlFlowE: Type → Type :=
+  | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowE Unit
 
 def cfSemanticsOp: IOp Δ →
-      Option (Fitree (RegionE Δ +' UBE +' ControlFlowOp) (BlockResult Δ))
+      Option (Fitree (RegionE Δ +' UBE +' ControlFlowE) (BlockResult Δ))
   | IOp.mk "cf.br" [] [bbname] 0 _ _ => some do
       return BlockResult.Branch bbname []
   | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => some do
@@ -71,31 +71,31 @@ def cfSemanticsOp: IOp Δ →
   | IOp.mk "cf.assert" [⟨.i1, arg⟩] [] 0 attrs _ =>
       match attrs.find "msg" with
       | some (.str str) => some do
-             Fitree.trigger $ ControlFlowOp.Assert arg str
+             Fitree.trigger $ ControlFlowE.Assert arg str
              return BlockResult.Next ⟨.unit, ()⟩
       | none => some do
-            Fitree.trigger $ ControlFlowOp.Assert arg "<assert failed>"
+            Fitree.trigger $ ControlFlowE.Assert arg "<assert failed>"
             return BlockResult.Next ⟨.unit, ()⟩
       | _ => none
   | _ => none
 
 
 -- Default pure handler
-def ControlFlowOp.handle {E}: ControlFlowOp ~> Fitree E
+def ControlFlowE.handle {E}: ControlFlowE ~> Fitree E
   | _, Assert cond msg =>
     return ()
 
 -- Alternative handler in WriterT (with output)
-def ControlFlowOp.handleLogged {E}: ControlFlowOp ~> WriterT (Fitree E)
+def ControlFlowE.handleLogged {E}: ControlFlowE ~> WriterT (Fitree E)
   | _, Assert cond msg => do
     if cond.toUint == 0 then
       logWriterT msg
     return ()
 
 instance: Semantics cf where
-  E := ControlFlowOp
+  E := ControlFlowE
   semantics_op := cfSemanticsOp
-  handle := ControlFlowOp.handle
+  handle := ControlFlowE.handle
 
 /-
 ### Examples and testing
@@ -108,9 +108,9 @@ def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
   let t := semanticsRegion 99 r []
   let t := interpUB'! t
   let t := interpSSA' t SSAEnv.empty
-  let t: Fitree ControlFlowOp _ := t.interp (Fitree.case DummyE.handle
-    (fun _ e => Fitree.trigger e: ControlFlowOp ~> Fitree _))
-  let t: WriterT (Fitree Void1) _ := t.interp ControlFlowOp.handleLogged
+  let t: Fitree ControlFlowE _ := t.interp (Fitree.case DummyE.handle
+    (fun _ e => Fitree.trigger e: ControlFlowE ~> Fitree _))
+  let t: WriterT (Fitree Void1) _ := t.interp ControlFlowE.handleLogged
   t.run.run.snd
 
 --
@@ -177,3 +177,30 @@ def ex_assert_false := [mlir_region| {
 #eval run_dummy_cf_region' ex_assert_true
 -- assert fails: prints an error
 #eval run_dummy_cf_region' ex_assert_false
+
+/-
+### Theorems
+-/
+
+namespace cf_th1
+def LHS: Region cf := [mlir_region|
+{
+  ^entry:
+    %x = "dummy.true" () : () -> i1
+    "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
+
+  ^bbtrue:
+    %y = "dummy.dummy" () : () -> i32
+    "cf.ret" () : () -> ()
+
+  ^bbfalse:
+    %z = "dummy.dummy" () : () -> i32
+    "cf.ret" () : () -> ()
+}]
+
+-- | this is mildly janky, but meh.
+def RHS (bb_true: BasicBlock cf): Region cf :=
+  Region.mk (δ := cf) bb_true
+
+-- TODO: Proof of equivalence theorem for true-if in the cf dialect
+end cf_th1
