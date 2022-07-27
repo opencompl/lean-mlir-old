@@ -86,8 +86,8 @@ theorem equivalent (b: Bool):
   simp [denoteBBStmt, denoteOp, List.zip, List.zipWith, List.mapM]
   simp [Semantics.semantics_op, scf_semantics_op]
   simp [interpRegion, denoteRegions]
-  simp [run, interpUB'_bind, interpSSA'_bind]
-  conv in interpUB' (Fitree.trigger _) => simp [Fitree.trigger]
+  simp [run, interpUB_bind, interpSSA'_bind]
+  conv in interpSSA' (Fitree.trigger _) => simp [Fitree.trigger]
   simp [SSAEnvE.handle, cast_eq]
   cases b <;> simp [List.get!]
 end scf_th1

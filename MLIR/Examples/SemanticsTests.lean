@@ -17,11 +17,18 @@ def Test.name: Test → String
 def Test.run (t: Test): String :=
   let (@Test.mk α σ ε δ S _ r) := t
   let t := semanticsRegion 99 r []
-  let t := interpUB'! t
   let t := interpSSA' t SSAEnv.empty
-  let t := t.interp' S.handle
-  let t := t.interp ControlFlowE.handleLogged
-  t.run.run.snd
+  let t: Fitree (Semantics.E cf +' UBE) _ :=
+    t.interp (Fitree.case (Fitree.case
+      (fun _ e => Fitree.translate Member.inject (S.handle _ e))
+      (fun _ e => Fitree.trigger e))
+    (fun _ e => Fitree.trigger e))
+  let t: Fitree UBE _ :=
+    t.interp (Fitree.case ControlFlowE.handleLogged Fitree.liftHandler)
+  let t := interpUB t
+  match Fitree.run t with
+  | .error msg => "error: " ++ msg
+  | .ok ((r, env), assertLog) => assertLog
 
 def trueval := Test.mk (func_ + arith) "trueval.mlir" [mlir_region| {
   %true = "constant" () {value = 1: i1}: () -> i1

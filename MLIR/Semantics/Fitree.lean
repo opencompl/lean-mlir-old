@@ -62,6 +62,10 @@ instance MemberSum {E F G H} [Member E G] [Member F H]:
     Member (E +' F) (G +' H) where
   inject T := Sum.cases (Member.inject T) (Member.inject T)
 
+instance MemberVoid1 {E}:
+    Member Void1 E where
+  inject _ e := nomatch e
+
 -- Effects can now be put in context automatically by typeclass resolution
 example E:      Member E E := inferInstance
 example E F:    Member E (E +' F) := inferInstance
@@ -75,6 +79,7 @@ inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
   | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
+@[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
 
@@ -183,8 +188,17 @@ equalities.
 @[simp] theorem Fitree.bind_ret:
   Fitree.bind (Fitree.ret r) k = k r := rfl
 
+@[simp] theorem Fitree.bind_Ret:
+  Fitree.bind (Fitree.Ret r) k = k r := rfl
+
 @[simp] theorem Fitree.bind_ret':
     Fitree.bind t (fun r => Fitree.ret r) = t := by
+  induction t with
+  | Ret _ => rfl
+  | Vis _ _ ih => simp [bind, ih]
+
+@[simp] theorem Fitree.bind_Ret':
+    Fitree.bind t (fun r => Fitree.Ret r) = t := by
   induction t with
   | Ret _ => rfl
   | Vis _ _ ih => simp [bind, ih]
@@ -444,6 +458,7 @@ def tacticSimpItree (definitional: Bool): TacticM Unit := do
     ``Fitree.liftHandler, ``Member.inject,
     ``StateT.bind, ``StateT.pure, ``StateT.lift,
     ``OptionT.bind, ``OptionT.pure, ``OptionT.mk, ``OptionT.lift,
+    ``ExceptT.pure, ``ExceptT.mk,
     ``bind, ``pure, ``cast_eq, ``Eq.mpr].map toSimpLemma
   let fullSet :=
     (lemmas.reverse ++ others).toList.intersperse (mkAtom ",") |>.toArray

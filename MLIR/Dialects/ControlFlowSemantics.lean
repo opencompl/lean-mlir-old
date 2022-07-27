@@ -102,16 +102,23 @@ instance: Semantics cf where
 -/
 
 def run_dummy_cf_region: Region (dummy + cf) → String := fun r =>
-  runLogged (semanticsRegion 99 r []) SSAEnv.empty |>.fst |>.snd
+  match runLogged (semanticsRegion 99 r []) SSAEnv.empty with
+  | .error msg => msg
+  | .ok ((_, log), _) => log
 
 def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
   let t := semanticsRegion 99 r []
-  let t := interpUB'! t
-  let t := interpSSA' t SSAEnv.empty
-  let t: Fitree ControlFlowE _ := t.interp (Fitree.case DummyE.handle
-    (fun _ e => Fitree.trigger e: ControlFlowE ~> Fitree _))
-  let t: WriterT (Fitree Void1) _ := t.interp ControlFlowE.handleLogged
-  t.run.run.snd
+  let t := interpSSALogged' t SSAEnv.empty
+  let t: Fitree (ControlFlowE +' UBE) _ :=
+    t.interp (Fitree.case
+      (Fitree.case DummyE.handle (fun _ e => Fitree.trigger e))
+      (fun _ e => Fitree.trigger e))
+  let t: WriterT (Fitree UBE) _ :=
+    t.interp (Fitree.case ControlFlowE.handleLogged Fitree.liftHandler)
+  let t := interpUB t
+  match Fitree.run t with
+  | .error msg => msg
+  | .ok (((_, log), _), debug) => log ++ debug
 
 --
 

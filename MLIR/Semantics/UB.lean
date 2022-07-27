@@ -48,6 +48,35 @@ def interpUB' {E} (t: Fitree (UBE +' E) R): UBT (Fitree E) R :=
 def interpUB'! {E} (t: Fitree (UBE +' E) R): Fitree E R :=
   t.interp (Fitree.case UBE.handle! (fun T => @Fitree.trigger E E T _))
 
+/-
+### Reduction theorems
+-/
+
+@[simp] theorem interpUB_ret:
+  interpUB (Fitree.ret r) = Fitree.ret (Except.ok r) := rfl
+
+@[simp] theorem interpUB_Ret:
+  interpUB (Fitree.Ret r) = Fitree.ret (Except.ok r) := rfl
+
+theorem interpUB_bind (k: T → Fitree UBE R):
+  interpUB (Fitree.bind t k) =
+  Fitree.bind (interpUB t) (fun x =>
+    match x with
+    | .error ε => Fitree.ret (.error ε)
+    | .ok x => interpUB (k x)) := by
+  -- Can't reuse `Fitree.interpExcept_bind` because the match statements are
+  -- considered different by isDefEq for some reason
+  induction t with
+  | Ret _ => rfl
+  | Vis _ _ ih =>
+      simp [interpUB, Fitree.interpExcept] at *
+      simp [Fitree.interp, Fitree.bind, Bind.bind]
+      simp [ExceptT.bind, ExceptT.mk, ExceptT.bindCont]
+      have fequal2 α β (f g: α → β) x y: f = g → x = y → f x = g y :=
+        fun h₁ h₂ => by simp [h₁, h₂]
+      apply fequal2; rfl; funext x
+      cases x <;> simp [ih]
+
 @[simp] theorem interpUB'_Vis_right:
   interpUB' (Fitree.Vis (Sum.inr e) k) =
   Fitree.Vis e (fun x => interpUB' (k x)) := rfl

@@ -227,6 +227,15 @@ private abbrev ops.negi (output input: SSAVal): BasicBlockStmt arith :=
   .StmtAssign output none <|
     .mk "negi" [input] [] [] (.mk []) (.fn (.tuple [.i32]) .i32)
 
+private abbrev ops.zext (sz₁ sz₂: Nat) (output input: SSAVal): BasicBlockStmt arith :=
+  .StmtAssign output none <|
+    .mk "zext" [input] [] [] (.mk [])
+      (.fn (.tuple [.int .Signless sz₁]) (.int .Signless sz₂))
+
+private abbrev ops.select (output cond t f: SSAVal): BasicBlockStmt arith :=
+  .StmtAssign output none <|
+    .mk "select" [cond, t, f] [] [] (.mk []) (.fn (.tuple [.i1, .i32, .i32]) .i32)
+
 private abbrev ops._binary (name: String) (output lhs rhs: SSAVal):
     BasicBlockStmt arith :=
   .StmtAssign output none <|
@@ -240,8 +249,8 @@ private abbrev ops.xori := ops._binary "xori"
 
 private theorem ops.constant.sem output value:
     denoteBBStmt arith (ops.constant output value) =
-  Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
-    (Sum.inr <| Sum.inl <| SSAEnvE.Set .i32 output (FinInt.ofInt 32 value)) fun _ =>
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| SSAEnvE.Set .i32 output (FinInt.ofInt 32 value)) fun _ =>
   Fitree.ret (BlockResult.Next (δ := arith)
     ⟨.i32, FinInt.ofInt 32 value⟩) := by
   simp [ops.constant, denoteBBStmt, denoteOp, Semantics.semantics_op]
@@ -250,12 +259,36 @@ private theorem ops.constant.sem output value:
 
 private theorem ops.negi.sem output input:
     denoteBBStmt arith (ops.negi output input) =
-  Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
-    (Sum.inr <| Sum.inl <| SSAEnvE.Get .i32 input) fun r =>
-  Fitree.Vis (Sum.inr <| Sum.inr <| ArithE.NegI 32 r) fun r =>
-  Fitree.Vis (Sum.inr <| Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| SSAEnvE.Get .i32 input) fun r =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.NegI 32 r) fun r =>
+  Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
   Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
   simp [ops.negi, denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+
+private theorem ops.zext.sem sz₁ sz₂ output input:
+    denoteBBStmt arith (ops.zext sz₁ sz₂ output input) =
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| @SSAEnvE.Get _ _ _ _ (.int .Signless sz₁) (instInhabitedEval _) input) fun r =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.Zext sz₁ sz₂ r) fun r =>
+  Fitree.Vis (Sum.inl <| SSAEnvE.Set (.int .Signless sz₂) output r) fun _ =>
+  Fitree.ret (BlockResult.Next ⟨.int .Signless sz₂, r⟩) := by
+  simp [ops.zext, denoteBBStmt, denoteOp, Semantics.semantics_op]
+  simp_itree
+
+private theorem ops.select.sem output cond t f:
+    denoteBBStmt arith (ops.select output cond t f) =
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| SSAEnvE.Get .i1 cond) fun cond =>
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| SSAEnvE.Get .i32 t) fun t =>
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| SSAEnvE.Get .i32 f) fun f =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.Select 32 cond t f) fun r =>
+  Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
+  Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
+  simp [ops.select, denoteBBStmt, denoteOp, Semantics.semantics_op]
   simp_itree
 
 private theorem ops._binary.sem name ctor output lhs rhs:
@@ -264,11 +297,11 @@ private theorem ops._binary.sem name ctor output lhs rhs:
         (IOp.mk name [⟨.i32, n⟩, ⟨.i32, m⟩] [] 0 (.mk []) (.fn (.tuple [.i32, .i32]) .i32)) =
       binary_semantics_op name [⟨.i32, n⟩, ⟨.i32, m⟩] ctor) →
     denoteBBStmt arith (ops._binary name output lhs rhs) =
-  Fitree.Vis (E := UBE +' SSAEnvE arith +' Semantics.E arith)
-    (Sum.inr <| Sum.inl <| SSAEnvE.Get .i32 lhs) fun lhs =>
-  Fitree.Vis (Sum.inr <| Sum.inl <| SSAEnvE.Get .i32 rhs) fun rhs =>
-  Fitree.Vis (Sum.inr <| Sum.inr <| ctor 32 lhs rhs) fun r =>
-  Fitree.Vis (Sum.inr <| Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
+  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+    (Sum.inl <| SSAEnvE.Get .i32 lhs) fun lhs =>
+  Fitree.Vis (Sum.inl <| SSAEnvE.Get .i32 rhs) fun rhs =>
+  Fitree.Vis (Sum.inr <| Sum.inl <| ctor 32 lhs rhs) fun r =>
+  Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
   Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
   intro h
   simp [denoteBBStmt, denoteOp, Semantics.semantics_op]
@@ -325,9 +358,7 @@ theorem equivalent (n m: FinInt 32):
   simp [LHS, RHS, run, Semantics.handle]
   rw [ops.addi.sem]
   rw [ops.addi.sem]
-  simp
-  simp [interpSSA', SSAEnvE.handle, SSAEnv.get, SSAEnv.set, cast_eq]
-  simp [Fitree.interp_bind]
+  simp [SSAEnvE.handle, cast_eq]
   -- Unfold ArithE.handle only where it is applied to an explicit effect
   repeat conv in ArithE.handle _ _ => simp [ArithE.handle]
   simp [FinInt.add_comm]
@@ -360,16 +391,13 @@ def INPUT (C X C2: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (C X C2: FinInt 32):
-    (run ⟦LHS⟧ (INPUT C X C2) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT C X C2) |>.snd.get "r" .i32) := by
+    semanticPostCondition₂
+      (run ⟦LHS⟧ (INPUT C X C2))
+      (run ⟦RHS⟧ (INPUT C X C2))
+    fun _ env₁ _ env₂ =>
+      env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interpUB']; simp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
   apply FinInt.sub_add_dist
 
 /-
@@ -434,8 +462,14 @@ def INPUT (C X: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (C X: FinInt 32):
-    (run ⟦LHS⟧ (INPUT C X) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT C X) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT C X))
+    (run ⟦RHS⟧ (INPUT C X))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
+  -- TODO: If we could simplify `denoteTypedArgs` we could save a lot of work
+  -- TODO: here. But it triggers the WF-induction bug, so we instead we unfold
+  -- TODO: the SSA stuff later. Investigate.
   simp [INPUT, LHS, RHS, run, denoteBBStmts, denoteBB]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
@@ -444,9 +478,7 @@ theorem equivalent (C X: FinInt 32):
   rw [ops.constant.sem]
   rw [ops.subi.sem]
   rw [ops.subi.sem]
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
-  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   apply FinInt.comp_add (by decide)
 end th3
 
@@ -477,18 +509,14 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B: FinInt 32):
-    (run ⟦LHS⟧ (INPUT A B) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT A B) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT A B))
+    (run ⟦RHS⟧ (INPUT A B))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interpUB']; simp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  apply Eq.symm
-  apply FinInt.neg_add_dist
+  rw [FinInt.neg_add_dist]
 end th4
 
 /- LLVM InstCombine: `-(X - Y) --> (Y - X)`
@@ -516,15 +544,13 @@ def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (X Y: FinInt 32):
-    (run ⟦LHS⟧ (INPUT X Y) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT X Y) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT X Y))
+    (run ⟦RHS⟧ (INPUT X Y))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interpUB']; simp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
-  simp [SSAEnv.get]; simp_itree
   apply FinInt.neg_sub_dist
 end th5
 
@@ -564,8 +590,11 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B: FinInt 32):
-    (run ⟦LHS⟧ (INPUT A B) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT A B) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT A B))
+    (run ⟦RHS⟧ (INPUT A B))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [INPUT, LHS, RHS, run, denoteBBStmts, denoteBB]
   rw [ops.constant.sem]
   rw [ops.addi.sem]
@@ -573,9 +602,7 @@ theorem equivalent (A B: FinInt 32):
   rw [ops.xori.sem]
   rw [ops.addi.sem]
   rw [ops.subi.sem]
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
-  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   apply FinInt.plus_one_plus_comp
 end th6
 
@@ -615,8 +642,11 @@ def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (X Y: FinInt 32):
-    (run ⟦LHS⟧ (INPUT X Y) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT X Y) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT X Y))
+    (run ⟦RHS⟧ (INPUT X Y))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [INPUT, LHS, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
@@ -624,9 +654,7 @@ theorem equivalent (X Y: FinInt 32):
   rw [ops.xori.sem]
   rw [ops.subi.sem]
   rw [ops.subi.sem]
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
-  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   apply FinInt.comp_sub_comp
 end th7
 
@@ -642,7 +670,8 @@ theorem FinInt.addfull_xor_and (A B: FinInt sz):
     | next bA A', next bB B' =>
       simp [HXor.hXor, HAnd.hAnd, HOr.hOr, xor, and, or, logic2] at *
       simp [addfull, ih]
-      cases bA <;> cases bB <;> decide
+      cases bA <;> cases bB <;> decide  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+
 
 theorem FinInt.add_xor_and (A B: FinInt sz):
     (A ^^^ B) + (A &&& B) = (A ||| B) := by
@@ -664,13 +693,13 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B: FinInt 32):
-    (run ⟦LHS⟧ (INPUT A B) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT A B) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT A B))
+    (run ⟦RHS⟧ (INPUT A B))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; dsimp_itree
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
-  repeat (simp [SSAEnv.get]; dsimp_itree)
+  simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; simp_itree
   apply FinInt.add_xor_and
 end th8
 
@@ -704,15 +733,14 @@ def INPUT (B: FinInt 1) (C: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (B: FinInt 1) (C: FinInt 32):
-    (run ⟦LHS⟧ (INPUT B C) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT B C) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT B C))
+    (run ⟦RHS⟧ (INPUT B C))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [LHS, RHS, INPUT]
-  simp [run, denoteBB, denoteBBStmt, denoteBBStmts, denoteOp]; dsimp_itree
-  simp [Semantics.semantics_op, arith_semantics_op, AttrDict.find, List.find?,
-        AttrEntry.key, AttrEntry.value]; dsimp_itree
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; dsimp_itree
-  repeat (simp [SSAEnv.get]; dsimp_itree)
+  simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
+  simp [Semantics.semantics_op, arith_semantics_op]; simp_itree
   apply FinInt.add_bool_eq_select
 end th9
 
@@ -754,8 +782,11 @@ def INPUT (A B C: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B C: FinInt 32):
-    (run ⟦LHS⟧ (INPUT A B C) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT A B C) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT A B C))
+    (run ⟦RHS⟧ (INPUT A B C))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [INPUT, LHS, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
@@ -766,9 +797,7 @@ theorem equivalent (A B C: FinInt 32):
   rw [ops.ori.sem]
   rw [ops.xori.sem]
   rw [ops.andi.sem]
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
-  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   apply FinInt.and_not_and_not
 end th10
 
@@ -809,8 +838,11 @@ def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (A B: FinInt 32):
-    (run ⟦LHS⟧ (INPUT A B) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT A B) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT A B))
+    (run ⟦RHS⟧ (INPUT A B))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [INPUT, LHS, RHS, run, denoteBB, denoteBBStmts]
   rw [ops.constant.sem]
   rw [ops.negi.sem]
@@ -820,9 +852,7 @@ theorem equivalent (A B: FinInt 32):
   rw [ops.ori.sem]
   rw [ops.xori.sem]
   rw [ops.xori.sem]
-  simp [interpUB']; dsimp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; dsimp_itree
-  repeat (simp [SSAEnv.get, SSAEnv.set]; simp_itree)
+  simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   apply FinInt.and_or_not_or
 end th11
 
@@ -857,12 +887,12 @@ def INPUT (X C₁ C₂: FinInt 32): SSAEnv arith := SSAEnv.One [
 ]
 
 theorem equivalent (X C₁ C₂: FinInt 32):
-    (run ⟦LHS⟧ (INPUT X C₁ C₂) |>.snd.get "r" .i32) =
-    (run ⟦RHS⟧ (INPUT X C₁ C₂) |>.snd.get "r" .i32) := by
+  semanticPostCondition₂
+    (run ⟦LHS⟧ (INPUT X C₁ C₂))
+    (run ⟦RHS⟧ (INPUT X C₁ C₂))
+  fun _ env₁ _ env₂ =>
+    env₁.get "r" .i32 = env₂.get "r" .i32 := by
   simp [LHS, RHS, INPUT]
   simp [run, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]; simp_itree
-  simp [interpUB']; simp_itree
-  simp [interpSSA', Fitree.interpState, SSAEnvE.handle, SSAEnv.get]; simp_itree
-  repeat (simp [SSAEnv.get]; simp_itree)
   apply FinInt.xor_and
 end th12
