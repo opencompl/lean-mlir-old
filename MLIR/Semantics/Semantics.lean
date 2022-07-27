@@ -232,7 +232,7 @@ def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
 
 def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
     (t: Fitree (UBE +' SSAEnvE Δ +' S.E) R) (env: SSAEnv Δ):
-    Option R × SSAEnv Δ :=
+    Except String R × SSAEnv Δ :=
   let t := interpUB' t
   let t := interpSSA' t env
   let t := t.interp S.handle
