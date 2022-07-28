@@ -335,6 +335,12 @@ equalities.
 
 -- The following theorems are only applied manually
 
+theorem Fitree.run_bind {T R} (t: Fitree Void1 T) (k: T → Fitree Void1 R):
+    run (bind t k) = run (k (run t)) :=
+  match t with
+  | Ret _ => rfl
+  | Vis e _ => nomatch e
+
 theorem Fitree.interp_bind:
     Fitree.interp h (Fitree.bind t k) =
     Fitree.bind (Fitree.interp h t) (fun x => Fitree.interp h (k x)) := by

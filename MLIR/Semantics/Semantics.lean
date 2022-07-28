@@ -156,7 +156,7 @@ def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
       let _ ← denoteBBStmt stmt
       denoteBBStmts stmts
 
-def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ := []):
+def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
     Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) := do
   match bb with
   | BasicBlock.mk name formalArgsAndTypes stmts =>
@@ -277,10 +277,13 @@ instance DenoteBBStmt (δ: Dialect α σ ε) [Semantics δ]:
     Denote δ BasicBlockStmt where
   denote bbstmt := denoteBBStmt δ bbstmt
 
--- TODO: this a small hack, because we assume
--- that when we call `denote`, BB has no args.
+-- TODO: this a small hack, because we assume the basic block has no arguments
 instance DenoteBB (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
-  denote bb := denoteBB δ bb (args := [])
+  denote bb := denoteBB δ bb []
+
+-- This only works for single-BB regions with no arguments
+instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region where
+  denote r := denoteRegion δ r []
 
 -- Not for regions because we need to specify the fuel
 
@@ -289,4 +292,6 @@ instance DenoteBB (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock wh
 @[simp] theorem Denote.denoteBBStmt [Semantics δ]:
   Denote.denote (self := DenoteBBStmt δ) bbstmt = denoteBBStmt δ bbstmt := rfl
 @[simp] theorem Denote.denoteBB [Semantics δ]:
-  Denote.denote (self := DenoteBB δ) bb = denoteBB δ bb := rfl
+  Denote.denote (self := DenoteBB δ) bb = denoteBB δ bb [] := rfl
+@[simp] theorem Denote.denoteRegion [Semantics δ]:
+  Denote.denote (self := DenoteRegion δ) r = denoteRegion δ r [] := rfl
