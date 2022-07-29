@@ -142,8 +142,12 @@ def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
       | .Next ⟨τ, v⟩ =>
           Fitree.trigger (SSAEnvE.Set τ val v)
           return br
+      -- TODO: Semi-hack for yields from subregions
+      | .Ret [⟨τ, v⟩] =>
+          Fitree.trigger (SSAEnvE.Set τ val v)
+          return .Next ⟨τ, v⟩
       | _ =>
-          raiseUB s!"invalid denoteBBStmt: {bbstmt}"
+          return br
   | .StmtOp op =>
       denoteOp op
 
@@ -172,8 +176,9 @@ def denoteRegions (rs: List (Region Δ)):
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
-def denoteRegion (r: Region Δ) (args: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+def denoteRegion (r: Region Δ):
+    TypedArgs Δ → Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+  fun args =>
   -- We only define semantics for single-basic-block regions
   -- Furthermore, we tacticly assume that the region that we run will
   -- return a `BlockResult.Ret`, since we don't bother handling

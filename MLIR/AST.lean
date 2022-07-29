@@ -243,7 +243,7 @@ instance : Coe (Region δ) (List (BasicBlock δ)) where
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
-private def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
+def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .fn τ₁ τ₂    => .fn (coeMLIRType τ₁) (coeMLIRType τ₂)
   | .int sgn n   => .int sgn n
   | .float n     => .float n
@@ -252,7 +252,7 @@ private def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .undefined n => .undefined n
   | .extended s  => .extended (c.coe_σ _ _ s)
 
-private def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
+def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
   | []    => []
   | τ::τs => coeMLIRType τ :: coeMLIRTypeList τs
 end
@@ -338,30 +338,30 @@ instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
-private def coeOp: Op δ₁ → Op δ₂
+def coeOp: Op δ₁ → Op δ₂
   | .mk name args bbs regions attrs τ =>
       .mk name args bbs (coeRegionList regions) (Coe.coe attrs) (Coe.coe τ)
 
-private def coeBasicBlockStmt: BasicBlockStmt δ₁ → BasicBlockStmt δ₂
+def coeBasicBlockStmt: BasicBlockStmt δ₁ → BasicBlockStmt δ₂
   | .StmtAssign val ix op => .StmtAssign val ix (coeOp op)
   | .StmtOp op => .StmtOp (coeOp op)
 
-private def coeBasicBlockStmtList:
+def coeBasicBlockStmtList:
     List (BasicBlockStmt δ₁) → List (BasicBlockStmt δ₂)
   | [] => []
   | s :: bbstmts => coeBasicBlockStmt s :: coeBasicBlockStmtList bbstmts
 
-private def coeBasicBlock: BasicBlock δ₁ → BasicBlock δ₂
+def coeBasicBlock: BasicBlock δ₁ → BasicBlock δ₂
   | .mk name args ops => .mk name args (coeBasicBlockStmtList ops)
 
-private def coeBasicBlockList: List (BasicBlock δ₁) → List (BasicBlock δ₂)
+def coeBasicBlockList: List (BasicBlock δ₁) → List (BasicBlock δ₂)
   | [] => []
   | bb :: bbs => coeBasicBlock bb :: coeBasicBlockList bbs
 
-private def coeRegion: Region δ₁ → Region δ₂
+def coeRegion: Region δ₁ → Region δ₂
   | .mk bbs => .mk (coeBasicBlockList bbs)
 
-private def coeRegionList: List (Region δ₁) → List (Region δ₂)
+def coeRegionList: List (Region δ₁) → List (Region δ₂)
   | [] => []
   | r :: regions => coeRegion r :: coeRegionList regions
 end

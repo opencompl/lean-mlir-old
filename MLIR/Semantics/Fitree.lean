@@ -272,6 +272,9 @@ equalities.
 @[simp] theorem Fitree.interp_ret:
   Fitree.interp h (Fitree.ret r) = Fitree.ret r := rfl
 
+@[simp] theorem Fitree.interp_Ret:
+  Fitree.interp h (Fitree.Ret r) = Fitree.ret r := rfl
+
 @[simp] theorem Fitree.interp_Vis:
   Fitree.interp h (Fitree.Vis e k) =
   Fitree.bind (h _ e) (fun x => Fitree.interp h (k x)) := rfl

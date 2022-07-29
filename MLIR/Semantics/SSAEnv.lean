@@ -329,6 +329,16 @@ def interpSSALogged' {E} (t: Fitree (SSAEnvE δ +' E) R):
 @[simp] theorem interpSSA'_ret {δ: Dialect α σ ε}:
   @interpSSA' _ _ _ δ _ E (Fitree.ret r) = fun s => Fitree.ret (r,s) := rfl
 
+private theorem pair_eta {α β: Type} (x: α × β): (x.fst, x.snd) = x :=
+  match x with
+  | (_, _) => rfl
+
+@[simp] theorem interpSSA'_trigger_MemberSumL {Δ: Dialect α' σ' ε'}
+    (e: SSAEnvE Δ T) (s₁: SSAEnv Δ):
+  interpSSA' (@Fitree.trigger (SSAEnvE Δ) (SSAEnvE Δ +' E) _ MemberSumL e) s₁ =
+  SSAEnvE.handle _ e s₁ := by
+  simp [Fitree.trigger, pair_eta]
+
 theorem interpSSA'_bind {δ: Dialect α σ ε}
     (t: Fitree (SSAEnvE δ +' E) T) (k: T → Fitree (SSAEnvE δ +' E) R)
     (s₁: SSAEnv δ):
