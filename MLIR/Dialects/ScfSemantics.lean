@@ -39,7 +39,7 @@ def run_loop_bounded_stepped [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a)
 -- | TODO: make this model the `yield` as well.
 def run_loop_bounded
   (n: Nat)
-  (ix: Nat)
+  (ix: Int)
   (start: BlockResult Δ):
     Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do
   match n with
@@ -65,10 +65,10 @@ def scf_semantics_op: IOp Δ →
       (lo := lo)
       (step := step)
       (accum := default)
-      (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 []))
+      (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, i⟩]))
 
   | IOp.mk "scf.for'" [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ _ => some do
-      run_loop_bounded (n := hi - lo) (ix := lo) (BlockResult.Ret [])
+      run_loop_bounded (n := (hi - lo).toNat) (ix := lo) (BlockResult.Ret [])
 
   | IOp.mk "scf.yield" vs [] 0 _ _ =>
     some <| return BlockResult.Ret vs
@@ -152,7 +152,7 @@ def INPUT (n: Nat): SSAEnv scf := SSAEnv.One [
   ⟨"c0", .index, 0⟩,
   ⟨"c1", .index, 1⟩]
 
-theorem peel_run_loop_bounded {n ix: Nat} (start: BlockResult Δ):
+theorem peel_run_loop_bounded {n: Nat} {ix: Int} (start: BlockResult Δ):
   run_loop_bounded (n+1) ix start =
   Fitree.bind (Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, ix⟩])
     (fun (_: BlockResult Δ) => run_loop_bounded n (ix+1) (.Ret [])) := rfl
@@ -183,6 +183,10 @@ theorem CORRECT_r_commute_run_interpRegion_SSAEnvE_get [S: Semantics scf]
   simp [run_SSAEnvE_get _ _ _ _ _ ENV]
   simp [run_bind, CORRECT_r]
 
+private theorem identity₁ (n: Nat):
+    Int.toNat (Int.ofNat n + 1 - 0) = n + 1 := by
+  sorry
+
 -- Pretty slow due to simplifying scf_semantics_op which contains a large match
 theorem equivalent (n: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n)) =
@@ -199,8 +203,10 @@ theorem equivalent (n: Nat) (r: Region scf):
   rw [run_SSAEnvE_get "c1" .index 1]
   rw [CORRECT_r_commute_run_interpRegion_SSAEnvE_get h "cn_plus_1" .index (n+1)]
   rw [run_SSAEnvE_get "cn_plus_1" .index (n+1)]
-  simp [(by sorry: n + 1 - 1 = n)]
+  rw [identity₁]
+  simp [(by sorry: (Int.ofNat n + 1 - 1).toNat = n)]
   simp [peel_run_loop_bounded, Fitree.interp_bind]
+  simp [(by sorry: (0:Int) + (1:Int) = (1:Int))]
   all_goals simp [INPUT, cast_eq]
 
 end SCF.FOR_PEELING

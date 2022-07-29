@@ -550,7 +550,8 @@ def rgn_to_doc: Region δ → Doc
 
 def list_rgn_to_doc: List (Region δ) → List Doc
   | [] => []
-  | r :: rs => rgn_to_doc r :: list_rgn_to_doc rs
+  | [r] => [rgn_to_doc r]
+  | r₁ :: r₂ :: rs => rgn_to_doc r₁ :: "," :: list_rgn_to_doc (r₂ :: rs)
 
 end
 

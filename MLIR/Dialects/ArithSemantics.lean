@@ -60,6 +60,8 @@ def ComparisonPred.ofInt: Int → Option ComparisonPred
 inductive ArithE: Type → Type :=
   | CmpI: (sz: Nat) → (pred: ComparisonPred) → (lhs rhs: FinInt sz) →
           ArithE (FinInt 1)
+  | CmpIndex: (pred: ComparisonPred) → (lhs rhs: Int) →
+          ArithE (FinInt 1)
   | AddI: (sz: Nat) → (lhs rhs: FinInt sz) →
           ArithE (FinInt sz)
   | AddT: (sz: Nat) → (D: DimList) → (lhs rhs: RankedTensor D (.int sgn sz)) →
@@ -106,7 +108,7 @@ def binary_semantics_op {Δ: Dialect α' σ' ε'}
 def arith_semantics_op (o: IOp Δ):
     Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
   match o with
-  | IOp.mk "constant" [] [] 0 attrs (.fn (.tuple []) τ₁) =>
+  | IOp.mk "arith.constant" [] [] 0 attrs (.fn (.tuple []) τ₁) =>
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
           if τ₁ = τ₂ then
@@ -115,12 +117,14 @@ def arith_semantics_op (o: IOp Δ):
                 -- TODO: Check range of constants
                 let v := FinInt.ofInt sz value
                 return BlockResult.Next ⟨.int sgn sz, v⟩
+            | .index => some do
+                return BlockResult.Next ⟨.index, value⟩
             | _ => none
           else none
       | some _
       | none => none
 
-  | IOp.mk "cmpi" [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
+  | IOp.mk "arith.cmpi" [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
     attrs _ =>
       if EQ: sgn = sgn' /\ sz = sz' then
             match attrs.find "predicate" with
@@ -134,32 +138,43 @@ def arith_semantics_op (o: IOp Δ):
             | none => none
       else none
 
-  | IOp.mk "zext" [⟨.int sgn₁ sz₁, value⟩] [] 0 _
+  | IOp.mk "arith.cmpi" [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] [] 0 attrs _ =>
+      match attrs.find "predicate" with
+      | some (.int n (.int .Signless 64)) =>
+          match (ComparisonPred.ofInt n) with
+          | some pred => some do
+            let r ← Fitree.trigger (ArithE.CmpIndex pred lhs rhs)
+            return BlockResult.Next ⟨.i1, r⟩
+          | none => none
+      | some _
+      | none => none
+
+  | IOp.mk "arith.zext" [⟨.int sgn₁ sz₁, value⟩] [] 0 _
     (.fn (.tuple [.int _ _]) (.int sgn₂ sz₂)) =>
       if sgn₁ = sgn₂ then some do
         let r ← Fitree.trigger (ArithE.Zext sz₁ sz₂ value)
         return BlockResult.Next ⟨.int sgn₂ sz₂, r⟩
       else none
 
-  | IOp.mk "select" [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] [] 0
+  | IOp.mk "arith.select" [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] [] 0
     _ _ =>
       if EQ: sgn = sgn' /\ sz = sz' then some do
         let r ← Fitree.trigger (ArithE.Select sz b lhs (EQ.2 ▸ rhs))
         return BlockResult.Next ⟨.int sgn sz, r⟩
       else none
 
-  | IOp.mk "negi" _ _ _ _ _ =>
+  | IOp.mk "arith.negi" _ _ _ _ _ =>
       unary_semantics_op o ArithE.NegI
   | IOp.mk name args _ _ _ _ =>
-      if name = "addi" then
+      if name = "arith.addi" then
         binary_semantics_op name args ArithE.AddI
-      else if name = "subi" then
+      else if name = "arith.subi" then
         binary_semantics_op name args ArithE.SubI
-      else if name = "andi" then
+      else if name = "arith.andi" then
         binary_semantics_op name args ArithE.AndI
-      else if name = "ori" then
+      else if name = "arith.ori" then
         binary_semantics_op name args ArithE.OrI
-      else if name = "xori" then
+      else if name = "arith.xori" then
         binary_semantics_op name args ArithE.XorI
       else
         none
@@ -187,6 +202,20 @@ def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
         | .ule => lhs.toUint <= rhs.toUint
         | .ugt => lhs.toUint >  rhs.toUint
         | .uge => lhs.toUint >= rhs.toUint
+      return FinInt.ofInt 1 (if b then 1 else 0)
+  | CmpIndex pred lhs rhs =>
+      let b: Bool :=
+        match pred with
+        | .eq  => lhs = rhs
+        | .ne  => lhs != rhs
+        | .slt => lhs <  rhs
+        | .sle => lhs <= rhs
+        | .sgt => lhs >  rhs
+        | .sge => lhs >= rhs
+        | .ult => lhs <  rhs
+        | .ule => lhs <= rhs
+        | .ugt => lhs >  rhs
+        | .uge => lhs >= rhs
       return FinInt.ofInt 1 (if b then 1 else 0)
   | SubI _ lhs rhs =>
       return lhs - rhs
@@ -221,31 +250,31 @@ individual operations and then substituting them as needed.
 private abbrev ops.constant (output: SSAVal) (value: Int):
     BasicBlockStmt arith :=
   .StmtAssign output none <|
-    .mk "constant" [] [] [] (.mk [.mk "value" (.int value .i32)]) (.fn (.tuple []) .i32)
+    .mk "arith.constant" [] [] [] (.mk [.mk "value" (.int value .i32)]) (.fn (.tuple []) .i32)
 
 private abbrev ops.negi (output input: SSAVal): BasicBlockStmt arith :=
   .StmtAssign output none <|
-    .mk "negi" [input] [] [] (.mk []) (.fn (.tuple [.i32]) .i32)
+    .mk "arith.negi" [input] [] [] (.mk []) (.fn (.tuple [.i32]) .i32)
 
 private abbrev ops.zext (sz₁ sz₂: Nat) (output input: SSAVal): BasicBlockStmt arith :=
   .StmtAssign output none <|
-    .mk "zext" [input] [] [] (.mk [])
+    .mk "arith.zext" [input] [] [] (.mk [])
       (.fn (.tuple [.int .Signless sz₁]) (.int .Signless sz₂))
 
 private abbrev ops.select (output cond t f: SSAVal): BasicBlockStmt arith :=
   .StmtAssign output none <|
-    .mk "select" [cond, t, f] [] [] (.mk []) (.fn (.tuple [.i1, .i32, .i32]) .i32)
+    .mk "arith.select" [cond, t, f] [] [] (.mk []) (.fn (.tuple [.i1, .i32, .i32]) .i32)
 
 private abbrev ops._binary (name: String) (output lhs rhs: SSAVal):
     BasicBlockStmt arith :=
   .StmtAssign output none <|
     .mk name [lhs, rhs] [] [] (.mk []) (.fn (.tuple [.i32, .i32]) .i32)
 
-private abbrev ops.addi := ops._binary "addi"
-private abbrev ops.subi := ops._binary "subi"
-private abbrev ops.andi := ops._binary "andi"
-private abbrev ops.ori  := ops._binary "ori"
-private abbrev ops.xori := ops._binary "xori"
+private abbrev ops.addi := ops._binary "arith.addi"
+private abbrev ops.subi := ops._binary "arith.subi"
+private abbrev ops.andi := ops._binary "arith.andi"
+private abbrev ops.ori  := ops._binary "arith.ori"
+private abbrev ops.xori := ops._binary "arith.xori"
 
 private theorem ops.constant.sem output value:
     denoteBBStmt arith (ops.constant output value) =
@@ -309,15 +338,15 @@ private theorem ops._binary.sem name ctor output lhs rhs:
   simp [h]; rfl
 
 private abbrev ops.addi.sem output lhs rhs :=
-  ops._binary.sem "addi" ArithE.AddI output lhs rhs (fun _ _ => rfl)
+  ops._binary.sem "arith.addi" ArithE.AddI output lhs rhs (fun _ _ => rfl)
 private abbrev ops.subi.sem output lhs rhs :=
-  ops._binary.sem "subi" ArithE.SubI output lhs rhs (fun _ _ => rfl)
+  ops._binary.sem "arith.subi" ArithE.SubI output lhs rhs (fun _ _ => rfl)
 private abbrev ops.andi.sem output lhs rhs :=
-  ops._binary.sem "andi" ArithE.AndI output lhs rhs (fun _ _ => rfl)
+  ops._binary.sem "arith.andi" ArithE.AndI output lhs rhs (fun _ _ => rfl)
 private abbrev ops.ori.sem output lhs rhs :=
-  ops._binary.sem "ori" ArithE.OrI output lhs rhs (fun _ _ => rfl)
+  ops._binary.sem "arith.ori" ArithE.OrI output lhs rhs (fun _ _ => rfl)
 private abbrev ops.xori.sem output lhs rhs :=
-  ops._binary.sem "xori" ArithE.XorI output lhs rhs (fun _ _ => rfl)
+  ops._binary.sem "arith.xori" ArithE.XorI output lhs rhs (fun _ _ => rfl)
 
 /-
 ### Basic examples
@@ -325,14 +354,14 @@ private abbrev ops.xori.sem output lhs rhs :=
 
 private def cst1: BasicBlock arith := [mlir_bb|
   ^bb:
-    %true = "constant" () {value = 1: i1}: () -> i1
-    %false = "constant" () {value = 0: i1}: () -> i1
-    %r1 = "constant" () {value = 25: i32}: () -> i32
-    %r2 = "constant" () {value = 17: i32}: () -> i32
-    %r = "addi" (%r1, %r2): (i32, i32) -> i32
-    %s = "subi" (%r2, %r): (i32, i32) -> i32
-    %b1 = "cmpi" (%r, %r1) {predicate = 5 /- sge -/}: (i32, i32) -> i1
-    %b2 = "cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
+    %true = "arith.constant" () {value = 1: i1}: () -> i1
+    %false = "arith.constant" () {value = 0: i1}: () -> i1
+    %r1 = "arith.constant" () {value = 25: i32}: () -> i32
+    %r2 = "arith.constant" () {value = 17: i32}: () -> i32
+    %r = "arith.addi" (%r1, %r2): (i32, i32) -> i32
+    %s = "arith.subi" (%r2, %r): (i32, i32) -> i32
+    %b1 = "arith.cmpi" (%r, %r1) {predicate = 5 /- sge -/}: (i32, i32) -> i1
+    %b2 = "arith.cmpi" (%r2, %r) {predicate = 8 /- ugt -/}: (i32, i32) -> i1
 ]
 
 #eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
@@ -346,10 +375,10 @@ private def cst1: BasicBlock arith := [mlir_bb|
 
 namespace th1
 def LHS: BasicBlockStmt arith := [mlir_bb_stmt|
-  %r = "addi"(%n, %m): (i32, i32) -> i32
+  %r = "arith.addi"(%n, %m): (i32, i32) -> i32
 ]
 def RHS: BasicBlockStmt arith := [mlir_bb_stmt|
-  %r = "addi"(%m, %n): (i32, i32) -> i32
+  %r = "arith.addi"(%m, %n): (i32, i32) -> i32
 ]
 
 theorem equivalent (n m: FinInt 32):
@@ -378,13 +407,13 @@ theorem FinInt.sub_add_dist: forall (C X C2: FinInt sz),
 namespace th2
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %t = "addi"(%X, %C2): (i32, i32) -> i32
-    %r = "subi"(%C, %t): (i32, i32) -> i32
+    %t = "arith.addi"(%X, %C2): (i32, i32) -> i32
+    %r = "arith.subi"(%C, %t): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %t = "subi"(%C, %C2): (i32, i32) -> i32
-    %r = "subi"(%t, %X): (i32, i32) -> i32
+    %t = "arith.subi"(%C, %C2): (i32, i32) -> i32
+    %r = "arith.subi"(%t, %X): (i32, i32) -> i32
 ]
 def INPUT (C X C2: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("C", ⟨.i32, C⟩), ("X", ⟨.i32, X⟩), ("C2", ⟨.i32, C2⟩)
@@ -446,16 +475,16 @@ theorem FinInt.comp_add: sz > 0 → forall (X C: FinInt sz),
 namespace th3
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "xori"(%X, %_2): (i32, i32) -> i32
-    %r = "addi"(%_3, %C): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.negi"(%_1): (i32) -> i32
+    %_3 = "arith.xori"(%X, %_2): (i32, i32) -> i32
+    %r = "arith.addi"(%_3, %C): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %o = "constant"() {value = 1: i32}: () -> i32
-    %t = "subi"(%C, %o): (i32, i32) -> i32
-    %r = "subi"(%t, %X): (i32, i32) -> i32
+    %o = "arith.constant"() {value = 1: i32}: () -> i32
+    %t = "arith.subi"(%C, %o): (i32, i32) -> i32
+    %r = "arith.subi"(%t, %X): (i32, i32) -> i32
 ]
 def INPUT (C X: FinInt 32): SSAEnv arith := SSAEnv.One [
     ("C", ⟨.i32, C⟩), ("X", ⟨.i32, X⟩)
@@ -495,14 +524,14 @@ theorem FinInt.neg_add_dist (A B: FinInt sz):
 namespace th4
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "negi"(%A): (i32) -> i32
-    %_2 = "negi"(%B): (i32) -> i32
-    %r = "addi"(%_1, %_2): (i32, i32) -> i32
+    %_1 = "arith.negi"(%A): (i32) -> i32
+    %_2 = "arith.negi"(%B): (i32) -> i32
+    %r = "arith.addi"(%_1, %_2): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "addi"(%A, %B): (i32, i32) -> i32
-    %r = "negi"(%_1): (i32) -> i32
+    %_1 = "arith.addi"(%A, %B): (i32, i32) -> i32
+    %r = "arith.negi"(%_1): (i32) -> i32
 ]
 def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
@@ -532,12 +561,12 @@ theorem FinInt.neg_sub_dist (X Y: FinInt sz):
 namespace th5
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "subi"(%X, %Y): (i32, i32) -> i32
-    %r = "negi"(%_1): (i32) -> i32
+    %_1 = "arith.subi"(%X, %Y): (i32, i32) -> i32
+    %r = "arith.negi"(%_1): (i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %r = "subi"(%Y, %X): (i32, i32) -> i32
+    %r = "arith.subi"(%Y, %X): (i32, i32) -> i32
 ]
 def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("X", ⟨.i32, X⟩), ("Y", ⟨.i32, Y⟩)
@@ -575,15 +604,15 @@ theorem FinInt.plus_one_plus_comp (A B: FinInt sz):
 namespace th6
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "addi"(%A, %_1): (i32, i32) -> i32
-    %_3 = "negi"(%_1): (i32) -> i32
-    %_4 = "xori"(%B, %_3): (i32, i32) -> i32
-    %r = "addi"(%_2, %_4): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.addi"(%A, %_1): (i32, i32) -> i32
+    %_3 = "arith.negi"(%_1): (i32) -> i32
+    %_4 = "arith.xori"(%B, %_3): (i32, i32) -> i32
+    %r = "arith.addi"(%_2, %_4): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %r = "subi"(%A, %B): (i32, i32) -> i32
+    %r = "arith.subi"(%A, %B): (i32, i32) -> i32
 ]
 def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
@@ -627,15 +656,15 @@ theorem FinInt.comp_sub_comp (X Y: FinInt sz):
 namespace th7
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "xori"(%X, %_2): (i32, i32) -> i32
-    %_4 = "xori"(%Y, %_2): (i32, i32) -> i32
-    %r = "subi"(%_3, %_4): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.negi"(%_1): (i32) -> i32
+    %_3 = "arith.xori"(%X, %_2): (i32, i32) -> i32
+    %_4 = "arith.xori"(%Y, %_2): (i32, i32) -> i32
+    %r = "arith.subi"(%_3, %_4): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %r = "subi"(%Y, %X): (i32, i32) -> i32
+    %r = "arith.subi"(%Y, %X): (i32, i32) -> i32
 ]
 def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("X", ⟨.i32, X⟩), ("Y", ⟨.i32, Y⟩)
@@ -680,13 +709,13 @@ theorem FinInt.add_xor_and (A B: FinInt sz):
 namespace th8
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "xori"(%A, %B): (i32, i32) -> i32
-    %_2 = "andi"(%A, %B): (i32, i32) -> i32
-    %r = "addi"(%_1, %_2): (i32, i32) -> i32
+    %_1 = "arith.xori"(%A, %B): (i32, i32) -> i32
+    %_2 = "arith.andi"(%A, %B): (i32, i32) -> i32
+    %r = "arith.addi"(%_1, %_2): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %r = "ori"(%A, %B): (i32, i32) -> i32
+    %r = "arith.ori"(%A, %B): (i32, i32) -> i32
 ]
 def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
@@ -719,14 +748,14 @@ theorem FinInt.add_bool_eq_select (B: FinInt 1) (C: FinInt 32):
 namespace th9
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "zext"(%B): (i1) -> i32
-    %r = "addi"(%_1, %C): (i32, i32) -> i32
+    %_1 = "arith.zext"(%B): (i1) -> i32
+    %r = "arith.addi"(%_1, %C): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "addi"(%C, %_1): (i32, i32) -> i32
-    %r = "select"(%B, %_2, %C): (i1, i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.addi"(%C, %_1): (i32, i32) -> i32
+    %r = "arith.select"(%B, %_2, %C): (i1, i32, i32) -> i32
 ]
 def INPUT (B: FinInt 1) (C: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("B", ⟨.i1, B⟩), ("C", ⟨.i32, C⟩)
@@ -762,20 +791,20 @@ theorem FinInt.and_not_and_not (A B C: FinInt sz):
 namespace th10
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "xori"(%B, %_2): (i32, i32) -> i32
-    %_4 = "andi"(%A, %_3): (i32, i32) -> i32
-    %_5 = "xori"(%C, %_2): (i32, i32) -> i32
-    %r = "andi"(%_4, %_5): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.negi"(%_1): (i32) -> i32
+    %_3 = "arith.xori"(%B, %_2): (i32, i32) -> i32
+    %_4 = "arith.andi"(%A, %_3): (i32, i32) -> i32
+    %_5 = "arith.xori"(%C, %_2): (i32, i32) -> i32
+    %r = "arith.andi"(%_4, %_5): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "ori"(%B, %C): (i32, i32) -> i32
-    %_4 = "xori"(%_3, %_2): (i32, i32) -> i32
-    %r = "andi"(%A, %_4): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.negi"(%_1): (i32) -> i32
+    %_3 = "arith.ori"(%B, %C): (i32, i32) -> i32
+    %_4 = "arith.xori"(%_3, %_2): (i32, i32) -> i32
+    %r = "arith.andi"(%A, %_4): (i32, i32) -> i32
 ]
 def INPUT (A B C: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩), ("C", ⟨.i32, C⟩)
@@ -819,19 +848,19 @@ theorem FinInt.and_or_not_or (A B: FinInt sz):
 namespace th11
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "ori"(%A, %B): (i32, i32) -> i32
-    %_4 = "xori"(%_3, %_2): (i32, i32) -> i32
-    %_5 = "andi"(%A, %B): (i32, i32) -> i32
-    %r = "ori"(%_5, %_4): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.negi"(%_1): (i32) -> i32
+    %_3 = "arith.ori"(%A, %B): (i32, i32) -> i32
+    %_4 = "arith.xori"(%_3, %_2): (i32, i32) -> i32
+    %_5 = "arith.andi"(%A, %B): (i32, i32) -> i32
+    %r = "arith.ori"(%_5, %_4): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "constant"() {value = 1: i32}: () -> i32
-    %_2 = "negi"(%_1): (i32) -> i32
-    %_3 = "xori"(%A, %B): (i32, i32) -> i32
-    %r = "xori"(%_3, %_2): (i32, i32) -> i32
+    %_1 = "arith.constant"() {value = 1: i32}: () -> i32
+    %_2 = "arith.negi"(%_1): (i32) -> i32
+    %_3 = "arith.xori"(%A, %B): (i32, i32) -> i32
+    %r = "arith.xori"(%_3, %_2): (i32, i32) -> i32
 ]
 def INPUT (A B: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("A", ⟨.i32, A⟩), ("B", ⟨.i32, B⟩)
@@ -873,14 +902,14 @@ theorem FinInt.xor_and (X C₁ C₂: FinInt sz):
 namespace th12
 def LHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "xori"(%X, %C1): (i32, i32) -> i32
-    %r = "andi"(%_1, %C2): (i32, i32) -> i32
+    %_1 = "arith.xori"(%X, %C1): (i32, i32) -> i32
+    %r = "arith.andi"(%_1, %C2): (i32, i32) -> i32
 ]
 def RHS: BasicBlock arith := [mlir_bb|
   ^bb:
-    %_1 = "andi"(%X, %C2): (i32, i32) -> i32
-    %_2 = "andi"(%C1, %C2): (i32, i32) -> i32
-    %r = "xori"(%_1, %_2): (i32, i32) -> i32
+    %_1 = "arith.andi"(%X, %C2): (i32, i32) -> i32
+    %_2 = "arith.andi"(%C1, %C2): (i32, i32) -> i32
+    %r = "arith.xori"(%_1, %_2): (i32, i32) -> i32
 ]
 def INPUT (X C₁ C₂: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("X", ⟨.i32, X⟩), ("C1", ⟨.i32, C₁⟩), ("C2", ⟨.i32, C₂⟩)

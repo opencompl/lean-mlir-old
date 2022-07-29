@@ -108,7 +108,7 @@ def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
     -- .float
     (fun sz => Float)
     -- .index
-    Nat
+    Int
     -- .tuple [Mapping motive_2 to motive_1]
     (fun _ ih => ih)
     -- .undefined

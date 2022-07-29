@@ -13,7 +13,7 @@ def LHS: BasicBlockStmt Δ := [mlir_bb_stmt|
   }): (i1) -> i32
 ]
 def RHS: BasicBlockStmt Δ := [mlir_bb_stmt|
-  %x = "select"(%b, %n, %m): (i1, i32, i32) -> i32
+  %x = "arith.select"(%b, %n, %m): (i1, i32, i32) -> i32
 ]
 def INPUT (b: FinInt 1) (n m: FinInt 32): SSAEnv Δ := SSAEnv.One [
   ⟨"b", .i1, b⟩,

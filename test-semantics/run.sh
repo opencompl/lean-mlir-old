@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-passes="--convert-arith-to-llvm --convert-cf-to-llvm --convert-func-to-llvm"
+passes="--convert-scf-to-cf --convert-arith-to-llvm --convert-cf-to-llvm --convert-func-to-llvm"
 status=0
 
 for input in *.mlir; do
