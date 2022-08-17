@@ -55,7 +55,7 @@ Check that an IR satisfies SSA.
 mutual
 def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match op with
-  | Op.mk _ operands results [] regions _ => do
+  | Op.mk _ results operands [] regions _ => do
     -- Check operands
     let b := operandsDefinitionObeySSA operands ctx
     -- Check regions
