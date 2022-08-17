@@ -150,7 +150,7 @@ inductive Op (δ: Dialect α σ ε) where
 
 inductive BasicBlock (δ: Dialect α σ ε) where
 | mk: (name: String)
-      -> (args: List (SSAVal × MLIRType δ))
+      -> (args: List (TypedSSAVal δ))
       -> (ops: List (Op δ)) -> BasicBlock δ
 
 inductive Region (δ: Dialect α σ ε) where
