@@ -594,9 +594,9 @@ private def test_addi_multiple_pattern: List (MTerm δ) :=
 private def multiple_example: Op builtin := [mlir_op|
   "builtin.module"() ({
     ^entry:
-    %r2 = "std.addi"(%t2, %t3): (i32, i32) -> (i32)
-    %r = "std.addi"(%t0, %t1): (i32, i32) -> (i32)
-    %r3 = "std.addi"(%r, %r): (i32, i32) -> (i32)
+    %r2 = "std.addi"(%t2, %t3): (i32, i32) -> i32
+    %r = "std.addi"(%t0, %t1): (i32, i32) -> i32
+    %r3 = "std.addi"(%r, %r): (i32, i32) -> i32
   }) : () -> ()
 ]
 
@@ -611,27 +611,15 @@ private def test_addi_one: MTerm δ :=
   ])
 
 private def one_example: Op builtin := [mlir_op|
-    %r2 = "std.addi"(%t2, %t3): (i32, i32) -> (i32)
+    %r2 = "std.addi"(%t2, %t3): (i32, i32) -> i32
 ]
 
 -- Match an MTerm program in some IR, then concretize
 -- the MTerm using the resulting matching context.
-def multiple_example_result : Option SSAVal/-(List (Op builtin))-/ := do
-  let x <- match one_example with
-           | Op.mk _ [⟨res, τ⟩] operands _ _ _ =>
-             let ctx <- matchMSSAVals operands [
-              MTerm.App .OPERAND [.Var 2 "op_x" .MSSAVal, .Var 2 "T" .MMLIRType],
-              MTerm.App .OPERAND [.Var 2 "op_y" .MSSAVal, .Var 2 "T" .MMLIRType]] []
-             let ctx' <- matchMType (.Var 2 "T" .MMLIRType) τ ctx
-             --let ctx'' <- matchMSSAVal (.App .OPERAND [.Var 2 "op_res" .MSSAVal, .Var 2 "T" .MMLIRType]) res ctx'
-             some (VarCtx.get ctx' .MSSAVal "op_x")
-           | _ => none
-  --let val <- matchMOp one_example test_addi_one []
-  --let (val, ctx) ←
-  --  matchMProgInOp multiple_example test_addi_multiple_pattern []
-  --let res ← MTerm.concretizeProg test_addi_multiple_pattern ctx
-  -- val.map (λ op => op.fst)
-  -- SSAVal.SSAVal "o"
-  x
+def multiple_example_result : Option (List (Op builtin)) := do
+  let (_, ctx) ←
+    matchMProgInOp multiple_example test_addi_multiple_pattern []
+  let res ← MTerm.concretizeProg test_addi_multiple_pattern ctx
+  res
 
 #eval multiple_example_result
