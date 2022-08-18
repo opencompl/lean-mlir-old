@@ -297,134 +297,124 @@ open TranslationM
 
 -- TODO: Provide dialect data properly once implemented
 private def PDLToMatch.readStatement (operationMatchTerms: List (MTerm builtin))
-    (stmt: BasicBlockStmt builtin): TranslationM builtin Unit := do
+    (op: Op builtin): TranslationM builtin Unit := do
   let tr ← get
 
-  match stmt with
-  | BasicBlockStmt.StmtAssign (SSAVal.SSAVal name) _ op => match op with
+  match op with
+  -- %name = pdl.type
+  | Op.mk "pdl.type" [⟨SSAVal.SSAVal name, .undefined "pdl.type"⟩]
+        [] [] [] (AttrDict.mk []) => do
+      IO.println s!"Found new type variable: {name}"
+      addName name
+  
+  -- %name = pdl.type: TYPE
+  | Op.mk "pdl.type" [⟨SSAVal.SSAVal name, .undefined "pdl.type"⟩]
+        [] [] [] (AttrDict.mk [AttrEntry.mk "type" (AttrValue.type τ)]) => do
+      IO.println s!"Found new type variable: {name} (= {τ})"
+      addName name
+      addEquation (.Var 1 name .MMLIRType, .ConstMLIRType τ)
 
-    -- %name = pdl.type
-    | Op.mk "pdl.type" [] [] [] (AttrDict.mk [])
-          (.fn (.tuple []) (.undefined "pdl.type")) => do
-        IO.println s!"Found new type variable: {name}"
-        addName name
+  -- %name = pdl.operand
+  | Op.mk "pdl.operand" [⟨SSAVal.SSAVal name, .undefined "pdl.value"⟩]
+        [] [] [] (AttrDict.mk []) => do
+      IO.println s!"Found new variable: {name}"
+      addName name
+      let typeName ← makeFreshName (name ++ "_T")
+      IO.println s!"→ Generated type name: {typeName}"
+      addJudgement name (.Var 1 typeName .MMLIRType)
 
-    -- %name = pdl.type: TYPE
-    | Op.mk "pdl.type" [] [] [] (AttrDict.mk [
-            AttrEntry.mk "type" (AttrValue.type τ)
-          ])
-          (.fn (.tuple []) (.undefined "pdl.type")) => do
-        IO.println s!"Found new type variable: {name} (= {τ})"
-        addName name
-        addEquation (.Var 1 name .MMLIRType, .ConstMLIRType τ)
+  -- %name = pdl.operand: %typeName
+  | Op.mk "pdl.operand" [⟨SSAVal.SSAVal name, .undefined "pdl.value"⟩]
+        [⟨SSAVal.SSAVal typeName, .undefined "pdl.type"⟩] [] [] (AttrDict.mk []) => do
+      IO.println s!"Found new variable: {name} of type {typeName}"
+      addName name
+      checkNameDefined typeName
+      addJudgement name (.Var 0 typeName .MMLIRType)
 
-    -- %name = pdl.operand
-    | Op.mk "pdl.operand" [] [] [] (AttrDict.mk [])
-          (.fn (.tuple []) (.undefined "pdl.value")) => do
-        IO.println s!"Found new variable: {name}"
-        addName name
-        let typeName ← makeFreshName (name ++ "_T")
-        IO.println s!"→ Generated type name: {typeName}"
-        addJudgement name (.Var 1 typeName .MMLIRType)
+  -- %name = pdl.operation "OPNAME"(ARGS) -> TYPE
+  | Op.mk "pdl.operation" [⟨SSAVal.SSAVal name, _⟩] args [] [] attrs => do
+      let (attributeNames, opname, operand_segment_sizes) :=
+        (attrs.find "attributeNames",
+         attrs.find "name",
+         attrs.find "operand_segment_sizes")
+      let argsVal := args.map Prod.fst
 
-    -- %name = pdl.operand: %typeName
-    | Op.mk "pdl.operand" [(SSAVal.SSAVal typeName)] [] [] (AttrDict.mk [])
-          (.fn (.tuple [.undefined "pdl.type"])
-               (.undefined "pdl.value")) => do
-        IO.println s!"Found new variable: {name} of type {typeName}"
-        addName name
-        checkNameDefined typeName
-        addJudgement name (.Var 0 typeName .MMLIRType)
+      match attributeNames, opname, operand_segment_sizes with
+      | some (.list _),
+        some (.str opname),
+        some (builtin.dense_vector_attr oss _ _ _) =>
+          let values := (operandSegment argsVal oss 0).map (·.str)
+          let types  := (operandSegment argsVal oss 2).map (·.str)
+          IO.println s!"Found new operation: {name} matching {opname}"
+          addName name
 
-    -- %name = pdl.operation "OPNAME"(ARGS) -> TYPE
-    | Op.mk "pdl.operation" args [] [] attrs some_type => do
-        let (attributeNames, opname, operand_segment_sizes) :=
-          (attrs.find "attributeNames",
-           attrs.find "name",
-           attrs.find "operand_segment_sizes")
+          IO.println s!"→ Arguments: {values}, return types: {types}"
+          values.forM checkNameDefined
+          types.forM checkNameDefined
 
-        match attributeNames, opname, operand_segment_sizes with
-        | some (.list attributeNames),
-          some (.str opname),
-          some (builtin.dense_vector_attr oss _ _ _) =>
-            let values := (operandSegment args oss 0).map (·.str)
-            let types  := (operandSegment args oss 2).map (·.str)
-            IO.println s!"Found new operation: {name} matching {opname}"
-            addName name
+          let valuesTypes ← findJudgements values
+          let retNames ← makeFreshNames (name ++ "_res") types.length
+          IO.println s!"→ Arg types: {valuesTypes}, return names: {retNames}"
 
-            IO.println s!"→ Arguments: {values}, return types: {types}"
-            values.forM checkNameDefined
-            types.forM checkNameDefined
+          let insPattern := operationMatchTerms.find? fun
+            | .App .OP [.ConstString n, _, _] => n = opname
+            | _ => false
+          if insPattern.isNone then
+            error s!"pdl.operation: no pattern known for {opname}!"
+          let insPattern := insPattern.get!
 
-            let valuesTypes ← findJudgements values
-            let retNames ← makeFreshNames (name ++ "_res") types.length
-            IO.println s!"→ Arg types: {valuesTypes}, return names: {retNames}"
+          IO.println s!"→ Using match term: {insPattern}"
+          let ins ← makeFreshOp (name ++ "_") insPattern 2
+          addOperation ins
+          IO.println s!"→ Instantiated match term: {ins}"
 
-            let insPattern := operationMatchTerms.find? fun
-              | .App .OP [.ConstString n, _, _] => n = opname
-              | _ => false
-            if insPattern.isNone then
-              error s!"pdl.operation: no pattern known for {opname}!"
-            let insPattern := insPattern.get!
+          let operands_args: List (MTerm _) := valuesTypes.map (fun (v,t) =>
+            .App .OPERAND [.Var 0 v .MSSAVal, t])
+          let operands_rets: List (MTerm _) :=
+            List.zip retNames types |>.map (fun (v, t) =>
+              .App .OPERAND [.Var 1 v .MSSAVal, .Var 0 t .MMLIRType])
+          let op_mterm :=
+            .App .OP [
+              .ConstString opname,
+              .App (.LIST .MOperand) operands_args,
+              .App (.LIST .MOperand) operands_rets
+            ]
+          addEquation (op_mterm, ins)
 
-            IO.println s!"→ Using match term: {insPattern}"
-            let ins ← makeFreshOp (name ++ "_") insPattern 2
-            addOperation ins
-            IO.println s!"→ Instantiated match term: {ins}"
+          let opResults := List.zip retNames (types.map (.Var 0 · .MMLIRType))
+          addOpResults name opResults
 
-            let operands_args: List (MTerm _) := valuesTypes.map (fun (v,t) =>
-              .App .OPERAND [.Var 0 v .MSSAVal, t])
-            let operands_rets: List (MTerm _) :=
-              List.zip retNames types |>.map (fun (v, t) =>
-                .App .OPERAND [.Var 1 v .MSSAVal, .Var 0 t .MMLIRType])
-            let op_mterm :=
-              .App .OP [
-                .ConstString opname,
-                .App (.LIST .MOperand) operands_args,
-                .App (.LIST .MOperand) operands_rets
-              ]
-            addEquation (op_mterm, ins)
-
-            let opResults := List.zip retNames (types.map (.Var 0 · .MMLIRType))
-            addOpResults name opResults
-
-        | _, _, _ =>
-            error s!"pdl.operation: unexpected attributes: {attrs}"
+      | _, _, _ =>
+          error s!"pdl.operation: unexpected attributes: {attrs}"
 
     -- %name = pdl.result INDEX of %op
-    | Op.mk "pdl.result" [SSAVal.SSAVal opname] [] [] attrs
-          (.fn (.tuple [.undefined "pdl.operation"])
-               (.undefined "pdl.value")) => do
+  | Op.mk "pdl.result" [⟨SSAVal.SSAVal name, .undefined "pdl.value"⟩]
+        [⟨SSAVal.SSAVal opname, .undefined "pdl.operation"⟩] [] [] attrs => do
+      match attrs.find "index" with
+      | some (AttrValue.int index (MLIRType.int _ _)) =>
+          IO.println
+            s!"Found new variable: {name} aliasing result {index} of {opname}"
+          checkNameDefined opname
+          addName name
 
-        match attrs.find "index" with
-        | some (AttrValue.int index (MLIRType.int _ _)) =>
-            IO.println
-              s!"Found new variable: {name} aliasing result {index} of {opname}"
-            checkNameDefined opname
-            addName name
+          let (resName, resType) ← findOpResult opname index.toNat
+          addJudgement name resType
+          addEquation (.Var 0 name .MSSAVal, .Var 1 resName .MSSAVal)
 
-            let (resName, resType) ← findOpResult opname index.toNat
-            addJudgement name resType
-            addEquation (.Var 0 name .MSSAVal, .Var 1 resName .MSSAVal)
+      | _ =>
+          error s!"pdl.result: unexpected attributes on {opname}: {attrs}"
+  
+  | Op.mk "pdl.rewrite" [] args bbs regions attrs =>
+      return ()
 
-        | _ =>
-            error s!"pdl.result: unexpected attributes on {opname}: {attrs}"
-
-    | _ => do
-        error s!"{op.name}: unrecognized PDL operation"
-
-  | BasicBlockStmt.StmtOp op => match op with
-    -- TODO: pdl.rewrite
-    | Op.mk "pdl.rewrite" args bbs regions attrs ty =>
-        return ()
-    | _ => do
-        error s!"{op.name}: unrecognized PDL operation"
+  | _ => do
+      error s!"{op.name}: unrecognized PDL operation"
 
 def PDLToMatch.convert (PDLProgram: Op builtin)
     (operationMatchTerms: List (MTerm builtin)):
     TranslationM builtin Unit :=
   match PDLProgram with
-  | Op.mk "pdl.pattern" [] [] [region] attrs ty =>
+  | Op.mk "pdl.pattern" _ [] [] [region] attrs =>
       match region with
       | Region.mk [BasicBlock.mk name [] stmts] => do
           stmts.forM (readStatement operationMatchTerms)
