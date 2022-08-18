@@ -54,10 +54,10 @@ def run_loop_bounded
 def scf_semantics_op: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ))
 
-  | IOp.mk "scf.if" [⟨.i1, b⟩] [] 2 _ _ =>
+  | IOp.mk "scf.if" _ [⟨.i1, b⟩] [] 2 _ =>
       some (Fitree.trigger <| RegionE.RunRegion (if b == 1 then 0 else 1) [])
 
-  | IOp.mk "scf.for" [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ _ => some do
+  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ => some do
     let nsteps : Int := (hi - lo) / step
     run_loop_bounded_stepped
       (a := BlockResult Δ)
@@ -67,13 +67,13 @@ def scf_semantics_op: IOp Δ →
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, i⟩]))
 
-  | IOp.mk "scf.for'" [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ _ => some do
+  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ => some do
       run_loop_bounded (n := (hi - lo).toNat) (ix := lo) (BlockResult.Ret [])
 
-  | IOp.mk "scf.yield" vs [] 0 _ _ =>
+  | IOp.mk "scf.yield" _ vs [] 0 _ =>
     some <| return BlockResult.Ret vs
 
-  | IOp.mk "scf.execute_region" args [] 1 _ _ => .some do
+  | IOp.mk "scf.execute_region" _ args [] 1 _ => .some do
     Fitree.trigger (RegionE.RunRegion 0 args)
 
   | _ => none
@@ -106,8 +106,8 @@ def INPUT (b: Bool): SSAEnv scf := SSAEnv.One [
 theorem equivalent (b: Bool):
     run ⟦LHS r₁ r₂⟧ (INPUT b) =
     run ⟦if b then r₁ else r₂⟧ (INPUT b) := by
-  simp [LHS, INPUT, denoteRegion, denoteBB, denoteBBStmts, denoteTypedArgs]
-  simp [denoteBBStmt, denoteOp, List.zip, List.zipWith, List.mapM]
+  simp [LHS, INPUT, denoteRegion, denoteBB, denoteOps, denoteTypedArgs]
+  simp [denoteOp, denoteOpBase, List.map, List.zip, List.zipWith, List.mapM]
   simp [Semantics.semantics_op, scf_semantics_op]
   simp [interpRegion, denoteRegions]
   simp [run, interpUB_bind, interpSSA'_bind]
@@ -192,8 +192,8 @@ theorem equivalent (n: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n)) =
     (run ⟦RHS r⟧ (INPUT n)) := by
   simp [LHS, RHS]
-  simp [denoteRegion, denoteBB, denoteTypedArgs, denoteBBStmts, denoteBBStmt]
-  simp [denoteOp, Semantics.semantics_op, scf_semantics_op]; simp_itree
+  simp [denoteRegion, denoteBB, denoteTypedArgs, denoteOps, denoteOp]
+  simp [denoteOpBase, Semantics.semantics_op, scf_semantics_op]; simp_itree
   simp [denoteRegions]
   rw [run_SSAEnvE_get "c0" .index 0]
   rw [run_SSAEnvE_get "cn_plus_1" .index (n+1)]
@@ -248,7 +248,7 @@ theorem equivalent (n m: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n m)) =
     (run ⟦RHS r⟧ (INPUT n m)) := by
   simp [LHS, RHS, INPUT]
-  simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]
+  simp [denoteRegion, denoteBB, denoteOps, denoteOp, denoteOpBase]
   simp_itree
   simp [Semantics.semantics_op, scf_semantics_op]
   rw [run_SSAEnvE_get "c0" .index 0]

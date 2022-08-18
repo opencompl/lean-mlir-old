@@ -136,6 +136,8 @@ def denoteOpBase (op: Op Δ):
 def denoteOp (op: Op Δ):
     Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
   match op with
+  | .mk name [] args0 bbargs regions0 attrs => do
+      denoteOpBase op
   | .mk name [(res, _)] args0 bbargs regions0 attrs => do
       let br ← denoteOpBase op
       match br with
