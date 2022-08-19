@@ -18,7 +18,7 @@ instance func_: Dialect Void Void (fun x => Unit) where
 
 def funcSemanticsOp: IOp Δ →
     Option (Fitree (RegionE Δ +' UBE  +' Void1) (BlockResult Δ))
-  | IOp.mk "func.return" args [] 0 _ _ => some <|
+  | IOp.mk "func.return" _ args [] 0 _ => some <|
        return .Ret args
   | _ => none
 

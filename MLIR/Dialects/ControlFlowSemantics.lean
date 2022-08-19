@@ -22,13 +22,13 @@ inductive DummyE: Type → Type :=
 
 def dummy_semantics_op: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' DummyE) (BlockResult Δ))
-  | IOp.mk "dummy.dummy" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
+  | IOp.mk "dummy.dummy" [.int sgn sz] [] _ _ _ => some do
       let i ← Fitree.trigger DummyE.Dummy
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
-  | IOp.mk "dummy.true" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
+  | IOp.mk "dummy.true" [.int sgn sz] [] _ _ _ => some do
       let i ← Fitree.trigger DummyE.True
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
-  | IOp.mk "dummy.false" _ _ _ _ (.fn (.tuple []) (.int sgn sz)) => some do
+  | IOp.mk "dummy.false" [.int sgn sz] [] _ _ _ => some do
       let i ← Fitree.trigger DummyE.False
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
   | _ => none
@@ -61,14 +61,14 @@ inductive ControlFlowE: Type → Type :=
 
 def cfSemanticsOp: IOp Δ →
       Option (Fitree (RegionE Δ +' UBE +' ControlFlowE) (BlockResult Δ))
-  | IOp.mk "cf.br" [] [bbname] 0 _ _ => some do
+  | IOp.mk "cf.br" _ [] [bbname] 0 _ => some do
       return BlockResult.Branch bbname []
-  | IOp.mk "cf.condbr" [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ _ => some do
+  | IOp.mk "cf.condbr" _ [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ => some do
       return BlockResult.Branch
         (if condval.toUint != 0 then bbtrue else bbfalse) []
-  | IOp.mk "cf.ret" args [] 0 _ _ => some <|
+  | IOp.mk "cf.ret" _ args [] 0 _ => some <|
        return BlockResult.Ret args
-  | IOp.mk "cf.assert" [⟨.i1, arg⟩] [] 0 attrs _ =>
+  | IOp.mk "cf.assert" _ [⟨.i1, arg⟩] [] 0 attrs =>
       match attrs.find "msg" with
       | some (.str str) => some do
              Fitree.trigger $ ControlFlowE.Assert arg str
@@ -122,15 +122,15 @@ def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
 
 --
 
-def dummy_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
+def dummy_stmt: Op dummy := [mlir_op|
   %dummy = "dummy.dummy" () : () -> i32
 ]
 
-def true_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
+def true_stmt: Op dummy := [mlir_op|
   %true = "dummy.true" () : () -> i1
 ]
 
-def false_stmt: BasicBlockStmt dummy := [mlir_bb_stmt|
+def false_stmt: Op dummy := [mlir_op|
   %false = "dummy.false" () : () -> i1
 ]
 
@@ -151,7 +151,7 @@ def ex_branch_true: Region dummy := [mlir_region| {
 #eval ex_branch_true
 #eval run_dummy_cf_region ex_branch_true
 
-def ex_branch_false := [mlir_region| {
+def ex_branch_false : Region dummy := [mlir_region| {
   ^entry:
     %x = "dummy.false" () : () -> i1
     "cf.condbr"(%x) [^bbtrue, ^bbfalse] : (i1) -> ()
@@ -168,13 +168,13 @@ def ex_branch_false := [mlir_region| {
 #eval ex_branch_false
 #eval run_dummy_cf_region ex_branch_false
 
-def ex_assert_true := [mlir_region| {
+def ex_assert_true : Region dummy := [mlir_region| {
   %true = "dummy.true" (): () -> i1
   "cf.assert" (%true) {msg = "is false!"}: (i1) -> ()
   "cf.ret" (): () -> ()
 }]
 
-def ex_assert_false := [mlir_region| {
+def ex_assert_false : Region dummy := [mlir_region| {
   %false = "dummy.false" (): () -> i1
   "cf.assert" (%false) {msg = "is false!"}: (i1) -> ()
   "cf.ret" (): () -> ()

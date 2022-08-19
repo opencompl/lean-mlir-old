@@ -5,14 +5,14 @@ open MLIR.AST
 namespace SCF_SELECT
 abbrev Δ := scf + arith
 
-def LHS: BasicBlockStmt Δ := [mlir_bb_stmt|
+def LHS: Op Δ := [mlir_op|
   %x = "scf.if" (%b) ({
     "scf.yield"(%n): (i32) -> ()
   }, {
     "scf.yield"(%m): (i32) -> ()
   }): (i1) -> i32
 ]
-def RHS: BasicBlockStmt Δ := [mlir_bb_stmt|
+def RHS: Op Δ := [mlir_op|
   %x = "arith.select"(%b, %n, %m): (i1, i32, i32) -> i32
 ]
 def INPUT (b: FinInt 1) (n m: FinInt 32): SSAEnv Δ := SSAEnv.One [
@@ -23,14 +23,12 @@ def INPUT (b: FinInt 1) (n m: FinInt 32): SSAEnv Δ := SSAEnv.One [
 theorem denoteYieldRegion:
   denoteRegion Δ (Region.mk
     [BasicBlock.mk bbname []
-      [BasicBlockStmt.StmtOp
-        (Op.mk "scf.yield" [valuename] [] [] (.mk [])
-          (.fn (.tuple [.int .Signless 32]) (.tuple [])))]]) =
+      [Op.mk "scf.yield" [] [(valuename, .int .Signless 32)] [] [] (.mk [])]]) =
   fun (args: TypedArgs Δ) =>
     Fitree.bind (Fitree.trigger <| SSAEnvE.Get MLIRType.i32 valuename) fun x =>
     Fitree.ret (BlockResult.Ret [⟨.i32, x⟩]) := by
   funext args
-  simp [denoteRegion, denoteBB, denoteBBStmts, denoteBBStmt, denoteOp]
+  simp [denoteRegion, denoteBB, denoteOps, denoteOp, denoteOpBase]
   simp [List.zip, List.mapM, List.map]
   simp [Semantics.semantics_op]
   simp [HOrElse.hOrElse, OrElse.orElse, Option.orElse, Option.map]
@@ -38,11 +36,11 @@ theorem denoteYieldRegion:
   simp [denoteTypedArgs]; cases args <;> simp
 
 theorem equivalent (b: FinInt 1) (n m: FinInt 32):
-    (run (denoteBBStmt _ LHS) (INPUT b n m)) =
-    (run (denoteBBStmt _ RHS) (INPUT b n m)) := by
+    (run (denoteOp _ LHS) (INPUT b n m)) =
+    (run (denoteOp _ RHS) (INPUT b n m)) := by
   simp [LHS, RHS, INPUT]
-  simp [coeMLIRTypeList, coeRegionList, coeBasicBlockStmtList]
-  simp [denoteBBStmt, denoteOp, List.zip, List.mapM, denoteRegions]
+  simp [coeMLIRTypeList, coeRegionList, coeOpList]
+  simp [denoteOp, denoteOpBase, List.zip, List.mapM, denoteRegions]
   simp [Semantics.semantics_op]
   simp [HOrElse.hOrElse, OrElse.orElse, Option.orElse, Option.map]
   simp [scf_semantics_op, arith_semantics_op]

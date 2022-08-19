@@ -54,11 +54,11 @@ instance (δ: Dialect α σ ε): ToString (BlockResult δ) where
 -- Interpreted operation, like MLIR.AST.Op, but with less syntax
 inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String)
+  (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
   (bbargs:  List BBName)
   (regions: Nat)
   (attrs:   AttrDict δ)
-  (type:    MLIRType δ)
 
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
@@ -111,19 +111,21 @@ def interpRegion
   | Sum.inr <| Sum.inl ube => Fitree.trigger ube
   | Sum.inr <| Sum.inr se => Fitree.trigger se
 
-def denoteOp (op: Op Δ):
+def denoteOpBase (op: Op Δ):
     Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
   match op with
-  | .mk name args0 bbargs regions0 attrs (.fn (.tuple τs) t) => do
+  | .mk name res0 args0 bbargs regions0 attrs => do
       -- Read arguments from memory
-      let args ← (List.zip args0 τs).mapM (fun (name, τ) => do
+      let args ← args0.mapM (fun (name, τ) => do
           return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩)
       -- Evaluate regions
       -- We write it this way to make the structurral recursion
       -- clear to lean.
       let regions := denoteRegions regions0
+      -- Get the result types
+      let resTy := res0.map Prod.snd
       -- Built the interpreted operation
-      let iop : IOp Δ := IOp.mk name args bbargs regions0.length attrs (.fn (.tuple τs) t)
+      let iop : IOp Δ := IOp.mk name resTy args bbargs regions0.length attrs
       -- Use the dialect-provided semantics, and substitute regions
       match S.semantics_op iop with
       | some t =>
@@ -131,44 +133,45 @@ def denoteOp (op: Op Δ):
       | none =>
           raiseUB s!"invalid op: {op}"
 
-  | _ => raiseUB s!"invalid denoteOp: {op}"
-
-def denoteBBStmt (bbstmt: BasicBlockStmt Δ):
+def denoteOp (op: Op Δ):
     Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
-  match bbstmt with
-  | .StmtAssign val _ op => do
-      let br ← denoteOp op
+  match op with
+  | .mk name [] args0 bbargs regions0 attrs => do
+      denoteOpBase op
+  | .mk name [(res, _)] args0 bbargs regions0 attrs => do
+      let br ← denoteOpBase op
       match br with
       | .Next ⟨τ, v⟩ =>
-          Fitree.trigger (SSAEnvE.Set τ val v)
+          -- Should we check that τ is res type here?
+          Fitree.trigger (SSAEnvE.Set τ res v)
           return br
       -- TODO: Semi-hack for yields from subregions
       | .Ret [⟨τ, v⟩] =>
-          Fitree.trigger (SSAEnvE.Set τ val v)
+          Fitree.trigger (SSAEnvE.Set τ res v)
           return .Next ⟨τ, v⟩
       | _ =>
           return br
-  | .StmtOp op =>
-      denoteOp op
+  | _ =>
+      raiseUB s!"op with more than one result: {op}"
 
-def denoteBBStmts (stmts: List (BasicBlockStmt Δ))
+def denoteOps (stmts: List (Op Δ))
   : Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
  match stmts with
  | [] => return BlockResult.Next ⟨.unit, ()⟩
- | [stmt] => denoteBBStmt stmt
+ | [stmt] => denoteOp stmt
  | stmt::stmts => do
-      let _ ← denoteBBStmt stmt
-      denoteBBStmts stmts
+      let _ ← denoteOp stmt
+      denoteOps stmts
 
 def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
     Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) := do
   match bb with
-  | BasicBlock.mk name formalArgsAndTypes stmts =>
+  | BasicBlock.mk name formalArgsAndTypes ops =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
      -- TODO: Any checks on the BlockResults of intermediate ops?
      let formalArgs : List SSAVal := formalArgsAndTypes.map Prod.fst
      denoteTypedArgs args formalArgs
-     denoteBBStmts stmts
+     denoteOps ops
 
 def denoteRegions (rs: List (Region Δ)):
     List (TypedArgs Δ → Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ)) :=
@@ -278,10 +281,6 @@ notation "⟦ " t " ⟧" => Denote.denote t
 instance DenoteOp (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
   denote op := denoteOp δ op
 
-instance DenoteBBStmt (δ: Dialect α σ ε) [Semantics δ]:
-    Denote δ BasicBlockStmt where
-  denote bbstmt := denoteBBStmt δ bbstmt
-
 -- TODO: this a small hack, because we assume the basic block has no arguments
 instance DenoteBB (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
   denote bb := denoteBB δ bb []
@@ -294,8 +293,6 @@ instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region wh
 
 @[simp] theorem Denote.denoteOp [Semantics δ]:
   Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
-@[simp] theorem Denote.denoteBBStmt [Semantics δ]:
-  Denote.denote (self := DenoteBBStmt δ) bbstmt = denoteBBStmt δ bbstmt := rfl
 @[simp] theorem Denote.denoteBB [Semantics δ]:
   Denote.denote (self := DenoteBB δ) bb = denoteBB δ bb [] := rfl
 @[simp] theorem Denote.denoteRegion [Semantics δ]:

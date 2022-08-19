@@ -38,18 +38,13 @@ def DomContext.isValUseCorrect (ctx: DomContext δ) (val: SSAVal)
   | none => false
 
 -- Check that an SSA value definition is correct, and append it to the context
-def valDefinitionObeySSA (val: SSAVal) (τ: MLIRType δ) 
-                         (ctx: DomContext δ) : Option (DomContext δ) :=
-  if ctx.isValDefined val then none else ctx.addVal val τ
+def valDefinitionObeySSA (val: TypedSSAVal δ) (ctx: DomContext δ)
+    : Option (DomContext δ) :=
+  if ctx.isValDefined val.fst then none else ctx.addVal val.fst val.snd
 
 -- Check that operands are already defined, with
-def operandsDefinitionObeySSA (vals: List SSAVal) (τs: List (MLIRType δ))
-                           (ctx: DomContext δ) : Bool :=
-  match vals, τs with
-  | val::vals', τ::τs' =>
-    ctx.isValUseCorrect val τ && operandsDefinitionObeySSA vals' τs' ctx
-  | [], [] => true
-  | _, _ => false
+def operandsDefinitionObeySSA (args: List (TypedSSAVal δ)) (ctx: DomContext δ) : Bool :=
+  args.all (λ ⟨val, τ⟩ => ctx.isValUseCorrect val τ)
 
 /-
 ### Dominance check
@@ -60,18 +55,27 @@ Check that an IR satisfies SSA.
 mutual
 def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match op with
-  | Op.mk _ operands [] regions _ (MLIRType.fn (MLIRType.tuple operandsTy) _) => do
-    let b := operandsDefinitionObeySSA operands operandsTy ctx
-    match b with 
-    | true =>  (singleBBRegionRegionsObeySSA regions ctx)
-    | false => none
+  | Op.mk _ results operands [] regions _ => do
+    -- Check operands
+    let b := operandsDefinitionObeySSA operands ctx
+    -- Check regions
+    let _ <- match b with 
+             | true => (singleBBRegionRegionsObeySSA regions ctx)
+             | false => none
+    -- Check results
+    let ctx' <- match results with
+             | [] => ctx
+             | [result] => valDefinitionObeySSA result ctx
+             | _ => none
+    ctx'
   | _ => none
 
 def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
   match regions with
   | region::regions' => do 
     let _ <- (singleBBRegionRegionObeySSA region ctx)
-    (singleBBRegionRegionsObeySSA regions' ctx)
+    let _ <- (singleBBRegionRegionsObeySSA regions' ctx)
+    ctx
   | [] => none
 
 def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
@@ -83,32 +87,20 @@ def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Optio
 def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match bb with
   | .mk _ args stmts =>
-    (args.foldlM (fun ctx arg => valDefinitionObeySSA arg.fst arg.snd ctx) ctx).bind 
-    (singleBBRegionStmtsObeySSA stmts)
+    (args.foldlM (fun ctx arg => valDefinitionObeySSA arg ctx) ctx).bind 
+    (singleBBRegionOpsObeySSA stmts)
 
-def singleBBRegionStmtsObeySSA (stmts: List (BasicBlockStmt δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
-  match stmts with
-  | stmt::stmts' => (singleBBRegionStmtObeySSA stmt ctx).bind (singleBBRegionStmtsObeySSA stmts')
+def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
+  match ops with
+  | op::ops' => (singleBBRegionOpObeySSA op ctx).bind (singleBBRegionOpsObeySSA ops')
   | [] => none
-
-def singleBBRegionStmtObeySSA (stmt: BasicBlockStmt δ) (ctx: DomContext δ) : Option (DomContext δ) :=
-  match stmt with
-  | .StmtOp op => singleBBRegionOpObeySSA op ctx
-  | .StmtAssign res none op => do
-    -- TODO: replace it with an `as`, when I'll know how to do it
-    let ctx' <- match op with
-               | Op.mk _ _ _ _ _ (MLIRType.fn _ (MLIRType.tuple [τ])) => (valDefinitionObeySSA res τ ctx)
-               | _ => none
-    singleBBRegionOpObeySSA op ctx
-  | _ => none
 end
 termination_by
   singleBBRegionOpObeySSA  op _ => sizeOf op
   singleBBRegionRegionsObeySSA regions _=> sizeOf regions
   singleBBRegionRegionObeySSA region _ => sizeOf region
   singleBBRegionBBObeySSA bb _ => sizeOf bb
-  singleBBRegionStmtsObeySSA stmts _ => sizeOf stmts
-  singleBBRegionStmtObeySSA stmt _ => sizeOf stmt
+  singleBBRegionOpsObeySSA ops _ => sizeOf ops
 
 /-
 ### Uniqueness of SSA names
@@ -141,7 +133,7 @@ def valDefHasUniqueNames (ctx: NameContext) (val: SSAVal)
 mutual
 def hasUniqueNamesOp (op: Op δ) (ctx: NameContext) : Option NameContext :=
   match op with
-  | Op.mk _ _ _ regions _ _ => hasUniqueNamesRegions regions ctx
+  | Op.mk _ _ _ _ regions _ => hasUniqueNamesRegions regions ctx
 
 def hasUniqueNamesRegions (regions: List (Region δ)) (ctx: NameContext) :
     Option NameContext :=
@@ -167,24 +159,16 @@ def hasUniqueNamesBBs (bbs: List (BasicBlock δ)) (ctx: NameContext) :
 def hasUniqueNamesBB (bb: BasicBlock δ) (ctx: NameContext) :
     Option NameContext :=
   match bb with
-  | .mk _ args stmts => do
+  | .mk _ args ops => do
     let ctx' ←
       args.foldlM (fun ctx arg => valDefHasUniqueNames ctx arg.fst) ctx
-    hasUniqueNamesBBStmts stmts ctx'
+    hasUniqueNamesOps ops ctx'
 
-def hasUniqueNamesBBStmts (stmts: List (BasicBlockStmt δ)) (ctx: NameContext) :
+def hasUniqueNamesOps (ops: List (Op δ)) (ctx: NameContext) :
     Option NameContext :=
-  match stmts with
-  | stmt::stmts' => do
-    let ctx' ← hasUniqueNamesBBStmt stmt ctx
-    hasUniqueNamesBBStmts stmts' ctx'
+  match ops with
+  | op::ops' => do
+    let ctx' ← hasUniqueNamesOp op ctx
+    hasUniqueNamesOps ops' ctx'
   | [] => none
-
-def hasUniqueNamesBBStmt (stmt: BasicBlockStmt δ) (ctx: NameContext) :
-    Option NameContext :=
-  match stmt with
-  | .StmtOp op => hasUniqueNamesOp op ctx
-  | .StmtAssign res _ op => do
-    let ctx' <- valDefHasUniqueNames ctx res
-    hasUniqueNamesOp op ctx'
 end
