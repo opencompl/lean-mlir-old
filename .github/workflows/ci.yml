@@ -7,55 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  ### # Build the LLVM submodule then cache it. Do not rebuild if hit in the
-  ### # cache.
-  ### build-llvm:
-  ###   name: Build LLVM
-  ###   runs-on: ubuntu-latest
-  ###   steps:
-  ###     # Get Python for MLIR Python bindings
-  ###     - name: Set up Python 3.x
-  ###       uses: actions/setup-python@v2
-  ###       with:
-  ###         python-version: '3.x'
-  ###     - name: Install python deps
-  ###       run:  |
-  ###         python -m pip install --upgrade pip
-  ###         pip install numpy pybind11
-  ###     - name: Install ninja
-  ###       run:  |
-  ###         sudo apt install build-essential && sudo apt-get install ninja-build && ninja --version
-
-  ###     # Necessary for utils/. Ordering is important as this clone wipes the folder clean.
-  ###     - name: Clone lean-mlir
-  ###       uses: actions/checkout@v2
-  ###       with:
-  ###         fetch-depth: 1
-
-  ###     # Extract the LLVM submodule hash for use in the cache key.
-  ###     - name: Get LLVM Hash
-  ###       id: get-llvm-hash
-  ###       run: echo "::set-output name=hash::$(cat LLVM_COMMIT)"
-  ###       shell: bash
-
-  ###     # Try to fetch LLVM from the cache.
-  ###     - name: Cache LLVM
-  ###       id: cache-llvm
-  ###       uses: actions/cache@v2
-  ###       with:
-  ###         path: llvm-project
-  ###         key: ${{ runner.os }}-llvm-install-${{ steps.get-llvm-hash.outputs.hash }}
-
-  ###     # Build LLVM if we didn't hit in the cache.
-  ###     - name: Rebuild and Install LLVM
-  ###       if: steps.cache-llvm.outputs.cache-hit != 'true'
-  ###       run: utils/build-llvm.sh
-
-
-  ###   # Installing the results into the cache is an action which is automatically
-  ###   # added by the cache action above.
-
-  ### # --- end of build-llvm job.
   build-lean-mlir:
     name: Build lean-mlir
     needs: build-llvm
@@ -68,40 +19,9 @@ jobs:
         chmod +x elan-init.sh
         ./elan-init.sh -y
         echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
-###    # Necessary for utils/. Ordering is important as this clone wipes the folder clean.
-###    - name: Clone lean-mlir
-###      uses: actions/checkout@v2
-###      with:
-###        fetch-depth: 1
-###
     # TODO: refactor into utils/build.sh && utils/test.sh
     - name: Checkout
       uses: actions/checkout@v2
-    
-
-###    # Extract the LLVM submodule hash for use in the cache key.
-###    - name: Get LLVM Hash
-###      id: get-llvm-hash
-###      run: echo "::set-output name=hash::$(cat LLVM_COMMIT)"
-###      shell: bash
-###
-###    # Try to fetch LLVM from the cache.
-###    - name: Cache LLVM
-###      id: cache-llvm
-###      uses: actions/cache@v2
-###      with:
-###        path: llvm-project
-###        key: ${{ runner.os }}-llvm-install-${{ steps.get-llvm-hash.outputs.hash }}
-###
-###
-###    # Build LLVM if we didn't hit in the cache. Even though we build it in
-###    # the previous job, there is a low chance that it'll have been evicted by
-###    # the time we get here.
-###    - name: Rebuild and Install LLVM
-###      if: steps.cache-llvm.outputs.cache-hit != 'true'
-###      run: utils/build-llvm.sh
-###
     - name: Check Lean
       run: lean --version
     - name: Build package
