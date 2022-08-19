@@ -10,7 +10,6 @@ jobs:
   build-lean-mlir:
     name: Build lean-mlir
     runs-on: ubuntu-latest
-
     steps:
     - name: Install Elan (Ubuntu)
       run: |
@@ -18,60 +17,13 @@ jobs:
         chmod +x elan-init.sh
         ./elan-init.sh -y
         echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
-    # Necessary for utils/. Ordering is important as this clone wipes the folder clean.
-    - name: Clone lean-mlir
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 1
-
     # TODO: refactor into utils/build.sh && utils/test.sh
     - name: Checkout
       uses: actions/checkout@v2
-    
-
-    # Extract the LLVM submodule hash for use in the cache key.
-    - name: Get LLVM Hash
-      id: get-llvm-hash
-      run: echo "::set-output name=hash::$(cat LLVM_COMMIT)"
-      shell: bash
-
-    # Try to fetch LLVM from the cache.
-    - name: Cache LLVM
-      id: cache-llvm
-      uses: actions/cache@v2
-      with:
-        path: llvm-project
-        key: ${{ runner.os }}-llvm-install-${{ steps.get-llvm-hash.outputs.hash }}
-
-
-    # Build LLVM if we didn't hit in the cache. Even though we build it in
-    # the previous job, there is a low chance that it'll have been evicted by
-    # the time we get here.
-    - name: Rebuild and Install LLVM
-      if: steps.cache-llvm.outputs.cache-hit != 'true'
-      run: utils/build-llvm.sh
-
     - name: Check Lean
       run: lean --version
     - name: Build package
       run: |
         rm -rf build/ || true # nuke build folder
         lake build # run build
-        # leanpkg build bin
-    # - name: Test examples
-    #   run: |
-    #     ls -1u
-    #     export PATH=`pwd`/build/bin:$PATH # add MLIR from lean-MLIR to path
-    #     export PATH=`pwd`/llvm-project/build/bin:$PATH  # add mlir-opt from llvm-project to path
-    #     echo $PATH
-    #     pip install lit --user # install llvm-lit
-    #     cd examples && lit -v . # run llvm-lit to test examples.
-    # - name: Build C Lib
-    #   run: make -C c -j4
-    # - name: Build Lean Lib
-    #   run: make lib -j4
-    # - name: Build Lean Plugin
-    #   run: make -C plugin -j4
-    # - name: Test
-    #   run: make -C test -j4
+        ./build/bin/MLIR --run-semantic-tests # run tests
