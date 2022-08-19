@@ -30,7 +30,7 @@ def main (xs: List String): IO UInt32 := do
   if xs.length == 0 then
     -- main_end_to_end_linalg
     return 0
-  else if xs == ["--run-tests"] then
+  else if xs == ["--run-test-suite"] then
     let b ← TestLib.runTestSuite AllTests.testSuite
     return (if b then 0 else 1)
   else if xs.length == 2 && xs.head! == "--extract-semantic-tests" then

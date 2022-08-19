@@ -26,4 +26,4 @@ jobs:
       run: |
         rm -rf build/ || true # nuke build folder
         lake build # run build
-        ./build/bin/MLIR --run-semantic-tests # run tests
+        ./build/bin/MLIR --run-test-suite
