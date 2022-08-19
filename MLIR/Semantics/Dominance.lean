@@ -76,7 +76,7 @@ def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ
     let _ <- (singleBBRegionRegionObeySSA region ctx)
     let _ <- (singleBBRegionRegionsObeySSA regions' ctx)
     ctx
-  | [] => none
+  | [] => some ctx
 
 def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match region with
