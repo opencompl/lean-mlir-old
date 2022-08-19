@@ -7,10 +7,8 @@ on:
     branches: [ master ]
 
 jobs:
-  # --- end of build-llvm job.
   build-lean-mlir:
     name: Build lean-mlir
-    needs: build-llvm
     runs-on: ubuntu-latest
 
     steps:
