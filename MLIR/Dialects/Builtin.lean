@@ -51,7 +51,7 @@ macro_rules
 
 -- syntax "br"
 
-def add0Raw := [mlir_op| "std.addi" (%op1, %op2) : (i32)]
+def add0Raw : Op builtin := [mlir_op| "std.addi" (%op1, %op2) : (i32, i32) -> i32]
 #print add0Raw
 
 def add0 : Op builtin := [mlir_op| addi %c0, %c1]
