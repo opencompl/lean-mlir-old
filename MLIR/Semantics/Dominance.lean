@@ -57,11 +57,11 @@ def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContex
   match op with
   | Op.mk _ results operands [] regions _ => do
     -- Check operands
-    let b := operandsDefinitionObeySSA operands ctx
+    let _ ← match operandsDefinitionObeySSA operands ctx with
+            | true => pure ctx
+            | false => none
     -- Check regions
-    let _ <- match b with 
-             | true => (singleBBRegionRegionsObeySSA regions ctx)
-             | false => none
+    let _ <- singleBBRegionRegionsObeySSA regions ctx
     -- Check results
     let ctx' <- match results with
              | [] => ctx
