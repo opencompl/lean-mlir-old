@@ -4,7 +4,8 @@ import MLIR.FFI
 import MLIR.AST
 import MLIR.P
 import MLIR.EDSL
-import MLIR.Examples.SemanticsTests
+import MLIR.Tests.TestLib
+import MLIR.Tests.AllTests
 import MLIR.Examples.FinIntBruteforce
 
 -- Testing imports for semantics
@@ -29,12 +30,12 @@ def main (xs: List String): IO UInt32 := do
   if xs.length == 0 then
     -- main_end_to_end_linalg
     return 0
-  else if xs == ["--run-semantic-tests"] then
-    let b ← SemanticsTests.runAllTests
+  else if xs == ["--run-test-suite"] then
+    let b ← TestLib.runTestSuite AllTests.testSuite
     return (if b then 0 else 1)
   else if xs.length == 2 && xs.head! == "--extract-semantic-tests" then
-    SemanticsTests.allTests.forM fun t => do
-      let (SemanticsTests.Test.mk S name r) := t
+    SemanticsTests.semanticTests.forM fun t => do
+      let (SemanticsTests.SemanticTest.mk S name r) := t
       let τi: MLIRType (S + cf) := .fn (.tuple []) (.tuple [.i32])
       let fn: Op (S + cf) := .mk "func.func" [] [] [] [r]
         (.mk [.mk "sym_name" $ .str "main",

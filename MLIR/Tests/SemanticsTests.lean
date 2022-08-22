@@ -4,19 +4,20 @@ import MLIR.Dialects.ArithSemantics
 import MLIR.Dialects.FuncSemantics
 import MLIR.Dialects.ControlFlowSemantics
 import MLIR.Dialects.ScfSemantics
+import MLIR.Tests.TestLib
 open MLIR.AST
 
 namespace SemanticsTests
 
-inductive Test :=
+inductive SemanticTest :=
   | mk {α σ ε} (δ: Dialect α σ ε) [S: Semantics δ]:
-      String → Region (δ + cf) → Test
+      String → Region (δ + cf) → SemanticTest
 
-def Test.name: Test → String
-  | @Test.mk _ _ _ δ _ str r => str
+def SemanticTest.name: SemanticTest → String
+  | @SemanticTest.mk _ _ _ δ _ str r => str
 
-def Test.run (t: Test): String :=
-  let (@Test.mk α σ ε δ S _ r) := t
+def SemanticTest.run (t: SemanticTest): String :=
+  let (@SemanticTest.mk α σ ε δ S _ r) := t
   let t := semanticsRegion 99 r []
   let t := interpSSA' t SSAEnv.empty
   let t: Fitree (Semantics.E cf +' UBE) _ :=
@@ -31,7 +32,7 @@ def Test.run (t: Test): String :=
   | .error msg => "error: " ++ msg
   | .ok ((r, env), assertLog) => assertLog
 
-def trueval := Test.mk (func_ + arith) "trueval.mlir" [mlir_region| {
+def trueval := SemanticTest.mk (func_ + arith) "trueval.mlir" [mlir_region| {
   %true = "arith.constant" () {value = 1: i1}: () -> i1
   "cf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
 
@@ -39,7 +40,7 @@ def trueval := Test.mk (func_ + arith) "trueval.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def add := Test.mk (func_ + arith) "add.mlir" [mlir_region| {
+def add := SemanticTest.mk (func_ + arith) "add.mlir" [mlir_region| {
   %r1 = "arith.constant" () {value = 17: i5}: () -> i5
   %r2 = "arith.constant" () {value = 25: i5}: () -> i5
   %r = "arith.addi" (%r1, %r2): (i5, i5) -> i5
@@ -51,7 +52,7 @@ def add := Test.mk (func_ + arith) "add.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def sub := Test.mk (func_ + arith) "sub.mlir" [mlir_region| {
+def sub := SemanticTest.mk (func_ + arith) "sub.mlir" [mlir_region| {
   %_1 = "arith.constant" () {value = 8374: i16}: () -> i16
   %_2 = "arith.constant" () {value = 12404: i16}: () -> i16
 
@@ -70,7 +71,7 @@ def sub := Test.mk (func_ + arith) "sub.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def xor := Test.mk (func_ + arith) "xor.mlir" [mlir_region| {
+def xor := SemanticTest.mk (func_ + arith) "xor.mlir" [mlir_region| {
   %r1 = "arith.constant" () {value = 17: i8}: () -> i8
   %r2 = "arith.constant" () {value = 25: i8}: () -> i8
   %r = "arith.xori" (%r1, %r2): (i8, i8) -> i8
@@ -82,7 +83,7 @@ def xor := Test.mk (func_ + arith) "xor.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def rw1 := Test.mk (func_ + arith) "rw1.mlir" [mlir_region| {
+def rw1 := SemanticTest.mk (func_ + arith) "rw1.mlir" [mlir_region| {
   %_1 = "arith.constant"() {value = 84: i8}: () -> i8
   %_2 = "arith.constant"() {value = 28: i8}: () -> i8
 
@@ -118,7 +119,7 @@ def rw1 := Test.mk (func_ + arith) "rw1.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def if_true := Test.mk (func_ + scf + arith) "if_true.mlir" [mlir_region| {
+def if_true := SemanticTest.mk (func_ + scf + arith) "if_true.mlir" [mlir_region| {
   %b = "arith.constant" () {value = 1: i1}: () -> i1
   %y = "scf.if"(%b) ({
     %x1 = "arith.constant"() {value = 3: i16}: () -> i16
@@ -136,7 +137,7 @@ def if_true := Test.mk (func_ + scf + arith) "if_true.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def if_false := Test.mk (func_ + scf + arith) "if_false.mlir" [mlir_region| {
+def if_false := SemanticTest.mk (func_ + scf + arith) "if_false.mlir" [mlir_region| {
   %b = "arith.constant" () {value = 0: i1}: () -> i1
   %y = "scf.if"(%b) ({
     %x1 = "arith.constant"() {value = 3: i16}: () -> i16
@@ -154,7 +155,7 @@ def if_false := Test.mk (func_ + scf + arith) "if_false.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
-def if_select := Test.mk (func_ + scf + arith) "if_select.mlir" [mlir_region| {
+def if_select := SemanticTest.mk (func_ + scf + arith) "if_select.mlir" [mlir_region| {
   %b = "arith.constant" () {value = 1: i1}: () -> i1
   %x1 = "arith.constant"() {value = 12: i16}: () -> i16
   %x2 = "arith.constant"() {value = 16: i16}: () -> i16
@@ -175,7 +176,7 @@ def if_select := Test.mk (func_ + scf + arith) "if_select.mlir" [mlir_region| {
 
 -- We only check the return value of the last instruction because we don't
 -- yet implement the folding behavior of the loop, and we have no side effects
-def for_trivial := Test.mk (func_ + scf + arith) "for_trivial.mlir" [mlir_region| {
+def for_trivial := SemanticTest.mk (func_ + scf + arith) "for_trivial.mlir" [mlir_region| {
   %lower = "arith.constant"() {value =  8: i32}: () -> i32
   %upper = "arith.constant"() {value = 18: i32}: () -> i32
   %step  = "arith.constant"() {value =  1: i32}: () -> i32
@@ -192,7 +193,7 @@ def for_trivial := Test.mk (func_ + scf + arith) "for_trivial.mlir" [mlir_region
   "func.return" (%z): (i32) -> ()
 }]
 
-def for_bound := Test.mk (func_ + scf + arith) "for_bound.mlir" [mlir_region| {
+def for_bound := SemanticTest.mk (func_ + scf + arith) "for_bound.mlir" [mlir_region| {
   %lower = "arith.constant"() {value =  0: index}: () -> index
   %upper = "arith.constant"() {value = 18: index}: () -> index
   %step  = "arith.constant"() {value =  1: index}: () -> index
@@ -212,7 +213,7 @@ def for_bound := Test.mk (func_ + scf + arith) "for_bound.mlir" [mlir_region| {
   "func.return" (%z): (index) -> ()
 }]
 
-def allTests: Array Test := #[
+def semanticTests: List SemanticTest := [
   trueval,
   add,
   sub,
@@ -225,12 +226,14 @@ def allTests: Array Test := #[
   for_bound
 ]
 
-def runAllTests: IO Bool :=
-  allTests.allM (fun t => do
-    let b := t.run = ""
-    IO.println s!"{t.name}: {if b then "ok" else "FAIL"}"
-    return b)
+open TestLib
 
-#eval runAllTests
+def SemanticTest.toTest (t: SemanticTest) : TestCase :=
+  match t.run with
+  | "" => (t.name, .ok ())
+  | s => (t.name, .error s)
+
+def testGroup : TestGroup :=
+  ("semantic_test", semanticTests.map (λ t => (t.toTest)))
 
 end SemanticsTests
