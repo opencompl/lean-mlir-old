@@ -81,8 +81,8 @@ def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ
 def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match region with
   | .mk [] => ctx
-  | .mk [bb] => (singleBBRegionBBObeySSA bb ctx)
-  | _ => Option.none
+  | .mk [bb] => do let _ <- singleBBRegionBBObeySSA bb ctx; ctx
+  | _ => none
 
 def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match bb with
@@ -93,7 +93,7 @@ def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (D
 def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
   match ops with
   | op::ops' => (singleBBRegionOpObeySSA op ctx).bind (singleBBRegionOpsObeySSA ops')
-  | [] => none
+  | [] => some ctx
 end
 termination_by
   singleBBRegionOpObeySSA  op _ => sizeOf op
