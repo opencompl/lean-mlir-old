@@ -172,3 +172,116 @@ def hasUniqueNamesOps (ops: List (Op δ)) (ctx: NameContext) :
     hasUniqueNamesOps ops' ctx'
   | [] => none
 end
+
+/-
+### Use-def chain operations
+
+Get the definition of a variable, or check if it is used
+-/
+
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSADefInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ _ regions _ => isSSADefInRegions regions
+
+def isSSADefInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSADefInRegion region || isSSADefInRegions regions'
+
+def isSSADefInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSADefInBBs bbs
+
+def isSSADefInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSADefInBB bb || isSSADefInBBs bbs'
+
+def isSSADefInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ ops => isSSADefInOps ops
+
+def isSSADefInOps (ops: List (Op δ)) : Bool :=
+  match ops with
+  | [] => False
+  | op::ops' => isSSADefInOp op || isSSADefInOps ops'
+end
+
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSAUsedInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ args _ regions _ => 
+    args.any (fun t => t.fst == mVar) || isSSAUsedInRegions regions
+
+def isSSAUsedInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSAUsedInRegion region || isSSAUsedInRegions regions'
+
+def isSSAUsedInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSAUsedInBBs bbs
+
+def isSSAUsedInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSAUsedInBB bb || isSSAUsedInBBs bbs'
+
+def isSSAUsedInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ ops => isSSAUsedInOps ops
+
+def isSSAUsedInOps (ops: List (Op δ)) : Bool :=
+  match ops with
+  | [] => False
+  | op::ops' => isSSAUsedInOp op || isSSAUsedInOps ops'
+end
+
+
+mutual
+variable (mVar: SSAVal)
+
+def getDefiningOpInOp (op: Op δ) : Option (Op δ) :=
+  match op with
+  | .mk _ res _ _ regions _ =>
+    if res.any (fun t => t.fst == mVar) then
+      some op
+    else
+      getDefiningOpInRegions regions
+
+def getDefiningOpInRegions (regions: List (Region δ)) : Option (Op δ) :=
+  match regions with
+  | [] => none
+  | region::regions' =>
+    (getDefiningOpInRegion region).orElse
+    (fun () => getDefiningOpInRegions regions')
+
+def getDefiningOpInRegion (region: Region δ) : Option (Op δ) :=
+  match region with
+  | .mk bbs => getDefiningOpInBBs bbs
+
+def getDefiningOpInBBs (bbs: List (BasicBlock δ)) : Option (Op δ) :=
+  match bbs with
+  | [] => none
+  | bb::bbs' =>
+    (getDefiningOpInBB bb).orElse (fun () => getDefiningOpInBBs bbs')
+
+def getDefiningOpInBB (bb: BasicBlock δ) : Option (Op δ) :=
+  match bb with
+  | .mk _ _ ops => getDefiningOpInOps ops
+
+def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
+  match ops with
+  | [] => none
+  | op::ops' =>
+    match getDefiningOpInOp op with
+    | some op => some op
+    | none => getDefiningOpInOps ops'
+end
