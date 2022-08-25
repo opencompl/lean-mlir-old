@@ -300,13 +300,3 @@ def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
     | some op => some op
     | none => getDefiningOpInOps ops'
 end
-
-/-
-### Dominance predicates
-
-Defines the Def/Use-chain predicate, and the dominance predicate
--/
-
-inductive DefChain : Op δ → Op δ → Prop :=
-| DFOne (op user: Op δ) : isOpUsed op user -> DefChain op user
-| DFTrans (op1 op2 op3: Op δ) : DefChain op op1 -> DefChain op op2 -> DefChain op op2
