@@ -257,12 +257,11 @@ mutual
 variable (mVar: SSAVal)
 
 def getDefiningOpInOp (op: Op δ) : Option (Op δ) :=
-  match op with
-  | .mk _ res _ _ regions _ =>
-    if res.any (fun t => t.fst == mVar) then
-      some op
-    else
-      getDefiningOpInRegions regions
+  if mVar ∈ op.resNames then
+    some op
+  else
+    match op with
+    | .mk _ _ _ _ regions _ => getDefiningOpInRegions regions
 
 def getDefiningOpInRegions (regions: List (Region δ)) : Option (Op δ) :=
   match regions with
