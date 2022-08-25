@@ -219,6 +219,14 @@ Do not check inside the regions inside the operation.
 def isUsed (var: SSAVal) (op: Op δ) : Bool :=
   var ∈ op.argNames
 
+/-
+Check if `op` is used by `user`.
+An operation is used by another operation if one of its
+argument is used by the operation.
+-/
+def isOpUsed (op user: Op δ) : Bool :=
+  op.resNames.any (fun arg => isUsed arg user)
+
 
 mutual
 variable (mVar: SSAVal)
@@ -292,3 +300,13 @@ def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
     | some op => some op
     | none => getDefiningOpInOps ops'
 end
+
+/-
+### Dominance predicates
+
+Defines the Def/Use-chain predicate, and the dominance predicate
+-/
+
+inductive DefChain : Op δ → Op δ → Prop :=
+| DFOne (op user: Op δ) : isOpUsed op user -> DefChain op user
+| DFTrans (op1 op2 op3: Op δ) : DefChain op op1 -> DefChain op op2 -> DefChain op op2
