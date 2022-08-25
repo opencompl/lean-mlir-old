@@ -212,13 +212,21 @@ def isSSADefInOps (ops: List (Op δ)) : Bool :=
 end
 
 
+/-
+Check if the variable used by the operation.
+Do not check inside the regions inside the operation.
+-/
+def isUsed (var: SSAVal) (op: Op δ) : Bool :=
+  var ∈ op.argNames
+
+
 mutual
 variable (mVar: SSAVal)
 
 def isSSAUsedInOp (op: Op δ) : Bool :=
   match op with
-  | .mk _ _ args _ regions _ => 
-    args.any (fun t => t.fst == mVar) || isSSAUsedInRegions regions
+  | .mk _ _ _ _ regions _ => 
+    isUsed mVar op || isSSAUsedInRegions regions
 
 def isSSAUsedInRegions (regions: List (Region δ)) : Bool :=
   match regions with
