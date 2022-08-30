@@ -623,3 +623,50 @@ def multiple_example_result : Option (List (Op builtin)) := do
   res
 
 #eval multiple_example_result
+
+
+/-
+### Exact program matching
+This section defines functions to check if an operation, or SSA values
+definitions/uses are inside a bigger program.
+
+The operation to match should not have any regions or attributes.
+-/
+
+def eqOp (op1 op2: Op δ) : Bool :=
+  match op1, op2 with
+  | .mk name res args [] [] (.mk []), .mk name' res' args' [] [] (.mk []) =>
+    name == name' && res == res' && args == args'
+  | _, _ => false
+
+mutual
+variable (mOp: Op δ)
+
+def isOpInOp (op: Op δ) : Bool :=
+  eqOp op mOp ||
+    (match op with 
+     | .mk _ _ _ _ regions _ => isOpInRegions regions)
+
+def isOpInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isOpInRegion region || isOpInRegions regions'
+
+def isOpInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isOpInBBs bbs
+
+def isOpInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isOpInBB bb || isOpInBBs bbs'
+
+def isOpInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ ops => isOpInOps ops
+
+def isOpInOps (ops: List (Op δ)) : Bool :=
+  match ops with
+  | [] => False
+  | op::ops' => isOpInOp op || isOpInOps ops'
+end

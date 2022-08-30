@@ -57,11 +57,11 @@ def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContex
   match op with
   | Op.mk _ results operands [] regions _ => do
     -- Check operands
-    let b := operandsDefinitionObeySSA operands ctx
+    let _ ← match operandsDefinitionObeySSA operands ctx with
+            | true => pure ctx
+            | false => none
     -- Check regions
-    let _ <- match b with 
-             | true => (singleBBRegionRegionsObeySSA regions ctx)
-             | false => none
+    let _ <- singleBBRegionRegionsObeySSA regions ctx
     -- Check results
     let ctx' <- match results with
              | [] => ctx
@@ -76,13 +76,13 @@ def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ
     let _ <- (singleBBRegionRegionObeySSA region ctx)
     let _ <- (singleBBRegionRegionsObeySSA regions' ctx)
     ctx
-  | [] => none
+  | [] => some ctx
 
 def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match region with
   | .mk [] => ctx
-  | .mk [bb] => (singleBBRegionBBObeySSA bb ctx)
-  | _ => Option.none
+  | .mk [bb] => do let _ <- singleBBRegionBBObeySSA bb ctx; ctx
+  | _ => none
 
 def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match bb with
@@ -93,7 +93,7 @@ def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (D
 def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
   match ops with
   | op::ops' => (singleBBRegionOpObeySSA op ctx).bind (singleBBRegionOpsObeySSA ops')
-  | [] => none
+  | [] => some ctx
 end
 termination_by
   singleBBRegionOpObeySSA  op _ => sizeOf op
@@ -171,4 +171,132 @@ def hasUniqueNamesOps (ops: List (Op δ)) (ctx: NameContext) :
     let ctx' ← hasUniqueNamesOp op ctx
     hasUniqueNamesOps ops' ctx'
   | [] => none
+end
+
+/-
+### Use-def chain operations
+
+Get the definition of a variable, or check if it is used
+-/
+
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSADefInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ _ regions _ => isSSADefInRegions regions
+
+def isSSADefInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSADefInRegion region || isSSADefInRegions regions'
+
+def isSSADefInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSADefInBBs bbs
+
+def isSSADefInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSADefInBB bb || isSSADefInBBs bbs'
+
+def isSSADefInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ ops => isSSADefInOps ops
+
+def isSSADefInOps (ops: List (Op δ)) : Bool :=
+  match ops with
+  | [] => False
+  | op::ops' => isSSADefInOp op || isSSADefInOps ops'
+end
+
+
+/-
+Check if the variable used by the operation.
+Do not check inside the regions inside the operation.
+-/
+def isUsed (var: SSAVal) (op: Op δ) : Bool :=
+  var ∈ op.argNames
+
+/-
+Check if `op` is used by `user`.
+An operation is used by another operation if one of its
+argument is used by the operation.
+-/
+def isOpUsed (op user: Op δ) : Bool :=
+  op.resNames.any (fun arg => isUsed arg user)
+
+
+mutual
+variable (mVar: SSAVal)
+
+def isSSAUsedInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ _ regions _ => 
+    isUsed mVar op || isSSAUsedInRegions regions
+
+def isSSAUsedInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isSSAUsedInRegion region || isSSAUsedInRegions regions'
+
+def isSSAUsedInRegion (region: Region δ) : Bool :=
+  match region with
+  | .mk bbs => isSSAUsedInBBs bbs
+
+def isSSAUsedInBBs (bbs: List (BasicBlock δ)) : Bool :=
+  match bbs with
+  | [] => False
+  | bb::bbs' => isSSAUsedInBB bb || isSSAUsedInBBs bbs'
+
+def isSSAUsedInBB (bb: BasicBlock δ) : Bool :=
+  match bb with
+  | .mk _ _ ops => isSSAUsedInOps ops
+
+def isSSAUsedInOps (ops: List (Op δ)) : Bool :=
+  match ops with
+  | [] => False
+  | op::ops' => isSSAUsedInOp op || isSSAUsedInOps ops'
+end
+
+
+mutual
+variable (mVar: SSAVal)
+
+def getDefiningOpInOp (op: Op δ) : Option (Op δ) :=
+  if mVar ∈ op.resNames then
+    some op
+  else
+    match op with
+    | .mk _ _ _ _ regions _ => getDefiningOpInRegions regions
+
+def getDefiningOpInRegions (regions: List (Region δ)) : Option (Op δ) :=
+  match regions with
+  | [] => none
+  | region::regions' =>
+    (getDefiningOpInRegion region).orElse
+    (fun () => getDefiningOpInRegions regions')
+
+def getDefiningOpInRegion (region: Region δ) : Option (Op δ) :=
+  match region with
+  | .mk bbs => getDefiningOpInBBs bbs
+
+def getDefiningOpInBBs (bbs: List (BasicBlock δ)) : Option (Op δ) :=
+  match bbs with
+  | [] => none
+  | bb::bbs' =>
+    (getDefiningOpInBB bb).orElse (fun () => getDefiningOpInBBs bbs')
+
+def getDefiningOpInBB (bb: BasicBlock δ) : Option (Op δ) :=
+  match bb with
+  | .mk _ _ ops => getDefiningOpInOps ops
+
+def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
+  match ops with
+  | [] => none
+  | op::ops' =>
+    match getDefiningOpInOp op with
+    | some op => some op
+    | none => getDefiningOpInOps ops'
 end
