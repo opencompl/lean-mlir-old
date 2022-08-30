@@ -178,6 +178,74 @@ instance {α₁ σ₁ ε₁ α₂ σ₂ ε₂} [δ₁: Dialect α₁ σ₁ ε₁
 
 
 /-
+### Projections of dialects
+The `DialectProjection` class is used to partially project larger dialects
+into their smaller components.
+-/
+
+class DialectProjection (δlarge: Dialect α₁ σ₁ ε₁) (δsmall: Dialect α₂ σ₂ ε₂) where
+  project_α: α₁ → Option α₂
+  project_σ: σ₁ → Option σ₂
+  project_ε: ∀ (s₁: σ₁), ε₁ s₁ → (project_σ s₁).casesOn (motive := fun _ => Type) Unit ε₂
+
+
+/-
+def project_ε (δ: Dialect α σ ε)
+     (s: σ) (es: ε s): (some s).casesOn (motive := fun _ => Type) Unit ε := by {
+  simp;
+  exact es;
+}
+-/
+
+
+instance ReflProjection (δ: Dialect α σ ε): DialectProjection δ δ where
+  project_α := .some
+  project_σ := .some
+  project_ε s₁ es₁ := es₁
+
+#print ReflProjection
+
+
+instance LeftProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂): DialectProjection (δ₁ + δ₂) δ₁ where
+  project_α a1_plus_a2 :=
+     match a1_plus_a2 with
+      | .inl a1 => .some a1
+      | .inr a2 => .none
+
+  project_σ s1_plus_s2:=
+      match s1_plus_s2 with
+      | .inl s1 => .some s1
+      | .inr s2 => .none
+
+  project_ε s2 es2 :=
+      match s2 with
+       | .inl s2l => es2
+       | .inr s2r => ()
+
+
+instance RightProjection (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂): DialectProjection (δ₁ + δ₂) δ₂ where
+  project_α a1_plus_a2 :=
+     match a1_plus_a2 with
+      | .inl a1 => .none
+      | .inr a2 => .some a2
+
+  project_σ s1_plus_s2:=
+      match s1_plus_s2 with
+      | .inl s1 => .none
+      | .inr s2 => .some s2
+
+  project_ε s2 es2 :=
+      match s2 with
+       | .inl s2l => ()
+       | .inr s2r => es2
+
+instance EmptyProjection (δ: Dialect α σ ε): DialectProjection δ Dialect.empty where
+  project_α a1_plus_a2 := .none
+  project_σ s1_plus_s2 := .none
+  project_ε s2 es2 := ()
+
+
+/-
 ### Coercions of dialects
 
 The `CoeDialect` ckass is used to automatically inject individual dialects into
@@ -218,3 +286,13 @@ instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
   coe_α a := nomatch a
   coe_σ s := nomatch s
   coe_ε s := nomatch s
+
+ instance CoeDialectEmpty (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
+  coe_α a := nomatch a
+  coe_σ s := nomatch s
+  coe_ε s := nomatch s
+  -- coe_ε_well_defined := by {
+  --  intros s;
+  --  exact (nomatch s);
+  -- }
+  -- rev_proj := inferInstance
