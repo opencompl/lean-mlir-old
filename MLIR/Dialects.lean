@@ -177,16 +177,77 @@ instance {α₁ σ₁ ε₁ α₂ σ₂ ε₂} [δ₁: Dialect α₁ σ₁ ε₁
   δ₁ + δ₂
 
 
+
+/-
+### Coercions of dialects
+
+The `CoeDialect` ckass is used to automatically inject individual dialects into
+sums of dialects, which in turn allows automatic conversion of instances of
+common MLIR data such as `MLIRType`, `AttrValue` and `Op` across dialects.
+-/
+
+class CoeDialect (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) where
+  coe_α: α₁ → α₂
+  coe_σ: σ₁ → σ₂
+  coe_ε: forall s, ε₁ s → ε₂ (coe_σ s)
+
+instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
+  Coe α₁ α₂ where coe := c.coe_α
+instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
+  Coe σ₁ σ₂ where coe := c.coe_σ
+instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂] s:
+  Coe (ε₁ s) (ε₂ /-coe-/s) where coe := c.coe_ε s
+
+instance (δ: Dialect α σ ε): CoeDialect δ δ where
+  coe_α := id
+  coe_σ := id
+  coe_ε s := id
+
+instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
+    CoeDialect δ₁ (δ₁ + δ₂) where
+  coe_α := .inl
+  coe_σ := .inl
+  coe_ε s := id
+
+instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
+    CoeDialect δ₂ (δ₁ + δ₂) where
+  coe_α := .inr
+  coe_σ := .inr
+  coe_ε s := id
+
+instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
+  coe_α a := nomatch a
+  coe_σ s := nomatch s
+  coe_ε s := nomatch s
+
+ instance CoeDialectEmpty (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
+  coe_α a := nomatch a
+  coe_σ s := nomatch s
+  coe_ε s := nomatch s
+  -- coe_ε_well_defined := by {
+  --  intros s;
+  --  exact (nomatch s);
+  -- }
+  -- rev_proj := inferInstance
+
+
 /-
 ### Projections of dialects
 The `DialectProjection` class is used to partially project larger dialects
 into their smaller components.
 -/
-
-class DialectProjection (δlarge: Dialect α₁ σ₁ ε₁) (δsmall: Dialect α₂ σ₂ ε₂) where
+class DialectProjection (δlarge: Dialect α₁ σ₁ ε₁) (δsmall: Dialect α₂ σ₂ ε₂) extends CoeDialect δsmall δlarge where
   project_α: α₁ → Option α₂
   project_σ: σ₁ → Option σ₂
   project_ε: ∀ (s₁: σ₁), ε₁ s₁ → (project_σ s₁).casesOn (motive := fun _ => Type) Unit ε₂
+
+
+def DialectProjection.project_value {δlarge: Dialect α₁ σ₁ ε₁} {δsmall: Dialect α₂ σ₂ ε₂}
+  [P: DialectProjection δlarge δsmall]
+  (s₁: σ₁) (v: ε₁ s₁): Option (Σ (s₂: σ₂), (ε₂ s₂)) :=
+  match H:P.project_σ _ _ s₁ with
+  | .none => .none
+  | .some s₂ => .some ⟨s₂, cast (by rw[H]) (P.project_ε s₁ v)⟩
 
 
 /-
@@ -243,56 +304,3 @@ instance EmptyProjection (δ: Dialect α σ ε): DialectProjection δ Dialect.em
   project_α a1_plus_a2 := .none
   project_σ s1_plus_s2 := .none
   project_ε s2 es2 := ()
-
-
-/-
-### Coercions of dialects
-
-The `CoeDialect` ckass is used to automatically inject individual dialects into
-sums of dialects, which in turn allows automatic conversion of instances of
-common MLIR data such as `MLIRType`, `AttrValue` and `Op` across dialects.
--/
-
-class CoeDialect (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) where
-  coe_α: α₁ → α₂
-  coe_σ: σ₁ → σ₂
-  coe_ε: forall s, ε₁ s → ε₂ (coe_σ s)
-
-instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
-  Coe α₁ α₂ where coe := c.coe_α
-instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂]:
-  Coe σ₁ σ₂ where coe := c.coe_σ
-instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂) [c: CoeDialect δ₁ δ₂] s:
-  Coe (ε₁ s) (ε₂ /-coe-/s) where coe := c.coe_ε s
-
-instance (δ: Dialect α σ ε): CoeDialect δ δ where
-  coe_α := id
-  coe_σ := id
-  coe_ε s := id
-
-instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
-    CoeDialect δ₁ (δ₁ + δ₂) where
-  coe_α := .inl
-  coe_σ := .inl
-  coe_ε s := id
-
-instance (δ₁: Dialect α₁ σ₁ ε₁) (δ₂: Dialect α₂ σ₂ ε₂):
-    CoeDialect δ₂ (δ₁ + δ₂) where
-  coe_α := .inr
-  coe_σ := .inr
-  coe_ε s := id
-
-instance (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
-  coe_α a := nomatch a
-  coe_σ s := nomatch s
-  coe_ε s := nomatch s
-
- instance CoeDialectEmpty (δ: Dialect α σ ε): CoeDialect Dialect.empty δ where
-  coe_α a := nomatch a
-  coe_σ s := nomatch s
-  coe_ε s := nomatch s
-  -- coe_ε_well_defined := by {
-  --  intros s;
-  --  exact (nomatch s);
-  -- }
-  -- rev_proj := inferInstance

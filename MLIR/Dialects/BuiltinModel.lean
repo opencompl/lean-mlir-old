@@ -305,7 +305,7 @@ instance builtin: Dialect builtin.α builtin.σ builtin.ε where
 
 -- Custom types
 
-@[matchPattern]
+@[matchPattern, simp]
 def builtin.tensor (D: DimList) (τ: MLIRTy): MLIRType builtin :=
   MLIRType.extended (builtin.σ.tensor D τ)
 
