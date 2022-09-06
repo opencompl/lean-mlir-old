@@ -14,7 +14,9 @@ import MLIR.Semantics.UB
 import MLIR.Dialects.BuiltinModel
 import MLIR.AST
 import MLIR.EDSL
+import MLIR.Semantics.TensorElem
 open MLIR.AST
+
 
 /-
 ### Dialect extensions
@@ -33,6 +35,84 @@ def MLIRTy_eval_equal_after_coe [Δ: Dialect α σ ε] (τ: MLIRTy):
 def MLIRType_builtin_eval_equal_after_coe [Δ: Dialect α σ ε] [coe: CoeDialect builtin Δ] (τ: MLIRType builtin):
     τ.eval = (coeMLIRType (c := coe) τ).eval := sorry
 
+
+namespace Reshape
+
+def reshape {τ} {D: DimList} (D': DimList)
+    (H: D.known) (H': D'.known) (Hprod: D'.prod = D.prod):
+    RankedTensor D τ → RankedTensor D' τ :=
+  fun t =>
+    { shape       := D'.project,
+      data        := t.data
+      h_refines   := dim_known_project_refines H',
+      h_data_size := by rw [t.h_data_size, dim_known_prod D' H', Hprod]
+                        rw [dim_known_prod_refines H]
+                        apply t.h_refines }
+
+theorem reshape_reshape {τ} {D: DimList} (D₁ D₂: DimList)
+    (H: D.known) (H₁: D₁.known) (H₂: D₂.known)
+    (Hprod₁: D₁.prod = D.prod) (Hprod₂: D₂.prod = D₁.prod)
+    (t: RankedTensor D τ):
+      reshape D₂ H₁ H₂ Hprod₂ (reshape D₁ H H₁ Hprod₁ t) =
+      reshape D₂ H H₂ (Eq.trans Hprod₂ Hprod₁) t :=
+  rfl
+
+theorem reshape_self {τ} D H₁ H₂ Hprod (t: RankedTensor D τ):
+    reshape D H₁ H₂ Hprod t = t := by
+  simp [reshape, dim_known_project_eq H₁ t.h_refines]
+
+
+/-
+### Tensor transposition operation
+
+This operation shuffles the elements of the underlying data without changing
+its size. To keep this clean it's beneficial to separate the dimension logic
+from the index manipulation of the transposition itself.
+-/
+
+def transpose_remap (n m: Nat): Nat → Nat :=
+  fun i => m * (i % n) + (i / n)
+
+theorem transpose_remap_bound (n m):
+    ∀ i, i < n * m → transpose_remap n m i < n * m := by
+  intro i h
+  simp [transpose_remap]
+  sorry /- m*(≤ n-1)+(< m) -/
+
+theorem transpose_remap_involutive (n m):
+    ∀i, transpose_remap m n (transpose_remap n m i) = i := by
+  simp [transpose_remap, Function.comp]; intro i
+  sorry /- = (i/n)*n + i%n -/
+end Reshape
+
+namespace Transpose
+def transpose (t: Matrix n m τ): Matrix m n τ :=
+  { shape := [m, n],
+    data := List.remap t.data (transpose_remap n m)
+        (by intro i h
+            rw [t.h_data_size, dim_known_prod_refines _ t.h_refines] at * <;>
+            simp at *
+            apply transpose_remap_bound; assumption),
+    h_refines := by simp,
+    h_data_size := by
+      simp [TensorElem.shapeProd, List.foldr];
+      rw [t.h_data_size, dim_known_prod_refines _ t.h_refines] <;>
+      simp [Nat.mul_comm] }
+
+theorem Function.comp_assoc {α β γ δ} (f: α → β) (g: β → γ) (h: γ → δ):
+    (h ∘ g) ∘ f = h ∘ (g ∘ f) :=
+  by funext x; simp
+
+theorem transpose_involutive {α n m}:
+    ∀ (t: Matrix α n m), transpose (transpose t) = t := by
+  intro t;
+  simp [transpose]
+  apply RankedTensor.eq_of_fields_eq <;> simp
+  . rw [←dim_known_project_eq _ t.h_refines] <;> simp
+  . simp [List.remap_remap]
+    apply List.extF <;> simp
+    simp [transpose_remap_involutive]
+end Transpose
 
 -- def Matrix.mk (n m: Nat) (t: Tensor)
 
@@ -130,7 +210,7 @@ def verify_2d_to_2d_affine_map (aff_map: AffineMap): Option (Nat × Nat) :=
 
 -- | compose the index (ix0, ix1) with the permutation that is (affine_map) to arrive
 -- at the final indexing operation.
-def tensor_index (d0 d1: Nat) (ix0 ix1: Nat) (affine_map: Nat × Nat): Option Nat := do
+def tensor_index (d0 d1: Nat) (affine_map: Nat × Nat) (ix0 ix1: Nat) : Option Nat := do
   let ixs := (ix0, ix1)
   let ix0' <- (index_tuple affine_map 0) >>= (index_tuple ixs)
   let ix1' <- (index_tuple affine_map 1) >>= (index_tuple ixs)
@@ -195,7 +275,7 @@ def linalg_parallel_all_iters
         let t : Tensor τ:= { inTensor.toTensor with data := outValues, h_data_size := sorry }
         let dims : DimList :=  [Dimension.Known d0, Dimension.Known  d1]
         let out_tensor_τ := builtin.tensor dims τ
-        let out_tensor := RankedTensor.mk (D := dims) (toTensor := t) sorry
+        let out_tensor := RankedTensor.mk (D := dims) (toTensor := t) (h_refines := sorry)
         return [⟨out_tensor_τ, MLIRType_builtin_eval_equal_after_coe (Δ := Δ) out_tensor_τ ▸ out_tensor⟩]
   | .none => do
       Fitree.trigger $ UBE.UB "RankedTensor: unable to produce output args."
@@ -221,8 +301,6 @@ def linalg_semantics_op  [CoeDialect builtin Δ] [P: DialectProjection Δ builti
               | _ => none
           | _ => none
         | _ => none
-  | IOp.mk "linalg.parallel1d2" [input1, input2] [] 1 _ _ => some do
-      sorry
   | _ => none
 
 /-
@@ -232,6 +310,11 @@ instance: Semantics Linalg where
   handle T voidT := nomatch voidT
 -/
 
+
+/-
+structure PureRegion (r: Region) (τ: MLIRTy) where
+ pure r :=∃ f, (runRegion r) = f
+-/
 
 /-
 section FITREE_THEOREMS

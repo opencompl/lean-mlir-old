@@ -29,6 +29,148 @@ structure Tensor (τ: MLIRTy) where
   -- Invariant: shape and size must match
   h_data_size: data.length = shapeProd shape
 
+
+/-
+A 1D index into a tensor. Witnesses that the flat index is in bounds of the shape of the tensor.
+-/
+structure TensorFlatIndex (bound: Nat) where
+  ix: Nat
+  h_ix_inbound: (ix < bound)
+
+-- shape: [S1, S2, S3]:
+-- indexes: [A1, A2, A3]:
+-- flattened index:
+--    A1 + S1 (A2 + S2(A3))
+structure TensorIndex (shape: List Nat) where
+  ixs: List Nat -- indexes into the tensor
+  h_ix_length: ixs.length = shape.length -- Invariant: we have as many indexes as there are dimensions
+  h_ix_bound: ∀ (i: Nat) (INBOUNDS: i < shape.length),
+    List.getF ixs i (h_ix_length ▸ INBOUNDS) < shape[i] -- Invariant: the dimensions are inbounds.
+
+
+/-
+Projecting out innermost dimension.
+-/
+open Lean in
+def TensorIndex.projectOut {outermost: Nat} {shape: List Nat} (index: TensorIndex (outermost :: shape)): TensorIndex shape :=
+  match H:index.ixs with
+  | [] => by {
+    have CONTRA := index.h_ix_length;
+    simp [H] at CONTRA;
+    }
+  | ix :: ixs' => {
+     ixs := ixs'
+     h_ix_length := by {
+       have LEN := index.h_ix_length;
+       rewrite [H] at LEN;
+       simp [List.length] at LEN;
+       exact LEN;
+     }
+     h_ix_bound := by {
+       have BOUND := index.h_ix_bound;
+       intros i;
+       intros I_INBOUND;
+       specialize (BOUND (i + 1));
+       simp[H, List.getF] at BOUND;
+       apply BOUND;
+       simp [List.length];
+       have I_INBOUND' := Nat.add_lt_add_right (k := 1) I_INBOUND;
+       apply I_INBOUND';
+
+     }
+  }
+
+-- shape: [S1, S2, S3]:
+-- indexes: [A1, A2, A3]:
+-- flattened index:
+--    A1 + S1 (A2 + S2(A3))
+def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)): Nat :=
+  let IX0: 0 < index.ixs.length := by {
+    rewrite [index.h_ix_length];
+    simp;
+    apply Nat.zero_lt_of_ne_zero;
+    simp;
+  }
+  let ix0 := index.ixs[0]'IX0
+  match restDims with
+  | [] => ix0
+  | _outermost ::_restDims  => ix0 + innerDim * (TensorIndex.linearize index.projectOut)
+
+
+
+-- Delinearlize the outermost dimension of size 'size' into 'modulus * (size/modulus)'
+def TensorIndex.delinearizeDimension (size: Nat) (shapes: List Nat) (modulus: Nat)
+  (index: TensorIndex (size :: shapes)): TensorIndex (modulus :: (size/modulus) :: shapes) :=
+  match H:index.ixs with
+  | [] => by {
+    have CONTRA := index.h_ix_length;
+    rewrite [H] at CONTRA;
+    simp at CONTRA;
+  }
+  | ix :: ixs =>
+    let ix0 := ix % size;
+    let ix1 := ix / size;
+    TensorIndex.mk (ixs := ix0 :: ix1 :: ixs) (h_ix_length := sorry) (h_ix_bound := sorry)
+
+
+
+
+
+
+
+/-
+def TensorIndex.ofFlatIndexGo (rest: Nat) (shape: List Nat)
+  (rest_inbound: rest < shapeProd shape)
+  (index: TensorIndex shape): TensorIndex shape :=
+  match shape with
+  | [] => index
+  | s :: shapes =>
+    let ix := rest % s
+    let rest' := rest / s
+    TensorIndex.mk
+      (ixs := ix::index.ixs)
+      (h_ix_length := by {
+        simp;
+        rewrite [index.h_ix_length];
+      })
+      (h_ix_bound := sorry)
+-/
+
+
+-- shape: 2x3x5:
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+def TensorIndex.ofFlatIndex (shape: List Nat) (flat: TensorFlatIndex (shapeProd shape)): TensorIndex shape := by {
+}
+
+/-
+def to_flat_index_go {τ: MLIRTy}
+  (strides: List Nat)
+  (ixs: List Nat)
+  (h_ix_length: ixs.length = strides.length): Nat :=
+  match strides with
+  n| [] => 0
+  | stride::strides' =>
+    match ixs with
+    | [] => by {
+        simp at h_ix_length;
+      }
+    | ix::ixs' =>
+        let H' : ixs'.length = strides'.length := by {
+          simp at h_ix_length;
+          exact h_ix_length;
+        }
+        ix + stride * (to_flat_index_go (τ := τ) strides' ixs' H')
+
+
+def TensorIndex.ofFlat (f: TensorIndexFlat τ)
+-/
+
 theorem Tensor.eq_of_fields_eq {τ} (t₁ t₂: Tensor τ):
     t₁.shape = t₂.shape → t₁.data = t₂.data → t₁ = t₂ := by
   intros h_shape h_data
@@ -46,6 +188,106 @@ def Tensor.uniform {τ} (shape: List Nat) (v: τ.eval): Tensor τ :=
 
 instance {τ}: Inhabited (Tensor τ) where
   default := Tensor.uniform [1] default
+
+
+-- Map a function over a tensor.
+def Tensor.map {σ τ} (v: Tensor σ) (f: σ.eval → τ.eval): Tensor τ :=
+ Tensor.mk (shape := v.shape) (data := v.data.map f) (h_data_size := by {
+    rewrite [List.length_map]
+    apply v.h_data_size;
+ })
+
+theorem Tensor.map_shape {σ τ: MLIRTy} (v: Tensor σ) (f: σ.eval → τ.eval): v.shape = (v.map f).shape := by {
+  simp [Tensor.map];
+}
+
+-- Helper function to zip a list with the index of the current value
+def zipFlatIndexGo (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bound): List (α × TensorFlatIndex bound) :=
+  match xs with
+  | [] => []
+  | x::xs' =>
+     let ix_inbounds : ix < bound := by {
+      rewrite [← H];
+      apply Nat.lt_add_of_pos_right;
+      simp;
+      apply Nat.zero_lt_succ;
+     }
+     let ix' := ix + 1
+     let H' :ix' + xs'.length = bound := by {
+       rewrite [← H];
+       simp;
+       rewrite [Nat.succ_eq_add_one];
+       -- ⊢ ix + 1 + List.length xs' = ix + (List.length xs' + 1)
+       sorry_arith;
+     }
+     (x, TensorFlatIndex.mk ix ix_inbounds) :: zipFlatIndexGo xs' ix' bound H'
+
+
+-- zipFlatIndexGo maintains length of the list.
+theorem zip_flat_index_go_length (xs: List α): ∀ (ix: Nat) (bound: Nat) (H: ix + xs.length = bound),
+  xs.length = (zipFlatIndexGo xs ix bound H).length := by {
+  induction xs;
+  case nil => {
+    intros; unfold zipFlatIndexGo; rfl;
+  }
+  case cons x xs' IND => {
+    intros ix bound H;
+    simp [zipFlatIndexGo];
+    apply IND;
+  }
+}
+#check Nat.zero_lt_of_lt
+
+-- Getting an element from the flattened zip
+theorem List.zip_flat_index_go_get (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bound)
+  (deltaIx: Nat) (GETIX: ix + deltaIx < xs.length):
+  ((zipFlatIndexGo xs ix bound H).getF (ix + deltaIx) (zip_flat_index_go_length xs ix bound H ▸ GETIX)).snd.ix = ix + deltaIx := by {
+  sorry
+  /-
+  induction xs;
+  case nil => {
+      simp [List.length, Nat.not_lt_zero] at GETIX;
+  }
+  case cons x xs' IND => {
+    induction deltaIx;
+    case zero => {
+     simp [zipFlatIndexGo]; simp [List.getF];
+    }
+    simp[zipFlatIndexGo];
+    simp;
+  }
+  sorry
+ -/
+}
+
+-- Zip a list with the index of the current value
+def List.zipFlatIndex (xs: List α): List (α × TensorFlatIndex xs.length) :=
+  zipFlatIndexGo xs 0 (H := by simp)
+
+
+-- zipFlatIndex preserves length of the list
+theorem List.length_zip_flat_index (xs: List α):  xs.length = (xs.zipFlatIndex).length:= by {
+  apply zip_flat_index_go_length;
+}
+
+-- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
+theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
+  (xs.zipFlatIndex[getIx]'(zip_flat_index_length xs ▸ GETIX)).snd.ix = getIx := by {
+  sorry
+}
+
+-- Map over a tensor with a flattened index
+def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapeProd v.shape) → σ.eval → τ.eval): Tensor τ :=
+  Tensor.mk (shape := v.shape)
+    (data := v.data.zipFlatIndex.map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by {
+   rewrite [List.length_map];
+   rewrite [← List.length_zip_flat_index];
+   rewrite [v.h_data_size];
+   apply Eq.refl;
+  })
+
+
+
 
 
 /-
@@ -85,6 +327,15 @@ def RankedTensor.str {τ D} (t: RankedTensor D τ): String :=
   let dims := "×".intercalate (D.map (MLIR.Doc.Pretty.doc ·))
   let data := "[" ++ " ".intercalate (t.data.map toString) ++ "]"
   s!"({dims}){data}"
+
+-- Map a function over a tensor.
+def RankedTensor.map {σ σ': MLIRTy} {D: DimList} (v: RankedTensor D σ) (f: σ.eval → σ'.eval): RankedTensor D σ' :=
+  let t' : Tensor σ' := v.toTensor.map f
+  let H : D.shapeRefines t'.shape := by {
+      rewrite [← Tensor.map_shape];
+      simp [v.h_refines];
+  };
+  RankedTensor.mk t' H
 
 -- Conversion from TensorElem
 
