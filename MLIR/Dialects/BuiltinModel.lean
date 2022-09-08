@@ -37,6 +37,18 @@ structure TensorFlatIndex (bound: Nat) where
   ix: Nat
   h_ix_inbound: (ix < bound)
 
+theorem TensorFlatIndex.bound_non_zero (flat: TensorFlatIndex bound): bound ≠ 0 := by {
+  intros BOUND;
+  have H_INBOUND := flat.h_ix_inbound;
+  simp [BOUND] at H_INBOUND;
+  simp [Nat.not_lt_zero] at H_INBOUND;
+}
+
+theorem TensorFlatIndex.bound_zero_absurd (flat: TensorFlatIndex 0): False := by {
+  have H_INBOUND := flat.h_ix_inbound;
+  simp [Nat.not_lt_zero] at H_INBOUND;
+}
+
 -- shape: [S1, S2, S3]:
 -- indexes: [A1, A2, A3]:
 -- flattened index:
@@ -51,8 +63,8 @@ structure TensorIndex (shape: List Nat) where
 /-
 Projecting out innermost dimension.
 -/
-@[simp, reducible]
 open Lean in
+@[simp, reducible]
 def TensorIndex.projectOut {outermost: Nat} {shape: List Nat} (index: TensorIndex (outermost :: shape)): TensorIndex shape :=
   match H:index.ixs with
   | [] => by {
@@ -97,6 +109,7 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
   match restDims with
   | [] => ix0
   | _outermost ::_restDims  => ix0 + innerDim * (TensorIndex.linearize index.projectOut)
+
 
 
 -- #check Nat.mod_lt
@@ -161,7 +174,7 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
 
 -- Delinearization is correct iff the index expression of the lineraized
 -- case is equal to the index expression after delin.
-theorem TensorIndex.delineraize_correct: ∀ {restDims: List Nat}
+theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
   {innerDim: Nat}
   (index: TensorIndex (innerDim :: restDims))
   (modulus: Nat)
@@ -221,21 +234,9 @@ theorem shapeProd_cons_prod (x y: Nat) (zs: List Nat): shapeProd (x :: y :: zs) 
 }
 
 
--- shape: 2x3x5:
--- 0:(0,0,0)
--- 0:(0,0,0)
--- 0:(0,0,0)
--- 0:(0,0,0)
--- 0:(0,0,0)
--- 0:(0,0,0)
--- 0:(0,0,0)
--- | TODO: fix sorrys about hypotheses.
-def TensorIndex.ofFlatIndex {innerDim: Nat} {restDims: List Nat}
-  (INNERDIM: innerDim > 0)
-  (flat: TensorFlatIndex (shapeProd (innerDim :: restDims))): TensorIndex (innerDim :: restDims) :=
-   -- | extract out code to create tensor index from tensor flat index.
-   match restDims with
-   | [] => TensorIndex.mk (ixs := [flat.ix]) (by simp) (by {
+def TensorIndex.ofFlatIndex1D {innerDim: Nat}
+  (flat: TensorFlatIndex innerDim): TensorIndex [innerDim] :=
+  TensorIndex.mk (ixs := [flat.ix]) (by simp) (by {
         intros i I_INBOUND;
         simp [List.length] at I_INBOUND;
         have I_EQ_0 : i = 0 :=
@@ -250,9 +251,28 @@ def TensorIndex.ofFlatIndex {innerDim: Nat} {restDims: List Nat}
        simp [shapeProd, List.foldr] at IX_INBOUND;
        apply IX_INBOUND;
      })
+
+
+-- shape: 2x3x5:
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- 0:(0,0,0)
+-- | TODO: fix sorrys about hypotheses.
+def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
+  (INNERDIM: innerDim > 0)
+  (flat: TensorFlatIndex (shapeProd (innerDim :: restDims))): TensorIndex (innerDim :: restDims) :=
+   -- | extract out code to create tensor index from tensor flat index.
+   match restDims with
+   | [] =>
+     have DIM : (shapeProd [innerDim] = innerDim) := by simp[shapeProd,List.foldr];
+     TensorIndex.ofFlatIndex1D (DIM ▸ flat)
    | restDim0 :: restDims' =>
        let twoFlat : TensorIndex (innerDim * restDim0 :: restDims') :=
-         TensorIndex.ofFlatIndex
+         TensorIndex.ofFlatIndexProdGo
               (sorry)
               (shapeProd_cons_prod innerDim restDim0 restDims' ▸ flat)
               (innerDim := innerDim*restDim0)
@@ -267,6 +287,42 @@ def TensorIndex.ofFlatIndex {innerDim: Nat} {restDims: List Nat}
        final
 
 
+-- Convert a flat index into a tensor index.
+def TensorIndex.ofFlatIndex {dims: List Nat} {flatSize: Nat} (EQ: shapeProd dims = flatSize)
+    (DIMS_NONZERO: ∀ (i: Nat) (I_INBOUND: i < dims.length), dims.getF i I_INBOUND ≠ 0)
+    (flat: TensorFlatIndex flatSize): TensorIndex dims :=
+  match dims with
+  | [] => by { -- base case, make empty tensor.
+     simp [shapeProd, List.foldr] at EQ;
+     rewrite [← EQ] at flat;
+     exact (TensorIndex.mk (ixs:= []) (h_ix_length := by simp) (h_ix_bound := by {
+       intros i CONTRA;
+       simp at CONTRA;
+       simp [Nat.not_lt_zero] at CONTRA;
+     }))
+   }
+  | innerDim :: restDims =>
+    match H: innerDim with
+    | 0 => by {
+      specialize (DIMS_NONZERO 0);
+      simp [List.getF] at DIMS_NONZERO;
+      have INBOUNDS : 0 < Nat.succ (List.length restDims) := by {
+         apply Nat.zero_lt_of_ne_zero;
+         simp;
+      }
+      simp [INBOUNDS] at DIMS_NONZERO;
+     } -- dim cannot be zero
+    | Nat.succ innerDim' => H ▸ TensorIndex.ofFlatIndexProdGo (innerDim := innerDim) (restDims := restDims)
+               (flat := by {
+                 simp [← H] at EQ;
+                 simp [← EQ] at flat;
+                 exact flat
+               })
+               (INNERDIM := by {
+                 simp [H];
+                 apply Nat.gt_of_not_le;
+                 simp;
+               })
 
 
 /-
@@ -393,7 +449,7 @@ theorem List.length_zip_flat_index (xs: List α):  xs.length = (xs.zipFlatIndex)
 
 -- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
 theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
-  (xs.zipFlatIndex[getIx]'(zip_flat_index_length xs ▸ GETIX)).snd.ix = getIx := by {
+  (xs.zipFlatIndex[getIx]'(xs.length_zip_flat_index ▸ GETIX)).snd.ix = getIx := by {
   sorry
 }
 
@@ -407,7 +463,11 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
    apply Eq.refl;
   })
 
-
+-- TODO thursday: Implement `mapWithIndex` under the assumption that v.shape has no zeroes.
+def Tensor.mapWithIndex {σ τ} (v: Tensor σ) (f: TensorIndex v.shape → σ.eval → τ.eval): Tensor τ :=
+   v.mapWithFlatIndex (fun flatIx s => by {
+      sorry -- TODO: get this
+    })
 
 
 
