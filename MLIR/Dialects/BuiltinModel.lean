@@ -51,6 +51,7 @@ structure TensorIndex (shape: List Nat) where
 /-
 Projecting out innermost dimension.
 -/
+@[simp, reducible]
 open Lean in
 def TensorIndex.projectOut {outermost: Nat} {shape: List Nat} (index: TensorIndex (outermost :: shape)): TensorIndex shape :=
   match H:index.ixs with
@@ -84,6 +85,7 @@ def TensorIndex.projectOut {outermost: Nat} {shape: List Nat} (index: TensorInde
 -- indexes: [A1, A2, A3]:
 -- flattened index:
 --    A1 + S1 (A2 + S2(A3))
+@[reducible, simp]
 def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)): Nat :=
   let IX0: 0 < index.ixs.length := by {
     rewrite [index.h_ix_length];
@@ -91,7 +93,7 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
     apply Nat.zero_lt_of_ne_zero;
     simp;
   }
-  let ix0 := index.ixs[0]'IX0
+  let ix0 := List.getF index.ixs 0 IX0
   match restDims with
   | [] => ix0
   | _outermost ::_restDims  => ix0 + innerDim * (TensorIndex.linearize index.projectOut)
@@ -99,6 +101,7 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
 
 -- #check Nat.mod_lt
 -- Delinearlize the outermost dimension of size 'size' into 'modulus * (size/modulus)'
+@[simp, reducible]
 def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
   (modulus: Nat)
   (MOD_GT_0: modulus > 0)
@@ -158,14 +161,40 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
 
 -- Delinearization is correct iff the index expression of the lineraized
 -- case is equal to the index expression after delin.
-theorem TensorIndex.delineraize_correct
-  {innerDim: Nat} {restDims: List Nat}
+theorem TensorIndex.delineraize_correct: ∀ {restDims: List Nat}
+  {innerDim: Nat}
   (index: TensorIndex (innerDim :: restDims))
   (modulus: Nat)
-  (MOD_GT_0: modulus > 0): (index.delinearizeInnermost modulus MOD_GT_0).linearize = index.linearize := by {
-  sorry -- post-dinner proof.
-}
+  (MOD_GT_0: modulus > 0),
+  (index.delinearizeInnermost modulus MOD_GT_0).linearize = index.linearize := by {
+  intros restDims innerDim index;
+  let INDEX := index;
+  cases index;
 
+  case mk ixs h_ix_length h_ix_bound => {
+   induction ixs ;
+   case nil => {
+     simp at h_ix_length;
+   }
+   case cons ix ixs' IH => {
+      intros modulus MOD_GT_0;
+      simp [delinearizeInnermost];
+      simp [linearize];
+      simp [List.getF];
+      simp [projectOut];
+      simp [linearize];
+      cases restDims;
+      case nil => {
+         simp [List.getF];
+         sorry -- post dinner proof
+      }
+      case cons restDim restDims' =>  {
+         simp [List.getF];
+         sorry -- post dinner proof
+      }
+   }
+  }
+}
 
 /-
 def TensorIndex.ofFlatIndexGo (rest: Nat) (shape: List Nat)
