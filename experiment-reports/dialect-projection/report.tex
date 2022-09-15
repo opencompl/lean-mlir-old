@@ -1,0 +1,52 @@
+% http://sensys.acm.org/2019/resources/documents/HowTo.pdf
+\documentclass[sigconf]{acmart}
+\usepackage{minted}
+
+\begin{document}
+
+\title{Projections for Multi-Language Syntax and Semantics}
+
+\begin{abstract}
+...
+\end{abstract}
+
+
+
+\maketitle
+%% ^^^ MAKE TITLE
+
+
+\section{Trees That Grow}
+
+\begin{minted}{lean}
+namespace AST
+variable (opRgnF: Type -> Type)
+variable (rgnOpF: Type -> Type)
+
+mutual
+inductive Op
+| mk: String -> (opRgnF Region) -> Op
+
+inductive OpList
+| OneLop: Op -> OpList
+| ConsOp: Op -> OpList  -> OpList
+
+inductive Region
+| mk: String -> (rgnOpF OpList) -> Region
+end
+end AST
+\end{minted}
+
+This approach does not work, as the kernel does not
+like the occurrence of \texttt{opRgnF}
+
+\begin{minted}{lean}
+  (kernel) arg #4 of 'AST.Op.mk' contains a non valid
+  occurrence of the datatypes being declared
+\end{minted}
+
+%% vvv BIB
+\
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references.bib}
+\end{document}
