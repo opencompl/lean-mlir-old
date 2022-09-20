@@ -10,6 +10,17 @@ open MLIR.AST
 open MLIR.AST.TensorElem (shapeProd)
 
 /-
+## Theorems about shapeProd
+-/
+
+@[simp]
+theorem shapeProd.cons_unfold: ∀ (x: Nat) (xs: List Nat),
+  shapeProd (x :: xs) = x * shapeProd xs := by {
+   intros x xs;
+   simp [shapeProd, List.foldr];
+}
+
+/-
 ## General tensor type
 
 The following structure is used as the basis for both ranked and unranked
@@ -30,6 +41,7 @@ structure Tensor (τ: MLIRTy) where
   h_data_size: data.length = shapeProd shape
 
 
+
 /-
 A 1D index into a tensor. Witnesses that the flat index is in bounds of the shape of the tensor.
 -/
@@ -48,6 +60,114 @@ theorem TensorFlatIndex.bound_zero_absurd (flat: TensorFlatIndex 0): False := by
   have H_INBOUND := flat.h_ix_inbound;
   simp [Nat.not_lt_zero] at H_INBOUND;
 }
+
+@[simp]
+theorem Nat.succ_gt_zero (n: Nat): Nat.succ n > 0 := by {
+  simp [GT.gt];
+  simp [Nat.zero_lt_succ];
+}
+
+@[simp]
+theorem Nat.nonzero_iff_gt_zero: ∀ (n: Nat), n ≠ 0 <-> n > 0 := by {
+  intros n;
+  constructor;
+  case mp => {
+  intros NEQ_0;
+  cases n;
+  case zero => {
+    contradiction;
+  }
+  case succ n' => { simp [Nat.succ_gt_zero]; }
+  }
+  case mpr => {
+   intros GT_ZERO;
+   cases n;
+   case zero => {
+     simp at GT_ZERO;
+   }
+   case succ n' => { simp; }
+  }
+}
+
+-- Bound is always greater than zero.
+theorem TensorFlatIndex.bound_gt_zero(flat: TensorFlatIndex bound): bound > 0 := by {
+  have BOUND_NONZERO: bound ≠ 0 := TensorFlatIndex.bound_non_zero flat;
+  cases bound;
+  case zero => {
+    simp [Nat.zero, BOUND_NONZERO];
+    contradiction;
+  }
+  case succ bound' => {
+    apply Nat.succ_gt_zero;
+  }
+}
+
+@[simp]
+theorem Nat.mul_nonzero_implies_left_nonzero: ∀ (a b: Nat) (NEQ: a * b ≠ 0), a ≠ 0 := by {
+  intros a b NEQ;
+  induction a;
+  case zero => {
+   simp at NEQ;
+  }
+  case succ a' IH => {
+    apply Nat.succ_ne_zero;
+  }
+}
+
+@[simp]
+theorem Nat.mul_nonzero_implies_right_nonzero: ∀ (a b : Nat) (NEQ: a * b ≠ 0), b ≠ 0 := by {
+  intros a b NEQ;
+  induction a;
+  case zero => {
+   simp at NEQ;
+  }
+  case succ a' IH => {
+    induction b;
+    case zero => {
+     simp at NEQ;
+    }
+    case succ b' IH => {
+     apply Nat.succ_ne_zero;
+    }
+  }
+}
+
+-- if product of number is nonzero, then every element is nonzero
+theorem shapeProd_nonzero_implies_member_nonzero: ∀ (xs: List Nat)
+   (x: Nat) (MEM: List.Mem x xs) (PROD: shapeProd xs > 0) , x > 0 := by {
+   intros xs x MEM;
+   induction MEM;
+   case head a as => {
+     simp [shapeProd, List.foldr];
+     intros H;
+     rewrite [<- Nat.nonzero_iff_gt_zero];
+     apply Nat.mul_nonzero_implies_left_nonzero;
+     rewrite [<- Nat.nonzero_iff_gt_zero] at H;
+     apply H;
+   }
+   case tail b bs MEM IH => {
+     intros H;
+     apply IH;
+     simp at H;
+     rewrite [<- Nat.nonzero_iff_gt_zero] at *;
+     apply (Nat.mul_nonzero_implies_right_nonzero);
+     apply H;
+   }
+}
+
+
+-- A TensorFlatIndex of a shapeProd will be nonzero.
+theorem TensorFlatIndex.shapeProd_member_nonzero
+  (shape: List Nat)
+  (flat: TensorFlatIndex (shapeProd shape))
+  (n: Nat) (MEMBER: List.Mem n shape): n > 0 := by {
+  have PROD_NONZERO: shapeProd shape > 0 := flat.bound_gt_zero;
+  apply shapeProd_nonzero_implies_member_nonzero;
+  exact MEMBER;
+  exact PROD_NONZERO;
+}
+
+
 
 -- shape: [S1, S2, S3]:
 -- indexes: [A1, A2, A3]:
@@ -102,8 +222,6 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
   let IX0: 0 < index.ixs.length := by {
     rewrite [index.h_ix_length];
     simp;
-    apply Nat.zero_lt_of_ne_zero;
-    simp;
   }
   let ix0 := List.getF index.ixs 0 IX0
   match restDims with
@@ -149,7 +267,7 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
                  have h := index.h_ix_bound;
                  specialize h (i := 0);
                  specialize h (by {
-                  simp; apply Nat.zero_lt_of_ne_zero; simp;
+                  simp;
                  });
                  simp [H, List.getF] at h;
                  apply h;
@@ -199,10 +317,10 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
       cases restDims;
       case nil => {
          simp [List.getF];
-         sorry -- post dinner proof
+         --  ix % modulus + modulus * (ix / modulus) = ix
+         sorry_arith
       }
       case cons restDim restDims' =>  {
-         simp [List.getF];
          sorry -- post dinner proof
       }
    }
@@ -228,9 +346,7 @@ def TensorIndex.ofFlatIndexGo (rest: Nat) (shape: List Nat)
 -/
 
 theorem shapeProd_cons_prod (x y: Nat) (zs: List Nat): shapeProd (x :: y :: zs) = shapeProd ((x *y) :: zs) := by {
-   simp [shapeProd, List.foldr];
-   simp;
-   sorry_arith;
+   simp [Nat.mul_assoc];
 }
 
 
@@ -253,6 +369,28 @@ def TensorIndex.ofFlatIndex1D {innerDim: Nat}
      })
 
 
+theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0), a * b ≠ 0 := by {
+   intros a;
+   induction a;
+   case zero => {
+   intros b A_NEQ_ZERO; simp [A_NEQ_ZERO]; contradiction;
+   }
+   case succ a' IH => {
+     intros b;
+     induction b;
+     case zero => {
+        intros A B;
+        simp at B;
+     }
+    case succ b' IH' => {
+      intros A B;
+      simp [Nat.mul];
+      rewrite [Nat.nonzero_iff_gt_zero] at *;
+      simp [Nat.mul_pos];
+    }
+   }
+
+}
 -- shape: 2x3x5:
 -- 0:(0,0,0)
 -- 0:(0,0,0)
@@ -273,7 +411,16 @@ def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
    | restDim0 :: restDims' =>
        let twoFlat : TensorIndex (innerDim * restDim0 :: restDims') :=
          TensorIndex.ofFlatIndexProdGo
-              (sorry)
+              (by {
+                    have RESTDIM: restDim0 > 0 := by {
+                         apply TensorFlatIndex.shapeProd_member_nonzero;
+                         apply flat;
+                         repeat constructor;
+                    }
+                    apply Nat.mul_pos;
+                    apply INNERDIM; apply RESTDIM;
+
+               })
               (shapeProd_cons_prod innerDim restDim0 restDims' ▸ flat)
               (innerDim := innerDim*restDim0)
               (restDims := restDims');
@@ -283,7 +430,7 @@ def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
             exact INNERDIM;
        }
        let final : TensorIndex (innerDim :: restDim0 :: restDims') :=
-            RESTDIM0 ▸ TensorIndex.delinearizeInnermost  (modulus := innerDim) (sorry) twoFlat
+            RESTDIM0 ▸ TensorIndex.delinearizeInnermost  (modulus := innerDim) (INNERDIM) twoFlat
        final
 
 
@@ -465,9 +612,13 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
 
 -- TODO thursday: Implement `mapWithIndex` under the assumption that v.shape has no zeroes.
 def Tensor.mapWithIndex {σ τ} (v: Tensor σ) (f: TensorIndex v.shape → σ.eval → τ.eval): Tensor τ :=
-   v.mapWithFlatIndex (fun flatIx s => by {
-      sorry -- TODO: get this
-    })
+   v.mapWithFlatIndex (fun flatIx s =>
+      let idx : TensorIndex v.shape :=
+        TensorIndex.ofFlatIndex (flatSize := shapeProd v.shape) (EQ := rfl)
+                                     (DIMS_NONZERO := sorry) (flat := flatIx)
+      -- can be proven by using that anything in shapeProd must be nonzero.
+      f idx s
+   )
 
 
 
