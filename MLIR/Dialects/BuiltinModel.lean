@@ -649,7 +649,10 @@ theorem zip_flat_index_go_length (xs: List α): ∀ (ix: Nat) (bound: Nat) (H: i
 --   must be (ix + deltaIx).
 theorem List.zip_flat_index_go_get: ∀ (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bound)
   (deltaIx: Nat) (GETIX: deltaIx < xs.length),
-  ((zipFlatIndexGo xs ix bound H).getF deltaIx (zip_flat_index_go_length xs ix bound H ▸ GETIX)).snd.ix = ix + deltaIx := by {
+  ((zipFlatIndexGo xs ix bound H).getF deltaIx (zip_flat_index_go_length xs ix bound H ▸ GETIX)) =
+  (xs.getF deltaIx GETIX, TensorFlatIndex.mk (bound := bound)
+                           (ix := ix + deltaIx)
+                           (h_ix_inbound := by { rewrite [<- H]; simp [Nat.add_lt_add_left, GETIX]; } )) := by {
  intros xs;
   induction xs;
   case nil => {
@@ -687,12 +690,15 @@ theorem List.length_zip_flat_index (xs: List α):  xs.length = (xs.zipFlatIndex)
 
 -- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
 theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
-  (List.getF xs.zipFlatIndex getIx (xs.length_zip_flat_index ▸ GETIX)).snd.ix = getIx := by {
-  have GETIX_RW : ∀ (lhs: Nat), lhs = 0 + getIx ->lhs = getIx:= by { intros lhs H; simp[H]; }
-  apply GETIX_RW;
-  apply List.zip_flat_index_go_get;
-  apply GETIX;
+  (List.getF xs.zipFlatIndex getIx (xs.length_zip_flat_index ▸ GETIX)) = (List.getF xs getIx GETIX, TensorFlatIndex.mk (bound := xs.length) getIx GETIX) := by {
+  simp[zipFlatIndex];
+  have RHS :  { ix := getIx, h_ix_inbound := GETIX : TensorFlatIndex (xs.length) } = {ix := 0 + getIx, h_ix_inbound := by { simp; apply GETIX } : TensorFlatIndex (xs.length)} := by {
+    simp;
+  }
+  rewrite [RHS];
+  apply List.zip_flat_index_go_get (xs := xs) (ix := 0) (bound := length xs) (deltaIx := getIx) (GETIX := GETIX);
 }
+
 
 -- Map over a tensor with a flattened index
 def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapeProd v.shape) → σ.eval → τ.eval): Tensor τ :=
@@ -703,6 +709,48 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
    rewrite [v.h_data_size];
    apply Eq.refl;
   })
+
+
+-- getter at a flat index
+def Tensor.getAtFlatIndex {σ} (v: Tensor σ) (ix: TensorFlatIndex (shapeProd v.shape)): σ.eval :=
+  List.getF v.data ix.ix (h := by {  rewrite [v.h_data_size]; exact ix.h_ix_inbound; })
+
+
+theorem arg_equal_implies_fn_equal (α β: Type) (x y :α) (f: α -> β) (EQ: x = y): f x = f y := by {
+  simp [EQ];
+}
+
+theorem arg_equal_implies_fn_equal_2 (α β γ: Type) (a a' :α) (b b': β) (f: α -> β -> γ)
+   (EQα: a = a') (EQβ: b = b') : f a b = f a' b' := by {
+  simp [EQα, EQβ];
+}
+
+def TensorFlatIndex.cast: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix: ℕ) (prf: ix < bound) (prf': ix < bound'),
+  EQ ▸ { ix := ix, h_ix_inbound := prf : TensorFlatIndex bound } = {ix := ix, h_ix_inbound := prf' }
+   := by {
+  intros bound bound';
+  intros EQ ix prf prf';
+  sorry
+}
+
+
+-- getting at a mapped flat index returns the value that's computed by running the map fn at
+-- that index.
+def Tensor.mapWithFlatIndexCorrect
+   {σ τ: MLIRTy} (v: Tensor σ) (f: TensorFlatIndex (shapeProd v.shape) → σ.eval → τ.eval)
+   (ix: TensorFlatIndex (shapeProd v.shape)):
+  (v.mapWithFlatIndex f).getAtFlatIndex ix = f ix (v.getAtFlatIndex ix) := by {
+  simp [Tensor.getAtFlatIndex];
+  simp [Tensor.mapWithFlatIndex];
+  rewrite [List.zip_flat_index_get (xs := v.data) (getIx := ix.ix)
+      (GETIX := by {  rewrite [v.h_data_size];  simp[ix.h_ix_inbound]; } )];
+  simp;
+  rewrite [TensorFlatIndex.cast];
+  rfl;
+}
+
+
+
 
 theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i < xs.length),
  List.Mem (List.getF xs i INBOUND) xs := by {
