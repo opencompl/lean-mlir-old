@@ -429,23 +429,6 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
   }
 }
 
-/-
-def TensorIndex.ofFlatIndexGo (rest: Nat) (shape: List Nat)
-  (rest_inbound: rest < shapeProd shape)
-  (index: TensorIndex shape): TensorIndex shape :=
-  match shape with
-  | [] => index
-  | s :: shapes =>
-    let ix := rest % s
-    let rest' := rest / s
-    TensorIndex.mk
-      (ixs := ix::index.ixs)
-      (h_ix_length := by {
-        simp;
-        rewrite [index.h_ix_length];
-      })
-      (h_ix_bound := sorry)
--/
 
 theorem shapeProd_cons_prod (x y: Nat) (zs: List Nat): shapeProd (x :: y :: zs) = shapeProd ((x *y) :: zs) := by {
    simp [Nat.mul_assoc];
@@ -501,7 +484,6 @@ theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0),
 -- 0:(0,0,0)
 -- 0:(0,0,0)
 -- 0:(0,0,0)
--- | TODO: fix sorrys about hypotheses.
 def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
   (INNERDIM: innerDim > 0)
   (flat: TensorFlatIndex (shapeProd (innerDim :: restDims))): TensorIndex (innerDim :: restDims) :=
@@ -555,11 +537,6 @@ def TensorIndex.ofFlatIndex {dims: List Nat} {flatSize: Nat} (EQ: shapeProd dims
     | 0 => by {
       specialize (DIMS_NONZERO 0);
       simp [List.getF] at DIMS_NONZERO;
-      have INBOUNDS : 0 < Nat.succ (List.length restDims) := by {
-         apply Nat.zero_lt_of_ne_zero;
-         simp;
-      }
-      simp [INBOUNDS] at DIMS_NONZERO;
      } -- dim cannot be zero
     | Nat.succ innerDim' => H ▸ TensorIndex.ofFlatIndexProdGo (innerDim := innerDim) (restDims := restDims)
                (flat := by {
@@ -569,8 +546,6 @@ def TensorIndex.ofFlatIndex {dims: List Nat} {flatSize: Nat} (EQ: shapeProd dims
                })
                (INNERDIM := by {
                  simp [H];
-                 apply Nat.gt_of_not_le;
-                 simp;
                })
 
 
@@ -729,16 +704,51 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
    apply Eq.refl;
   })
 
+theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i < xs.length),
+ List.Mem (List.getF xs i INBOUND) xs := by {
+  intros α xs;
+  induction xs;
+  case nil => {
+    intros i INBOUND; simp at INBOUND;
+    simp [Nat.not_lt_zero] at INBOUND;
+  }
+  case cons x' xs IH => {
+    intros i INBOUND;
+    cases i;
+    case zero => {
+       simp [getF];
+       constructor;
+    }
+   case succ i' => {
+     simp [getF];
+     constructor;
+     apply IH;
+   }
+  }
+}
+
 -- TODO thursday: Implement `mapWithIndex` under the assumption that v.shape has no zeroes.
 def Tensor.mapWithIndex {σ τ} (v: Tensor σ) (f: TensorIndex v.shape → σ.eval → τ.eval): Tensor τ :=
    v.mapWithFlatIndex (fun flatIx s =>
       let idx : TensorIndex v.shape :=
         TensorIndex.ofFlatIndex (flatSize := shapeProd v.shape) (EQ := rfl)
-                                     (DIMS_NONZERO := sorry) (flat := flatIx)
-      -- can be proven by using that anything in shapeProd must be nonzero.
+                                 (flat := flatIx)
+                                 (DIMS_NONZERO := by {
+                                   intros i INBOUND;
+                                   let x : Nat := List.getF v.shape i INBOUND;
+                                   have X: List.Mem x v.shape := by {
+                                     apply List.getF_implies_mem;
+                                   }
+                                   rewrite [Nat.nonzero_iff_gt_zero];
+                                   apply shapeProd_nonzero_implies_member_nonzero;
+                                   apply X;
+                                   apply TensorFlatIndex.bound_gt_zero flatIx;
+                                 })
       f idx s
    )
 
+-- TODO: phrase correctness statement for mapWithIndex.
+def Tensor.mapWithIndexCorrect : True := sorry
 
 
 /-
