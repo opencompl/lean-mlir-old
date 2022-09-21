@@ -6,6 +6,9 @@ import MLIR.AST
 import MLIR.Doc
 import MLIR.Semantics.Types
 import MLIR.Semantics.TensorElem
+import MLIR.Util.Mathlib4.NatBasic
+import MLIR.Util.Mathlib4.Dvd
+import MLIR.Util.Mathlib4.NatLemmas
 open MLIR.AST
 open MLIR.AST.TensorElem (shapeProd)
 
@@ -229,6 +232,67 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
   | _outermost ::_restDims  => ix0 + innerDim * (TensorIndex.linearize index.projectOut)
 
 
+theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
+  intros a b; constructor;
+  case mp => { intros A_LT_B;
+     simp [GT.gt]; exact A_LT_B;
+  }
+  case mpr => {
+    intros B_GT_A;
+    simp [GT.gt] at B_GT_A;
+    exact B_GT_A;
+  }
+}
+
+@[simp]
+theorem Nat.mod_zero_implies_div_mul_equal (n: Nat) (modulus: Nat)
+  (MODZERO: n % modulus = 0): (n / modulus) * modulus = n := by {
+  have MULTIPLE: n = 0 + (n / modulus) * modulus := by {
+    rewrite [<- MODZERO];
+    rewrite [Nat.mul_comm];
+    simp [Nat.mod_add_div];
+  }
+  simp at MULTIPLE;
+  rewrite [<- MULTIPLE];
+  rfl;
+}
+
+
+/-
+NOTE: Naivete of definition of delineralizatoin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One might initially choose to believe that for ANY modulus, we can delin
+def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
+  (modulus: Nat)
+  (index: TensorIndex (innerDim :: restDims)):
+    TensorIndex (modulus :: (innerDim/modulus) :: restDims) :=
+
+This is absurd, because I Can choose modulus to be super large (9999), then
+the tensor collapses because (innerDim/modulus) becomes = 0.
+
+
+As a second try, one can try to add the assumtion that (modulus < innerDim).
+This too is insufficient!
+For the shape:
+  (modulus, innerDim / modulus, ...)
+we would naively choose the indexes:
+  (innermostix % modulus, innermostix / modulus)
+
+The 0th entry is clearly inbounds:
+  (innermostix % modulus) < modulus
+
+the 1st entry is not necessarily inbounds!
+    innermostix / modulus < innerDim / modulus ??
+   Even given that (innermostix < innerDim) from the original tensor, we cannot
+   conclude that division preserves less than!
+   eg 2 < 3 =/=> (2/9999) < (3/9999)!
+
+
+We need some kind of divisibility criterion.
+-/
+
+
 
 -- #check Nat.mod_lt
 -- Delinearlize the outermost dimension of size 'size' into 'modulus * (size/modulus)'
@@ -236,7 +300,10 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
 def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
   (modulus: Nat)
   (MOD_GT_0: modulus > 0)
-  (index: TensorIndex (innerDim :: restDims)): TensorIndex (modulus :: (innerDim/modulus) :: restDims) :=
+  (MOD_DIV_INNERDIM:  innerDim % modulus = 0)
+  -- (MOD_LT_INNERDIM: modulus < innerDim) -- can collapse tensor otherwise.
+  (index: TensorIndex (innerDim :: restDims)):
+    TensorIndex (modulus :: (innerDim/modulus) :: restDims) :=
   match H:index.ixs with
   | [] => by {
     have CONTRA := index.h_ix_length;
@@ -244,8 +311,9 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
     simp at CONTRA;
   }
   | innerIx :: ixs' =>
-    let ix0 := innerIx % modulus;
-    let ix1 := innerIx / modulus;
+    let ix0 := innerIx % modulus; -- innerIx % modulus < modulus
+    -- | This case is subtle, and is not generally correct for any choice of modulus!
+    let ix1 := innerIx / modulus; -- innerIx / modulus < innerDim / modulus
     TensorIndex.mk
       (ixs := ix0 :: ix1 :: ixs')
       (h_ix_length := by {
@@ -272,7 +340,16 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
                  simp [H, List.getF] at h;
                  apply h;
               }
-             sorry_arith -- innerIx < innerDim => (innerIx / modulus) < (innerDim / modulus)
+              have INNERDIM_MULTIPLE:  innerDim =  (innerDim / modulus) * modulus := by {
+                rewrite [Nat.mod_zero_implies_div_mul_equal];
+                rfl;
+                apply MOD_DIV_INNERDIM;
+              }
+              simp at INNERDIM_MULTIPLE;
+              rewrite [Nat.div_lt_iff_lt_mul];
+              rewrite [<- INNERDIM_MULTIPLE];
+              apply INNERIX;
+              apply MOD_GT_0;
            }
            | Nat.succ (Nat.succ i') => by {
                 simp [H, List.getF];
@@ -289,6 +366,7 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
            }
       )
 
+#check shapeProd
 
 -- Delinearization is correct iff the index expression of the lineraized
 -- case is equal to the index expression after delin.
@@ -296,8 +374,9 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
   {innerDim: Nat}
   (index: TensorIndex (innerDim :: restDims))
   (modulus: Nat)
-  (MOD_GT_0: modulus > 0),
-  (index.delinearizeInnermost modulus MOD_GT_0).linearize = index.linearize := by {
+  (MOD_GT_0: modulus > 0)
+  (MOD_DIV_INNERDIM:  innerDim % modulus = 0),
+  (index.delinearizeInnermost modulus MOD_GT_0 MOD_DIV_INNERDIM).linearize = index.linearize := by {
   intros restDims innerDim index;
   let INDEX := index;
   cases index;
@@ -308,7 +387,7 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
      simp at h_ix_length;
    }
    case cons ix ixs' IH => {
-      intros modulus MOD_GT_0;
+      intros modulus MOD_GT_0 MOD_DIV_INNERDIM;
       simp [delinearizeInnermost];
       simp [linearize];
       simp [List.getF];
@@ -318,10 +397,33 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
       case nil => {
          simp [List.getF];
          --  ix % modulus + modulus * (ix / modulus) = ix
-         sorry_arith
+         apply Nat.mod_add_div;
       }
       case cons restDim restDims' =>  {
-         sorry -- post dinner proof
+         simp [linearize, List.getF];
+         simp;
+         simp[Nat.mul_add]
+         have IXMOD: ix % modulus + modulus * (ix / modulus) = ix := by {
+           rewrite [Nat.add_comm];
+           rewrite[Nat.div_add_mod];
+           rfl;
+         }
+         rewrite [<- Nat.add_assoc];
+         rewrite [IXMOD];
+         have INNERDIM_SIMPL: ∀ (x: Nat), modulus * (innerDim / modulus * x) =
+                 (modulus * (innerDim / modulus)) * x := by {
+            intros x;
+            rewrite [Nat.mul_assoc]; rfl;
+         }
+         rewrite [INNERDIM_SIMPL];
+         have INNERDIM_SIMPL: modulus * (innerDim / modulus) = innerDim := by {
+           rewrite [Nat.mul_comm];
+           rewrite [Nat.mod_zero_implies_div_mul_equal];
+           rfl;
+           apply MOD_DIV_INNERDIM;
+         }
+         rewrite [INNERDIM_SIMPL];
+         rfl;
       }
    }
   }
@@ -534,7 +636,6 @@ def zipFlatIndexGo (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bou
       rewrite [← H];
       apply Nat.lt_add_of_pos_right;
       simp;
-      apply Nat.zero_lt_succ;
      }
      let ix' := ix + 1
      let H' :ix' + xs'.length = bound := by {
@@ -542,7 +643,10 @@ def zipFlatIndexGo (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bou
        simp;
        rewrite [Nat.succ_eq_add_one];
        -- ⊢ ix + 1 + List.length xs' = ix + (List.length xs' + 1)
-       sorry_arith;
+       have SWIZZLE : (1 + List.length xs' = List.length xs' + 1) := by simp[Nat.add_comm];
+       rewrite [Nat.add_assoc];
+       rewrite [SWIZZLE];
+       simp;
      }
      (x, TensorFlatIndex.mk ix ix_inbounds) :: zipFlatIndexGo xs' ix' bound H'
 
