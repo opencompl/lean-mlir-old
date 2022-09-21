@@ -725,7 +725,6 @@ def prog1: RegionBuilder [] Int Int :=
       .terminator (.ret i)
       ) .empty)
 
-
 -- takes an int as input, produces an int as output
 -- entry(input):
 --   br loop (input, 0)

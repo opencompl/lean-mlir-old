@@ -176,6 +176,7 @@ theorem TensorFlatIndex.shapeProd_member_nonzero
 -- indexes: [A1, A2, A3]:
 -- flattened index:
 --    A1 + S1 (A2 + S2(A3))
+- TODO: OMG, I can define this inductively! Jesus christ, I'm so stupid!!!
 structure TensorIndex (shape: List Nat) where
   ixs: List Nat -- indexes into the tensor
   h_ix_length: ixs.length = shape.length -- Invariant: we have as many indexes as there are dimensions
@@ -221,7 +222,7 @@ def TensorIndex.projectOut {outermost: Nat} {shape: List Nat} (index: TensorInde
 -- flattened index:
 --    A1 + S1 (A2 + S2(A3))
 @[reducible, simp]
-def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)): Nat :=
+def TensorIndex.linearizeCons {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)): Nat :=
   let IX0: 0 < index.ixs.length := by {
     rewrite [index.h_ix_length];
     simp;
@@ -229,7 +230,46 @@ def TensorIndex.linearize {innerDim: Nat} {restDims: List Nat} (index: TensorInd
   let ix0 := List.getF index.ixs 0 IX0
   match restDims with
   | [] => ix0
-  | _outermost ::_restDims  => ix0 + innerDim * (TensorIndex.linearize index.projectOut)
+  | _outermost ::_restDims  =>  ix0 + innerDim * (TensorIndex.linearizeCons index.projectOut)
+
+
+
+def TensorIndex.linearizeInbounds {innerDim: Nat} {restDims: List Nat}
+   (index: TensorIndex (innerDim :: restDims)):
+  index.linearizeCons < (shapeProd (innerDim :: restDims)) := by {
+  let IX0: 0 < index.ixs.length := by {
+    rewrite [index.h_ix_length];
+    simp;
+  }
+  let ix0 := List.getF index.ixs 0 IX0;
+  induction  restDims;
+  case nil => {
+       simp [shapeProd, List.foldr];
+       apply TensorIndex.h_ix_bound;
+       simp [List.length];
+    }
+  case cons _outermost _restDims IH => {
+   rewrite [shapeProd.cons_unfold];
+   rewrite [shapeProd.cons_unfold];
+   rewrite [shapeProd.cons_unfold] at IH;
+   -- (1) linearizeCons < innerDim * shapeProd restDims
+   -- (2) _outermost > 0 [must be, as it is part of TensorIndex (innerDim :: _outermost :: _restDims)
+   have OUTERMOST: _outermost > 0 := by {
+     sorry;
+   }
+   -- These two mustimply: linearizeCons index < innerDim * (_outermost * shapeProd _restDims)
+   sorry
+   }
+}
+
+-- Flattern a tensor.
+def TensorIndex.flatten{innerDim: Nat} {restDims: List Nat}
+   (index: TensorIndex (innerDim :: restDims)): TensorFlatIndex (shapeProd (innerDim :: restDims)) :=
+  TensorFlatIndex.mk (index.linearizeCons) index.linearizeInbounds
+
+-- TODO: linearize is correct, if calling delinearize on the linearized input
+-- produces the same answer.
+
 
 
 theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
@@ -243,6 +283,9 @@ theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
     exact B_GT_A;
   }
 }
+
+
+
 
 @[simp]
 theorem Nat.mod_zero_implies_div_mul_equal (n: Nat) (modulus: Nat)
@@ -368,6 +411,8 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
 
 #check shapeProd
 
+
+
 -- Delinearization is correct iff the index expression of the lineraized
 -- case is equal to the index expression after delin.
 theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
@@ -376,7 +421,7 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
   (modulus: Nat)
   (MOD_GT_0: modulus > 0)
   (MOD_DIV_INNERDIM:  innerDim % modulus = 0),
-  (index.delinearizeInnermost modulus MOD_GT_0 MOD_DIV_INNERDIM).linearize = index.linearize := by {
+  (index.delinearizeInnermost modulus MOD_GT_0 MOD_DIV_INNERDIM).linearizeCons = index.linearizeCons := by {
   intros restDims innerDim index;
   let INDEX := index;
   cases index;
@@ -389,10 +434,10 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
    case cons ix ixs' IH => {
       intros modulus MOD_GT_0 MOD_DIV_INNERDIM;
       simp [delinearizeInnermost];
-      simp [linearize];
+      simp [linearizeCons];
       simp [List.getF];
       simp [projectOut];
-      simp [linearize];
+      simp [linearizeCons];
       cases restDims;
       case nil => {
          simp [List.getF];
@@ -400,7 +445,7 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
          apply Nat.mod_add_div;
       }
       case cons restDim restDims' =>  {
-         simp [linearize, List.getF];
+         simp [linearizeCons, List.getF];
          simp;
          simp[Nat.mul_add]
          have IXMOD: ix % modulus + modulus * (ix / modulus) = ix := by {
@@ -430,9 +475,12 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
 }
 
 
+
+
 theorem shapeProd_cons_prod (x y: Nat) (zs: List Nat): shapeProd (x :: y :: zs) = shapeProd ((x *y) :: zs) := by {
    simp [Nat.mul_assoc];
 }
+
 
 
 def TensorIndex.ofFlatIndex1D {innerDim: Nat}
@@ -549,28 +597,10 @@ def TensorIndex.ofFlatIndex {dims: List Nat} {flatSize: Nat} (EQ: shapeProd dims
                })
 
 
-/-
-def to_flat_index_go {τ: MLIRTy}
-  (strides: List Nat)
-  (ixs: List Nat)
-  (h_ix_length: ixs.length = strides.length): Nat :=
-  match strides with
-  n| [] => 0
-  | stride::strides' =>
-    match ixs with
-    | [] => by {
-        simp at h_ix_length;
-      }
-    | ix::ixs' =>
-        let H' : ixs'.length = strides'.length := by {
-          simp at h_ix_length;
-          exact h_ix_length;
-        }
-        ix + stride * (to_flat_index_go (τ := τ) strides' ixs' H')
-
-
-def TensorIndex.ofFlat (f: TensorIndexFlat τ)
--/
+-- TODO: make this type check, get the correct theorem of flattening working.
+theorem TensorIndex.of_flat_index_correct
+ {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)):
+   TensorIndex.ofFlatIndex (flat := index.linearizeCons) = index := sorry
 
 theorem Tensor.eq_of_fields_eq {τ} (t₁ t₂: Tensor τ):
     t₁.shape = t₂.shape → t₁.data = t₂.data → t₁ = t₂ := by
@@ -715,6 +745,14 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
 def Tensor.getAtFlatIndex {σ} (v: Tensor σ) (ix: TensorFlatIndex (shapeProd v.shape)): σ.eval :=
   List.getF v.data ix.ix (h := by {  rewrite [v.h_data_size]; exact ix.h_ix_inbound; })
 
+-- getter at a flat index
+-- TODO: need to perform case analysis on shape, rule out empty tensor index, etc.
+def Tensor.getAtIndex {σ} (v: Tensor σ) (ix: TensorIndex v.shape): σ.eval :=
+  v.getAtFlatIndex sorry
+  -- v.getAtFlatIndex ix.flatten
+
+
+
 
 theorem arg_equal_implies_fn_equal (α β: Type) (x y :α) (f: α -> β) (EQ: x = y): f x = f y := by {
   simp [EQ];
@@ -795,8 +833,12 @@ def Tensor.mapWithIndex {σ τ} (v: Tensor σ) (f: TensorIndex v.shape → σ.ev
       f idx s
    )
 
--- TODO: phrase correctness statement for mapWithIndex.
-def Tensor.mapWithIndexCorrect : True := sorry
+-- TODO: prove correctness for mapWithIndex in terms of MapWithFlatIndex.
+def Tensor.mapWithIndexCorrect
+   {σ τ: MLIRTy} (v: Tensor σ) (f: TensorIndex v.shape → σ.eval → τ.eval)
+   (ix: TensorIndex v.shape):
+  (v.mapWithIndex f).getAtIndex ix = f ix (v.getAtIndex ix) := by sorry
+
 
 
 /-
@@ -1116,7 +1158,7 @@ def builtin.denseWithType (e: TensorElem) (τ: MLIRType builtin):
   match τ with
   | builtin.tensor D τ =>
       builtin.dense_tensor_attr e D τ
-  | builtin.vector fixed scalable τ =>
+p  | builtin.vector fixed scalable τ =>
       builtin.dense_vector_attr e fixed scalable τ
   | _ =>
       panic! s!"buitin.denseVectorWithType: {τ} not a vector type"
