@@ -651,6 +651,8 @@ def zipFlatIndexGo (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bou
      (x, TensorFlatIndex.mk ix ix_inbounds) :: zipFlatIndexGo xs' ix' bound H'
 
 
+
+
 -- zipFlatIndexGo maintains length of the list.
 theorem zip_flat_index_go_length (xs: List α): ∀ (ix: Nat) (bound: Nat) (H: ix + xs.length = bound),
   xs.length = (zipFlatIndexGo xs ix bound H).length := by {
@@ -666,26 +668,36 @@ theorem zip_flat_index_go_length (xs: List α): ∀ (ix: Nat) (bound: Nat) (H: i
 }
 #check Nat.zero_lt_of_lt
 
--- Getting an element from the flattened zip
-theorem List.zip_flat_index_go_get (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bound)
-  (deltaIx: Nat) (GETIX: ix + deltaIx < xs.length):
-  ((zipFlatIndexGo xs ix bound H).getF (ix + deltaIx) (zip_flat_index_go_length xs ix bound H ▸ GETIX)).snd.ix = ix + deltaIx := by {
-  sorry
-  /-
+
+-- The value of the (zipFlatIndexGo xs ix bound ...):
+--   ie, we have a list of total length `bound`, we have read list upto index `ix`, and the rest of the list is `xs`,
+--   must be (ix + deltaIx).
+theorem List.zip_flat_index_go_get: ∀ (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bound)
+  (deltaIx: Nat) (GETIX: deltaIx < xs.length),
+  ((zipFlatIndexGo xs ix bound H).getF deltaIx (zip_flat_index_go_length xs ix bound H ▸ GETIX)).snd.ix = ix + deltaIx := by {
+ intros xs;
   induction xs;
   case nil => {
+      intros ix bound H deltaIx GETIX;
       simp [List.length, Nat.not_lt_zero] at GETIX;
   }
   case cons x xs' IND => {
-    induction deltaIx;
+   intros ix bound H deltaIx GETIX; -- consider pulling deltaIx earlier
+    cases deltaIx;
     case zero => {
-     simp [zipFlatIndexGo]; simp [List.getF];
+       simp;
+       simp [zipFlatIndexGo, getF];
     }
-    simp[zipFlatIndexGo];
-    simp;
+    case succ deltaIx' => {
+      simp [zipFlatIndexGo];
+      simp [List.getF];
+      rewrite [IND];
+      simp [Nat.add_assoc, Nat.add_one, Nat.succ_add, Nat.add_succ];
+      simp at GETIX;
+      apply Nat.lt_of_succ_lt_succ;
+      exact GETIX;
+    }
   }
-  sorry
- -/
 }
 
 -- Zip a list with the index of the current value
@@ -700,8 +712,11 @@ theorem List.length_zip_flat_index (xs: List α):  xs.length = (xs.zipFlatIndex)
 
 -- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
 theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
-  (xs.zipFlatIndex[getIx]'(xs.length_zip_flat_index ▸ GETIX)).snd.ix = getIx := by {
-  sorry
+  (List.getF xs.zipFlatIndex getIx (xs.length_zip_flat_index ▸ GETIX)).snd.ix = getIx := by {
+  have GETIX_RW : ∀ (lhs: Nat), lhs = 0 + getIx ->lhs = getIx:= by { intros lhs H; simp[H]; }
+  apply GETIX_RW;
+  apply List.zip_flat_index_go_get;
+  apply GETIX;
 }
 
 -- Map over a tensor with a flattened index
