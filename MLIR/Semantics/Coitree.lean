@@ -1,3 +1,4 @@
+import MLIR.Semantics.Fitree
 namespace Nu
 inductive Nu (F : Type _ -> Type _) : Type _ where
 | mk {A} : A -> (A -> F A) -> Nu F
@@ -18,7 +19,6 @@ def Stream.const {S: Type} (s: S): Stream S :=
 
 end Stream
 
-
 namespace Coitree
 
 inductive CoitreeF (EffT: Type → Type) (RetT: Type) (FixT: Type) where
@@ -35,13 +35,16 @@ open Nu in
 def writeOnesForever : Coitree WriteOp Int :=
    Nu.mk () (fun unit => CoitreeF.Vis (WriteOp.mk "xx") (fun handler => ()))
 
+/-
+TODO: morphism from Fitree into Coitree
+-/
+
+
 
 /-
 TODO: monad instance for Coitree 
 -/
-/-
-TODO: morphism from Fitree into Coitree
--/
+
 
 /-
 TODO: morphism from Citree into Fitree, if we can show
