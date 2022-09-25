@@ -200,6 +200,23 @@ theorem TensorFlatIndex.shapeProd_member_nonzero
 }
 
 
+-- A theory of splitting and merging
+-- 'TensorFlatIndex'es. This will be used to provide a theory
+-- of delinearizing arbitrary tensor indexes
+-- in terms of TensorFlatIndexes.
+-- Split a TensorFlatIndex into two
+def TensorFlatIndex.split
+  (n inner: Nat) (DIV: n % inner == 0)
+  (flat: TensorFlatIndex n): (TensorFlatIndex inner) \times (TensorFlatIndex (n/inner)) :=
+  sorry
+
+-- Merge a TensorFlatIndex into a large TensorFlatIndex
+def TensorFlatIndex.merge
+  (k l: Nat)
+  (flatInner: TensorFlatIndex k)
+  (flatOuter: TensorFlatIndex l): TensorFlatIndex (k*l) := by
+  sorry
+
 
 -- shape: [S1, S2, S3]:
 -- indexes: [A1, A2, A3]:
@@ -211,6 +228,13 @@ structure TensorIndex (shape: List Nat) where
   h_ix_length: ixs.length = shape.length -- Invariant: we have as many indexes as there are dimensions
   h_ix_bound: ∀ (i: Nat) (INBOUNDS: i < shape.length),
     List.getF ixs i (h_ix_length ▸ INBOUNDS) < shape[i] -- Invariant: the dimensions are inbounds.
+
+-- TODO: replace the values in the dim by a TensorFlatIndex
+inductive TensorIndex': List Nat -> Type :=
+|  Empty: TensorIndex' []
+|  Dim (bound0: Nat)
+      (ix: TensorFlatIndex bound0)
+      (rest: TensorIndex' shape): TensorIndex' (bound0 :: shape)
 
 /-
 Two TensorIndexes are equal if their shapes and indexes are equals.
@@ -226,6 +250,15 @@ def TensorIndex.eq_proof_irrelevant (shape: List ℕ) (t1 t2: TensorIndex shape)
   }
 }
 
+/-
+Projecting out outermost dimension
+-/
+def TensorIndex'.projectOut
+  {outermost: Nat}
+  {shape: List Nat}
+  (index: TensorIndex' (outermost :: shape)): TensorIndex' shape :=
+  match index with
+  | .Dim _ _ rest => rest
 
 /-
 Projecting out innermost dimension.
@@ -275,7 +308,19 @@ def TensorIndex.getLinearizedIndexNumber {innerDim: Nat} {restDims: List Nat} (i
   | [] => ix0
   | _outermost ::_restDims  =>  ix0 + innerDim * (TensorIndex.getLinearizedIndexNumber index.projectOut)
 
+@[reducible, simp]
+def TensorIndex'.getLinearizedIndexNumber
+   (dims: List Nat)
+   (index: TensorIndex' dims): Nat :=
+  match H: index with
+  | .Empty => 0
+  | .Dim dim { ix , .. } rest => ix + dim * rest.getLinearizedIndexNumber
 
+
+@[simp]
+theorem TensorIndex'.empty_dims_is_empty (index: TensorIndex' []): index = .Empty := by {
+  cases index; simp;
+}
 
 theorem TensorIndex.getLinearizedIndexNumberInbounds {innerDim: Nat} {restDims: List Nat}
    (index: TensorIndex (innerDim :: restDims)):
@@ -305,11 +350,35 @@ theorem TensorIndex.getLinearizedIndexNumberInbounds {innerDim: Nat} {restDims: 
    }
 }
 
+theorem TensorIndex'.getLinearizedIndexNumberInbounds: forall {dims: List Nat}
+   (index: TensorIndex' dims),
+  index.getLinearizedIndexNumber < (shapeProd dims) := by {
+   intros dims;
+   induction dims;
+   case nil => {
+     intros index;
+     simp [getLinearizedIndexNumber];
+   }
+   case cons dim dims' IH => {
+     intros index;
+     simp [getLinearizedIndexNumber];
+     -- create `simp` rule for `getLinearizedIndexNumber` on a cons of dims.
+     -- getLinearizedIndexNumber (dim :: dims') index < dim * shapeProd dims'
+     sorry -- create principle that shows
+   }
+}
+
+
 -- Flattern a tensor.
 def TensorIndex.toFlatIndex {innerDim: Nat} {restDims: List Nat}
    (index: TensorIndex (innerDim :: restDims)): TensorFlatIndex (shapeProd (innerDim :: restDims)) :=
   TensorFlatIndex.mk index.getLinearizedIndexNumber index.getLinearizedIndexNumberInbounds
 
+
+-- Flatten a tensor.
+def TensorIndex'.toFlatIndex {dims: List Nat} (index: TensorIndex' dims):
+  TensorFlatIndex (shapeProd dims) :=
+  TensorFlatIndex.mk index.getLinearizedIndexNumber index.getLinearizedIndexNumberInbounds
 
 
 theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
@@ -449,8 +518,24 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
            }
       )
 
-#check shapeProd
-
+@[simp, reducible]
+def TensorIndex'.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
+  (modulus: Nat)
+  (MOD_GT_0: modulus > 0)
+  (MOD_DIV_INNERDIM:  innerDim % modulus = 0)
+  -- (MOD_LT_INNERDIM: modulus < innerDim) -- can collapse tensor otherwise.
+  (index: TensorIndex' (innerDim :: restDims)):
+    TensorIndex' (modulus :: (innerDim/modulus) :: restDims) :=
+ match H: index with
+ | .Dim bound ix rest =>
+     let dim0 := modulus
+     let dim1 := innerDim/modulus
+     let ix0 := innerIx % dim0; -- innerIx % modulus < modulus
+      -- | This case is subtle, and is not generally correct for any choice of modulus!
+     let ix1 := innerIx / dim0; -- innerIx / modulus < innerDim / modulus
+     let IX0: ix0 < dim0 := by sorry
+     let IX1: ix1 < dim1 := by sorry
+     TensorIndex'.Dim ix0 dim0 IX0 (TensorIndex'.Dim ix1 dim1 IX1 rest)
 
 
 -- Linearizing after delinarizing the innermost dimension keeps the index correct.
@@ -538,6 +623,12 @@ def TensorIndex.ofFlatIndex1D {innerDim: Nat}
        simp [shapeProd, List.foldr] at IX_INBOUND;
        apply IX_INBOUND;
      })
+
+-- Build a 1D TensorIndex from a FlatIndex
+def TensorIndex'.ofFlatIndex1D {innerDim: Nat}
+  (flat: TensorFlatIndex innerDim): TensorIndex' [innerDim] :=
+  .Dim flat.ix innerDim flat.h_ix_inbound (.Empty)
+
 
 -- unflattening a TensorFlatTensor into a 1D TensorIndex and then reflattening is identity.
 theorem TensorIndex.to_flat_of_flat_1d_id {innerDim: Nat} (flat: TensorFlatIndex innerDim)
