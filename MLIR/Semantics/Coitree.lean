@@ -126,13 +126,6 @@ abbrev Coitree EffT RetT := Nu.Nu (CoitreeF EffT RetT)
 
 
 open Nu in 
-def Coitree.Vis (e: E T) (k: T -> Coitree E R): Coitree E R :=
-  Nu.mk Unit () (fun unit => CoitreeF.Vis e (fun v => k v))
-
-
-open Nu in 
-def Coitree.Ret (r: T): Coitree E T :=
-  Nu.mk Unit () (fun unit => CoitreeF.Ret r)
 
 /-
 Test that we can build infinite Coitrees of effects.
@@ -161,17 +154,46 @@ def Coitree.destruct (as: Coitree E T):CoitreeLayer E T :=
    | .Ret r => .Ret r
    | .Vis e k => .Vis e (fun t => Nu.mk S (k t) f)
 
+/-
+TODO: how do I generate a Vis?
+-/
+open Nu in 
+def Coitree.Vis [Inhabited R] (e: E T) (k: T -> Coitree E R): Coitree E R :=
+ sorry
+
+open Nu in 
+def Coitree.Ret (r: T): Coitree E T :=
+  Nu.mk Unit () (fun unit => CoitreeF.Ret r)
 
 
 /-
 Morphism from Fitree into a Coitree.
 -/
-def mor: Fitree E R -> Coitree E R 
+def fromFitree [Inhabited R]: Fitree E R -> Coitree E R 
 | Fitree.Ret r => Coitree.Ret r
-| Fitree.Vis et k => Coitree.Vis et (fun t => mor (k t))
+| Fitree.Vis et k => Coitree.Vis et (fun t => fromFitree (k t))
 
 
 end Coitree
+
+namespace InlinedCoitree
+-- Version of the Coitree where Nu is inlined
+/-
+inductive Nu (F : Type _ -> Type _) : Type _ where
+| mk (A) : A -> (A -> F A) -> Nu F
+
+inductive CoitreeF (EffT: Type → Type) (RetT: Type) (FixT: Type) where
+  | Ret (r: RetT): CoitreeF EffT RetT FixT
+  | Vis {T: Type} (e: EffT T) (k: T → FixT): CoitreeF EffT RetT FixT
+
+abbrev Coitree EffT RetT := Nu.Nu (CoitreeF EffT RetT)
+-/
+
+inductive Coitree (EffT: Type -> Type) (RetT: Type)  where
+| Ret: S -> (S -> RetT) -> Coitree EffT RetT
+| Vis: S -> (T: Type) -> (e: EffT T) -> (k: T -> S) -> (pi: S -> Coitree EffT RetT) -> Coitree EffT RetT
+
+end InlinedCoitree
 
 namespace LawfulCoitree
 open Coitree
