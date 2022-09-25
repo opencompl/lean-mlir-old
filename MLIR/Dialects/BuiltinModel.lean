@@ -52,6 +52,35 @@ structure TensorFlatIndex (bound: Nat) where
   ix: Nat
   h_ix_inbound: (ix < bound)
 
+def TensorFlatIndex.eq_proof_irrelevant (b1 b2: ℕ) (f1: TensorFlatIndex b) (f2: TensorFlatIndex b) (IXEQ: f1.ix = f2.ix): f1 = f2 := by {
+  induction f1;
+  case mk ix1 H1 => {
+  induction f2;
+  case mk ix2 H2 => {
+   simp [IXEQ];
+  }
+  }
+}
+
+
+def TensorFlatIndex.cast_left: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix: ℕ) (prf: ix < bound) (prf': ix < bound'),
+  EQ ▸ { ix := ix, h_ix_inbound := prf : TensorFlatIndex bound } = {ix := ix, h_ix_inbound := prf' }
+   := by {
+  intros bound bound';
+  intros EQ ix prf prf';
+  cases EQ;
+  simp;
+}
+
+def TensorFlatIndex.cast_right: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix: ℕ) (prf: ix < bound) (prf': ix < bound'),
+  { ix := ix, h_ix_inbound := prf : TensorFlatIndex bound } = EQ ▸ {ix := ix, h_ix_inbound := prf' }
+   := by {
+  intros bound bound';
+  intros EQ ix prf prf';
+  cases EQ;
+  simp;
+}
+
 theorem TensorFlatIndex.bound_non_zero (flat: TensorFlatIndex bound): bound ≠ 0 := by {
   intros BOUND;
   have H_INBOUND := flat.h_ix_inbound;
@@ -176,12 +205,26 @@ theorem TensorFlatIndex.shapeProd_member_nonzero
 -- indexes: [A1, A2, A3]:
 -- flattened index:
 --    A1 + S1 (A2 + S2(A3))
-- TODO: OMG, I can define this inductively! Jesus christ, I'm so stupid!!!
+-- TODO: Define this inductively.
 structure TensorIndex (shape: List Nat) where
   ixs: List Nat -- indexes into the tensor
   h_ix_length: ixs.length = shape.length -- Invariant: we have as many indexes as there are dimensions
   h_ix_bound: ∀ (i: Nat) (INBOUNDS: i < shape.length),
     List.getF ixs i (h_ix_length ▸ INBOUNDS) < shape[i] -- Invariant: the dimensions are inbounds.
+
+/-
+Two TensorIndexes are equal if their shapes and indexes are equals.
+-/
+def TensorIndex.eq_proof_irrelevant (shape: List ℕ) (t1 t2: TensorIndex shape)
+  (IXEQ: t1.ixs = t2.ixs): t1 = t2 := by {
+  induction t1;
+  case mk ixs1 HLEN1 HBOUND1 => {
+  induction t2;
+  case mk ixs1 HLEN2 HBOUND2 => {
+   simp [IXEQ];
+  }
+  }
+}
 
 
 /-
@@ -222,7 +265,7 @@ def TensorIndex.projectOut {outermost: Nat} {shape: List Nat} (index: TensorInde
 -- flattened index:
 --    A1 + S1 (A2 + S2(A3))
 @[reducible, simp]
-def TensorIndex.linearizeCons {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)): Nat :=
+def TensorIndex.getLinearizedIndexNumber {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)): Nat :=
   let IX0: 0 < index.ixs.length := by {
     rewrite [index.h_ix_length];
     simp;
@@ -230,13 +273,13 @@ def TensorIndex.linearizeCons {innerDim: Nat} {restDims: List Nat} (index: Tenso
   let ix0 := List.getF index.ixs 0 IX0
   match restDims with
   | [] => ix0
-  | _outermost ::_restDims  =>  ix0 + innerDim * (TensorIndex.linearizeCons index.projectOut)
+  | _outermost ::_restDims  =>  ix0 + innerDim * (TensorIndex.getLinearizedIndexNumber index.projectOut)
 
 
 
-def TensorIndex.linearizeInbounds {innerDim: Nat} {restDims: List Nat}
+theorem TensorIndex.getLinearizedIndexNumberInbounds {innerDim: Nat} {restDims: List Nat}
    (index: TensorIndex (innerDim :: restDims)):
-  index.linearizeCons < (shapeProd (innerDim :: restDims)) := by {
+  index.getLinearizedIndexNumber < (shapeProd (innerDim :: restDims)) := by {
   let IX0: 0 < index.ixs.length := by {
     rewrite [index.h_ix_length];
     simp;
@@ -263,12 +306,9 @@ def TensorIndex.linearizeInbounds {innerDim: Nat} {restDims: List Nat}
 }
 
 -- Flattern a tensor.
-def TensorIndex.flatten{innerDim: Nat} {restDims: List Nat}
+def TensorIndex.toFlatIndex {innerDim: Nat} {restDims: List Nat}
    (index: TensorIndex (innerDim :: restDims)): TensorFlatIndex (shapeProd (innerDim :: restDims)) :=
-  TensorFlatIndex.mk (index.linearizeCons) index.linearizeInbounds
-
--- TODO: linearize is correct, if calling delinearize on the linearized input
--- produces the same answer.
+  TensorFlatIndex.mk index.getLinearizedIndexNumber index.getLinearizedIndexNumberInbounds
 
 
 
@@ -413,15 +453,14 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
 
 
 
--- Delinearization is correct iff the index expression of the lineraized
--- case is equal to the index expression after delin.
-theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
+-- Linearizing after delinarizing the innermost dimension keeps the index correct.
+theorem TensorIndex.linearize_after_delinearize_innermost_id: ∀ {restDims: List Nat}
   {innerDim: Nat}
   (index: TensorIndex (innerDim :: restDims))
   (modulus: Nat)
   (MOD_GT_0: modulus > 0)
   (MOD_DIV_INNERDIM:  innerDim % modulus = 0),
-  (index.delinearizeInnermost modulus MOD_GT_0 MOD_DIV_INNERDIM).linearizeCons = index.linearizeCons := by {
+  (index.delinearizeInnermost modulus MOD_GT_0 MOD_DIV_INNERDIM).getLinearizedIndexNumber = index.getLinearizedIndexNumber := by {
   intros restDims innerDim index;
   let INDEX := index;
   cases index;
@@ -434,10 +473,10 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
    case cons ix ixs' IH => {
       intros modulus MOD_GT_0 MOD_DIV_INNERDIM;
       simp [delinearizeInnermost];
-      simp [linearizeCons];
+      simp [getLinearizedIndexNumber];
       simp [List.getF];
       simp [projectOut];
-      simp [linearizeCons];
+      simp [getLinearizedIndexNumber];
       cases restDims;
       case nil => {
          simp [List.getF];
@@ -445,7 +484,7 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
          apply Nat.mod_add_div;
       }
       case cons restDim restDims' =>  {
-         simp [linearizeCons, List.getF];
+         simp [getLinearizedIndexNumber, List.getF];
          simp;
          simp[Nat.mul_add]
          have IXMOD: ix % modulus + modulus * (ix / modulus) = ix := by {
@@ -476,13 +515,12 @@ theorem TensorIndex.delineraize_innermost_correct: ∀ {restDims: List Nat}
 
 
 
-
 theorem shapeProd_cons_prod (x y: Nat) (zs: List Nat): shapeProd (x :: y :: zs) = shapeProd ((x *y) :: zs) := by {
    simp [Nat.mul_assoc];
 }
 
 
-
+-- Build a 1D TensorIndex from a FlatIndex
 def TensorIndex.ofFlatIndex1D {innerDim: Nat}
   (flat: TensorFlatIndex innerDim): TensorIndex [innerDim] :=
   TensorIndex.mk (ixs := [flat.ix]) (by simp) (by {
@@ -501,6 +539,21 @@ def TensorIndex.ofFlatIndex1D {innerDim: Nat}
        apply IX_INBOUND;
      })
 
+-- unflattening a TensorFlatTensor into a 1D TensorIndex and then reflattening is identity.
+theorem TensorIndex.to_flat_of_flat_1d_id {innerDim: Nat} (flat: TensorFlatIndex innerDim)
+  (H: innerDim = shapeProd [innerDim]):
+  (TensorIndex.ofFlatIndex1D flat).toFlatIndex = H ▸ flat := by {
+    simp [toFlatIndex, ofFlatIndex1D, List.getF];
+    apply TensorFlatIndex.cast_right;
+    simp [shapeProd, List.foldr];
+}
+
+-- NOTE: galois connection between tensor flat index and tensor index
+-- toFlat (ofFlat flat) = flat
+-- ofFlat (toFlat multidim) < multidim
+--    where ix < ix' iff
+--      (a) ix, ix' have same raw index
+--      (b) ix shape refines ix' shape.
 
 theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0), a * b ≠ 0 := by {
    intros a;
@@ -532,7 +585,8 @@ theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0),
 -- 0:(0,0,0)
 -- 0:(0,0,0)
 -- 0:(0,0,0)
-def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
+
+def TensorIndex.ofFlatIndexGo {innerDim: Nat} {restDims: List Nat}
   (INNERDIM: innerDim > 0)
   (flat: TensorFlatIndex (shapeProd (innerDim :: restDims))): TensorIndex (innerDim :: restDims) :=
    -- | extract out code to create tensor index from tensor flat index.
@@ -541,8 +595,9 @@ def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
      have DIM : (shapeProd [innerDim] = innerDim) := by simp[shapeProd,List.foldr];
      TensorIndex.ofFlatIndex1D (DIM ▸ flat)
    | restDim0 :: restDims' =>
+       let reshaped :=  shapeProd_cons_prod innerDim restDim0 restDims' ▸ flat
        let twoFlat : TensorIndex (innerDim * restDim0 :: restDims') :=
-         TensorIndex.ofFlatIndexProdGo
+         TensorIndex.ofFlatIndexGo
               (by {
                     have RESTDIM: restDim0 > 0 := by {
                          apply TensorFlatIndex.shapeProd_member_nonzero;
@@ -553,7 +608,7 @@ def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
                     apply INNERDIM; apply RESTDIM;
 
                })
-              (shapeProd_cons_prod innerDim restDim0 restDims' ▸ flat)
+              reshaped
               (innerDim := innerDim*restDim0)
               (restDims := restDims');
        have RESTDIM0 : innerDim * restDim0 / innerDim = restDim0 := by {
@@ -562,8 +617,59 @@ def TensorIndex.ofFlatIndexProdGo {innerDim: Nat} {restDims: List Nat}
             exact INNERDIM;
        }
        let final : TensorIndex (innerDim :: restDim0 :: restDims') :=
-            RESTDIM0 ▸ TensorIndex.delinearizeInnermost  (modulus := innerDim) (INNERDIM) twoFlat
+            RESTDIM0 ▸ TensorIndex.delinearizeInnermost  (modulus := innerDim) (INNERDIM) (by {
+                apply Nat.mul_mod_right;
+            }) twoFlat
        final
+
+theorem TensorIndex.of_flat_index_go_ixs
+  {innerDim : ℕ}
+  {INNERDIM : innerDim > 0}
+  (flat : TensorFlatIndex (shapeProd (innerDim :: x :: xs))):
+  (ofFlatIndexGo INNERDIM flat).ixs = ?m := by {
+   simp [ofFlatIndexGo];
+   sorry -- apply TensorIndex.eq_proof_irrelevant;
+}
+
+theorem TensorIndex.of_flat_index_go_unfold
+  {innerDim : ℕ}
+  {INNERDIM : innerDim > 0}
+  (flat : TensorFlatIndex (shapeProd (innerDim :: x :: xs))):
+  ofFlatIndexGo INNERDIM flat = ?m := by {
+   simp [ofFlatIndexGo];
+   sorry -- apply TensorIndex.eq_proof_irrelevant;
+
+}
+
+
+theorem TensorIndex.to_flat_of_flat_go_id:
+  ∀ {restDims: List Nat} {innerDim: Nat}  (INNERDIM: innerDim > 0)
+  (flat: TensorFlatIndex (shapeProd (innerDim :: restDims))),
+   TensorIndex.toFlatIndex
+     (TensorIndex.ofFlatIndexGo
+       (innerDim := innerDim)
+       (restDims := restDims)
+       (INNERDIM := INNERDIM) flat) = flat := by {
+  intros restDims;
+  induction restDims;
+  case nil => {
+    intros innerDim INNERDIM flat;
+    simp [ofFlatIndexGo];
+    rewrite [TensorIndex.to_flat_of_flat_1d_id];
+    sorry --?H ▸ (_ : innerDim * 1 = innerDim) ▸ flat = flat
+    simp [shapeProd, List.foldr];
+  }
+  case cons x xs IH => {
+    intros innerDim INNERDIM flat;
+    simp [ofFlatIndexGo];
+
+  }
+}
+
+theorem TensorIndex.of_flat_go_to_flat_id: ∀ {restDims: List Nat} {innerDim: Nat}  (INNERDIM: innerDim > 0)
+  (idx: TensorIndex (innerDim :: restDims)),
+   (TensorIndex.ofFlatIndexGo (innerDim := innerDim) (restDims := restDims) (INNERDIM := INNERDIM)
+     idx.toFlatIndex) = idx := by sorry
 
 
 -- Convert a flat index into a tensor index.
@@ -586,7 +692,7 @@ def TensorIndex.ofFlatIndex {dims: List Nat} {flatSize: Nat} (EQ: shapeProd dims
       specialize (DIMS_NONZERO 0);
       simp [List.getF] at DIMS_NONZERO;
      } -- dim cannot be zero
-    | Nat.succ innerDim' => H ▸ TensorIndex.ofFlatIndexProdGo (innerDim := innerDim) (restDims := restDims)
+    | Nat.succ innerDim' => H ▸ TensorIndex.ofFlatIndexGo (innerDim := innerDim) (restDims := restDims)
                (flat := by {
                  simp [← H] at EQ;
                  simp [← EQ] at flat;
@@ -597,10 +703,8 @@ def TensorIndex.ofFlatIndex {dims: List Nat} {flatSize: Nat} (EQ: shapeProd dims
                })
 
 
--- TODO: make this type check, get the correct theorem of flattening working.
-theorem TensorIndex.of_flat_index_correct
- {innerDim: Nat} {restDims: List Nat} (index: TensorIndex (innerDim :: restDims)):
-   TensorIndex.ofFlatIndex (flat := index.linearizeCons) = index := sorry
+
+
 
 theorem Tensor.eq_of_fields_eq {τ} (t₁ t₂: Tensor τ):
     t₁.shape = t₂.shape → t₁.data = t₂.data → t₁ = t₂ := by
@@ -761,14 +865,6 @@ theorem arg_equal_implies_fn_equal (α β: Type) (x y :α) (f: α -> β) (EQ: x 
 theorem arg_equal_implies_fn_equal_2 (α β γ: Type) (a a' :α) (b b': β) (f: α -> β -> γ)
    (EQα: a = a') (EQβ: b = b') : f a b = f a' b' := by {
   simp [EQα, EQβ];
-}
-
-def TensorFlatIndex.cast: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix: ℕ) (prf: ix < bound) (prf': ix < bound'),
-  EQ ▸ { ix := ix, h_ix_inbound := prf : TensorFlatIndex bound } = {ix := ix, h_ix_inbound := prf' }
-   := by {
-  intros bound bound';
-  intros EQ ix prf prf';
-  sorry
 }
 
 
@@ -1031,6 +1127,7 @@ match spec with
 | MemrefLayoutSpec.attr v => docAttrVal v
 
 -- Text representation
+
 /-| MLIRTy.memrefRanked dims ty layout? memspace? =>
     let docLayout := match layout? with | some x => [doc| "," (docMemrefLayoutSpec x)] | none => ""
     let docMemspace := match memspace? with | some x => [doc| "," (docAttrVal x)] | none => ""
