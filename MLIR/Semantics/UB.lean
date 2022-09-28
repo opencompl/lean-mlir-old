@@ -20,16 +20,19 @@ abbrev UBT := ExceptT String
 
 inductive UBE: Type → Type :=
   | UB {α: Type} [Inhabited α]: Option String → UBE α
+  | Unhandled {α: Type} [Inhabited α]: UBE α
 
 @[simp_itree]
 def UBE.handle {E}: UBE ~> UBT (Fitree E) := fun _ e =>
   match e with
+  | Unhandled => throw "<unhandled>"
   | UB none => throw "<UB>"
   | UB (some msg) => throw s!"<UB: {msg}>"
 
 @[simp_itree]
 def UBE.handle! {E}: UBE ~> Fitree E := fun _ e =>
   match e with
+  | Unhandled => panic! "<unhandled>"
   | UB none => panic! "<UB>"
   | UB (some msg) => panic! s!"<UB: {msg}>"
 

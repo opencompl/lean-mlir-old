@@ -16,11 +16,6 @@ instance scf: Dialect Void Void (fun x => Unit) where
   iε := inferInstance
 
 -- Operations of `scf` that unfold into regions need to expose these regions
--- immediately at denotation time rather than at interpretation time, so that
--- inner operations can be interpreted correctly. So operations with regions
--- are not represented here, and handled directly in `semantics_op`.
-inductive ScfE: Type -> Type :=
-
 -- | run a loop, decrementing i from n to -
 -- | ix := lo + (n - i) * step
 def run_loop_bounded_stepped_go [Monad m] (n: Nat) (i: Nat) (lo: Int) (step: Int)
@@ -41,7 +36,7 @@ def run_loop_bounded
   (n: Nat)
   (ix: Int)
   (start: BlockResult Δ):
-    Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ) := do
+    Fitree (RegionE Δ +' UBE) (BlockResult Δ) := do
   match n with
   | 0 => return start
   | .succ n' => do
@@ -52,12 +47,12 @@ def run_loop_bounded
 -- | TODO: refactor to (1) an effect, (2) an interpretation
 -- | TODO: use the return type of Scf.For. For now, just do unit.
 def scf_semantics_op: IOp Δ →
-      Option (Fitree (RegionE Δ +' UBE +' ScfE) (BlockResult Δ))
+      Fitree (RegionE Δ +' UBE) (BlockResult Δ)
 
   | IOp.mk "scf.if" _ [⟨.i1, b⟩] [] 2 _ =>
-      some (Fitree.trigger <| RegionE.RunRegion (if b == 1 then 0 else 1) [])
+      Fitree.trigger <| RegionE.RunRegion (if b == 1 then 0 else 1) []
 
-  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ => some do
+  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ => do
     let nsteps : Int := (hi - lo) / step
     run_loop_bounded_stepped
       (a := BlockResult Δ)
@@ -67,24 +62,20 @@ def scf_semantics_op: IOp Δ →
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, i⟩]))
 
-  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ => some do
+  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ => do
       run_loop_bounded (n := (hi - lo).toNat) (ix := lo) (BlockResult.Ret [])
 
   | IOp.mk "scf.yield" _ vs [] 0 _ =>
-    some <| return BlockResult.Ret vs
+      return BlockResult.Ret vs
 
-  | IOp.mk "scf.execute_region" _ args [] 1 _ => .some do
-    Fitree.trigger (RegionE.RunRegion 0 args)
+  | IOp.mk "scf.execute_region" _ args [] 1 _ => do
+      Fitree.trigger (RegionE.RunRegion 0 args)
 
-  | _ => none
+  | _ => Fitree.trigger (UBE.UB "uknown IOp")
 
-def handleScf: ScfE ~> Fitree Void1 :=
-  fun _ e => nomatch e
 
 instance: Semantics scf where
-  E := ScfE
   semantics_op := scf_semantics_op
-  handle := handleScf
 
 /-
 ### Theorems
@@ -120,7 +111,7 @@ end SCF.IF
 
 
 theorem run_bind {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
-    t (k: T → Fitree (SSAEnvE Δ +' S.E +' UBE) R) env:
+    t (k: T → Fitree (SSAEnvE Δ +' UBE) R) env:
   run (Fitree.bind t k) env =
     match run t env with
     | .error ε => .error ε
@@ -132,7 +123,7 @@ theorem run_bind {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
 
 theorem run_SSAEnvE_get [Δ: Dialect α σ ε] [S: Semantics Δ]
     (name: SSAVal) (τ: MLIRType Δ) (v: τ.eval) (env: SSAEnv Δ)
-    (k: τ.eval → Fitree (SSAEnvE Δ +' S.E +' UBE) R)
+    (k: τ.eval → Fitree (SSAEnvE Δ +' UBE) R)
     (h: SSAEnv.get name τ env = some v):
   run (Fitree.Vis (Sum.inl <| SSAEnvE.Get τ name) k) env = run (k v) env := by
   simp [run, SSAEnvE.handle, h]
@@ -172,7 +163,7 @@ theorem CORRECT_r_commute_run_interpRegion_SSAEnvE_get [S: Semantics scf]
   (CORRECT_r: (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n))
   (name: SSAVal) (τ: MLIRType scf) (v: MLIRType.eval τ)
   (ENV: SSAEnv.get name τ (INPUT n) = some v)
-  (k: BlockResult scf → τ.eval → Fitree (SSAEnvE scf +' Semantics.E scf +' UBE) R):
+  (k: BlockResult scf → τ.eval → Fitree (SSAEnvE scf +' UBE) R):
   run (Fitree.bind
     (interpRegion scf [denoteRegion scf r] _ (Sum.inl <| RegionE.RunRegion 0 args))
     (fun discr =>

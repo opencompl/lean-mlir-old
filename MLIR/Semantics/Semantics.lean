@@ -65,30 +65,13 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
 | RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
 
-class Semantics (δ: Dialect α σ ε)  where
-  -- Events modeling the dialect's computational behavior. Usually operations
-  -- are simply denoted by a trigger of such an event. This excludes, however,
-  -- operations that have regions or otherwise call into other dialects, since
-  -- every operation in the program must be accessible before we start
-  -- interpreting.
-  E: Type → Type
-
+class Semantics (Δ: Dialect α σ ε)  where
   -- Operation semantics function: maps an IOp (morally an Op but slightly less
   -- rich to guarantee good properties) to an interaction tree. Usually exposes
   -- any region calls then emits of event of E. This function runs on the
   -- program's entire dialect Δ but returns none for any operation that is not
   -- part of δ.
-  semantics_op:
-    IOp Δ →
-    Option (Fitree (RegionE Δ +' UBE +' E) (BlockResult Δ))
-
-  -- TODO: Allow a dialects' semantics to specify their terminators along with
-  -- TODO| their branching behavior, instead of hardcoding it for cf
-
-  -- Event handler used when interpreting the operations and running programs.
-  -- This is where most of the computational semantics take place.
-  -- TODO: Allow dialect handlers to emit events into other dialects
-  handle: E ~> Fitree Void1
+  semantics_op: IOp Δ → Fitree (RegionE Δ +' UBE) (BlockResult Δ)
 
 -- This attribute allows matching explicit effect families like `ArithE`, which
 -- often appear from bottom-up inference like in `Fitree.trigger`, with their
@@ -96,23 +79,22 @@ class Semantics (δ: Dialect α σ ε)  where
 -- type inference due to the type signatures in this module. Without this
 -- attribute, instances of `Member` could not be derived, preventing most
 -- lemmas about `Fitree.trigger` from applying.
-attribute [reducible] Semantics.E
+-- attribute [reducible] Semantics.E
 
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
 def interpRegion
     (regions: List <|
-      TypedArgs Δ → Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ)):
-    RegionE Δ +' UBE +' Semantics.E Δ ~>
-    Fitree (SSAEnvE Δ +' Semantics.E Δ +' UBE) := fun _ e =>
+      TypedArgs Δ → Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ)):
+    RegionE Δ +' UBE ~>
+    Fitree (SSAEnvE Δ +' UBE) := fun _ e =>
   match e with
   | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs
-  | Sum.inr <| Sum.inl ube => Fitree.trigger ube
-  | Sum.inr <| Sum.inr se => Fitree.trigger se
+  | Sum.inr ube => Fitree.trigger ube
 
 def denoteOpBase (op: Op Δ):
-    Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
   match op with
   | .mk name res0 args0 bbargs regions0 attrs => do
       -- Read arguments from memory
@@ -128,13 +110,10 @@ def denoteOpBase (op: Op Δ):
       let iop : IOp Δ := IOp.mk name resTy args bbargs regions0.length attrs
       -- Use the dialect-provided semantics, and substitute regions
       match S.semantics_op iop with
-      | some t =>
-          t.interp (interpRegion regions)
-      | none =>
-          raiseUB s!"invalid op: {op}"
+      | t => t.interp (interpRegion regions)
 
 def denoteOp (op: Op Δ):
-    Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
   match op with
   | .mk name [] args0 bbargs regions0 attrs => do
       denoteOpBase op
@@ -155,7 +134,7 @@ def denoteOp (op: Op Δ):
       raiseUB s!"op with more than one result: {op}"
 
 def denoteOps (stmts: List (Op Δ))
-  : Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+  : Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
  match stmts with
  | [] => return BlockResult.Next ⟨.unit, ()⟩
  | [stmt] => denoteOp stmt
@@ -164,7 +143,7 @@ def denoteOps (stmts: List (Op Δ))
       denoteOps stmts
 
 def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) := do
+    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) := do
   match bb with
   | BasicBlock.mk name formalArgsAndTypes ops =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
@@ -174,13 +153,13 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
      denoteOps ops
 
 def denoteRegions (rs: List (Region Δ)):
-    List (TypedArgs Δ → Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ)) :=
+    List (TypedArgs Δ → Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ)) :=
  match rs with
  | [] => []
  | r :: rs => (denoteRegion r) :: denoteRegions rs
 
 def denoteRegion (r: Region Δ):
-    TypedArgs Δ → Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+    TypedArgs Δ → Fitree (SSAEnvE Δ +'UBE) (BlockResult Δ) :=
   fun args =>
   -- We only define semantics for single-basic-block regions
   -- Furthermore, we tacticly assume that the region that we run will
@@ -199,18 +178,17 @@ instance
     [S₁: Semantics δ₁]
     [S₂: Semantics δ₂]
     : Semantics (δ₁ + δ₂) where
-  E := S₁.E +' S₂.E
-  semantics_op op :=
-    (S₁.semantics_op op).map (.translate Member.inject) <|>
-    (S₂.semantics_op op).map (.translate Member.inject)
-  handle := Fitree.case S₁.handle S₂.handle
+  semantics_op op := sorry
+    -- TODO: figure out how to mix the semantics of two dialects.
+    -- (S₁.semantics_op op).map (.translate Member.inject) <|>
+    -- (S₂.semantics_op op).map (.translate Member.inject)
 
 
 
 def semanticsRegionRec
     [S: Semantics Δ]
     (fuel: Nat) (r: Region Δ) (bb: BasicBlock Δ) (entryArgs: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' S.E +' UBE) (BlockResult Δ) :=
+    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
   match fuel with
   | 0 => return .Next ⟨.unit, ()⟩
   | fuel' + 1 => do
@@ -226,31 +204,28 @@ def semanticsRegionRec
 -- TODO: Forward region's return type and value
 def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ]
     (fuel: Nat) (r: Region Δ) (entryArgs: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' S.E +' UBE) Unit := do
+    Fitree (SSAEnvE Δ +' UBE) Unit := do
   let _ ← semanticsRegionRec fuel r (r.bbs.get! 0) entryArgs
 
 
 def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
-    (t: Fitree (SSAEnvE Δ +' S.E +' UBE) R) (env: SSAEnv Δ):
+    (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
     R × SSAEnv Δ :=
   let t := interpSSA' t env
-  let t := t.interp' S.handle
   let t := interpUB! t
   t.run
 
 def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
-    (t: Fitree (SSAEnvE Δ +' S.E +' UBE) R) (env: SSAEnv Δ):
+    (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
     Except String (R × SSAEnv Δ) :=
   let t := interpSSA' t env
-  let t := t.interp' S.handle
   let t := interpUB t
   Fitree.run t
 
 def runLogged {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
-    (t: Fitree (SSAEnvE Δ +' S.E +' UBE) R) (env: SSAEnv Δ):
+    (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
     Except String ((R × String) × SSAEnv Δ) :=
   let t := (interpSSALogged' t).run env
-  let t := t.interp' S.handle
   let t := interpUB t
   Fitree.run t
 
@@ -274,7 +249,7 @@ def semanticPostCondition₂ {Δ: Dialect α' σ' ε'}
 
 class Denote (δ: Dialect α σ ε) [S: Semantics δ]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
-  denote: T δ → Fitree (SSAEnvE δ +' S.E +' UBE) (BlockResult δ)
+  denote: T δ → Fitree (SSAEnvE δ +'UBE) (BlockResult δ)
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
