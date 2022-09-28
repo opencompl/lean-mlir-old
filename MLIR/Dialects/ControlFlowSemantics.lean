@@ -26,7 +26,7 @@ def dummy_semantics_op: IOp Δ →
   | IOp.mk "dummy.false" [.int sgn sz] [] _ _ _ => do
       let i := 0
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
-  | _ => Fitree.trigger (UBE.UB "unknown IOp for dummy")
+  | _ => Fitree.trigger (UBE.Unhandled)
 
 
 instance: Semantics dummy where
@@ -48,17 +48,17 @@ def cfSemanticsOp: IOp Δ →
   | IOp.mk "cf.condbr" _ [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ => do
       return BlockResult.Branch
         (if condval.toUint != 0 then bbtrue else bbfalse) []
-  | IOp.mk "cf.ret" _ args [] 0 _ => 
+  | IOp.mk "cf.ret" _ args [] 0 _ =>
        return BlockResult.Ret args
   | IOp.mk "cf.assert" _ [⟨.i1, arg⟩] [] 0 attrs =>
       match attrs.find "msg" with -- TODO: convert this to a pattern match.
       | some (.str str) => do
-             Fitree.trigger $ UBE.UB (.some s!"{arg} {str}")
+             -- Fitree.trigger $ UBE.UB (.some s!"{arg} {str}")
              return BlockResult.Next ⟨.unit, ()⟩
       | _ => do
             Fitree.trigger $ UBE.UB (.some s!"{arg} <assert failed>")
             return BlockResult.Next ⟨.unit, ()⟩
-  | _ => Fitree.trigger $ UBE.UB  "unknown IOp" -- TODO: allow this to be ruled out by type system
+  | _ => Fitree.trigger $ UBE.Unhandled
 
 
 instance: Semantics cf where
