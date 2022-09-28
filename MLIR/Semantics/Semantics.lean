@@ -13,9 +13,12 @@ import MLIR.AST
 open MLIR.AST
 
 
+abbrev TypedArg (δ: Dialect α σ ε) := (τ: MLIRType δ) × MLIRType.eval τ
+
+
 -- | Abbreviation with a typeclass context?
 @[simp]
-abbrev TypedArgs (δ: Dialect α σ ε) := List ((τ: MLIRType δ) × MLIRType.eval τ)
+abbrev TypedArgs (δ: Dialect α σ ε) := List (TypedArg δ)
 
 -- | TODO: throw error if we don't have enough names
 def denoteTypedArgs [Member (SSAEnvE Δ) E] (args: TypedArgs Δ) (names: List SSAVal): Fitree E Unit :=
@@ -53,7 +56,7 @@ instance (δ: Dialect α σ ε): ToString (BlockResult δ) where
 
 -- Interpreted operation, like MLIR.AST.Op, but with less syntax
 inductive IOp (δ: Dialect α σ ε) := | mk
-  (name:    String)
+  (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
   (bbargs:  List BBName)
@@ -63,7 +66,10 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 -- Effect to run a region
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
+-- | TODO: figure out how to coerce BlockResult properly.
 | RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
+
+
 
 class Semantics (Δ: Dialect α σ ε)  where
   -- Operation semantics function: maps an IOp (morally an Op but slightly less
@@ -172,17 +178,133 @@ def denoteRegion (r: Region Δ):
       raiseUB s!"invalid denoteRegion (>1 bb): {r}"
 end
 
+namespace Retraction
+
+variable {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
+ variable   {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
+
+mutual
+
+-- TODO: create holes for things that are unknown? eg. use `undefined?
+def MLIRType.retractLeftList: List (MLIRType (δ₁ + δ₂)) -> Option (List (MLIRType δ₁))
+| [] => .some []
+| t::ts =>  do
+   let ts' <- MLIRType.retractLeftList ts
+   let t' <- (MLIRType.retractLeft t)
+   return t'::ts'
+
+-- TODO: create holes for things that are unknown? eg. use `undefined?
+def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → Option (MLIRType δ₁)
+| .fn argty retty => do
+    let argty' <- MLIRType.retractLeft argty
+    let retty' <- MLIRType.retractLeft retty
+      return (.fn argty' retty')
+| .int sgn sz => .some (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
+| .float sz => .some (.float sz) -- : Nat -> MLIRType δ
+| .index => .some (.index) --:  MLIRType δ
+| .tuple ts => do
+    let ts' <- MLIRType.retractLeftList ts
+    return .tuple ts'
+| .undefined s => .some (.undefined s) -- : String → MLIRType δ
+| .extended (Sum.inl σ₁) => .some (.extended σ₁) -- : σ → MLIRType δ
+| .extended (Sum.inr σ₂) => .none
+end
+
+#check MLIRType.eval
+mutual
+def TypedArg.retractLeftList: List (TypedArg (δ₁ + δ₂)) -> Option (List (TypedArg δ₁))
+| [] => .some []
+| t::ts =>  do
+   let ts' <- retractLeftList ts
+   let t' <- (TypedArg.retractLeft t)
+   return t'::ts'
+
+
+-- TODO: there is no need to have both a tuple type, and a list of
+-- typed args. That's just madness.
+def TypedArg.retractLeft (t: TypedArg (δ₁ + δ₂)):  Option (TypedArg δ₁) :=
+match t with
+| ⟨.fn argty retty, v⟩ =>
+    match MLIRType.retractLeft argty with
+    | .none => .none
+    | .some argty' =>
+        match MLIRType.retractLeft retty with
+        | .none => .none
+        | .some retty' =>
+           .some ⟨.fn argty' retty', () ⟩
+| ⟨.int sgn sz, v ⟩ => .some ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
+| ⟨ .float sz, v ⟩ => .some ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
+| ⟨.index, v⟩ => .some ⟨.index, v ⟩ --:  MLIRType δ
+| ⟨.tuple ts, vs ⟩ =>
+   -- TODO: need to convert from (vs: MLIRType.eval (.tuple ts)) to List (TypedArg δ)
+   sorry
+| ⟨.undefined s, v ⟩ => .some ⟨.undefined s, v⟩ -- : String → MLIRType δ
+| ⟨.extended (Sum.inl σ₁), v ⟩ => .some ⟨.extended σ₁, v⟩ -- : σ → MLIRType δ
+| ⟨.extended (Sum.inr σ₂), v ⟩ => .none
+end
+
+def TypedArgs.retractLeft: TypedArgs (δ₁ + δ₂) -> Option (TypedArgs δ₁)
+| [] => .some []
+| tv::ts =>
+  match TypedArg.retractLeft tv with
+  | .none => .none
+  | .some tv' =>
+       match TypedArgs.retractLeft ts with
+       | .some ts' => .some $ tv'::ts'
+       | .none => .none
+
+-- TODO: define the attribute dictionary retraction.
+-- Will need to rectact over entries, which will need a retraction over values.
+def AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> Option (AttrDict δ₁)
+| _ => .some (AttrDict.mk [])
+
+-- Retract an IOp to the left component.
+def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
+| IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
+  (resTy:   List (MLIRType (δ₁ + δ₂)))
+  (args:    TypedArgs (δ₁ + δ₂))
+  (bbargs:  List BBName)
+  (regions: Nat)
+  (attrs:   AttrDict (δ₁ + δ₂)) =>
+  match MLIRType.retractLeftList resTy with
+  | .none => .none
+  | .some resTy' =>
+    match TypedArg.retractLeftList args with
+    | .none => .none
+    | .some args' =>
+        match AttrDict.retractLeft attrs with
+        | .none => .none
+        | .some attrs' => .some (IOp.mk name resTy' args' bbargs regions attrs')
+
+
+mutual
+def TypedArgs.inject (ts: TypedArgs (δ₁)): TypedArgs (δ₁ +  δ₂) := sorry
+def TypedArg.inject (ts: TypedArg (δ₁)): TypedArg (δ₁ + δ₂) := sorry
+end
+-- need a way to inject args into larger space
+instance RegionMemberLeft : Member (RegionE δ₁) ((RegionE (δ₁ + δ₂))) where
+  inject := fun T r =>
+    match r with
+    | .RunRegion ix args => .RunRegion ix (TypedArgs.inject args)
+
+
+end Retraction
+
+open Retraction in
 instance
     {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
     {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
     [S₁: Semantics δ₁]
     [S₂: Semantics δ₂]
     : Semantics (δ₁ + δ₂) where
-  semantics_op op := sorry
+  semantics_op op :=
+    -- TODO: need injections of RegionE δ₁ -> RegionE (δ₁ + δ₂)
+    -- TODO: need injection of BlockResult δ₁ -> BlockResult (δ₁ + δ₂)
+    match Retraction.IOp.retractLeft  op with
+    | .some op₁ => S₁.semantics_op op₁
     -- TODO: figure out how to mix the semantics of two dialects.
     -- (S₁.semantics_op op).map (.translate Member.inject) <|>
     -- (S₂.semantics_op op).map (.translate Member.inject)
-
 
 
 def semanticsRegionRec

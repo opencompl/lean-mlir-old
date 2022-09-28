@@ -71,7 +71,7 @@ def scf_semantics_op: IOp Δ →
   | IOp.mk "scf.execute_region" _ args [] 1 _ => do
       Fitree.trigger (RegionE.RunRegion 0 args)
 
-  | _ => Fitree.trigger (UBE.UB "uknown IOp")
+  | _ => Fitree.trigger UBE.Unhandled
 
 
 instance: Semantics scf where

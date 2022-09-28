@@ -102,7 +102,8 @@ def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
     (motive_1 := fun _ => Type) -- MLIRType
     (motive_2 := fun _ => Type) -- List MLIRType
     -- .fn (the only functions we can materialize are symbols)
-    (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => String)
+    -- TODO: (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => String) -- What? why is this string?
+    (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => Unit) -- make this unit
     -- .int
     (fun sgn sz => FinInt sz)
     -- .float
@@ -133,7 +134,7 @@ inhabitants and a decidable equality.
 
 def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
   match τ with
-  | .fn τ₁ τ₂ => ""
+  | .fn τ₁ τ₂ => ()
   | .int _ _ => .zero
   | .float _ => 0.0
   | .index => 0
@@ -171,7 +172,7 @@ instance {τ: MLIRType δ}: DecidableEq τ.eval :=
 
 def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   match τ, v with
-  | .fn τ₁ τ₂, v => v
+  | .fn τ₁ τ₂, v => "<function type>"
   | .int .Signless _, v => toString v.toUint
   | .int .Unsigned _, v => toString v.toUint
   | .int .Signed 0, v => "<i0>"
