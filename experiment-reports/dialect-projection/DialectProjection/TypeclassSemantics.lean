@@ -615,6 +615,8 @@ inductive IR (h: Type _ -> Type _): Type _ -> Type _ where
 
 end HO
 
+
+
 namespace SSA
 /-
 inductive BB (repr: Type _ -> Type _ ): Type _ -> Type _ where
@@ -687,10 +689,12 @@ instance : TerminatorSYM Terminator where
 -- Inside and Outside
 -- BB intra inter.
 -- BB <input-type> <interprocedural-out-type>
-inductive BB: Type _ -> Type _ -> Type _ where
-| begin: (i -> BB Unit o) -> BB i o
-| seq: Op a -> (a -> BB Unit o) -> BB Unit o
-| terminator: Terminator o -> BB Unit o
+-- O: type of ops
+-- T: type of terminators.
+inductive BB (O: Type _ -> Type _) (T: Type _ -> Type _): Type _ -> Type _ -> Type _ where
+| begin: (i -> BB O T Unit o) -> BB O T i o
+| seq: O a -> (a -> BB O T Unit o) -> BB O T Unit o
+| terminator: T o -> BB O T Unit o
 
 class  BBSYM (bbRepr: Type _ -> Type _ -> Type _)
   (opRepr: Type _ -> Type _)
@@ -700,26 +704,37 @@ class  BBSYM (bbRepr: Type _ -> Type _ -> Type _)
   seq: (opRepr a) -> (a -> bbRepr Unit o) -> bbRepr Unit o
   terminator: (terminatorRepr o) -> bbRepr Unit o
 
+-- instance of Symantics for BB.
+instance [OpSYM O] [TerminatorSYM T]: BBSYM (BB O T) O T where
+  begin := BB.begin
+  seq := BB.seq
+  terminator := BB.terminator
+
+
 -- build a BB which takes 'Int' input, produces 'Int' output.
-def prog0 : BB Int Int :=
+def prog0 : BB Op Terminator Int Int :=
   .begin (fun input =>
     .seq (.const 4) (fun j =>
     .seq (.add input j) (fun k =>
     .terminator (.ret k)
   )))
 
+
+namespace RegionBuilder
 -- Build a region
 -- The list of types is the labels that have been defined.
-inductive RegionBuilder: List (Σ (i: Type), BBRef i) -> Type _ -> Type _ -> Type _ where
+inductive RegionBuilder
+  (O: Type _ -> Type _)
+  (T: Type _ -> Type _): List (Σ (i: Type), BBRef i) -> Type _ -> Type _ -> Type _ where
 | lbl: ((ref: BBRef i) ->
-   RegionBuilder (⟨ i, ref ⟩::ris) ri ro) -- if you want a label,
-   ->  RegionBuilder ris ri ro -- I can then forget about the `i` and remember that the `is` have been defined
-                                       -- you have an obligation to define it in the output
-| define: (ref: BBRef i) -> BB i o -> RegionBuilder ris ri ro
-    -> RegionBuilder (⟨i,ref⟩::ris) ri ro -- define defines an `i`.
-| empty: RegionBuilder [] ri ro -- empty region defines no BBS.
+   RegionBuilder O T (⟨ i, ref ⟩::ris) ri ro) -- if you want a label,
+   ->  RegionBuilder O T ris ri ro -- I can then forget about the `i` and remember that the `is` have been defined
+                                   -- you have an obligation to define it in the output
+| define: (ref: BBRef i) -> BB O T i o -> RegionBuilder O T ris ri ro
+    -> RegionBuilder O T (⟨i,ref⟩::ris) ri ro -- define defines an `i`.
+| empty: RegionBuilder O T [] ri ro -- empty region defines no BBS.
 
-def prog1: RegionBuilder [] Int Int :=
+def prog1: RegionBuilder Op Terminator [] Int Int :=
   .lbl (i := Int) (fun entry =>
      .define entry (.begin fun i =>
       .terminator (.ret i)
@@ -735,7 +750,7 @@ def prog1: RegionBuilder [] Int Int :=
 --   condbr exit(inew), loop(inew, knew)
 -- exit(inew):
 --   ret inew
-def prog2: RegionBuilder [] Int Int :=
+def prog2: RegionBuilder Op Terminator [] Int Int :=
   .lbl (i := Int) (fun entrybb =>
   .lbl (i := Int × Int) (fun loopbb =>
   .lbl (i := Int) (fun exitbb =>
@@ -750,10 +765,75 @@ def prog2: RegionBuilder [] Int Int :=
      .define entrybb (.begin fun input =>
       .terminator (.br loopbb (input, 0))) $
      .empty)))
-
 #reduce prog2
+end RegionBuilder
+
+namespace Region
+
+end Region
 
 end SSA
+
+namespace StructuredSSA
+/-
+We flatten Op, BasicBlock, Region into a single Def'.
+We need three notions:
+(1) Running some semantic value (R), labelled by a label (L)
+(3) creating a new scope
+(2) invoking control flow (C) to a label (L)
+(2) sequentially composing two defs
+
+-/
+
+inductive Producer: Type -> Type where
+inductive Consumer: Type -> Type where
+inductive ProducerConsumer: Type -> Type -> Type where
+
+
+-- op: dataflow
+-- bb: ? (Ill defined concept)
+-- br, condbr: control flow.
+-- CFG: control flow
+
+-- backwards dataflow graph.
+inductive Dataflow (D: Type -> Type -> Type) (C: Type -> Type -> Type): Type _ -> Type _ where
+| val: O -> Dataflow D C O
+| df: D I O -> (I -> Dataflow D C O) -> Dataflow D C O
+
+-- forwards control flow graph.
+inductive Controlflow (D: Type -> Type -> Type) (C: Type -> Type -> Type): Type _ -> Type _ where
+| controldep: (I -> Dataflow D C O) -> Controlflow D C I -- Create phi nodes / control flow dependent values.
+| cf: C I BLANK  /- instruction condbr in conbr b bb1, bb2 (I = Bool) -/
+   -- -> (I -> Dataflow D C O' × Controlflow D C I') /- function that maps true ->bb1(x), false -> bb2(x), and shows how to produce (x, y) when mapping. -/
+   -> (I ->  Controlflow D C I') /- function that maps true ->bb1, false -> bb2 -/
+
+inductive Void where
+
+abbrev Unit2 (a: Type) := a
+abbrev Void2 (_a: Type) := Void
+
+
+
+inductive OpD : Type -> Type where -- tagged by output type
+| add: Int -> Int -> OpD Int
+| neg: Int -> OpD Int
+
+abbrev Op O := Dataflow OpD Void2 O
+
+inductive TerminatorC : Type -> Type where -- tagged by input type
+|  br: TerminatorC Unit
+|  condbr: TerminatorC Bool
+
+-- A basic block is obtained by taking the data flow of an Op and the control flow of a Terminator
+abbrev BasicBlock I := Controlflow OpD TerminatorC I
+
+inductive Adapt (D: Type -> Type _) (C: Type -> Type _): Type _ -> Type _
+| adapt: D O ->  C I -> (O -> I) -> Adapt D C O
+
+-- A region adapts
+abbrev Region O := Adapt BasicBlock  BasicBlock O
+
+end StructuredSSA
 
 namespace PartialFunctionReasoning
 
