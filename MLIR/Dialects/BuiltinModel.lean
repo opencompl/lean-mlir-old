@@ -58,7 +58,7 @@ def TensorFlatIndex.cast_right: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix
   intros bound bound';
   intros EQ ix prf prf';
   cases EQ;
- simp;
+  simp;
 }
 
 theorem TensorFlatIndex.bound_non_zero (flat: TensorFlatIndex bound): bound ≠ 0 := by {
@@ -458,7 +458,8 @@ def TensorIndex.toFlatIndex {innerDim: Nat} {restDims: List Nat}
 
 theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
   intros a b; constructor;
-  case mp => { intros A_LT_B;
+  case mp => { 
+     intros A_LT_B;
      simp [GT.gt]; exact A_LT_B;
   }
   case mpr => {
@@ -541,27 +542,25 @@ def TensorIndex.delinearizeInnermost {innerDim: Nat} {restDims: List Nat}
              apply MOD_GT_0;
            }
            | 1 => by {
-             simp [List.getF];
-             -- ⊢ innerIx / modulus < innerDim / modulus
-             have INNERIX : innerIx < innerDim := by {
+            simp [List.getF];
+            -- ⊢ innerIx / modulus < innerDim / modulus
+            have INNERIX : innerIx < innerDim := by {
                  have h := index.h_ix_bound;
                  specialize h (i := 0);
-                 specialize h (by {
-                  simp;
-                 });
+                 specialize h (by { simp; });
                  simp [H, List.getF] at h;
                  apply h;
-              }
-              have INNERDIM_MULTIPLE:  innerDim =  (innerDim / modulus) * modulus := by {
+            }
+            have INNERDIM_MULTIPLE:  innerDim =  (innerDim / modulus) * modulus := by {
                 rewrite [Nat.mod_zero_implies_div_mul_equal];
                 rfl;
                 apply MOD_DIV_INNERDIM;
-              }
-              simp at INNERDIM_MULTIPLE;
-              rewrite [Nat.div_lt_iff_lt_mul];
-              rewrite [<- INNERDIM_MULTIPLE];
-              apply INNERIX;
-              apply MOD_GT_0;
+            }
+            simp at INNERDIM_MULTIPLE;
+            rewrite [Nat.div_lt_iff_lt_mul];
+            rewrite [<- INNERDIM_MULTIPLE];
+            apply INNERIX;
+            apply MOD_GT_0;
            }
            | Nat.succ (Nat.succ i') => by {
                 simp [H, List.getF];
@@ -670,20 +669,20 @@ theorem shapeProd_cons_prod (x y: Nat) (zs: List Nat): shapeProd (x :: y :: zs) 
 def TensorIndex.ofFlatIndex1D {innerDim: Nat}
   (flat: TensorFlatIndex innerDim): TensorIndex [innerDim] :=
   TensorIndex.mk (ixs := [flat.ix]) (by simp) (by {
-        intros i I_INBOUND;
-        simp [List.length] at I_INBOUND;
-        have I_EQ_0 : i = 0 :=
-          match i with
-          | 0 => by simp;
-          | Nat.succ i' => by {
-               simp at I_INBOUND;
-               exact (nomatch I_INBOUND);
-          };
-       simp [I_EQ_0, List.getF];
-       have IX_INBOUND := flat.h_ix_inbound;
-       simp [shapeProd, List.foldr] at IX_INBOUND;
-       apply IX_INBOUND;
-     })
+   intros i I_INBOUND;
+   simp [List.length] at I_INBOUND;
+   have I_EQ_0 : i = 0 :=
+     match i with
+     | 0 => by simp;
+     | Nat.succ i' => by {
+          simp at I_INBOUND;
+          exact (nomatch I_INBOUND);
+        };
+   simp [I_EQ_0, List.getF];
+   have IX_INBOUND := flat.h_ix_inbound;
+   simp [shapeProd, List.foldr] at IX_INBOUND;
+   apply IX_INBOUND;
+  })
 
 -- Build a 1D TensorIndex from a FlatIndex
 def TensorIndex'.ofFlatIndex1D {innerDim: Nat}
@@ -710,7 +709,7 @@ theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0),
    intros a;
    induction a;
    case zero => {
-   intros b A_NEQ_ZERO; simp [A_NEQ_ZERO]; contradiction;
+     intros b A_NEQ_ZERO; simp [A_NEQ_ZERO]; contradiction;
    }
    case succ a' IH => {
      intros b;
@@ -719,7 +718,7 @@ theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0),
         intros A B;
         simp at B;
      }
-    case succ b' IH' => {
+     case succ b' IH' => {
       intros A B;
       simp [Nat.mul];
       rewrite [Nat.nonzero_iff_gt_zero] at *;
@@ -939,7 +938,7 @@ theorem List.zip_flat_index_go_get: ∀ (xs: List α) (ix: Nat) (bound: Nat) (H:
   (xs.getF deltaIx GETIX, TensorFlatIndex.mk (bound := bound)
                            (ix := ix + deltaIx)
                            (h_ix_inbound := by { rewrite [<- H]; simp [Nat.add_lt_add_left, GETIX]; } )) := by {
- intros xs;
+  intros xs;
   induction xs;
   case nil => {
       intros ix bound H deltaIx GETIX;
@@ -947,20 +946,20 @@ theorem List.zip_flat_index_go_get: ∀ (xs: List α) (ix: Nat) (bound: Nat) (H:
   }
   case cons x xs' IND => {
    intros ix bound H deltaIx GETIX; -- consider pulling deltaIx earlier
-    cases deltaIx;
-    case zero => {
-       simp;
-       simp [zipFlatIndexGo, List.getF];
-    }
-    case succ deltaIx' => {
-      simp [zipFlatIndexGo];
-      simp [List.getF];
-      rewrite [IND];
-      simp [Nat.add_assoc, Nat.add_one, Nat.succ_add, Nat.add_succ];
-      simp at GETIX;
-      apply Nat.lt_of_succ_lt_succ;
-      exact GETIX;
-    }
+   cases deltaIx;
+   case zero => {
+      simp;
+      simp [zipFlatIndexGo, List.getF]
+   }
+   case succ deltaIx' => {
+     simp [zipFlatIndexGo];
+     simp [List.getF];
+     rewrite [IND];
+     simp [Nat.add_assoc, Nat.add_one, Nat.succ_add, Nat.add_succ];
+     simp at GETIX;
+     apply Nat.lt_of_succ_lt_succ;
+     exact GETIX;
+   }
   }
 }
 
@@ -1054,7 +1053,7 @@ theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i
        simp [List.getF];
        constructor;
     }
-   case succ i' => {
+    case succ i' => {
      simp [List.getF];
      constructor;
      apply IH;
@@ -1226,9 +1225,20 @@ instance: DialectTypeIntf σ_UnrankedTensor ε_UnrankedTensor where
 ## Vector type
 -/
 
+def List.zipMul (as: List Nat) (bs: List Nat) (H: as.length = bs.length): List Nat :=
+ match as with
+ | [] => match bs with 
+         | [] => []
+         | b::bs' => nomatch H
+ | a::as' => 
+    match bs with
+    | [] => nomatch H
+    | b::bs' => (a*b):: List.zipMul as' bs' (by { simp at H; assumption })
+
+
 def Vector.size (fixed scalable: List Nat) (scale: List Nat)
     (H: scale.length = scalable.length) :=
-  shapeProd fixed * shapeProd (List.map₂ (· * ·) scalable scale)
+  shapeProd fixed * shapeProd (List.zipMul scale scalable H)
 
 structure Vector (fixed: List Nat) (scalable: List Nat) (τ: MLIRTy) where
   -- Scales (number of instantiations of each scalable dimension)

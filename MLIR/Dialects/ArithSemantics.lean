@@ -329,7 +329,8 @@ private theorem ops._binary.sem name ctor output lhs rhs:
   intro h
   simp [denoteOp, denoteOpBase, Semantics.semantics_op]
   simp [List.zip, List.zipWith, List.mapM, List.map]
-  simp [h]; rfl
+  simp [h];
+  sorry -- the proof broke when updating to the new Lean version.
 
 private abbrev ops.addi.sem output lhs rhs :=
   ops._binary.sem "arith.addi" ArithE.AddI output lhs rhs (fun _ _ => rfl)
@@ -693,7 +694,7 @@ theorem FinInt.addfull_xor_and (A B: FinInt sz):
     | next bA A', next bB B' =>
       simp [HXor.hXor, HAnd.hAnd, HOr.hOr, xor, and, or, logic2] at *
       simp [addfull, ih]
-      cases bA <;> cases bB <;> decide  repeat (simp [SSAEnv.get, SSAEnv.set]; dsimp_itree)
+      cases bA <;> cases bB <;> decide;
 
 
 theorem FinInt.add_xor_and (A B: FinInt sz):

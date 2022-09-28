@@ -22,11 +22,11 @@ open Lean.Meta
 
 elab "#reduce " skipProofs:group(atomic("(" &"skipProofs") " := " (trueVal <|> falseVal) ")") term:term : command =>
   let skipProofs := skipProofs.raw[3].isOfKind ``trueVal
-  withoutModifyingEnv <| runTermElabM (some `_check) fun _ => do
+  withoutModifyingEnv <| runTermElabM fun _ => do
     -- dbg_trace term
     let e ← Term.elabTerm term none
     Term.synthesizeSyntheticMVarsNoPostponing
-    let (e, _) ← Term.levelMVarToParam (← instantiateMVars e)
+    let e ← Term.levelMVarToParam (← instantiateMVars e)
     withTheReader Core.Context (fun ctx => { ctx with options := ctx.options.setBool `smartUnfolding false }) do
       let e ← withTransparency (mode := TransparencyMode.all) <| reduce e (skipProofs := skipProofs) (skipTypes := false)
       logInfo e

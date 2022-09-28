@@ -82,7 +82,7 @@ def evalExprAnyTypeSafe (α) (expectedType: Expr) (value: Expr): TermElabM α :=
 
 set_option hygiene false in
 elab "mkRewriteThm" name:ident x:term ":=" t:term : command => do
-  let xbb <- liftTermElabM `mkRewriteThm do
+  let xbb <- liftTermElabM do
     let x ← elabTerm x none
     let xred <- reduce x
     -- dbg_trace xred
@@ -114,7 +114,7 @@ structure OpSpec := mk ::
   args: CommandElabM Syntax
 
 elab "genInductive" inductiveName:ident xs:term : command => do
-  let xargs ← liftTermElabM `genInductive do
+  let xargs ← liftTermElabM do
     let xs ← elabTerm xs none
     let xsred ← instantiateMVars xs -- (← reduce xs)
     -- dbg_trace xsred

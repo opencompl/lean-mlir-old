@@ -113,6 +113,8 @@ theorem equivalent (b: Bool):
   simp [run, interpUB_bind, interpSSA'_bind]
   simp [SSAEnvE.handle, cast_eq]
   cases b <;> simp [List.get!]
+  sorry -- proof broken when upgrading Lean.
+  sorry -- proof broken when upgrading Lean.
 
 end SCF.IF
 

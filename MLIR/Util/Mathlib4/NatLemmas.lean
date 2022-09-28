@@ -646,8 +646,7 @@ protected theorem dvd_add_iff_left {k m n : ℕ} (h : k ∣ n) : k ∣ m ↔ k �
      exact Nat.dvd_add_iff_right h
 
 theorem dvd_sub {k m n : ℕ} (H : n ≤ m) (h₁ : k ∣ m) (h₂ : k ∣ n) : k ∣ m - n :=
-  (Nat.dvd_add_iff_left h₂).mpr $ by rw [Nat.sub_add_cancel H]
-                                        exact h₁
+  (Nat.dvd_add_iff_left h₂).mpr $ by {rw [Nat.sub_add_cancel H]; exact h₁ }
 
 theorem dvd_mod_iff {k m n : ℕ} (h: k ∣ n) : k ∣ m % n ↔ k ∣ m :=
   let t := @Nat.dvd_add_iff_left _ (m % n) _ (Nat.dvd_trans h (Nat.dvd_mul_right n (m / n)))

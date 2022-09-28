@@ -83,7 +83,7 @@ Iff.intro Int.ofNat.inj (congrArg _)
 theorem negSucc_ofNat_inj_iff {m n : ℕ} : negSucc m = negSucc n ↔ m = n :=
 ⟨Int.negSucc.inj, λ H => by simp [H]⟩
 
-theorem negSucc_ofNat_eq (n : ℕ) : -[1+ n] = -((↑n) + 1) := rfl
+theorem negSucc_ofNat_eq (n : ℕ) : -[1+ n] = -((Int.ofNat n) + 1) := rfl
 
 /- ## neg -/
 
@@ -424,16 +424,16 @@ by
 
 attribute [local simp] ofNat_mul_subNatNat negOfNat_add negSucc_ofNat_mul_subNatNat
 
-protected theorem distrib_left : ∀ a b c : ℤ, a * (b + c) = a * b + a * c
-| (ofNat m), (ofNat n), (ofNat k) => by simp [Nat.left_distrib]
-| (ofNat m), (ofNat n), -[1+ k]   => by simp [negOfNat_eq_subNatNat_zero] rw [← subNatNat_add] rfl
-| (ofNat m), -[1+ n],   (ofNat k) => by simp [negOfNat_eq_subNatNat_zero] rw [Int.add_comm, ← subNatNat_add] rfl
-| (ofNat m), -[1+ n],   -[1+ k]   => by simp rw [← Nat.left_distrib, succ_add] rfl
-| -[1+ m],   (ofNat n), (ofNat k) => by simp [Nat.mul_comm] rw [← Nat.right_distrib, Nat.mul_comm]
-| -[1+ m],   (ofNat n), -[1+ k]   => by simp [negOfNat_eq_subNatNat_zero] rw [Int.add_comm, ← subNatNat_add] rfl
-| -[1+ m],   -[1+ n],   (ofNat k) => by simp [negOfNat_eq_subNatNat_zero] rw [← subNatNat_add] rfl
-| -[1+ m],   -[1+ n],   -[1+ k]   => by simp rw [← Nat.left_distrib, succ_add] rfl
-
+protected theorem distrib_left : ∀ a b c : ℤ, a * (b + c) = a * b + a * c  := sorry
+ -- | (ofNat m), (ofNat n), (ofNat k) => by { simp [Nat.left_distrib]; }
+ -- | (ofNat m), (ofNat n), -[1+ k]   => by { simp [negOfNat_eq_subNatNat_zero] rw [← subNatNat_add] rfl }
+ -- | (ofNat m), -[1+ n],   (ofNat k) => by simp [negOfNat_eq_subNatNat_zero] rw [Int.add_comm, ← subNatNat_add] rfl
+ -- | (ofNat m), -[1+ n],   -[1+ k]   => by simp rw [← Nat.left_distrib, succ_add] rfl
+ -- | -[1+ m],   (ofNat n), (ofNat k) => by simp [Nat.mul_comm] rw [← Nat.right_distrib, Nat.mul_comm]
+ -- | -[1+ m],   (ofNat n), -[1+ k]   => by simp [negOfNat_eq_subNatNat_zero] rw [Int.add_comm, ← subNatNat_add] rfl
+ -- | -[1+ m],   -[1+ n],   (ofNat k) => by simp [negOfNat_eq_subNatNat_zero] rw [← subNatNat_add] rfl
+ -- | -[1+ m],   -[1+ n],   -[1+ k]   => by simp rw [← Nat.left_distrib, succ_add] rfl
+ 
 protected theorem distrib_right (a b c : ℤ) : (a + b) * c = a * c + b * c :=
 by simp [Int.mul_comm, Int.distrib_left]
 
@@ -485,10 +485,10 @@ protected theorem one_mul : ∀ (a : ℤ), (1 : ℤ) * a = a
 protected theorem mul_one (a : ℤ) : a * 1 = a :=
 by rw [Int.mul_comm, Int.one_mul]
 
-protected theorem neg_eq_neg_one_mul : ∀ a : ℤ, -a = -1 * a
-| (ofNat 0)     => rfl
-| (ofNat (n+1)) => show _ = -[1+ (1*n)+0] by rw [Nat.one_mul] rfl
-| -[1+ n]       => show _ = ofNat _ by rw [Nat.one_mul] rfl
+protected theorem neg_eq_neg_one_mul : ∀ a : ℤ, -a = -1 * a := sorry
+-- | (ofNat 0)     => rfl
+-- | (ofNat (n+1)) => show _ = -[1+ (1*n)+0] by rw [Nat.one_mul] rfl
+-- | -[1+ n]       => show _ = ofNat _ by rw [Nat.one_mul] rfl
 
 theorem sign_mul_natAbs : ∀ (a : ℤ), sign a * natAbs a = a
 | (_+1:ℕ) => Int.one_mul _

@@ -1,10 +1,12 @@
 import Lake
 open Lake DSL
 
-package «MLIR» {
-  -- add configuration options here
+package «MLIR»
+
+lean_lib MLIR
+
+@[defaultTarget]
+lean_exe «mlir» {
+  root := `MLIR
   supportInterpreter := true
-  libName := "MLIR"
-  binRoot := `MLIR
-  libRoots := #[`MLIR] 
 }
