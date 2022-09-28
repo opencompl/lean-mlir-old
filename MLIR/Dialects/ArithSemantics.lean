@@ -57,152 +57,55 @@ def ComparisonPred.ofInt: Int → Option ComparisonPred
   | 9 => some uge
   | _ => none
 
-inductive ArithE: Type → Type :=
-  | CmpI: (sz: Nat) → (pred: ComparisonPred) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt 1)
-  | CmpIndex: (pred: ComparisonPred) → (lhs rhs: Int) →
-          ArithE (FinInt 1)
-  | AddI: (sz: Nat) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt sz)
-  | AddT: (sz: Nat) → (D: DimList) → (lhs rhs: RankedTensor D (.int sgn sz)) →
-          ArithE (RankedTensor D (.int sgn sz))
-  | AddV: (sz: Nat) → (sc fx: List Nat) →
-          (lhs rhs: Vector sc fx (.int sgn sz)) →
-          ArithE (Vector sc fx (.int sgn sz))
-  | SubI: (sz: Nat) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt sz)
-  | NegI: (sz: Nat) → (op: FinInt sz) →
-          ArithE (FinInt sz)
-  | AndI: (sz: Nat) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt sz)
-  | OrI: (sz: Nat) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt sz)
-  | XorI: (sz: Nat) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt sz)
-  | Zext: (sz₁: Nat) → (sz₂: Nat) → (FinInt sz₁) →
-          ArithE (FinInt sz₂)
-  | Select: (sz: Nat) → (b: FinInt 1) → (lhs rhs: FinInt sz) →
-          ArithE (FinInt sz)
+-- inductive ArithE: Type → Type :=
+--   | CmpI: (sz: Nat) → (pred: ComparisonPred) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt 1)
+--   | CmpIndex: (pred: ComparisonPred) → (lhs rhs: Int) →
+--           ArithE (FinInt 1)
+--   | AddI: (sz: Nat) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt sz)
+--   | AddT: (sz: Nat) → (D: DimList) → (lhs rhs: RankedTensor D (.int sgn sz)) →
+--           ArithE (RankedTensor D (.int sgn sz))
+--   | AddV: (sz: Nat) → (sc fx: List Nat) →
+--           (lhs rhs: Vector sc fx (.int sgn sz)) →
+--           ArithE (Vector sc fx (.int sgn sz))
+--   | SubI: (sz: Nat) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt sz)
+--   | NegI: (sz: Nat) → (op: FinInt sz) →
+--           ArithE (FinInt sz)
+--   | AndI: (sz: Nat) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt sz)
+--   | OrI: (sz: Nat) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt sz)
+--   | XorI: (sz: Nat) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt sz)
+--   | Zext: (sz₁: Nat) → (sz₂: Nat) → (FinInt sz₁) →
+--           ArithE (FinInt sz₂)
+--   | Select: (sz: Nat) → (b: FinInt 1) → (lhs rhs: FinInt sz) →
+--           ArithE (FinInt sz)
 
 def unary_semantics_op (op: IOp Δ)
-      (ctor: (sz: Nat) → FinInt sz → ArithE (FinInt sz)):
-    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
+      (ctor: {sz: Nat} → FinInt sz → FinInt sz):
+    (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
   match op with
-  | IOp.mk _ _ [⟨.int sgn sz, arg⟩] [] 0 _ => some do
-      let r ← Fitree.trigger (ctor sz arg)
+  | IOp.mk _ _ [⟨.int sgn sz, arg⟩] [] 0 _ => do
+      let r := ctor arg
       return BlockResult.Next ⟨.int sgn sz, r⟩
-  | IOp.mk _ _ _ _ _ _ => none
+  | IOp.mk _ _ _ _ _ _ =>  Fitree.trigger (UBE.Unhandled)
 
 def binary_semantics_op {Δ: Dialect α' σ' ε'}
       (name: String) (args: List ((τ: MLIRType Δ) × τ.eval))
-      (ctor: (sz: Nat) → FinInt sz → FinInt sz → ArithE (FinInt sz)):
-    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
+      (ctor: {sz: Nat} → FinInt sz → FinInt sz → FinInt sz):
+    (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
   match args with
   | [⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] =>
-      if EQ: sgn = sgn' /\ sz = sz' then some do
-        let r ← Fitree.trigger (ctor sz lhs (EQ.2 ▸ rhs))
+      if EQ: sgn = sgn' /\ sz = sz' then  do
+        let r := ctor lhs (EQ.2 ▸ rhs)
         return BlockResult.Next ⟨.int sgn sz, r⟩
-      else none
-  | _ => none
+      else Fitree.trigger UBE.Unhandled
+  | _ => Fitree.trigger UBE.Unhandled
 
-def arith_semantics_op (o: IOp Δ):
-    Option (Fitree (RegionE Δ +' UBE +' ArithE) (BlockResult Δ)) :=
-  match o with
-  | IOp.mk "arith.constant" [τ₁] [] [] 0 attrs =>
-      match AttrDict.find attrs "value" with
-      | some (.int value τ₂) =>
-          if τ₁ = τ₂ then
-            match τ₂ with
-            | .int sgn sz => some do
-                -- TODO: Check range of constants
-                let v := FinInt.ofInt sz value
-                return BlockResult.Next ⟨.int sgn sz, v⟩
-            | .index => some do
-                return BlockResult.Next ⟨.index, value⟩
-            | _ => none
-          else none
-      | some _
-      | none => none
-
-  | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
-    attrs =>
-      if EQ: sgn = sgn' /\ sz = sz' then
-            match attrs.find "predicate" with
-            | some (.int n (.int .Signless 64)) =>
-                match (ComparisonPred.ofInt n) with
-                | some pred => some do
-                  let r ← Fitree.trigger (ArithE.CmpI sz pred lhs (EQ.2 ▸ rhs))
-                  return BlockResult.Next ⟨.i1, r⟩
-                | none => none
-            | some _
-            | none => none
-      else none
-
-  | IOp.mk "arith.cmpi" _ [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] [] 0 attrs =>
-      match attrs.find "predicate" with
-      | some (.int n (.int .Signless 64)) =>
-          match (ComparisonPred.ofInt n) with
-          | some pred => some do
-            let r ← Fitree.trigger (ArithE.CmpIndex pred lhs rhs)
-            return BlockResult.Next ⟨.i1, r⟩
-          | none => none
-      | some _
-      | none => none
-
-  | IOp.mk "arith.zext" [.int sgn₂ sz₂] [⟨.int sgn₁ sz₁, value⟩] [] 0 _ =>
-      if sgn₁ = sgn₂ then some do
-        let r ← Fitree.trigger (ArithE.Zext sz₁ sz₂ value)
-        return BlockResult.Next ⟨.int sgn₂ sz₂, r⟩
-      else none
-
-  | IOp.mk "arith.select" _ [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩]
-    [] 0 _ =>
-      if EQ: sgn = sgn' /\ sz = sz' then some do
-        let r ← Fitree.trigger (ArithE.Select sz b lhs (EQ.2 ▸ rhs))
-        return BlockResult.Next ⟨.int sgn sz, r⟩
-      else none
-
-  | IOp.mk "arith.negi" _ _ _ _ _ =>
-      unary_semantics_op o ArithE.NegI
-  | IOp.mk name _ args _ _ _ =>
-      if name = "arith.addi" then
-        binary_semantics_op name args ArithE.AddI
-      else if name = "arith.subi" then
-        binary_semantics_op name args ArithE.SubI
-      else if name = "arith.andi" then
-        binary_semantics_op name args ArithE.AndI
-      else if name = "arith.ori" then
-        binary_semantics_op name args ArithE.OrI
-      else if name = "arith.xori" then
-        binary_semantics_op name args ArithE.XorI
-      else
-        none
-
-def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
-  match e with
-  | AddI _ lhs rhs =>
-      return lhs + rhs
-  | AddT sz D lhs rhs =>
-      -- TODO: Implementation of ArithE.AddT (tensor addition)
-      return default
-  | AddV sz sc fx lhs rhs =>
-      -- TODO: Implementation of ArithE.AddV (vector addition)
-      return default
-  | CmpI _ pred lhs rhs =>
-      let b: Bool :=
-        match pred with
-        | .eq  => lhs = rhs
-        | .ne  => lhs != rhs
-        | .slt => lhs.toSint <  rhs.toSint
-        | .sle => lhs.toSint <= rhs.toSint
-        | .sgt => lhs.toSint >  rhs.toSint
-        | .sge => lhs.toSint >= rhs.toSint
-        | .ult => lhs.toUint <  rhs.toUint
-        | .ule => lhs.toUint <= rhs.toUint
-        | .ugt => lhs.toUint >  rhs.toUint
-        | .uge => lhs.toUint >= rhs.toUint
-      return FinInt.ofInt 1 (if b then 1 else 0)
-  | CmpIndex pred lhs rhs =>
+def cmpIndex (pred : ComparisonPred) (lhs rhs: Int): FinInt 1 :=
       let b: Bool :=
         match pred with
         | .eq  => lhs = rhs
@@ -215,26 +118,101 @@ def ArithE.handle {E}: ArithE ~> Fitree E := fun _ e =>
         | .ule => lhs <= rhs
         | .ugt => lhs >  rhs
         | .uge => lhs >= rhs
-      return FinInt.ofInt 1 (if b then 1 else 0)
-  | SubI _ lhs rhs =>
-      return lhs - rhs
-  | NegI _ op =>
-      return -op
-  | AndI _ lhs rhs =>
-      return lhs &&& rhs
-  | OrI _ lhs rhs =>
-      return lhs ||| rhs
-  | XorI _ lhs rhs =>
-      return lhs ^^^ rhs
-  | Zext _ sz₂ value =>
-      return FinInt.zext sz₂ value
-  | Select _ b lhs rhs =>
-      return if b.toUint = 1 then lhs else rhs
+      FinInt.ofInt 1 (if b then 1 else 0)
+
+
+def cmpI (sz : ℕ) (pred : ComparisonPred) (lhs: FinInt sz) (rhs: FinInt sz): FinInt 1 :=
+      let b: Bool :=
+        match pred with
+        | .eq  => lhs = rhs
+        | .ne  => lhs != rhs
+        | .slt => lhs.toSint <  rhs.toSint
+        | .sle => lhs.toSint <= rhs.toSint
+        | .sgt => lhs.toSint >  rhs.toSint
+        | .sge => lhs.toSint >= rhs.toSint
+        | .ult => lhs.toUint <  rhs.toUint
+        | .ule => lhs.toUint <= rhs.toUint
+        | .ugt => lhs.toUint >  rhs.toUint
+        | .uge => lhs.toUint >= rhs.toUint
+      FinInt.ofInt 1 (if b then 1 else 0)
+
+#check MLIRType.eval
+def arith_semantics_op (o: IOp Δ):
+    (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
+  match o with
+  | IOp.mk "arith.constant" [τ₁] [] [] 0 attrs =>
+      match AttrDict.find attrs "value" with
+      | some (.int value τ₂) =>
+          if τ₁ = τ₂ then
+            match τ₂ with
+            | .int sgn sz => do
+                -- TODO: Check range of constants
+                let v := FinInt.ofInt sz value
+                return BlockResult.Next ⟨.int sgn sz, v⟩
+            | .index => do
+                return BlockResult.Next ⟨.index, value⟩
+            | _ => Fitree.trigger (UBE.Unhandled)
+          else Fitree.trigger (UBE.Unhandled)
+      | some _
+      | none => Fitree.trigger (UBE.Unhandled)
+
+  | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
+    attrs =>
+      if EQ: sgn = sgn' /\ sz = sz' then
+            match attrs.find "predicate" with
+            | some (.int n (.int .Signless 64)) =>
+                match (ComparisonPred.ofInt n) with
+                | some pred => do
+                  let r := cmpI sz pred lhs (EQ.2 ▸ rhs)
+                  return BlockResult.Next ⟨.i1, r⟩
+                | none => Fitree.trigger (UBE.Unhandled)
+            | some _
+            | none => Fitree.trigger (UBE.Unhandled)
+      else Fitree.trigger (UBE.Unhandled)
+
+  | IOp.mk "arith.cmpi" _ [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] [] 0 attrs =>
+      match attrs.find "predicate" with
+      | some (.int n (.int .Signless 64)) =>
+          match (ComparisonPred.ofInt n) with
+          | some pred => do
+            let r := cmpIndex pred lhs rhs
+            return BlockResult.Next ⟨.i1, r⟩
+          | none => Fitree.trigger (UBE.Unhandled)
+      | some _
+      | none => Fitree.trigger (UBE.Unhandled)
+
+  | IOp.mk "arith.zext" [.int sgn₂ sz₂] [⟨.int sgn₁ sz₁, value⟩] [] 0 _ =>
+      if sgn₁ = sgn₂ then do
+        let r :=  FinInt.zext sz₂ value
+        return BlockResult.Next ⟨.int sgn₂ sz₂, r⟩
+      else Fitree.trigger (UBE.Unhandled)
+
+  | IOp.mk "arith.select" _ [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩]
+    [] 0 _ =>
+      if EQ: sgn = sgn' /\ sz = sz' then  do
+        let r := if b.toUint = 1 then lhs else (EQ.2 ▸ rhs)
+        return BlockResult.Next ⟨.int sgn sz, r⟩
+      else Fitree.trigger (UBE.Unhandled)
+
+  | IOp.mk "arith.negi" _ _ _ _ _ =>
+      unary_semantics_op o FinInt.neg
+  | IOp.mk name _ args _ _ _ =>
+      if name = "arith.addi" then
+        binary_semantics_op name args FinInt.add
+      else if name = "arith.subi" then
+        binary_semantics_op name args FinInt.sub
+      else if name = "arith.andi" then
+        binary_semantics_op name args FinInt.and
+      else if name = "arith.ori" then
+        binary_semantics_op name args FinInt.or
+      else if name = "arith.xori" then
+        binary_semantics_op name args FinInt.xor
+      else
+        Fitree.trigger (UBE.Unhandled)
 
 instance: Semantics arith where
-  E := ArithE
   semantics_op := arith_semantics_op
-  handle := ArithE.handle
+
 
 /-
 ### Semantics of individual operations
@@ -269,6 +247,16 @@ private abbrev ops.andi := ops._binary "arith.andi"
 private abbrev ops.ori  := ops._binary "arith.ori"
 private abbrev ops.xori := ops._binary "arith.xori"
 
+/-
+
+The great Commenting
+====================
+
+Everything below assumes we have a handle + semantics, which makes
+things quite complex. Now that we have removed the handle, the hope
+is that we can recover the semantics proofs in a much easier fashion.
+
+
 private theorem ops.constant.sem output value:
     denoteOp arith (ops.constant output value) =
   Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
@@ -300,13 +288,14 @@ private theorem ops.zext.sem sz₁ sz₂ output input:
   simp [ops.zext, denoteOp, denoteOpBase, Semantics.semantics_op]
   simp_itree
 
+
 private theorem ops.select.sem output cond t f:
     denoteOp arith (ops.select output cond t f) =
-  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+  Fitree.Vis (E := SSAEnvE arith +' UBE)
     (Sum.inl <| SSAEnvE.Get .i1 cond) fun cond =>
-  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+  Fitree.Vis (E := SSAEnvE arith +' UBE)
     (Sum.inl <| SSAEnvE.Get .i32 t) fun t =>
-  Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
+  Fitree.Vis (E := SSAEnvE arith +' UBE)
     (Sum.inl <| SSAEnvE.Get .i32 f) fun f =>
   Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.Select 32 cond t f) fun r =>
   Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
@@ -379,7 +368,7 @@ def RHS: Op arith := [mlir_op|
 theorem equivalent (n m: FinInt 32):
     run ⟦LHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
-  simp [LHS, RHS, run, Semantics.handle]
+  simp [LHS, RHS, run]
   rw [ops.addi.sem]
   rw [ops.addi.sem]
   simp [SSAEnvE.handle, cast_eq]
@@ -920,3 +909,4 @@ theorem equivalent (X C₁ C₂: FinInt 32):
   simp [run, denoteBB, denoteOps, denoteOp, denoteOpBase]; simp_itree
   apply FinInt.xor_and
 end th12
+-/

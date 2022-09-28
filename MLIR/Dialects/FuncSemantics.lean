@@ -17,12 +17,10 @@ instance func_: Dialect Void Void (fun x => Unit) where
   iε := inferInstance
 
 def funcSemanticsOp: IOp Δ →
-    Option (Fitree (RegionE Δ +' UBE  +' Void1) (BlockResult Δ))
-  | IOp.mk "func.return" _ args [] 0 _ => some <|
+    (Fitree (RegionE Δ +' UBE) (BlockResult Δ))
+  | IOp.mk "func.return" _ args [] 0 _ => do
        return .Ret args
-  | _ => none
+  | _ => Fitree.trigger $ UBE.Unhandled
 
 instance: Semantics func_ where
-  E := Void1
   semantics_op := funcSemanticsOp
-  handle := fun _ e => nomatch e

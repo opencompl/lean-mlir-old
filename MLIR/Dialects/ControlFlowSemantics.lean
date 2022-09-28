@@ -15,35 +15,22 @@ instance dummy: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
 
-inductive DummyE: Type → Type :=
-  | Dummy: DummyE Int
-  | True: DummyE Int
-  | False: DummyE Int
-
 def dummy_semantics_op: IOp Δ →
-      Option (Fitree (RegionE Δ +' UBE +' DummyE) (BlockResult Δ))
-  | IOp.mk "dummy.dummy" [.int sgn sz] [] _ _ _ => some do
-      let i ← Fitree.trigger DummyE.Dummy
+      Fitree (RegionE Δ +' UBE) (BlockResult Δ)
+  | IOp.mk "dummy.dummy" [.int sgn sz] [] _ _ _ => do
+      let i := 42
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
-  | IOp.mk "dummy.true" [.int sgn sz] [] _ _ _ => some do
-      let i ← Fitree.trigger DummyE.True
+  | IOp.mk "dummy.true" [.int sgn sz] [] _ _ _ => do
+      let i := 1
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
-  | IOp.mk "dummy.false" [.int sgn sz] [] _ _ _ => some do
-      let i ← Fitree.trigger DummyE.False
+  | IOp.mk "dummy.false" [.int sgn sz] [] _ _ _ => do
+      let i := 0
       return BlockResult.Next ⟨.int sgn sz, FinInt.ofInt sz i⟩
-  | _ => none
+  | _ => Fitree.trigger (UBE.UB "unknown IOp for dummy")
 
-def DummyE.handle {E}: DummyE ~> Fitree E :=
-  fun _ e =>
-    match e with
-    | .Dummy => return 42
-    | .True => return 1
-    | .False => return 0
 
 instance: Semantics dummy where
-  E := DummyE
   semantics_op := dummy_semantics_op
-  handle := DummyE.handle
 
 /-
 ### Dialect: `cf`
@@ -53,49 +40,29 @@ instance cf: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
 
--- Since basic block branching semantics are currently implemented at the
--- language level, we have little to do in this dialect; branching instructions
--- just use the existing definitions.
-inductive ControlFlowE: Type → Type :=
-  | Assert: (cond: FinInt 1) → (msg: String) → ControlFlowE Unit
-
+-- TODO: allow this to be given by `IOp cf`
 def cfSemanticsOp: IOp Δ →
-      Option (Fitree (RegionE Δ +' UBE +' ControlFlowE) (BlockResult Δ))
-  | IOp.mk "cf.br" _ [] [bbname] 0 _ => some do
+      (Fitree (RegionE Δ +' UBE) (BlockResult Δ))
+  | IOp.mk "cf.br" _ [] [bbname] 0 _ => do
       return BlockResult.Branch bbname []
-  | IOp.mk "cf.condbr" _ [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ => some do
+  | IOp.mk "cf.condbr" _ [⟨.i1, condval⟩] [bbtrue, bbfalse] _ _ => do
       return BlockResult.Branch
         (if condval.toUint != 0 then bbtrue else bbfalse) []
-  | IOp.mk "cf.ret" _ args [] 0 _ => some <|
+  | IOp.mk "cf.ret" _ args [] 0 _ => 
        return BlockResult.Ret args
   | IOp.mk "cf.assert" _ [⟨.i1, arg⟩] [] 0 attrs =>
-      match attrs.find "msg" with
-      | some (.str str) => some do
-             Fitree.trigger $ ControlFlowE.Assert arg str
+      match attrs.find "msg" with -- TODO: convert this to a pattern match.
+      | some (.str str) => do
+             Fitree.trigger $ UBE.UB (.some s!"{arg} {str}")
              return BlockResult.Next ⟨.unit, ()⟩
-      | none => some do
-            Fitree.trigger $ ControlFlowE.Assert arg "<assert failed>"
+      | _ => do
+            Fitree.trigger $ UBE.UB (.some s!"{arg} <assert failed>")
             return BlockResult.Next ⟨.unit, ()⟩
-      | _ => none
-  | _ => none
+  | _ => Fitree.trigger $ UBE.UB  "unknown IOp" -- TODO: allow this to be ruled out by type system
 
-
--- Default pure handler
-def ControlFlowE.handle {E}: ControlFlowE ~> Fitree E
-  | _, Assert cond msg =>
-    return ()
-
--- Alternative handler in WriterT (with output)
-def ControlFlowE.handleLogged {E}: ControlFlowE ~> WriterT (Fitree E)
-  | _, Assert cond msg => do
-    if cond.toUint == 0 then
-      logWriterT msg
-    return ()
 
 instance: Semantics cf where
-  E := ControlFlowE
   semantics_op := cfSemanticsOp
-  handle := ControlFlowE.handle
 
 /-
 ### Examples and testing
@@ -109,16 +76,16 @@ def run_dummy_cf_region: Region (dummy + cf) → String := fun r =>
 def run_dummy_cf_region': Region (dummy + cf) → String := fun r =>
   let t := semanticsRegion 99 r []
   let t := interpSSALogged' t SSAEnv.empty
-  let t: Fitree (ControlFlowE +' UBE) _ :=
-    t.interp (Fitree.case
-      (Fitree.case DummyE.handle (fun _ e => Fitree.trigger e))
-      (fun _ e => Fitree.trigger e))
-  let t: WriterT (Fitree UBE) _ :=
-    t.interp (Fitree.case ControlFlowE.handleLogged Fitree.liftHandler)
+  -- let t: Fitree (ControlFlowE +' UBE) _ :=
+  --   t.interp (Fitree.case
+  --     (Fitree.case DummyE.handle (fun _ e => Fitree.trigger e))
+  --     (fun _ e => Fitree.trigger e))
+  -- let t: WriterT (Fitree UBE) _ :=
+  --   t.interp (Fitree.case ControlFlowE.handleLogged Fitree.liftHandler)
   let t := interpUB t
   match Fitree.run t with
   | .error msg => msg
-  | .ok (((_, log), _), debug) => log ++ debug
+  | .ok (((_, log), _)) => log
 
 --
 
