@@ -19,8 +19,13 @@ where the output value at this step is 'O', and A is the current state.
 inductive Nu (F : Type _ -> Type _) : Type _ where
 | mk (A) : A -> (A -> F A) -> Nu F
 
+
+abbrev Nu.getA {F: Type _ -> Type _}: Nu F -> Type _
+| Nu.mk A _a _f => A
+
 def Nu.get {F: Type _ -> Type _} {O: Type} (proj: {A: Type} -> F A -> O): Nu F -> O
 | Nu.mk A a f => proj (f a)
+
 
 def Nu.getSigma {F: Type _ -> Type _} (nu: Nu F): Σ(A: Type), (A × (A -> F A)) :=
 match nu with
@@ -54,13 +59,13 @@ def factorial: Int -> Int := nu factorialF
 
 (ie, a type that could have as inhabitants both finite lists and infinite streams)
 -/
-inductive PIListF (S: Type): Type -> Type
-| nil {A}: PIListF S A
-| cons: S -> A -> PIListF S A
+inductive PIListF (A: Type) (S: Type):Type
+| nil: PIListF A S
+| cons: A -> S -> PIListF A S
 
-def PIListF.map (f: A -> B): PIListF S A -> PIListF S B
+def PIListF.addSomeToState : PIListF A S -> PIListF A (Option S)
 | .nil => .nil
-| .cons s a => .cons s (f a)
+| .cons a s => .cons a (.some s)
 
 abbrev PIList S := Nu.Nu (PIListF S)
 
@@ -80,8 +85,7 @@ def PIList.cons (a: A) (as: PIList A): PIList A :=
    Nu.mk (Option S) .none 
      (fun os => match os with
                 | .none => .cons a (.some s)
-                | .some s => (f s).map .some)
-
+                | .some s => (f s).addSomeToState)
 
 -- Project a single layer of the PIList out.
 open Nu in 
@@ -116,6 +120,81 @@ match n with
    | .some (s, ss') => (PIList.toList n' ss').map (.cons s)
 end PossiblyInfiniteList
 
+
+namespace HiddenList
+/-
+We create a type of lists where the type that is stored at each cons cell is existence.
+-/
+inductive HiddenList where
+| nil: HiddenList
+| cons (T: Type) (e: T) (h: HiddenList): HiddenList -- T is existential.
+
+
+/-
+functor to be fixed.
+-/
+inductive HiddenListF: Type -> Type _ where
+| nil {S: Type}: HiddenListF S
+| cons (T: Type) (e: T) (s: S): HiddenListF S
+
+def HiddenListF.addSomeToState: HiddenListF S -> HiddenListF (Option S)
+| .nil => .nil
+| .cons T e s => .cons T e (.some s)
+
+
+
+open Nu
+abbrev CoHiddenList := Nu.Nu HiddenListF
+
+#print CoHiddenList
+
+def CoHiddenList.nil: CoHiddenList := Nu.mk Unit () (fun () => HiddenListF.nil)
+
+def CoHiddenList.cons (T:Type) (e: T) (xs: CoHiddenList): CoHiddenList := 
+   let ⟨S, (s, f)⟩ := xs.getSigma
+   Nu.mk (Option S) .none 
+     (fun os => match os with
+                | .none => .cons T e (.some s)
+                | .some s => (f s).addSomeToState)
+
+end HiddenList
+
+
+namespace CoitreePureBool
+/-
+We build a version of Fitree with (E = Id), and specialize to (T = Bool) at each node.
+This allows us to study what the structure of an Fitree is going to be when we make it coinductive
+for this special case.
+-/
+
+/-
+inductive Fitree (E: Type → Type) (R: Type) where
+  | Ret (r: R): Fitree E R
+  | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
+-/
+
+inductive CoitreePureBoolF (E: Type -> Type) (R: Type) (S: Type): Type where
+| Ret (r: R): CoitreePureBoolF E R S
+| Vis (e: IO Bool) (k: Bool -> R × S): CoitreePureBoolF E R S
+
+
+open Nu 
+abbrev Coitree E R := Nu (CoitreePureBoolF E R)
+
+def CoitreePureBool.Ret (r: T): Coitree E T :=
+  Nu.mk Unit () (fun () => CoitreePureBoolF.Ret r)
+
+/-
+open Nu in 
+def CoitreePureBool.Vis (e: IO Bool) (k: Bool -> Coitree E R): Coitree E R := 
+  Nu.mk (Bool -> Σ(A: Type), A) (fun _ => ⟨Unit, ()⟩) (fun () => CoitreePureBoolF.Vis e (fun b => 
+    match k b with
+    | Nu.mk A a a2coitree => sorry)
+-/
+
+
+end CoitreePureBool
+
 namespace Coitree
 
 inductive CoitreeF (EffT: Type → Type) (RetT: Type) (FixT: Type) where
@@ -136,7 +215,8 @@ inductive WriteOp: Type -> Type where
 
 open Nu in
 def writeOnesForever : Coitree WriteOp Int :=
-   Nu.mk Unit () (fun unit => CoitreeF.Vis (WriteOp.mk "xx") (fun handler => ()))
+   Nu.mk Unit () 
+    (fun unit => CoitreeF.Vis (WriteOp.mk "xx") (fun handler => ()))
 
 
 inductive CoitreeLayer EffT RetT
@@ -159,7 +239,9 @@ TODO: how do I generate a Vis?
 -/
 open Nu in 
 def Coitree.Vis [Inhabited R] (e: E T) (k: T -> Coitree E R): Coitree E R :=
- sorry
+ Nu.mk (T -> Bool) (fun _ => false)
+   (fun unit => 
+      CoitreeF.Vis e (fun handler => sorry))
 
 open Nu in 
 def Coitree.Ret (r: T): Coitree E T :=
