@@ -6,7 +6,7 @@ A representation of an infinite process, whose output
 space is parametrized by F, where the A encodes
 the state space.
 
-We think of Nu as modelling a machine, whose current 
+We think of Nu as modelling a machine, whose current
 (hidden) state is (a: A), and has a transition function
 (A -> F A). This output (F A) has some way to extract an 'A',
 so we can run the machine another step, along with some auxiliary
@@ -31,17 +31,44 @@ def Nu.getSigma {F: Type _ -> Type _} (nu: Nu F): Σ(A: Type), (A × (A -> F A))
 match nu with
 | Nu.mk A a f => ⟨A, (a, f)⟩
 
+-- Sébastien
+def Nu.run (nu: Nu F) (observe: {A: Type _} → F A → R × A): R × Nu F :=
+  match nu with
+  | .mk A a f => let (r, a') := observe (f a); (r, .mk A a' f)
+
 end Nu
 
-namespace Stream
 /-
-We define the type of infinite streams using Nu.
+We define the type of streams. The single constructor is `Cons: α → S → S`
+(with `S` the type of streams) so we set `F X = α × X`.
 -/
-abbrev Prod S A := S × A
-abbrev Stream S := Nu.Nu (Prod S)
+namespace Stream
 
-def Stream.repeat {S: Type} (s: S): Stream S := 
-  .mk Unit () (fun _unit => (s, ()))
+abbrev Stream (α: Type _) := Nu.Nu (α × .)
+
+def observe (s: Stream α): α × Stream α :=
+  s.run id
+
+def «repeat» (a: α): Stream α :=
+  .mk _ () (fun _ => (a, ()))
+
+def integersAux (n: Nat): Stream Nat :=
+  .mk _ n (fun m => (m, m+1))
+def integers :=
+  integersAux 0
+
+def take (n: Nat) (s: Stream α) :=
+  match n with
+  | 0 => []
+  | m+1 => let (a, s') := observe s; a :: take m s'
+
+#eval take 10 integers
+
+-- We use the base stream as internal state
+def map (f: α → β) (s: Stream α): Stream β :=
+  .mk _ s (fun s => let (a, s') := observe s; (f a, s'))
+
+#eval take 10 (map (fun x => x * x) integers)
 
 end Stream
 
@@ -52,7 +79,7 @@ The F is a haskell convention of the functor whose Nu gives the
 actual value of interest. A value-level analogy is:
 
 ```hs
-def factorialF (f: Int -> Int) (v: Int): Int := 
+def factorialF (f: Int -> Int) (v: Int): Int :=
   if v == 0 then 1 else v * f (v - 1)
 def factorial: Int -> Int := nu factorialF
 ```
@@ -67,9 +94,9 @@ def PIListF.addSomeToState : PIListF A S -> PIListF A (Option S)
 | .nil => .nil
 | .cons a s => .cons a (.some s)
 
-abbrev PIList S := Nu.Nu (PIListF S)
+abbrev PIList A := Nu.Nu (PIListF A)
 
-open Nu in 
+open Nu in
 def PIList.nil: PIList A :=
    Nu.mk Unit () (fun () => .nil)
 
@@ -79,30 +106,30 @@ by adding a new Option layer to the state.
 When the state is '.none', we return the new element 'a'.
 When the state is '.some', we run the previous machine in 'as'.
 -/
-open Nu in 
+open Nu in
 def PIList.cons (a: A) (as: PIList A): PIList A :=
    let ⟨S, (s, f)⟩ := as.getSigma
-   Nu.mk (Option S) .none 
+   Nu.mk (Option S) .none
      (fun os => match os with
                 | .none => .cons a (.some s)
                 | .some s => (f s).addSomeToState)
 
 -- Project a single layer of the PIList out.
-open Nu in 
+open Nu in
 def PIList.destruct (as: PIList A): Option (A × PIList A) :=
    let ⟨S, (s, f)⟩ := as.getSigma
-   match f s with 
+   match f s with
    | .nil => .none
    | .cons a s' => .some (a, Nu.mk S s' f)
 
 
 -- An infinite repeating stream
-def PIList.repeat {S: Type} (s: S): PIList S := 
+def PIList.repeat {S: Type} (s: S): PIList S :=
   .mk Unit () (fun _unit => PIListF.cons s ())
 
 -- Use the previously encoded combinators to convert
 -- a List into a PIList.
-def PIList.ofList: List S -> PIList S 
+def PIList.ofList: List S -> PIList S
 | .nil => PIList.nil
 | .cons a as => PIList.cons a (PIList.ofList as)
 
@@ -114,8 +141,8 @@ if there isn't.
 def PIList.toList (n: Nat) (ss: PIList S): Option (List S) :=
 match n with
 | 0 => .none
-| n' + 1 => 
-   match ss.destruct with 
+| n' + 1 =>
+   match ss.destruct with
    | .none => .some .nil
    | .some (s, ss') => (PIList.toList n' ss').map (.cons s)
 end PossiblyInfiniteList
@@ -150,9 +177,9 @@ abbrev CoHiddenList := Nu.Nu HiddenListF
 
 def CoHiddenList.nil: CoHiddenList := Nu.mk Unit () (fun () => HiddenListF.nil)
 
-def CoHiddenList.cons (T:Type) (e: T) (xs: CoHiddenList): CoHiddenList := 
+def CoHiddenList.cons (T:Type) (e: T) (xs: CoHiddenList): CoHiddenList :=
    let ⟨S, (s, f)⟩ := xs.getSigma
-   Nu.mk (Option S) .none 
+   Nu.mk (Option S) .none
      (fun os => match os with
                 | .none => .cons T e (.some s)
                 | .some s => (f s).addSomeToState)
@@ -178,16 +205,16 @@ inductive CoitreePureBoolF (E: Type -> Type) (R: Type) (S: Type): Type where
 | Vis (e: IO Bool) (k: Bool -> R × S): CoitreePureBoolF E R S
 
 
-open Nu 
+open Nu
 abbrev Coitree E R := Nu (CoitreePureBoolF E R)
 
 def CoitreePureBool.Ret (r: T): Coitree E T :=
   Nu.mk Unit () (fun () => CoitreePureBoolF.Ret r)
 
 /-
-open Nu in 
-def CoitreePureBool.Vis (e: IO Bool) (k: Bool -> Coitree E R): Coitree E R := 
-  Nu.mk (Bool -> Σ(A: Type), A) (fun _ => ⟨Unit, ()⟩) (fun () => CoitreePureBoolF.Vis e (fun b => 
+open Nu in
+def CoitreePureBool.Vis (e: IO Bool) (k: Bool -> Coitree E R): Coitree E R :=
+  Nu.mk (Bool -> Σ(A: Type), A) (fun _ => ⟨Unit, ()⟩) (fun () => CoitreePureBoolF.Vis e (fun b =>
     match k b with
     | Nu.mk A a a2coitree => sorry)
 -/
@@ -204,7 +231,7 @@ inductive CoitreeF (EffT: Type → Type) (RetT: Type) (FixT: Type) where
 abbrev Coitree EffT RetT := Nu.Nu (CoitreeF EffT RetT)
 
 
-open Nu in 
+open Nu in
 
 /-
 Test that we can build infinite Coitrees of effects.
@@ -215,7 +242,7 @@ inductive WriteOp: Type -> Type where
 
 open Nu in
 def writeOnesForever : Coitree WriteOp Int :=
-   Nu.mk Unit () 
+   Nu.mk Unit ()
     (fun unit => CoitreeF.Vis (WriteOp.mk "xx") (fun handler => ()))
 
 
@@ -230,20 +257,20 @@ TODO: think this through carefully.
 open Nu in
 def Coitree.destruct (as: Coitree E T):CoitreeLayer E T :=
    let ⟨S, (s, f)⟩ := as.getSigma
-   match f s with 
+   match f s with
    | .Ret r => .Ret r
    | .Vis e k => .Vis e (fun t => Nu.mk S (k t) f)
 
 /-
 TODO: how do I generate a Vis?
 -/
-open Nu in 
+open Nu in
 def Coitree.Vis [Inhabited R] (e: E T) (k: T -> Coitree E R): Coitree E R :=
  Nu.mk (T -> Bool) (fun _ => false)
-   (fun unit => 
+   (fun unit =>
       CoitreeF.Vis e (fun handler => sorry))
 
-open Nu in 
+open Nu in
 def Coitree.Ret (r: T): Coitree E T :=
   Nu.mk Unit () (fun unit => CoitreeF.Ret r)
 
@@ -251,7 +278,7 @@ def Coitree.Ret (r: T): Coitree E T :=
 /-
 Morphism from Fitree into a Coitree.
 -/
-def fromFitree [Inhabited R]: Fitree E R -> Coitree E R 
+def fromFitree [Inhabited R]: Fitree E R -> Coitree E R
 | Fitree.Ret r => Coitree.Ret r
 | Fitree.Vis et k => Coitree.Vis et (fun t => fromFitree (k t))
 
