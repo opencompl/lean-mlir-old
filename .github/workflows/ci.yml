@@ -26,12 +26,12 @@ jobs:
       uses: actions/checkout@v2
     - name: Check Lean
       run: lean --version
+    - name: Build dependencies
+      run: |
+        lake update && make utils/egg-herbie
     - name: Build package
       run: |
         rm -rf build/ || true # nuke build folder
         lake build # run build
-    - name: Build dependencies
-      run: |
-        make utils/egg-herbie
     - name: Run tests
       run: ./build/bin/mlir --run-test-suite
