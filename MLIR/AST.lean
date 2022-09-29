@@ -153,8 +153,9 @@ inductive BasicBlock (δ: Dialect α σ ε) where
       -> (args: List (TypedSSAVal δ))
       -> (ops: List (Op δ)) -> BasicBlock δ
 
+
 inductive Region (δ: Dialect α σ ε) where
-| mk: (bbs: List (BasicBlock δ)) -> Region δ
+| mk: BasicBlock δ -> Region δ
 
 end
 
@@ -205,10 +206,9 @@ def Op.type: Op δ -> MLIRType δ
 | Op.mk _ res args .. =>
     .fn (.tuple <| args.map Prod.snd) (.tuple <| res.map Prod.snd)
 
-def Region.bbs (r: Region δ): List (BasicBlock δ) :=
+def Region.bb (r: Region δ):  BasicBlock δ :=
   match r with
-  | (Region.mk bbs) => bbs
-
+  | (Region.mk bb) => bb
 
 instance: Coe String SSAVal where
   coe (s: String) := SSAVal.SSAVal s
@@ -246,13 +246,10 @@ instance : Coe (List (AttrEntry δ)) (AttrDict δ) where
   coe (v: AttrDict δ) := match v with | AttrDict.mk as => as
 
 instance : Coe (BasicBlock δ) (Region δ) where
-  coe (bb: BasicBlock δ) := Region.mk [bb]
+  coe (bb: BasicBlock δ) := Region.mk bb
 
-instance : Coe (List (BasicBlock δ)) (Region δ) where
-  coe (bbs: List (BasicBlock δ)) := Region.mk bbs
-
-instance : Coe (Region δ) (List (BasicBlock δ)) where
-  coe (rgn: Region δ) := match rgn with | Region.mk bbs => bbs
+instance : Coe (Region δ) (BasicBlock δ) where
+  coe (rgn: Region δ) := match rgn with | Region.mk bb => bb
 
 -- Coercions across dialects
 
@@ -297,8 +294,7 @@ def BasicBlock.ops (bb: BasicBlock δ): List (Op δ) :=
   | BasicBlock.mk name args ops => ops
 
 def Region.getBasicBlock (r: Region δ) (name: BBName): Option (BasicBlock δ) :=
-  r.bbs.find? (fun bb => bb.name == name)
-
+  if r.bb.name == name then .some r.bb else .none
 
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
@@ -367,7 +363,7 @@ def coeBasicBlockList: List (BasicBlock δ₁) → List (BasicBlock δ₂)
   | bb :: bbs => coeBasicBlock bb :: coeBasicBlockList bbs
 
 def coeRegion: Region δ₁ → Region δ₂
-  | .mk bbs => .mk (coeBasicBlockList bbs)
+  | .mk bb => .mk (coeBasicBlock bb)
 
 def coeRegionList: List (Region δ₁) → List (Region δ₂)
   | [] => []
@@ -544,7 +540,7 @@ def list_bb_to_doc: List (BasicBlock δ) → List Doc
   | bb :: bbs => bb_to_doc bb :: list_bb_to_doc bbs
 
 def rgn_to_doc: Region δ → Doc
-  | (Region.mk bbs) => [doc| { "{"; (nest (list_bb_to_doc bbs);*); "}"; }]
+  | (Region.mk bb) => [doc| { "{"; (nest (bb_to_doc bb)); "}"; }]
 
 def list_rgn_to_doc: List (Region δ) → List Doc
   | [] => []
@@ -637,10 +633,7 @@ def BasicBlock.appendOps (bb: BasicBlock δ) (ops: List (Op δ)): BasicBlock δ 
   match bb with
   | BasicBlock.mk name args bbs => BasicBlock.mk name args (bbs ++ ops)
 
-def Region.empty: Region δ := Region.mk []
-
-def Region.appendBasicBlock (r: Region δ) (bb: BasicBlock δ) : Region δ :=
-  Coe.coe (Coe.coe r ++ [bb])
+def Region.empty: Region δ := Region.mk <| BasicBlock.empty "entry"
 
 instance : Pretty (Op δ) where
   doc := op_to_doc
@@ -679,7 +672,7 @@ instance : Pretty (Module δ) where
     | Module.mk fs attrs =>
       Doc.VGroup (attrs.map doc ++ fs.map doc)
 
-def Region.fromBlock (bb: BasicBlock δ): Region δ := Region.mk [bb]
+def Region.fromBlock (bb: BasicBlock δ): Region δ := Region.mk bb
 def BasicBlock.fromOps (os: List (Op δ)) (name: String := "entry"): BasicBlock δ :=
   BasicBlock.mk name [] os
 
@@ -687,7 +680,7 @@ def BasicBlock.setArgs (bb: BasicBlock δ) (args: List (SSAVal × MLIRType δ)) 
 match bb with
   | (BasicBlock.mk name _ ops) => (BasicBlock.mk name args ops)
 
-def Region.fromOps (os: List (Op δ)): Region δ := Region.mk [BasicBlock.fromOps os]
+def Region.fromOps (os: List (Op δ)): Region δ := Region.mk <| BasicBlock.fromOps os
 
 -- | return the only region in the block
 def Op.singletonRegion (o: Op δ): Region δ :=
@@ -802,10 +795,7 @@ def regionlens_update {f: Type _ -> Type _} {t: Type _} [Applicative f] (lens: R
     | RegionLens.id => transform src
     | RegionLens.block ix bblens =>
       match src with
-      | Region.mk bbs =>
-        match bbs.get? ix with
-        | none => Pure.pure src
-        | some bb =>  Functor.map (fun bb => Region.mk (bbs.set ix bb)) (blocklens_update bblens transform bb)
+      | Region.mk bb => sorry
 
 
 def blocklens_update {f: Type _ -> Type _} {t: Type _}[Applicative f] (lens: BasicBlockLens δ t) (transform: t -> f t) (src: BasicBlock δ) : f (BasicBlock δ) :=
@@ -833,28 +823,14 @@ instance : Lensed (BasicBlock δ) (BasicBlockLens δ) where
   lensId := BasicBlockLens.id
   update := blocklens_update
 
-def Region.singletonBlock (r: Region δ): BasicBlock δ :=
-  match r.bbs with
-  | (bb :: []) => bb
-  -- FIXME: Adding (doc r) here produces a kernel error in PatternMatch.RewriteInfo.toPDL
-  -- (I'm pretty sure it's a Lean bug)
-  | _ => panic ("expected region with single bb" ++ (doc r))
-
--- | Ensure that region has an entry block.
-def Region.ensureEntryBlock (r: Region δ): Region δ :=
-match r with
-| (Region.mk bbs) =>
-  match bbs with
-  | []  => @BasicBlock.empty _ _ _ δ "entry"
-  | _ => r
+def Region.singletonBlock (r: Region δ): BasicBlock δ := r.bb
 
 
 -- | replace entry block arguments.
 def Region.setEntryBlockArgs (r: Region δ) (args: List (SSAVal × MLIRType δ)) : Region δ :=
 match r with
-| (Region.mk bbs) =>
-  match bbs with
-  | []  => r
-  | ((BasicBlock.mk name _ ops) :: bbs) => Region.mk $ (BasicBlock.mk name args ops) :: bbs
+| (Region.mk bb) =>
+  match bb with
+  | ((BasicBlock.mk name _ ops)) => Region.mk $ (BasicBlock.mk name args ops)
 
 end MLIR.AST

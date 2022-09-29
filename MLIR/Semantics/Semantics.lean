@@ -90,20 +90,22 @@ class Semantics (Δ: Dialect α σ ε)  where
 
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
-/-
-def interpRegion (regions: List (Region Δ)):
-       RegionE Δ +' UBE ~>
-    Fitree (SSAEnvE Δ +' UBE) := fun K e =>
-  match e with
-  | Sum.inl (RegionE.RunRegion i xs) => 
-      denoteRegion (regions.get! i) xs
-  | Sum.inr ube => Fitree.trigger ube
--/
 
-def denoteOpBase (op: Op Δ):
-    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
-  match op with
-  | .mk name res0 args0 bbargs regions0 attrs => do
+def denoteOpRegion (regions0: List (Region Δ)) (args: TypedArgs Δ) (ix: Nat): Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
+      match regions0 with
+      | [] => raiseUB s!"invalid denoteRegion"
+      | r::rs =>
+         match ix with
+         | 0 =>  match r with
+                 | .mk bb =>  denoteBB bb args
+         | ix' + 1 => denoteOpRegion rs args ix'
+
+def denoteOpBase
+   (name: String)
+   (res0: List (TypedSSAVal Δ))
+   (args0: List (TypedSSAVal Δ))
+   (bbargs: List BBName) (regions0: List (Region Δ)) (attrs: AttrDict Δ):
+    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) := do
       -- Read arguments from memory
       let args ← args0.mapM (fun (name, τ) => do
           return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩)
@@ -114,23 +116,19 @@ def denoteOpBase (op: Op Δ):
       let iop : IOp Δ := IOp.mk name resTy args bbargs regions0.length attrs
       -- Use the dialect-provided semantics, and substitute regions
       let t := S.semantics_op iop
-      t.interp $ fun K e => 
+      t.interp $ fun K e =>
         match e with
-        | Sum.inl (RegionE.RunRegion i xs) => 
-              match regions0.get! i with
-              | .mk [bb] => do
-                  denoteBB bb args
-              | _ =>
-                  raiseUB s!"invalid denoteRegion (>1 bb): {i}"
+        | Sum.inl (RegionE.RunRegion i args) =>
+              denoteOpRegion regions0 args  i
         | Sum.inr ube => Fitree.trigger ube
 
 def denoteOp (op: Op Δ):
     Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
   match op with
   | .mk name [] args0 bbargs regions0 attrs => do
-      denoteOpBase op
-  | .mk name [(res, _)] args0 bbargs regions0 attrs => do
-      let br ← denoteOpBase op
+      denoteOpBase name [] args0 bbargs regions0 attrs
+  | .mk name [(res, resty)] args0 bbargs regions0 attrs => do
+      let br ← denoteOpBase name [(res, resty)] args0 bbargs regions0 attrs
       match br with
       | .Next ⟨τ, v⟩ =>
           -- Should we check that τ is res type here?
@@ -181,7 +179,7 @@ def denoteRegion (r: Region Δ):
   match r with
   | .mk [bb] => do
       let result ← denoteBB bb args
-      
+
   | _ =>
       raiseUB s!"invalid denoteRegion (>1 bb): {r}"
 -/
@@ -227,7 +225,7 @@ def MLIRType.swapDialectList: List (MLIRType (δ₁ + δ₂)) -> List (MLIRType 
 
 
 def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
-| .fn argty retty => 
+| .fn argty retty =>
       .fn (MLIRType.swapDialect argty) (MLIRType.swapDialect retty)
 | .int sgn sz => (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
 | .float sz => (.float sz) -- : Nat -> MLIRType δ
@@ -238,7 +236,7 @@ def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
 | .extended (Sum.inr σ₂) => .extended (Sum.inl σ₂)
 end
 
-def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁) 
+def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁)
 | ⟨.fn argty retty, v⟩ =>
     ⟨.fn (MLIRType.swapDialect argty) (MLIRType.swapDialect retty), () ⟩
 | ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
@@ -312,7 +310,7 @@ def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁)
   (bbargs:  List BBName)
   (regions: Nat)
   (attrs:   AttrDict (δ₁ + δ₂)) =>
-     IOp.mk name 
+     IOp.mk name
         (resTy.map MLIRType.swapDialect)
         (args.map TypedArg.swapDialect)
         bbargs
@@ -372,23 +370,23 @@ def BlockResult.retractRight: BlockResult (δ₁ + δ₂) -> Option (BlockResult
 def injectSemanticsRight [Inhabited R]: Fitree (RegionE δ₂ +' UBE) R
   -> Fitree (RegionE (δ₁ + δ₂) +' UBE) R
 | .Ret r => .Ret r
-| .Vis  (.inl regione) k => 
+| .Vis  (.inl regione) k =>
    match regione with  -- need the match to expose that T = BlockResult δ₁
-   | .RunRegion ix args => 
+   | .RunRegion ix args =>
      .Vis (.inl (.RunRegion ix (TypedArgs.injectRight args))) (fun t =>
-          match BlockResult.retractRight t with 
+          match BlockResult.retractRight t with
           | .some t' => injectSemanticsRight (k t')
           | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
 | .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsRight (k t))
 
-def injectSemanticsLeft [Inhabited R]: Fitree (RegionE δ₁ +' UBE) R 
+def injectSemanticsLeft [Inhabited R]: Fitree (RegionE δ₁ +' UBE) R
   -> Fitree (RegionE (δ₁ + δ₂) +' UBE) R
 | .Ret r => .Ret r
-| .Vis  (.inl regione) k => 
+| .Vis  (.inl regione) k =>
    match regione with  -- need the match to expose that T = BlockResult δ₁
-   | .RunRegion ix args => 
+   | .RunRegion ix args =>
      .Vis (.inl (.RunRegion ix (TypedArgs.injectLeft args))) (fun t =>
-          match BlockResult.retractLeft t with 
+          match BlockResult.retractLeft t with
           | .some t' => injectSemanticsLeft (k t')
           | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
 | .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsLeft (k t))
@@ -411,7 +409,7 @@ instance
     | .some op₁ =>
             (injectSemanticsLeft (S₁.semantics_op op₁)).map BlockResult.injectLeft
     | .none =>
-        match Retraction.IOp.retractRight op with 
+        match Retraction.IOp.retractRight op with
         | .some op₂ =>(injectSemanticsRight (S₂.semantics_op op₂)).map BlockResult.injectRight
         | .none => Fitree.trigger $ UBE.UB "unknown mixture of dialects"
 
@@ -436,7 +434,7 @@ def semanticsRegionRec
 def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ]
     (fuel: Nat) (r: Region Δ) (entryArgs: TypedArgs Δ):
     Fitree (SSAEnvE Δ +' UBE) Unit := do
-  let _ ← semanticsRegionRec fuel r (r.bbs.get! 0) entryArgs
+  let _ ← semanticsRegionRec fuel r (r.bb) entryArgs
 
 
 def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
