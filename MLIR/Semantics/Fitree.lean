@@ -144,6 +144,8 @@ def Fitree.interp {M} [Monad M] {E} (h: E ~> M) {R}: Fitree E R → M R
   | .Ret r => pure r
   | .Vis e k => Bind.bind (h _ e) (fun t => interp h (k t))
 
+
+
 @[simp_itree]
 def Fitree.interp' {E F} (h: E ~> Fitree Void1) {R} (t: Fitree (E +' F) R):
     Fitree F R :=

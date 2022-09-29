@@ -68,7 +68,7 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
 -- | TODO: figure out how to coerce BlockResult properly.
-| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ T
+| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
 
 
 
@@ -90,15 +90,15 @@ class Semantics (Δ: Dialect α σ ε)  where
 
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
-
-def interpRegion
-    (regions: List <|
-      TypedArgs Δ → (K : Type) -> Fitree (SSAEnvE Δ +' UBE) K):
-    RegionE Δ +' UBE ~>
+/-
+def interpRegion (regions: List (Region Δ)):
+       RegionE Δ +' UBE ~>
     Fitree (SSAEnvE Δ +' UBE) := fun K e =>
   match e with
-  | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs K
+  | Sum.inl (RegionE.RunRegion i xs) => 
+      denoteRegion (regions.get! i) xs
   | Sum.inr ube => Fitree.trigger ube
+-/
 
 def denoteOpBase (op: Op Δ):
     Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
@@ -108,16 +108,21 @@ def denoteOpBase (op: Op Δ):
       let args ← args0.mapM (fun (name, τ) => do
           return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩)
       -- Evaluate regions
-      -- We write it this way to make the structurral recursion
-      -- clear to lean.
-      let regions := denoteRegions regions0
       -- Get the result types
       let resTy := res0.map Prod.snd
       -- Built the interpreted operation
       let iop : IOp Δ := IOp.mk name resTy args bbargs regions0.length attrs
       -- Use the dialect-provided semantics, and substitute regions
-      match S.semantics_op iop with
-      | t => t.interp (interpRegion regions)
+      let t := S.semantics_op iop
+      t.interp $ fun K e => 
+        match e with
+        | Sum.inl (RegionE.RunRegion i xs) => 
+              match regions0.get! i with
+              | .mk [bb] => do
+                  denoteBB bb args
+              | _ =>
+                  raiseUB s!"invalid denoteRegion (>1 bb): {i}"
+        | Sum.inr ube => Fitree.trigger ube
 
 def denoteOp (op: Op Δ):
     Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
@@ -159,6 +164,7 @@ def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
      denoteTypedArgs args formalArgs
      denoteOps ops
 
+/-
 def denoteRegions (rs: List (Region Δ)):
     List (TypedArgs Δ → Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ)) :=
  match rs with
@@ -173,10 +179,13 @@ def denoteRegion (r: Region Δ):
   -- return a `BlockResult.Ret`, since we don't bother handling
   -- `BlockResult.Branch`.
   match r with
-  | .mk [bb] =>
-      denoteBB bb args
+  | .mk [bb] => do
+      let result ← denoteBB bb args
+      
   | _ =>
       raiseUB s!"invalid denoteRegion (>1 bb): {r}"
+-/
+
 end
 
 namespace Retraction
@@ -339,15 +348,12 @@ def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) := 
 def TypedArg.injectRight (ts: TypedArg (δ₂)): TypedArg (δ₁ +  δ₂) := sorry
 end
 -- need a way to inject args into larger space
-instance RegionMemberLeft : Member (RegionE δ₁) ((RegionE (δ₁ + δ₂))) where
-  inject (T: Type)  (r: RegionE δ₁ T) :=
-    match r with
-    | .RunRegion ix args => .RunRegion ix (TypedArgs.injectLeft args)
+def RegionE.injectLeft: RegionE δ₁ (BlockResult δ₁) -> RegionE (δ₁ + δ₂) (BlockResult (δ₁ + δ₂))
+| .RunRegion ix args => .RunRegion ix (TypedArgs.injectLeft args)
 
-instance RegionMemberRight : Member (RegionE δ₂) ((RegionE (δ₁ + δ₂))) where
-  inject (T: Type)  (r: RegionE δ₂ T) :=
-    match r with
-    | .RunRegion ix args => .RunRegion ix (TypedArgs.injectRight args)
+def RegionE.injectRight: RegionE δ₂ (BlockResult δ₂) -> RegionE (δ₁ + δ₂) (BlockResult (δ₁ + δ₂))
+| .RunRegion ix args => .RunRegion ix (TypedArgs.injectRight args)
+
 
 
 def BlockResult.injectLeft: BlockResult δ₁→ BlockResult (δ₁ + δ₂)
@@ -355,11 +361,37 @@ def BlockResult.injectLeft: BlockResult δ₁→ BlockResult (δ₁ + δ₂)
 | .Ret (rets:  TypedArgs δ₁) => .Ret (TypedArgs.injectLeft rets)
 | .Next val => .Next (TypedArg.injectLeft val)
 
-def BlockResult.injectRight: BlockResult δ₂
-→ BlockResult (δ₁ + δ₂)
+def BlockResult.injectRight: BlockResult δ₂→ BlockResult (δ₁ + δ₂)
 | .Branch (bb: BBName) (args: List SSAVal) => .Branch bb args
-| .Ret (rets:  TypedArgs δ₁) => .Ret (TypedArgs.injectRight rets)
+| .Ret (rets:  TypedArgs δ₂) => .Ret (TypedArgs.injectRight rets)
 | .Next val => .Next (TypedArg.injectRight val)
+
+def BlockResult.retractLeft: BlockResult (δ₁ + δ₂) -> Option (BlockResult δ₁) := sorry
+def BlockResult.retractRight: BlockResult (δ₁ + δ₂) -> Option (BlockResult δ₂) := sorry
+
+def injectSemanticsRight [Inhabited R]: Fitree (RegionE δ₂ +' UBE) R
+  -> Fitree (RegionE (δ₁ + δ₂) +' UBE) R
+| .Ret r => .Ret r
+| .Vis  (.inl regione) k => 
+   match regione with  -- need the match to expose that T = BlockResult δ₁
+   | .RunRegion ix args => 
+     .Vis (.inl (.RunRegion ix (TypedArgs.injectRight args))) (fun t =>
+          match BlockResult.retractRight t with 
+          | .some t' => injectSemanticsRight (k t')
+          | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
+| .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsRight (k t))
+
+def injectSemanticsLeft [Inhabited R]: Fitree (RegionE δ₁ +' UBE) R 
+  -> Fitree (RegionE (δ₁ + δ₂) +' UBE) R
+| .Ret r => .Ret r
+| .Vis  (.inl regione) k => 
+   match regione with  -- need the match to expose that T = BlockResult δ₁
+   | .RunRegion ix args => 
+     .Vis (.inl (.RunRegion ix (TypedArgs.injectLeft args))) (fun t =>
+          match BlockResult.retractLeft t with 
+          | .some t' => injectSemanticsLeft (k t')
+          | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
+| .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsLeft (k t))
 
 end Retraction
 
@@ -370,17 +402,17 @@ instance
     [S₁: Semantics δ₁]
     [S₂: Semantics δ₂]
     : Semantics (δ₁ + δ₂) where
+  -- semantics_op: IOp Δ → Fitree (RegionE Δ +' UBE) (BlockResult Δ)
   semantics_op op :=
     -- TODO: need injections of RegionE δ₁ -> RegionE (δ₁ + δ₂)
     -- TODO: need injection of BlockResult δ₁ -> BlockResult (δ₁ + δ₂)
+    -- TODO: Can I run both, and somehow interleave the two?
     match Retraction.IOp.retractLeft  op with
     | .some op₁ =>
-        Fitree.translate Member.inject $ 
-             (S₁.semantics_op op₁).map BlockResult.injectLeft
+            (injectSemanticsLeft (S₁.semantics_op op₁)).map BlockResult.injectLeft
     | .none =>
         match Retraction.IOp.retractRight op with 
-        | .some op₂ =>  Fitree.translate Member.inject $ 
-                  (S₂.semantics_op op₂).map BlockResult.injectRight
+        | .some op₂ =>(injectSemanticsRight (S₂.semantics_op op₂)).map BlockResult.injectRight
         | .none => Fitree.trigger $ UBE.UB "unknown mixture of dialects"
 
 
