@@ -375,7 +375,7 @@ def MTerm.concretizeOp (m: MTerm δ) (ctx: VarCtx δ) : Option (Op δ) :=
     let res ← MTerm.concretizeOperands mRes ctx
     match res with
     | [resVal] =>
-      return .mk mName [resVal] operands [] [] (AttrDict.mk [])
+      return .mk mName [resVal] operands [] (AttrDict.mk [])
     | _ => none
   | _ => none
 
@@ -462,7 +462,7 @@ def matchMSSAVals (operands: List (TypedSSAVal δ)) (mOperands: List (MTerm δ))
 -- Match a basic block statement with an MTerm.
 def matchMOp (op: Op δ) (mterm: MTerm δ) (ctx: VarCtx δ) : Option (VarCtx δ) :=
   match op, mterm with
-  | Op.mk name res operands [] [] (AttrDict.mk []),
+  | Op.mk name res operands [] (AttrDict.mk []),
     .App .OP [ .ConstString mName, .App (.LIST .MOperand) mOperands,
       .App (.LIST .MOperand) mRes ] =>
     if name != mName then
@@ -487,7 +487,7 @@ mutual
 def matchAllMOpInOp (op: Op δ) (mOp: MTerm δ) (ctx: VarCtx δ)
     : List (Op δ × VarCtx δ) :=
   match op with
-  | .mk _ _ _ _ regions _ =>
+  | .mk _ _ _ regions _ =>
     let nextMatches := matchAllMOpInRegions regions mOp ctx
     match matchMOp op mOp ctx with
     | some ctx' => (op, ctx')::nextMatches
@@ -502,25 +502,11 @@ def matchAllMOpInOps (ops: List (Op δ)) (mOp: MTerm δ)
   | [] => []
 
 -- Get all possible operations matching an MTerm in a basic block.
-def matchAllMOpInBB (bb: BasicBlock δ) (mOp: MTerm δ)
+def matchAllMOpInRegion (rgn: Region δ) (mOp: MTerm δ)
                     (ctx: VarCtx δ) : List (Op δ × VarCtx δ) :=
 
-  match bb with
+  match rgn with
   | .mk _ _ ops => matchAllMOpInOps ops mOp ctx
-
--- Get all possible operations matching an MTerm in multiple basic blocks.
-def matchAllMOpInBBs (bbs: List (BasicBlock δ)) (mOp: MTerm δ)
-                    (ctx: VarCtx δ) : List (Op δ × VarCtx δ) :=
-  match bbs with
-  | bb::bbs' =>
-    (matchAllMOpInBB bb mOp ctx).append (matchAllMOpInBBs bbs' mOp ctx)
-  | [] => []
-
--- Get all possible operations matching an MTerm in a region.
-def matchAllMOpInRegion (region: Region δ) (mOp: MTerm δ)
-                        (ctx: VarCtx δ) : List (Op δ × VarCtx δ) :=
-  match region with
-  | .mk bbs => matchAllMOpInBBs bbs mOp ctx
 
 -- Get all possible operations matching an MTerm in a list of regions.
 def matchAllMOpInRegions (regions: List (Region δ)) (mOp: MTerm δ)
@@ -534,8 +520,6 @@ end
 termination_by
   matchAllMOpInOp op _ _ => sizeOf op
   matchAllMOpInOps ops _ _ => sizeOf ops
-  matchAllMOpInBB bb _ _ => sizeOf bb
-  matchAllMOpInBBs bbs _ _ => sizeOf bbs
   matchAllMOpInRegion region _ _ => sizeOf region
   matchAllMOpInRegions regions _ _ => sizeOf regions
 
@@ -635,7 +619,7 @@ The operation to match should not have any regions or attributes.
 
 def eqOp (op1 op2: Op δ) : Bool :=
   match op1, op2 with
-  | .mk name res args [] [] (.mk []), .mk name' res' args' [] [] (.mk []) =>
+  | .mk name res args [] (.mk []), .mk name' res' args' [] (.mk []) =>
     name == name' && res == res' && args == args'
   | _, _ => false
 
@@ -644,25 +628,16 @@ variable (mOp: Op δ)
 
 def isOpInOp (op: Op δ) : Bool :=
   eqOp op mOp ||
-    (match op with 
-     | .mk _ _ _ _ regions _ => isOpInRegions regions)
+    (match op with
+     | .mk _ _ _ regions _ => isOpInRegions regions)
 
 def isOpInRegions (regions: List (Region δ)) : Bool :=
   match regions with
   | [] => False
   | region::regions' => isOpInRegion region || isOpInRegions regions'
 
-def isOpInRegion (region: Region δ) : Bool :=
-  match region with
-  | .mk bbs => isOpInBBs bbs
-
-def isOpInBBs (bbs: List (BasicBlock δ)) : Bool :=
-  match bbs with
-  | [] => False
-  | bb::bbs' => isOpInBB bb || isOpInBBs bbs'
-
-def isOpInBB (bb: BasicBlock δ) : Bool :=
-  match bb with
+def isOpInRegion (rgn: Region δ) : Bool :=
+  match rgn with
   | .mk _ _ ops => isOpInOps ops
 
 def isOpInOps (ops: List (Op δ)) : Bool :=

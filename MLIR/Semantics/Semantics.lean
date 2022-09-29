@@ -36,13 +36,11 @@ def denoteTypedArgs [Member (SSAEnvE Δ) E] (args: TypedArgs Δ) (names: List SS
 -- TODO: Consider changing BlockResult.Branch.args into
 --       a TypedArgs (?)
 inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
-| Branch (bb: BBName) (args: List SSAVal)
 | Ret (rets:  TypedArgs δ)
-| Next (val: TypedArg δ) -- (τ: MLIRType δ) × τ.eval)
+| Next (val: TypedArg δ) -- Waht the hell is next? I no longer recall...
 
 def BlockResult.toTypedArgs {δ: Dialect α σ ε} (blockResult: BlockResult δ) :=
   match blockResult with
-  | .Branch bb args => []
   | .Ret rets => rets
   | .Next val => []
 
@@ -51,7 +49,6 @@ instance : Inhabited (BlockResult δ) where
 
 instance (δ: Dialect α σ ε): ToString (BlockResult δ) where
   toString := fun
-    | .Branch bb args => s!"Branch {bb} {args}"
     | .Ret rets       => s!"Ret {rets}"
     | .Next ⟨τ, val⟩  => s!"Next {val}: {τ}"
 
@@ -60,7 +57,6 @@ inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
-  (bbargs:  List BBName)
   (regions: Nat)
   (attrs:   AttrDict δ)
 
@@ -96,15 +92,14 @@ def denoteOpRegion (regions0: List (Region Δ)) (args: TypedArgs Δ) (ix: Nat): 
       | [] => raiseUB s!"invalid denoteRegion"
       | r::rs =>
          match ix with
-         | 0 =>  match r with
-                 | .mk bb =>  denoteBB bb args
+         | 0 =>   denoteRegion r args
          | ix' + 1 => denoteOpRegion rs args ix'
 
 def denoteOpBase
    (name: String)
    (res0: List (TypedSSAVal Δ))
    (args0: List (TypedSSAVal Δ))
-   (bbargs: List BBName) (regions0: List (Region Δ)) (attrs: AttrDict Δ):
+   (regions0: List (Region Δ)) (attrs: AttrDict Δ):
     Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) := do
       -- Read arguments from memory
       let args ← args0.mapM (fun (name, τ) => do
@@ -113,7 +108,7 @@ def denoteOpBase
       -- Get the result types
       let resTy := res0.map Prod.snd
       -- Built the interpreted operation
-      let iop : IOp Δ := IOp.mk name resTy args bbargs regions0.length attrs
+      let iop : IOp Δ := IOp.mk name resTy args regions0.length attrs
       -- Use the dialect-provided semantics, and substitute regions
       let t := S.semantics_op iop
       t.interp $ fun K e =>
@@ -125,10 +120,10 @@ def denoteOpBase
 def denoteOp (op: Op Δ):
     Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
   match op with
-  | .mk name [] args0 bbargs regions0 attrs => do
-      denoteOpBase name [] args0 bbargs regions0 attrs
-  | .mk name [(res, resty)] args0 bbargs regions0 attrs => do
-      let br ← denoteOpBase name [(res, resty)] args0 bbargs regions0 attrs
+  | .mk name [] args0 regions0 attrs => do
+      denoteOpBase name [] args0 regions0 attrs
+  | .mk name [(res, resty)] args0 regions0 attrs => do
+      let br ← denoteOpBase name [(res, resty)] args0 regions0 attrs
       match br with
       | .Next ⟨τ, v⟩ =>
           -- Should we check that τ is res type here?
@@ -152,10 +147,10 @@ def denoteOps (stmts: List (Op Δ))
       let _ ← denoteOp stmt
       denoteOps stmts
 
-def denoteBB (bb: BasicBlock Δ) (args: TypedArgs Δ):
+def denoteRegion (rgn: Region Δ) (args: TypedArgs Δ):
     Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) := do
-  match bb with
-  | BasicBlock.mk name formalArgsAndTypes ops =>
+  match rgn with
+  | Region.mk name formalArgsAndTypes ops =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
      -- TODO: Any checks on the BlockResults of intermediate ops?
      let formalArgs : List SSAVal := formalArgsAndTypes.map Prod.fst
@@ -307,13 +302,11 @@ def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁)
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType (δ₁ + δ₂)))
   (args:    TypedArgs (δ₁ + δ₂))
-  (bbargs:  List BBName)
   (regions: Nat)
   (attrs:   AttrDict (δ₁ + δ₂)) =>
      IOp.mk name
         (resTy.map MLIRType.swapDialect)
         (args.map TypedArg.swapDialect)
-        bbargs
         regions
         (AttrDict.swapDialect attrs)
 
@@ -322,7 +315,6 @@ def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType (δ₁ + δ₂)))
   (args:    TypedArgs (δ₁ + δ₂))
-  (bbargs:  List BBName)
   (regions: Nat)
   (attrs:   AttrDict (δ₁ + δ₂)) =>
   match MLIRType.retractLeftList resTy with
@@ -333,7 +325,7 @@ def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
     | .some args' =>
         match AttrDict.retractLeft attrs with
         | .none => .none
-        | .some attrs' => .some (IOp.mk name resTy' args' bbargs regions attrs')
+        | .some attrs' => .some (IOp.mk name resTy' args' regions attrs')
 
 
 def IOp.retractRight (op: IOp (δ₁ + δ₂)): Option (IOp δ₂) :=
@@ -355,12 +347,10 @@ def RegionE.injectRight: RegionE δ₂ (BlockResult δ₂) -> RegionE (δ₁ + �
 
 
 def BlockResult.injectLeft: BlockResult δ₁→ BlockResult (δ₁ + δ₂)
-| .Branch (bb: BBName) (args: List SSAVal) => .Branch bb args
 | .Ret (rets:  TypedArgs δ₁) => .Ret (TypedArgs.injectLeft rets)
 | .Next val => .Next (TypedArg.injectLeft val)
 
 def BlockResult.injectRight: BlockResult δ₂→ BlockResult (δ₁ + δ₂)
-| .Branch (bb: BBName) (args: List SSAVal) => .Branch bb args
 | .Ret (rets:  TypedArgs δ₂) => .Ret (TypedArgs.injectRight rets)
 | .Next val => .Next (TypedArg.injectRight val)
 
@@ -414,28 +404,6 @@ instance
         | .none => Fitree.trigger $ UBE.UB "unknown mixture of dialects"
 
 
-def semanticsRegionRec
-    [S: Semantics Δ]
-    (fuel: Nat) (r: Region Δ) (bb: BasicBlock Δ) (entryArgs: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
-  match fuel with
-  | 0 => return .Next ⟨.unit, ()⟩
-  | fuel' + 1 => do
-      match ← denoteBB Δ bb entryArgs with
-        | .Branch bbname args =>
-            match r.getBasicBlock bbname with
-            | some bb' => semanticsRegionRec fuel' r bb' []
-            | none => return .Next ⟨.unit, ()⟩
-        | .Ret rets => return .Ret rets
-        | .Next v => return .Next v
-
--- TODO: Pass region arguments
--- TODO: Forward region's return type and value
-def semanticsRegion {Δ: Dialect α σ ε} [S: Semantics Δ]
-    (fuel: Nat) (r: Region Δ) (entryArgs: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' UBE) Unit := do
-  let _ ← semanticsRegionRec fuel r (r.bb) entryArgs
-
 
 def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
     (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
@@ -485,10 +453,6 @@ notation "⟦ " t " ⟧" => Denote.denote t
 instance DenoteOp (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
   denote op := denoteOp δ op
 
--- TODO: this a small hack, because we assume the basic block has no arguments
-instance DenoteBB (δ: Dialect α σ ε) [Semantics δ]: Denote δ BasicBlock where
-  denote bb := denoteBB δ bb []
-
 -- This only works for single-BB regions with no arguments
 instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region where
   denote r := denoteRegion δ r []
@@ -497,7 +461,5 @@ instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region wh
 
 @[simp] theorem Denote.denoteOp [Semantics δ]:
   Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
-@[simp] theorem Denote.denoteBB [Semantics δ]:
-  Denote.denote (self := DenoteBB δ) bb = denoteBB δ bb [] := rfl
 @[simp] theorem Denote.denoteRegion [Semantics δ]:
   Denote.denote (self := DenoteRegion δ) r = denoteRegion δ r [] := rfl

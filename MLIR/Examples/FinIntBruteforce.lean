@@ -52,16 +52,15 @@ axiom alive2 (P: FinIntPred2):
 ---
 
 namespace BruteforceThm1
-def LHS: BasicBlock arith := [mlir_bb|
-  ^bb:
+def LHS: Region arith := [mlir_region|{
     %_1 = "addi"(%X, %Y): (i32, i32) -> i32
     %_2 = "andi"(%X, %Y): (i32, i32) -> i32
     %r = "subi"(%_1, %_2): (i32, i32) -> i32
-]
-def RHS: BasicBlock arith := [mlir_bb|
+}]
+def RHS: Region arith := [mlir_region|{
   ^bb:
     %r = "ori"(%X, %Y): (i32, i32) -> i32
-]
+}]
 def INPUT (X Y: FinInt 32): SSAEnv arith := SSAEnv.One [
   ("X", ⟨.i32, X⟩), ("Y", ⟨.i32, Y⟩)
 ]

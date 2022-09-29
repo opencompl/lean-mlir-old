@@ -303,20 +303,20 @@ private def PDLToMatch.readStatement (operationMatchTerms: List (MTerm builtin))
   match op with
   -- %name = pdl.type
   | Op.mk "pdl.type" [⟨SSAVal.SSAVal name, .undefined "pdl.type"⟩]
-        [] [] [] (AttrDict.mk []) => do
+         [] [] (AttrDict.mk []) => do
       IO.println s!"Found new type variable: {name}"
       addName name
-  
+
   -- %name = pdl.type: TYPE
   | Op.mk "pdl.type" [⟨SSAVal.SSAVal name, .undefined "pdl.type"⟩]
-        [] [] [] (AttrDict.mk [AttrEntry.mk "type" (AttrValue.type τ)]) => do
+         [] [] (AttrDict.mk [AttrEntry.mk "type" (AttrValue.type τ)]) => do
       IO.println s!"Found new type variable: {name} (= {τ})"
       addName name
       addEquation (.Var 1 name .MMLIRType, .ConstMLIRType τ)
 
   -- %name = pdl.operand
   | Op.mk "pdl.operand" [⟨SSAVal.SSAVal name, .undefined "pdl.value"⟩]
-        [] [] [] (AttrDict.mk []) => do
+         [] [] (AttrDict.mk []) => do
       IO.println s!"Found new variable: {name}"
       addName name
       let typeName ← makeFreshName (name ++ "_T")
@@ -325,14 +325,14 @@ private def PDLToMatch.readStatement (operationMatchTerms: List (MTerm builtin))
 
   -- %name = pdl.operand: %typeName
   | Op.mk "pdl.operand" [⟨SSAVal.SSAVal name, .undefined "pdl.value"⟩]
-        [⟨SSAVal.SSAVal typeName, .undefined "pdl.type"⟩] [] [] (AttrDict.mk []) => do
+        [⟨SSAVal.SSAVal typeName, .undefined "pdl.type"⟩] [] (AttrDict.mk []) => do
       IO.println s!"Found new variable: {name} of type {typeName}"
       addName name
       checkNameDefined typeName
       addJudgement name (.Var 0 typeName .MMLIRType)
 
   -- %name = pdl.operation "OPNAME"(ARGS) -> TYPE
-  | Op.mk "pdl.operation" [⟨SSAVal.SSAVal name, _⟩] args [] [] attrs => do
+  | Op.mk "pdl.operation" [⟨SSAVal.SSAVal name, _⟩] args [] attrs => do
       let (attributeNames, opname, operand_segment_sizes) :=
         (attrs.find "attributeNames",
          attrs.find "name",
@@ -389,7 +389,7 @@ private def PDLToMatch.readStatement (operationMatchTerms: List (MTerm builtin))
 
     -- %name = pdl.result INDEX of %op
   | Op.mk "pdl.result" [⟨SSAVal.SSAVal name, .undefined "pdl.value"⟩]
-        [⟨SSAVal.SSAVal opname, .undefined "pdl.operation"⟩] [] [] attrs => do
+        [⟨SSAVal.SSAVal opname, .undefined "pdl.operation"⟩] []  attrs => do
       match attrs.find "index" with
       | some (AttrValue.int index (MLIRType.int _ _)) =>
           IO.println
@@ -403,8 +403,8 @@ private def PDLToMatch.readStatement (operationMatchTerms: List (MTerm builtin))
 
       | _ =>
           error s!"pdl.result: unexpected attributes on {opname}: {attrs}"
-  
-  | Op.mk "pdl.rewrite" [] args bbs regions attrs =>
+
+  | Op.mk "pdl.rewrite" [] args regions attrs =>
       return ()
 
   | _ => do
@@ -414,15 +414,15 @@ def PDLToMatch.convert (PDLProgram: Op builtin)
     (operationMatchTerms: List (MTerm builtin)):
     TranslationM builtin Unit :=
   match PDLProgram with
-  | Op.mk "pdl.pattern" _ [] [] [region] attrs =>
+  | Op.mk "pdl.pattern" _ [] [region] attrs =>
       match region with
-      | Region.mk [BasicBlock.mk name [] stmts] => do
+      | Region.mk name [] stmts => do
           stmts.forM (readStatement operationMatchTerms)
           set { ← get with success := true }
-      | Region.mk _ => do
+      | Region.mk _ _ _ => do
           error (s!"PDLToMatch.convert: expected only one BB with no " ++
             "arguments in the pattern region")
-  | Op.mk "pdl.pattern" _ _ _ attrs ty => do
+  | Op.mk "pdl.pattern" _ _ _ _ => do
       error (s!"PDLToMatch.convert: expected operation to have exactly one " ++
         "argument (a region):\n{pattern}")
   | _ => do
