@@ -7,6 +7,7 @@ which define the custom attributes and type required to model the programs.
 -/
 
 import MLIR.Semantics.Fitree
+import MLIR.Semantics.FitreeLaws
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.UB
 import MLIR.AST
@@ -37,7 +38,7 @@ def denoteTypedArgs [Member (SSAEnvE Δ) E] (args: TypedArgs Δ) (names: List SS
 inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
 | Branch (bb: BBName) (args: List SSAVal)
 | Ret (rets:  TypedArgs δ)
-| Next (val: (τ: MLIRType δ) × τ.eval)
+| Next (val: TypedArg δ) -- (τ: MLIRType δ) × τ.eval)
 
 def BlockResult.toTypedArgs {δ: Dialect α σ ε} (blockResult: BlockResult δ) :=
   match blockResult with
@@ -67,7 +68,7 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 -- TODO: change this to also deal with scf.if and yield.
 inductive RegionE (Δ: Dialect α σ ε): Type -> Type
 -- | TODO: figure out how to coerce BlockResult properly.
-| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
+| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ T
 
 
 
@@ -92,11 +93,11 @@ variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
 def interpRegion
     (regions: List <|
-      TypedArgs Δ → Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ)):
+      TypedArgs Δ → (K : Type) -> Fitree (SSAEnvE Δ +' UBE) K):
     RegionE Δ +' UBE ~>
-    Fitree (SSAEnvE Δ +' UBE) := fun _ e =>
+    Fitree (SSAEnvE Δ +' UBE) := fun K e =>
   match e with
-  | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs
+  | Sum.inl (RegionE.RunRegion i xs) => regions.get! i xs K
   | Sum.inr ube => Fitree.trigger ube
 
 def denoteOpBase (op: Op Δ):
@@ -210,7 +211,40 @@ def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → Option (MLIRType δ₁)
 | .extended (Sum.inr σ₂) => .none
 end
 
-#check MLIRType.eval
+mutual
+def MLIRType.swapDialectList: List (MLIRType (δ₁ + δ₂)) -> List (MLIRType (δ₂ + δ₁))
+| [] => []
+| t::ts =>  (MLIRType.swapDialect t) :: (MLIRType.swapDialectList ts)
+
+
+def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
+| .fn argty retty => 
+      .fn (MLIRType.swapDialect argty) (MLIRType.swapDialect retty)
+| .int sgn sz => (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
+| .float sz => (.float sz) -- : Nat -> MLIRType δ
+| .index => (.index) --:  MLIRType δ
+| .tuple ts => .tuple (MLIRType.swapDialectList ts)
+| .undefined s => (.undefined s) -- : String → MLIRType δ
+| .extended (Sum.inl σ₁) => .extended (Sum.inr σ₁)
+| .extended (Sum.inr σ₂) => .extended (Sum.inl σ₂)
+end
+
+def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁) 
+| ⟨.fn argty retty, v⟩ =>
+    ⟨.fn (MLIRType.swapDialect argty) (MLIRType.swapDialect retty), () ⟩
+| ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
+| ⟨ .float sz, v ⟩ =>  ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
+| ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
+| ⟨.tuple ts, vs ⟩ =>
+   -- TODO: need to convert from (vs: MLIRType.eval (.tuple ts)) to List (TypedArg δ)
+   sorry
+| ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
+| ⟨.extended (Sum.inl σ₁), v ⟩ => ⟨.extended (Sum.inr σ₁), v⟩
+| ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended (Sum.inl σ₂), v⟩
+
+
+
+
 mutual
 def TypedArg.retractLeftList: List (TypedArg (δ₁ + δ₂)) -> Option (List (TypedArg δ₁))
 | [] => .some []
@@ -258,6 +292,24 @@ def TypedArgs.retractLeft: TypedArgs (δ₁ + δ₂) -> Option (TypedArgs δ₁)
 def AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> Option (AttrDict δ₁)
 | _ => .some (AttrDict.mk [])
 
+def AttrDict.swapDialect: AttrDict (δ₁ + δ₂) -> AttrDict (δ₂ + δ₁)
+| _ => AttrDict.mk []
+
+
+def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁)
+| IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
+  (resTy:   List (MLIRType (δ₁ + δ₂)))
+  (args:    TypedArgs (δ₁ + δ₂))
+  (bbargs:  List BBName)
+  (regions: Nat)
+  (attrs:   AttrDict (δ₁ + δ₂)) =>
+     IOp.mk name 
+        (resTy.map MLIRType.swapDialect)
+        (args.map TypedArg.swapDialect)
+        bbargs
+        regions
+        (AttrDict.swapDialect attrs)
+
 -- Retract an IOp to the left component.
 def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
@@ -277,16 +329,37 @@ def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
         | .some attrs' => .some (IOp.mk name resTy' args' bbargs regions attrs')
 
 
+def IOp.retractRight (op: IOp (δ₁ + δ₂)): Option (IOp δ₂) :=
+  IOp.retractLeft (IOp.swapDialect op)
+
 mutual
-def TypedArgs.inject (ts: TypedArgs (δ₁)): TypedArgs (δ₁ +  δ₂) := sorry
-def TypedArg.inject (ts: TypedArg (δ₁)): TypedArg (δ₁ + δ₂) := sorry
+def TypedArgs.injectLeft (ts: TypedArgs (δ₁)): TypedArgs (δ₁ +  δ₂) := sorry
+def TypedArg.injectLeft (ts: TypedArg (δ₁)): TypedArg (δ₁ +  δ₂) := sorry
+def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) := sorry
+def TypedArg.injectRight (ts: TypedArg (δ₂)): TypedArg (δ₁ +  δ₂) := sorry
 end
 -- need a way to inject args into larger space
 instance RegionMemberLeft : Member (RegionE δ₁) ((RegionE (δ₁ + δ₂))) where
-  inject := fun T r =>
+  inject (T: Type)  (r: RegionE δ₁ T) :=
     match r with
-    | .RunRegion ix args => .RunRegion ix (TypedArgs.inject args)
+    | .RunRegion ix args => .RunRegion ix (TypedArgs.injectLeft args)
 
+instance RegionMemberRight : Member (RegionE δ₂) ((RegionE (δ₁ + δ₂))) where
+  inject (T: Type)  (r: RegionE δ₂ T) :=
+    match r with
+    | .RunRegion ix args => .RunRegion ix (TypedArgs.injectRight args)
+
+
+def BlockResult.injectLeft: BlockResult δ₁→ BlockResult (δ₁ + δ₂)
+| .Branch (bb: BBName) (args: List SSAVal) => .Branch bb args
+| .Ret (rets:  TypedArgs δ₁) => .Ret (TypedArgs.injectLeft rets)
+| .Next val => .Next (TypedArg.injectLeft val)
+
+def BlockResult.injectRight: BlockResult δ₂
+→ BlockResult (δ₁ + δ₂)
+| .Branch (bb: BBName) (args: List SSAVal) => .Branch bb args
+| .Ret (rets:  TypedArgs δ₁) => .Ret (TypedArgs.injectRight rets)
+| .Next val => .Next (TypedArg.injectRight val)
 
 end Retraction
 
@@ -301,10 +374,14 @@ instance
     -- TODO: need injections of RegionE δ₁ -> RegionE (δ₁ + δ₂)
     -- TODO: need injection of BlockResult δ₁ -> BlockResult (δ₁ + δ₂)
     match Retraction.IOp.retractLeft  op with
-    | .some op₁ => S₁.semantics_op op₁
-    -- TODO: figure out how to mix the semantics of two dialects.
-    -- (S₁.semantics_op op).map (.translate Member.inject) <|>
-    -- (S₂.semantics_op op).map (.translate Member.inject)
+    | .some op₁ =>
+        Fitree.translate Member.inject $ 
+             (S₁.semantics_op op₁).map BlockResult.injectLeft
+    | .none =>
+        match Retraction.IOp.retractRight op with 
+        | .some op₂ =>  Fitree.translate Member.inject $ 
+                  (S₂.semantics_op op₂).map BlockResult.injectRight
+        | .none => Fitree.trigger $ UBE.UB "unknown mixture of dialects"
 
 
 def semanticsRegionRec
