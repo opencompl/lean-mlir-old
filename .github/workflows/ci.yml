@@ -10,7 +10,12 @@ jobs:
   build-lean-mlir:
     name: Build lean-mlir
     runs-on: ubuntu-latest
+
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
     - name: Install Elan (Ubuntu)
       run: |
         curl -sSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh > elan-init.sh
@@ -18,9 +23,6 @@ jobs:
         ./elan-init.sh -y
         echo "$HOME/.elan/bin" >> $GITHUB_PATH
     # TODO: refactor into utils/build.sh && utils/test.sh
-    - name: Install Cargo (Ubuntu)
-      run: |
-        curl https://sh.rustup.rs -sSf | sh
     - name: Checkout
       uses: actions/checkout@v2
     - name: Check Lean
