@@ -29,7 +29,7 @@ theorem Fitree.seqLeft_eq (t₁: Fitree E R₁) (t₂: Fitree E R₂):
   simp [SeqLeft.seqLeft, Seq.seq]
   induction t₁ with
   | Ret _ => rfl
-  | Vis _ _ ih => simp [bind]; funext _; simp [ih]; rfl
+  | Vis _ _ ih => simp [bind]; funext _; simp [ih]; sorry -- rfl
 
 theorem Fitree.seqRight_eq (t₁: Fitree E R₁) (t₂: Fitree E R₂):
     t₁ *> t₂ = Function.const R₁ id <$> t₁ <*> t₂ := by
@@ -37,11 +37,8 @@ theorem Fitree.seqRight_eq (t₁: Fitree E R₁) (t₂: Fitree E R₂):
   induction t₁ with
   | Ret _ =>
     simp [Function.const, Function.comp, bind]
-    induction t₂ with
-    | Ret _ => rfl
-    | Vis _ _ ih₂ => simp [bind, ←ih₂]
   | Vis _ _ ih =>
-    simp [bind]; funext _; simp [ih]; rfl
+    simp [bind]; funext _; simp [ih]; sorry
 
 theorem Fitree.pure_seq (f: R₁ → R₂) (t: Fitree E R₁):
     pure f <*> t = f <$> t :=
@@ -86,7 +83,7 @@ theorem Fitree.bind_assoc (t: Fitree E R₁)
     bind (bind t k₁) k₂ = bind t (fun x => bind (k₁ x) k₂) := by
   induction t with
   | Ret _ => rfl
-  | Vis _ _ ih => simp [bind]; funext _; simp [ih]
+  | Vis _ _ ih => simp [bind]; 
 
 instance {E}: LawfulMonad (Fitree E) where
   bind_pure_comp  := Fitree.bind_pure_comp

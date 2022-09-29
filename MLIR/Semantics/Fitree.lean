@@ -79,6 +79,10 @@ inductive Fitree (E: Type → Type) (R: Type) where
   | Ret (r: R): Fitree E R
   | Vis {T: Type} (e: E T) (k: T → Fitree E R): Fitree E R
 
+def Fitree.map {E R R'} (f: R → R'): Fitree E R -> Fitree E R'
+| .Ret r => .Ret (f r)
+| .Vis e k => .Vis e (fun t => (k t).map f)
+
 @[simp_itree]
 def Fitree.ret {E R}: R → Fitree E R :=
   Fitree.Ret
@@ -446,6 +450,7 @@ theorem Fitree.bind_trigger [Member E F] (e: E T) (k: T → Fitree F R):
 inductive Fitree.noEventL {E F R}: Fitree (E +' F) R → Prop :=
   | Ret r: noEventL (Ret r)
   | Vis f k: (∀ t, noEventL (k t)) → noEventL (Vis (Sum.inr f) k)
+
 
 
 /-
