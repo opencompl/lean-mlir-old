@@ -11,7 +11,7 @@ import MLIR.Examples.FinIntBruteforce
 -- Testing imports for semantics
 import MLIR.Dialects.ToySemantics
 import MLIR.Dialects.PDLSemantics
-import MLIR.Dialects.ControlFlowSemantics
+-- import MLIR.Dialects.ControlFlowSemantics
 import MLIR.Dialects.ScfSemantics
 import MLIR.Dialects.ArithSemantics
 
@@ -36,12 +36,12 @@ def main (xs: List String): IO UInt32 := do
   else if xs.length == 2 && xs.head! == "--extract-semantic-tests" then
     SemanticsTests.semanticTests.forM fun t => do
       let (SemanticsTests.SemanticTest.mk S name r) := t
-      let τi: MLIRType (S + cf) := .fn (.tuple []) (.tuple [.i32])
-      let fn: Op (S + cf) := .mk "func.func" [] [] [] [r]
+      let τi: MLIRType (S + scf) := .fn (.tuple []) (.tuple [.i32])
+      let fn: Op (S + scf) := .mk "func.func" [] [] [r]
         (.mk [.mk "sym_name" $ .str "main",
               .mk "function_type" $ .type τi])
-      let bb: BasicBlock (S + cf) := .mk "entry" [] [fn]
-      let m: Op (S + cf) := .mk "builtin.module" [] [] [] [.mk [bb]] .empty
+      let rgn: Region (S + scf) := .mk "entry" [] [fn]
+      let m: Op (S + scf) := .mk "builtin.module" [] [] [rgn] .empty
       let out_folder := xs.drop 1 |>.head!
       IO.println s!"extracting {out_folder}/{name}..."
       let code := layout80col $ Pretty.doc m

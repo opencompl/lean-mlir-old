@@ -49,10 +49,10 @@ def run_loop_bounded
 def scf_semantics_op: IOp Δ →
       Fitree (RegionE Δ +' UBE) (BlockResult Δ)
 
-  | IOp.mk "scf.if" _ [⟨.i1, b⟩] [] 2 _ =>
+  | IOp.mk "scf.if" _ [⟨.i1, b⟩]  2 _ =>
       Fitree.trigger <| RegionE.RunRegion (if b == 1 then 0 else 1) []
 
-  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [] 1 _ => do
+  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] 1 _ => do
     let nsteps : Int := (hi - lo) / step
     run_loop_bounded_stepped
       (a := BlockResult Δ)
@@ -62,13 +62,13 @@ def scf_semantics_op: IOp Δ →
       (accum := default)
       (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, i⟩]))
 
-  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] [] 1 _ => do
+  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] 1 _ => do
       run_loop_bounded (n := (hi - lo).toNat) (ix := lo) (BlockResult.Ret [])
 
-  | IOp.mk "scf.yield" _ vs [] 0 _ =>
+  | IOp.mk "scf.yield" _ vs 0 _ =>
       return BlockResult.Ret vs
 
-  | IOp.mk "scf.execute_region" _ args [] 1 _ => do
+  | IOp.mk "scf.execute_region" _ args  1 _ => do
       Fitree.trigger (RegionE.RunRegion 0 args)
 
   | _ => Fitree.trigger UBE.Unhandled
@@ -97,10 +97,9 @@ def INPUT (b: Bool): SSAEnv scf := SSAEnv.One [
 theorem equivalent (b: Bool):
     run ⟦LHS r₁ r₂⟧ (INPUT b) =
     run ⟦if b then r₁ else r₂⟧ (INPUT b) := by
-  simp [LHS, INPUT, denoteRegion, denoteBB, denoteOps, denoteTypedArgs]
-  simp [denoteOp, denoteOpBase, List.map, List.zip, List.zipWith, List.mapM]
+  simp [LHS, INPUT, denoteRegion,  denoteOps, denoteTypedArgs]
+  simp [denoteOp, denoteOpBase, List.map, List.zip, List.zipWith, List.mapM, List.mapM.loop]
   simp [Semantics.semantics_op, scf_semantics_op]
-  simp [interpRegion, denoteRegions]
   simp [run, interpUB_bind, interpSSA'_bind]
   simp [SSAEnvE.handle, cast_eq]
   cases b <;> simp [List.get!]
@@ -158,7 +157,7 @@ theorem peel_run_loop_bounded {n: Nat} {ix: Int} (start: BlockResult Δ):
 theorem CORRECT_r (n:Nat) (r: Region scf) args:
     (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n) := by
   sorry
-
+/-
 theorem CORRECT_r_commute_run_interpRegion_SSAEnvE_get [S: Semantics scf]
   (CORRECT_r: (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n))
   (name: SSAVal) (τ: MLIRType scf) (v: MLIRType.eval τ)
@@ -175,7 +174,7 @@ theorem CORRECT_r_commute_run_interpRegion_SSAEnvE_get [S: Semantics scf]
   simp [CORRECT_r]
   simp [run_SSAEnvE_get _ _ _ _ _ ENV]
   simp [run_bind, CORRECT_r]
-
+-/
 private theorem identity₁ (n: Nat):
     Int.toNat (Int.ofNat n + 1 - 0) = n + 1 := by
   sorry
@@ -185,9 +184,11 @@ theorem equivalent (n: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n)) =
     (run ⟦RHS r⟧ (INPUT n)) := by
   simp [LHS, RHS]
-  simp [denoteRegion, denoteBB, denoteTypedArgs, denoteOps, denoteOp]
+  simp [denoteTypedArgs, denoteOps, denoteOp]
   simp [denoteOpBase, Semantics.semantics_op, scf_semantics_op]; simp_itree
-  simp [denoteRegions]
+  sorry
+  /-
+  -- simp [denoteRegions]
   rw [run_SSAEnvE_get "c0" .index 0]
   rw [run_SSAEnvE_get "cn_plus_1" .index (n+1)]
   rw [run_SSAEnvE_get "c0" .index 0]
@@ -201,7 +202,7 @@ theorem equivalent (n: Nat) (r: Region scf):
   simp [peel_run_loop_bounded, Fitree.interp_bind]
   simp [(by sorry: (0:Int) + (1:Int) = (1:Int))]
   all_goals simp [INPUT, cast_eq]
-
+  -/
 end SCF.FOR_PEELING
 
 
@@ -241,7 +242,7 @@ theorem equivalent (n m: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n m)) =
     (run ⟦RHS r⟧ (INPUT n m)) := by
   simp [LHS, RHS, INPUT]
-  simp [denoteRegion, denoteBB, denoteOps, denoteOp, denoteOpBase]
+  simp [denoteRegion, denoteOps, denoteOp, denoteOpBase]
   simp_itree
   simp [Semantics.semantics_op, scf_semantics_op]
   rw [run_SSAEnvE_get "c0" .index 0]

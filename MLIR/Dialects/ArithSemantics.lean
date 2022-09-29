@@ -88,10 +88,10 @@ def unary_semantics_op (op: IOp Δ)
       (ctor: {sz: Nat} → FinInt sz → FinInt sz):
     (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
   match op with
-  | IOp.mk _ _ [⟨.int sgn sz, arg⟩] [] 0 _ => do
+  | IOp.mk _ _ [⟨.int sgn sz, arg⟩]  0 _ => do
       let r := ctor arg
       return BlockResult.Next ⟨.int sgn sz, r⟩
-  | IOp.mk _ _ _ _ _ _ =>  Fitree.trigger (UBE.Unhandled)
+  | IOp.mk .. =>  Fitree.trigger (UBE.Unhandled)
 
 def binary_semantics_op {Δ: Dialect α' σ' ε'}
       (name: String) (args: List ((τ: MLIRType Δ) × τ.eval))
@@ -140,7 +140,7 @@ def cmpI (sz : ℕ) (pred : ComparisonPred) (lhs: FinInt sz) (rhs: FinInt sz): F
 def arith_semantics_op (o: IOp Δ):
     (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
   match o with
-  | IOp.mk "arith.constant" [τ₁] [] [] 0 attrs =>
+  | IOp.mk "arith.constant" [τ₁] [] 0 attrs =>
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
           if τ₁ = τ₂ then
@@ -156,7 +156,7 @@ def arith_semantics_op (o: IOp Δ):
       | some _
       | none => Fitree.trigger (UBE.Unhandled)
 
-  | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] [] 0
+  | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] 0
     attrs =>
       if EQ: sgn = sgn' /\ sz = sz' then
             match attrs.find "predicate" with
@@ -170,7 +170,7 @@ def arith_semantics_op (o: IOp Δ):
             | none => Fitree.trigger (UBE.Unhandled)
       else Fitree.trigger (UBE.Unhandled)
 
-  | IOp.mk "arith.cmpi" _ [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] [] 0 attrs =>
+  | IOp.mk "arith.cmpi" _ [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] 0 attrs =>
       match attrs.find "predicate" with
       | some (.int n (.int .Signless 64)) =>
           match (ComparisonPred.ofInt n) with
@@ -181,22 +181,21 @@ def arith_semantics_op (o: IOp Δ):
       | some _
       | none => Fitree.trigger (UBE.Unhandled)
 
-  | IOp.mk "arith.zext" [.int sgn₂ sz₂] [⟨.int sgn₁ sz₁, value⟩] [] 0 _ =>
+  | IOp.mk "arith.zext" [.int sgn₂ sz₂] [⟨.int sgn₁ sz₁, value⟩]  0 _ =>
       if sgn₁ = sgn₂ then do
         let r :=  FinInt.zext sz₂ value
         return BlockResult.Next ⟨.int sgn₂ sz₂, r⟩
       else Fitree.trigger (UBE.Unhandled)
 
-  | IOp.mk "arith.select" _ [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩]
-    [] 0 _ =>
+  | IOp.mk "arith.select" _ [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩]  0 _ =>
       if EQ: sgn = sgn' /\ sz = sz' then  do
         let r := if b.toUint = 1 then lhs else (EQ.2 ▸ rhs)
         return BlockResult.Next ⟨.int sgn sz, r⟩
       else Fitree.trigger (UBE.Unhandled)
 
-  | IOp.mk "arith.negi" _ _ _ _ _ =>
+  | IOp.mk "arith.negi" .. =>
       unary_semantics_op o FinInt.neg
-  | IOp.mk name _ args _ _ _ =>
+  | IOp.mk name _ args _ _  =>
       if name = "arith.addi" then
         binary_semantics_op name args FinInt.add
       else if name = "arith.subi" then
@@ -226,20 +225,20 @@ individual operations and then substituting them as needed.
 
 private abbrev ops.constant (output: SSAVal) (value: Int):
     Op arith :=
-  Op.mk "arith.constant" [⟨output, .i32⟩] [] [] [] (.mk [.mk "value" (.int value .i32)])
+  Op.mk "arith.constant" [⟨output, .i32⟩] [] [] (.mk [.mk "value" (.int value .i32)])
 
 private abbrev ops.negi (output input: SSAVal): Op arith :=
-  .mk "arith.negi" [⟨output, .i32⟩] [⟨input, .i32⟩] [] [] (.mk [])
+  .mk "arith.negi" [⟨output, .i32⟩] [⟨input, .i32⟩] [] (.mk [])
 
 private abbrev ops.zext (sz₁ sz₂: Nat) (output input: SSAVal): Op arith :=
-  .mk "arith.zext" [⟨output, .int .Signless sz₂⟩] [⟨input, .int .Signless sz₁⟩] [] [] (.mk [])
+  .mk "arith.zext" [⟨output, .int .Signless sz₂⟩] [⟨input, .int .Signless sz₁⟩] [] (.mk [])
 
 private abbrev ops.select (output cond t f: SSAVal): Op arith :=
-  .mk "arith.select" [⟨output, .i32⟩] [⟨cond, .i1⟩, ⟨t, .i32⟩, ⟨f, .i32⟩] [] [] (.mk [])
+  .mk "arith.select" [⟨output, .i32⟩] [⟨cond, .i1⟩, ⟨t, .i32⟩, ⟨f, .i32⟩] [] (.mk [])
 
 private abbrev ops._binary (name: String) (output lhs rhs: SSAVal):
     Op arith :=
-  .mk name [⟨output, .i32⟩] [⟨lhs, .i32⟩, ⟨rhs, .i32⟩] [] [] (.mk [])
+  .mk name [⟨output, .i32⟩] [⟨lhs, .i32⟩, ⟨rhs, .i32⟩] [] (.mk [])
 
 private abbrev ops.addi := ops._binary "arith.addi"
 private abbrev ops.subi := ops._binary "arith.subi"

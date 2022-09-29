@@ -38,7 +38,7 @@ inductive ToyOp: Type → Type :=
 def toy_semantics_op (op: Op builtin):
     Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit :=
   match op with
-  | Op.mk "toy.constant" [(res, builtin.tensor D₁ τ₁)] [] [] [] attrs =>
+  | Op.mk "toy.constant" [(res, builtin.tensor D₁ τ₁)] [] [] attrs =>
       match AttrDict.find attrs "value" with
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
           match TensorLiteral.ofTensorElem elem D₁ τ₁ with
@@ -50,7 +50,7 @@ def toy_semantics_op (op: Op builtin):
       | _ =>
           raiseUB s!"{op}"
 
-  | Op.mk "toy.transpose" [(res, τ₂)] [(t_name, builtin.tensor D τ)] [] [] _ =>
+  | Op.mk "toy.transpose" [(res, τ₂)] [(t_name, builtin.tensor D τ)] [] _ =>
       match D with
       | [Dimension.Known n, Dimension.Known m] => do
           let t ← Fitree.trigger (SSAEnvE.Get (builtin.tensor
@@ -62,7 +62,7 @@ def toy_semantics_op (op: Op builtin):
           raiseUB s!"{op}"
 
   | Op.mk "toy.reshape" [(res, builtin.tensor D' τ₂)]
-        [(t_name, builtin.tensor D τ₁)] [] [] _ =>
+        [(t_name, builtin.tensor D τ₁)] [] _ =>
       if H: τ₁ = τ₂
         ∧ DimList.known D
         ∧ DimList.known D'
@@ -79,11 +79,11 @@ def toy_semantics_op (op: Op builtin):
 
 -- TODO: toy_semantics_bb: handle basic block arguments
 @[simp]
-def toy_semantics_bb: BasicBlock builtin →
+def toy_semantics_region: Region builtin →
       Fitree (UBE +' (SSAEnvE builtin) +' ToyOp) Unit
-  | BasicBlock.mk name args [] =>
+  | Region.mk name args [] =>
       Fitree.ret ()
-  | BasicBlock.mk name args (op1::ops) =>
+  | Region.mk name args (op1::ops) =>
       List.foldr (fun t acc => Fitree.bind acc (fun _ => t))
                  (toy_semantics_op op1)
                  (ops.map toy_semantics_op)
@@ -123,11 +123,11 @@ def constant_stmt: Op builtin := [mlir_op|
     () -> tensor<2×2×i32>
 ]
 
-def double_transpose: BasicBlock builtin := [mlir_bb|
+def double_transpose: Region builtin := [mlir_region| {
   ^dbl:
     %t2 = "toy.transpose"(%t1): (tensor<2×4×i32>) -> tensor<4×2×i32>
     %t3 = "toy.transpose"(%t2): (tensor<4×2×i32>) -> tensor<2×4×i32>
-]
+}]
 
 #eval Fitree.run <| run_toy (toy_semantics_op transpose_stmt) SSAEnv.empty
 
@@ -135,7 +135,7 @@ def double_transpose: BasicBlock builtin := [mlir_bb|
 
 theorem double_transpose_correct:
   ∀ (t1: RankedTensor [.Known 2, .Known 4] .i32),
-    run_toy (toy_semantics_bb double_transpose)
+    run_toy (toy_semantics_region double_transpose)
       (SSAEnv.One [("t1", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)])
     =
     Fitree.ret ((), SSAEnv.One [
@@ -145,7 +145,7 @@ theorem double_transpose_correct:
       (SSAVal.SSAVal "t3", ⟨builtin.tensor [.Known 2, .Known 4] .i32, t1⟩)
     ]) := by
   intros t1
-  simp [double_transpose, toy_semantics_bb, toy_semantics_op]; simp_itree
+  simp [double_transpose, toy_semantics_region, toy_semantics_op]; simp_itree
   simp [interpUB'!]; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
   simp [SSAEnv.get, SSAEnv.set]; simp_itree

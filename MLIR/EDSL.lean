@@ -214,7 +214,6 @@ macro_rules
 -- ====
 
 declare_syntax_cat mlir_bb
-declare_syntax_cat mlir_entry_bb
 declare_syntax_cat mlir_region
 declare_syntax_cat mlir_op
 declare_syntax_cat mlir_op_args
@@ -580,8 +579,6 @@ macro_rules
 
 
 
-syntax "^" ident ":" mlir_ops : mlir_bb
-syntax "^" ident "(" sepBy(mlir_bb_operand, ",") ")" ":" mlir_ops : mlir_bb
 
 syntax (mlir_op)* : mlir_ops
 
@@ -600,51 +597,22 @@ macro_rules
 
 
 
-syntax "[mlir_bb|" mlir_bb "]": term
-
+syntax  "{" ("^" ident ("(" sepBy(mlir_bb_operand, ",") ")")? ":")? mlir_ops "}" : mlir_region
+syntax "[mlir_region|" mlir_region "]": term
 
 macro_rules
-| `([mlir_bb| ^ $name:ident ( $operands,* ) : $ops ]) => do
+| `([mlir_region| { ^ $name:ident ( $operands,* ) : $ops }  ]) => do
    let initList <- `(@List.nil (MLIR.AST.SSAVal × MLIR.AST.MLIRType _))
    let argsList <- operands.getElems.foldrM (init := initList) fun x xs => `([mlir_bb_operand| $x] :: $xs)
    let opsList <- `([mlir_ops| $ops])
-   `(BasicBlock.mk $(Lean.quote (name.getId.toString)) $argsList $opsList)
-| `([mlir_bb| ^ $name:ident : $ops ]) => do
+   `(Region.mk $(Lean.quote (name.getId.toString)) $argsList $opsList)
+| `([mlir_region| {  ^ $name:ident : $ops } ]) => do
    let opsList <- `([mlir_ops| $ops])
-   `(BasicBlock.mk $(Lean.quote (name.getId.toString)) [] $opsList)
-
-
--- ENTRY BB
--- ========
-
-
-syntax mlir_bb : mlir_entry_bb
-syntax mlir_ops : mlir_entry_bb
-syntax "[mlir_entry_bb|" mlir_entry_bb "]" : term
-
-
-macro_rules
-| `([mlir_entry_bb| $ops:mlir_ops ]) => do
+   `(Region.mk $(Lean.quote (name.getId.toString)) [] $opsList)
+| `([mlir_region| { $ops:mlir_ops } ]) => do
    let opsList <- `([mlir_ops| $ops])
-   `(BasicBlock.mk "entry" [] $opsList)
+   `(Region.mk "entry" [] $opsList)
 
-macro_rules
-| `([mlir_entry_bb| $bb:mlir_bb ]) => `([mlir_bb| $bb])
-
--- EDSL MLIR REGIONS
--- =================
-
-syntax "{" (ws mlir_entry_bb ws)? (ws mlir_bb ws)* "}": mlir_region
-syntax "[mlir_region|" mlir_region "]" : term
-
--- | map a macro on a list
-
-macro_rules
-| `([mlir_region| { $[ $entrybb ]? $[ $bbs ]* } ]) => do
-   let bbsList ← bbs.foldrM (fun x xs => `([mlir_bb|$x] :: $xs)) (← `([]))
-   match entrybb with
-   | some entry => `(Region.mk ([mlir_entry_bb| $entry] :: $bbsList))
-   | none => `(Region.mk $bbsList)
 
 macro_rules
 | `([mlir_region| $$($q) ]) => return q
@@ -931,12 +899,13 @@ def nestedAttrDict0 : AttrDict Dialect.empty := [mlir_attr_dict| {foo = {bar = "
 -- MLIR OPS WITH REGIONS AND ATTRIBUTES AND BASIC BLOCK ARGS
 -- =========================================================
 
+--
+#check sepBy1
 -- TODO: Does not support %var:index = ...
 syntax
   (mlir_op_operand "=")?
   strLit "(" mlir_op_operand,* ")"
-         ("[" mlir_op_successor_arg,* "]")?
-         ("(" mlir_region,* ")")?
+         ( "(" mlir_region,* ")" )?
          (mlir_attr_dict)?
   ":" "(" mlir_type,* ")" "->" mlir_type : mlir_op
 
@@ -948,7 +917,6 @@ macro_rules
         $[ $resName = ]?
         $name:str
         ( $operandsNames,* )
-        $[ [ $succ,* ] ]?
         $[ ( $rgns,* ) ]?
         $[ $attrDict ]?
         : ( $operandsTypes,* ) -> $resType ]) => do
@@ -963,12 +931,6 @@ macro_rules
           List.zipWith (fun x y => `(([mlir_op_operand| $x], [mlir_type| $y])))
           operandsNames.getElems.toList operandsTypes.getElems.toList
         let operands ← quoteMList (← operands.mapM id) (← `(MLIR.AST.TypedSSAVal _))
-
-        let succList <- match succ with
-                | none => `(@List.nil MLIR.AST.BBName)
-                | some xs => do
-                  let xs <- xs.getElems.mapM (fun x => `([mlir_op_successor_arg| $x]))
-                  quoteMList xs.toList (<- `(MLIR.AST.BBName))
         let attrDict <- match attrDict with
                           | none => `(AttrDict.mk [])
                           | some dict => `([mlir_attr_dict| $dict])
@@ -979,9 +941,8 @@ macro_rules
                     quoteMList rngs.toList (<- `(MLIR.AST.Region _))
 
         `(Op.mk $name -- name
-                $res
+                $res -- results
                 $operands -- operands
-                $succList -- bbs
                 $rgnsList -- regions
                 $attrDict) -- attrs
 
@@ -997,32 +958,32 @@ def op2: Op builtin :=
 def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32 ]
 #print bbop1
 
-def bb1NoArgs : BasicBlock builtin :=
-  [mlir_bb|
+def bb1NoArgs : Region builtin :=
+  [mlir_region| {
      ^entry:
      "foo"(%x, %y) : (i32, i32) -> i32
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
-  ]
+  }]
 #print bb1NoArgs
 
-def bb2SingleArg : BasicBlock builtin :=
-  [mlir_bb|
+def bb2SingleArg : Region builtin :=
+  [mlir_region| {
      ^entry(%argp : i32):
      "foo"(%x, %y) : (i32, i32) -> i32
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
-  ]
+  }]
 #print bb2SingleArg
 
 
-def bb3MultipleArgs : BasicBlock builtin :=
-  [mlir_bb|
+def bb3MultipleArgs : Region builtin :=
+  [mlir_region| {
      ^entry(%argp : i32, %argq : i64):
      "foo"(%x, %y) : (i32, i32) -> i32
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
-  ]
+  }]
 #reduce bb3MultipleArgs
 
 
@@ -1040,9 +1001,6 @@ def rgn2 : Region builtin :=
   [mlir_region|  {
     ^entry:
       "std.return"(%x0) : (i42) -> ()
-
-    ^loop:
-      "std.return"(%x1) : (i42) -> ()
   }]
 #print rgn2
 
@@ -1066,22 +1024,15 @@ def opattr0 : Op Dialect.empty := [mlir_op|
 
 
 def oprgn0 : Op Dialect.empty := [mlir_op|
- "func"() ( {
-  ^bb0(%arg0: i32, %arg1: i32):
-    %x = "std.addi"(%arg0, %arg1) : (i32, i32) -> i32
-    "std.return"(%x) : (i32) -> ()
-  }) : () -> ()
+ "func"() ({ ^entry: %x = "foo.add"() : () -> ()} ) : () -> ()
 ]
-#print oprgn0
-
+#reduce oprgn0
 
 -- | note that this is a "full stack" example!
 def opRgnAttr0 : Op builtin := [mlir_op|
- "module"() (
- {
+ "module"() ({
   ^entry:
-   "func"() (
-    {
+   "func"() ({
      ^bb0(%arg0:i32, %arg1:i32):
       %zero = "std.addi"(%arg0 , %arg1) : (i32, i16) -> i64
       "std.return"(%zero) : (i32) -> ()
@@ -1092,10 +1043,6 @@ def opRgnAttr0 : Op builtin := [mlir_op|
 #print opRgnAttr0
 
 
-
--- | test simple ops [no regions, but with bb args]
-def opcall2 : Op builtin := [mlir_op| "foo" (%x, %y) [^bb1, ^bb2] : (i32, i32) -> i32]
-#print opcall2
 
 
 -- | Builtins
@@ -1113,9 +1060,7 @@ macro_rules
      let bbargs ← args.getElems.mapM (fun x => `([mlir_bb_operand| $x]))
      let bbargs ← quoteMList bbargs.toList (← `(MLIR.AST.SSAVal × MLIR.AST.MLIRType _))
      -- Make the entry block (the only block)
-     let bb ← `(BasicBlock.mk "entry" $bbargs [mlir_ops| $ops])
-     -- Make the region
-     let rgn ← `(Region.mk [$bb])
+     let rgn ← `(Region.mk "entry" $bbargs [mlir_ops| $ops])
 
      -- Make the function signature
      let argTypes ← args.getElems.mapM (fun x => `(Prod.snd [mlir_bb_operand| $x]))
@@ -1130,7 +1075,7 @@ macro_rules
         AttrEntry.mk "function_type" (AttrValue.type $signature),
         AttrEntry.mk "sym_name" [mlir_attr_val_symbol| $name]
       ])
-     `(Op.mk "func" [] [] [] [$rgn] $attrs)
+     `(Op.mk "func" [] [] [$rgn] $attrs)
 
 
 def func1 : Op Dialect.empty := [mlir_op| func @"main"() {
@@ -1145,7 +1090,7 @@ macro_rules
      let initList <- `([Op.empty "module_terminator"])
      let ops <- ops.foldrM (init := initList) fun x xs => `([mlir_op| $x] :: $xs)
      let rgn <- `(Region.fromOps $ops)
-     `(Op.mk "module" [] [] [] [$rgn] AttrDict.empty)
+     `(Op.mk "module" [] [] [$rgn] AttrDict.empty)
 
 def mod1 : Op builtin := [mlir_op| module { }]
 #print mod1
@@ -1242,4 +1187,3 @@ def memrefTy4 := [mlir_type| memref<* × f32>]
 #print memrefTy4
 
 end MLIR.EDSL
-

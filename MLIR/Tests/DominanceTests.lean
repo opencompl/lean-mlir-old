@@ -8,7 +8,6 @@ import MLIR.Semantics.Dominance
 import MLIR.Tests.TestLib
 import MLIR.Dialects.ArithSemantics
 import MLIR.Dialects.FuncSemantics
-import MLIR.Dialects.ControlFlowSemantics
 import MLIR.Dialects.ScfSemantics
 
 
@@ -23,7 +22,7 @@ inductive DominanceTest :=
 
 def DominanceTest.run : DominanceTest -> TestCase
   | DominanceTest.mk _ name expectSuccess region =>
-    (name, match singleBBRegionRegionObeySSA region [] with
+    (name, match singleBBRegionObeySSA region [] with
             | some _ =>
             if expectSuccess then
               .ok ()
@@ -36,27 +35,27 @@ def DominanceTest.run : DominanceTest -> TestCase
               .ok ())
 
 def trueval :=
-    DominanceTest.mk (func_ + arith + cf) "trueval" true [mlir_region| {
+    DominanceTest.mk (func_ + arith + scf) "trueval" true [mlir_region| {
   %true = "arith.constant" () {value = 1: i1}: () -> i1
-  "cf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
+  "scf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
 
   %z = "arith.constant" () {value = 0: i32}: () -> i32
   "func.return" (%z): (i32) -> ()
 }]
 
-def reuse_val := DominanceTest.mk (func_ + arith + cf) "reuse_val" false [mlir_region| {
+def reuse_val := DominanceTest.mk (func_ + arith + scf) "reuse_val" false [mlir_region| {
   %true = "arith.constant" () {value = 1: i1}: () -> i1
   %true = "arith.constant" () {value = 1: i1}: () -> i1
 }]
 
 def use_unknown_op :=
-    DominanceTest.mk (func_ + arith + cf) "use_unknown_op" false [mlir_region| {
-  "cf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
+    DominanceTest.mk (func_ + arith + scf) "use_unknown_op" false [mlir_region| {
+  "scf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
 }]
 
 def use_after_def :=
-    DominanceTest.mk (func_ + arith + cf) "use_after_def" false [mlir_region| {
-  "cf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
+    DominanceTest.mk (func_ + arith + scf) "use_after_def" false [mlir_region| {
+  "scf.assert" (%true) {msg="<FAILED>"}: (i1) -> ()
   %true = "arith.constant" () {value = 1: i1}: () -> i1
 }]
 
@@ -66,7 +65,7 @@ def use_outside_reg :=
   "scf.if"(%b) ({}, {
     %c = "arith.constant" () {value = 1: i1}: () -> i1
   }): (i1) -> ()
-  "cf.assert" (%c) {msg="<FAILED>"}: (i1) -> ()
+  "scf.assert" (%c) {msg="<FAILED>"}: (i1) -> ()
 }]
 
 def redef_outside_reg :=

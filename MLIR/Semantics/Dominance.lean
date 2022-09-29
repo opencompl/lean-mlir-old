@@ -55,7 +55,7 @@ Check that an IR satisfies SSA.
 mutual
 def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match op with
-  | Op.mk _ results operands [] regions _ => do
+  | Op.mk _ results operands regions _ => do
     -- Check operands
     let _ ← match operandsDefinitionObeySSA operands ctx with
             | true => pure ctx
@@ -68,39 +68,35 @@ def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContex
              | [result] => valDefinitionObeySSA result ctx
              | _ => none
     ctx'
-  | _ => none
 
 def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
   match regions with
-  | region::regions' => do 
-    let _ <- (singleBBRegionRegionObeySSA region ctx)
+  | region::regions' => do
+    let _ <- (singleBBRegionObeySSA region ctx)
     let _ <- (singleBBRegionRegionsObeySSA regions' ctx)
     ctx
   | [] => some ctx
 
-def singleBBRegionRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
+def singleBBRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match region with
-  | .mk [] => ctx
-  | .mk [bb] => do let _ <- singleBBRegionBBObeySSA bb ctx; ctx
-  | _ => none
-
-def singleBBRegionBBObeySSA (bb: BasicBlock δ) (ctx: DomContext δ) : Option (DomContext δ) :=
-  match bb with
-  | .mk _ args stmts =>
-    (args.foldlM (fun ctx arg => valDefinitionObeySSA arg ctx) ctx).bind 
+  | .mk name args stmts =>
+    (args.foldlM (fun ctx arg => valDefinitionObeySSA arg ctx) ctx).bind
     (singleBBRegionOpsObeySSA stmts)
+
 
 def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
   match ops with
   | op::ops' => (singleBBRegionOpObeySSA op ctx).bind (singleBBRegionOpsObeySSA ops')
   | [] => some ctx
 end
+
+/-
 termination_by
   singleBBRegionOpObeySSA  op _ => sizeOf op
   singleBBRegionRegionsObeySSA regions _=> sizeOf regions
-  singleBBRegionRegionObeySSA region _ => sizeOf region
-  singleBBRegionBBObeySSA bb _ => sizeOf bb
+  singleBBRegionObeySSA rgn _ => sizeOf rgn
   singleBBRegionOpsObeySSA ops _ => sizeOf ops
+-/
 
 /-
 ### Uniqueness of SSA names
@@ -133,32 +129,19 @@ def valDefHasUniqueNames (ctx: NameContext) (val: SSAVal)
 mutual
 def hasUniqueNamesOp (op: Op δ) (ctx: NameContext) : Option NameContext :=
   match op with
-  | Op.mk _ _ _ _ regions _ => hasUniqueNamesRegions regions ctx
+  | Op.mk _ _ _ regions _ => hasUniqueNamesRegions regions ctx
 
 def hasUniqueNamesRegions (regions: List (Region δ)) (ctx: NameContext) :
     Option NameContext :=
   match regions with
-  | region::regions' => do 
+  | region::regions' => do
     let ctx' <- (hasUniqueNamesRegion region ctx)
     (hasUniqueNamesRegions regions' ctx')
   | [] => none
 
-def hasUniqueNamesRegion (region: Region δ) (ctx: NameContext) :
+def hasUniqueNamesRegion (rgn: Region δ) (ctx: NameContext) :
     Option NameContext :=
-  match region with
-  | .mk bbs => (hasUniqueNamesBBs bbs ctx)
-
-def hasUniqueNamesBBs (bbs: List (BasicBlock δ)) (ctx: NameContext) :
-    Option NameContext :=
-  match bbs with
-  | [] => some ctx
-  | bb::bbs' => do
-    let ctx' <- (hasUniqueNamesBB bb ctx)
-    hasUniqueNamesBBs bbs' ctx'
-
-def hasUniqueNamesBB (bb: BasicBlock δ) (ctx: NameContext) :
-    Option NameContext :=
-  match bb with
+  match rgn with
   | .mk _ args ops => do
     let ctx' ←
       args.foldlM (fun ctx arg => valDefHasUniqueNames ctx arg.fst) ctx
@@ -185,24 +168,15 @@ variable (mVar: SSAVal)
 
 def isSSADefInOp (op: Op δ) : Bool :=
   match op with
-  | .mk _ _ _ _ regions _ => isSSADefInRegions regions
+  | .mk _ _ _ regions _ => isSSADefInRegions regions
 
 def isSSADefInRegions (regions: List (Region δ)) : Bool :=
   match regions with
   | [] => False
   | region::regions' => isSSADefInRegion region || isSSADefInRegions regions'
 
-def isSSADefInRegion (region: Region δ) : Bool :=
-  match region with
-  | .mk bbs => isSSADefInBBs bbs
-
-def isSSADefInBBs (bbs: List (BasicBlock δ)) : Bool :=
-  match bbs with
-  | [] => False
-  | bb::bbs' => isSSADefInBB bb || isSSADefInBBs bbs'
-
-def isSSADefInBB (bb: BasicBlock δ) : Bool :=
-  match bb with
+def isSSADefInRegion (rgn: Region δ) : Bool :=
+  match rgn with
   | .mk _ _ ops => isSSADefInOps ops
 
 def isSSADefInOps (ops: List (Op δ)) : Bool :=
@@ -233,7 +207,7 @@ variable (mVar: SSAVal)
 
 def isSSAUsedInOp (op: Op δ) : Bool :=
   match op with
-  | .mk _ _ _ _ regions _ => 
+  | .mk _ _ _ regions _ =>
     isUsed mVar op || isSSAUsedInRegions regions
 
 def isSSAUsedInRegions (regions: List (Region δ)) : Bool :=
@@ -241,17 +215,9 @@ def isSSAUsedInRegions (regions: List (Region δ)) : Bool :=
   | [] => False
   | region::regions' => isSSAUsedInRegion region || isSSAUsedInRegions regions'
 
-def isSSAUsedInRegion (region: Region δ) : Bool :=
-  match region with
-  | .mk bbs => isSSAUsedInBBs bbs
 
-def isSSAUsedInBBs (bbs: List (BasicBlock δ)) : Bool :=
-  match bbs with
-  | [] => False
-  | bb::bbs' => isSSAUsedInBB bb || isSSAUsedInBBs bbs'
-
-def isSSAUsedInBB (bb: BasicBlock δ) : Bool :=
-  match bb with
+def isSSAUsedInRegion (rgn: Region δ) : Bool :=
+  match rgn with
   | .mk _ _ ops => isSSAUsedInOps ops
 
 def isSSAUsedInOps (ops: List (Op δ)) : Bool :=
@@ -269,7 +235,7 @@ def getDefiningOpInOp (op: Op δ) : Option (Op δ) :=
     some op
   else
     match op with
-    | .mk _ _ _ _ regions _ => getDefiningOpInRegions regions
+    | .mk _ _ _ regions _ => getDefiningOpInRegions regions
 
 def getDefiningOpInRegions (regions: List (Region δ)) : Option (Op δ) :=
   match regions with
@@ -278,18 +244,8 @@ def getDefiningOpInRegions (regions: List (Region δ)) : Option (Op δ) :=
     (getDefiningOpInRegion region).orElse
     (fun () => getDefiningOpInRegions regions')
 
-def getDefiningOpInRegion (region: Region δ) : Option (Op δ) :=
-  match region with
-  | .mk bbs => getDefiningOpInBBs bbs
-
-def getDefiningOpInBBs (bbs: List (BasicBlock δ)) : Option (Op δ) :=
-  match bbs with
-  | [] => none
-  | bb::bbs' =>
-    (getDefiningOpInBB bb).orElse (fun () => getDefiningOpInBBs bbs')
-
-def getDefiningOpInBB (bb: BasicBlock δ) : Option (Op δ) :=
-  match bb with
+def getDefiningOpInRegion (rgn: Region δ) : Option (Op δ) :=
+  match rgn with
   | .mk _ _ ops => getDefiningOpInOps ops
 
 def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
