@@ -109,6 +109,7 @@ theorem equivalent (b: Bool):
 end SCF.IF
 
 
+/-
 theorem run_bind {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
     t (k: T → Fitree (SSAEnvE Δ +' UBE) R) env:
   run (Fitree.bind t k) env =
@@ -126,7 +127,7 @@ theorem run_SSAEnvE_get [Δ: Dialect α σ ε] [S: Semantics Δ]
     (h: SSAEnv.get name τ env = some v):
   run (Fitree.Vis (Sum.inl <| SSAEnvE.Get τ name) k) env = run (k v) env := by
   simp [run, SSAEnvE.handle, h]
-
+-/
 
 namespace SCF.FOR_PEELING
 def LHS (r: Region scf): Region scf := [mlir_region|
@@ -245,13 +246,19 @@ theorem equivalent (n m: Nat) (r: Region scf):
   simp [denoteRegion, denoteOps, denoteOp, denoteOpBase]
   simp_itree
   simp [Semantics.semantics_op, scf_semantics_op]
-  rw [run_SSAEnvE_get "c0" .index 0]
-  rw [run_SSAEnvE_get "cn" .index n]
-  rw [run_SSAEnvE_get "c0" .index 0]
-  rw [run_SSAEnvE_get "cn_plus_m" .index (n + m)]
+  simp [run];
+  simp [StateT.run];
+  simp [Except.bind];
+  simp [denoteTypedArgs];
+  simp [pure];
+  simp [StateT.pure];
+  simp [pure];
+  simp [Except.pure];
+  simp [List.mapM, List.mapM.loop];
+  simp [bind, StateT.bind, Except.bind, TopM.get];
+  sorry
   -- At this point we need something similar to CORRECT_r_* above.
   -- simp [run_denoteOp_interp_region]
-  sorry
-  all_goals simp [INPUT, cast_eq]
+  -- all_goals simp [INPUT, cast_eq]
 
 end SCF.FOR_FUSION
