@@ -55,26 +55,6 @@ inductive RegionE (Δ: Dialect α σ ε): Type -> Type
 -- | TODO: figure out how to coerce BlockResult properly.
 | RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
 
-
-
-class Semantics (Δ: Dialect α σ ε)  where
-  -- Operation semantics function: maps an IOp (morally an Op but slightly less
-  -- rich to guarantee good properties) to an interaction tree. Usually exposes
-  -- any region calls then emits of event of E. This function runs on the
-  -- program's entire dialect Δ but returns none for any operation that is not
-  -- part of δ.
-  -- TODO: make this such that it's a ddependent function, where we pass it the resTy and we expect
-  -- an answer that matches the types of the resTy of the IOp.
-  semantics_op: IOp Δ → Fitree (RegionE Δ +' UBE) (BlockResult Δ)
-
--- This attribute allows matching explicit effect families like `ArithE`, which
--- often appear from bottom-up inference like in `Fitree.trigger`, with their
--- implicit form like `Semantics.E arith`, which often appears from top-down
--- type inference due to the type signatures in this module. Without this
--- attribute, instances of `Member` could not be derived, preventing most
--- lemmas about `Fitree.trigger` from applying.
--- attribute [reducible] Semantics.E
-
 -- The monad in which these computations are run
 abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except String) R
 
@@ -88,9 +68,33 @@ def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval
   sorry
 
 inductive OpM (Δ: Dialect α σ ϵ): Type -> Type _ where
-| Ret: R -> OpM Δ R
-| RunRegion: Nat -> (BlockResult Δ -> R) -> OpM Δ R
+| Retf: R -> OpM Δ R
+| RunRegion: Nat -> TypedArgs Δ →  (BlockResult Δ -> OpM Δ R) -> OpM Δ R
 | Error: String -> OpM Δ R
+
+
+def OpM.map (f: A → B): OpM Δ A -> OpM Δ B
+| .Ret a => .Ret (f a)
+| .RunRegion ix args k => .RunRegion ix args (fun blockResult =>  (k blockResult).map f)
+| .Error s => .Error s
+
+class Semantics (Δ: Dialect α σ ε)  where
+  -- Operation semantics function: maps an IOp (morally an Op but slightly less
+  -- rich to guarantee good properties) to an interaction tree. Usually exposes
+  -- any region calls then emits of event of E. This function runs on the
+  -- program's entire dialect Δ but returns none for any operation that is not
+  -- part of δ.
+  -- TODO: make this such that it's a ddependent function, where we pass it the resTy and we expect
+  -- an answer that matches the types of the resTy of the IOp.
+  semantics_op: IOp Δ → OpM Δ (BlockResult Δ)
+
+-- This attribute allows matching explicit effect families like `ArithE`, which
+-- often appear from bottom-up inference like in `Fitree.trigger`, with their
+-- implicit form like `Semantics.E arith`, which often appears from top-down
+-- type inference due to the type signatures in this module. Without this
+-- attribute, instances of `Member` could not be derived, preventing most
+-- lemmas about `Fitree.trigger` from applying.
+-- attribute [reducible] Semantics.E
 
 -- | TODO: throw error if we don't have enough names
 -- | TODO: Make this dependently typed to never allow such an error
@@ -106,7 +110,10 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
-def denoteOpRegion (regions0: List (Region Δ)) (args: TypedArgs Δ) (ix: Nat): TopM Δ (BlockResult Δ) :=
+def denoteOpRegion
+  (regions0: List (Region Δ))
+  (args: TypedArgs Δ)
+  (ix: Nat): TopM Δ (BlockResult Δ) :=
       match regions0 with
       | [] => TopM.raiseUB s!"invalid denoteRegion"
       | r::rs =>
@@ -130,13 +137,19 @@ def denoteOpBase
       let iop : IOp Δ := IOp.mk name resTy args regions0.length attrs
       -- Use the dialect-provided semantics, and substitute regions
       let t := S.semantics_op iop
-      t.interp $ fun K e =>
-        match e with
-        | Sum.inl (RegionE.RunRegion i args) =>
-              denoteOpRegion regions0 args  i
-        | Sum.inr (UBE.UB (.some msg)) => TopM.raiseUB msg
-        | Sum.inr (UBE.UB .none) => TopM.raiseUB "UBE.UB"
-        | Sum.inr (UBE.Unhandled) => TopM.raiseUB "UBE.Unhandled"
+      match t with
+      | OpM.RunRegion i args rgnk => do
+             let retv <- denoteOpRegion regions0 args i
+             rgnk retv
+      | OpM.Ret r => TopM.Ret Δ r
+      | OpM.Error e => TopM.raiseUB e
+
+
+def denoteOpM (rgns: List (Region Δ)): OpM Δ R -> TopM Δ R
+| OpM.Ret r => TopM.Ret r
+| OpM.Error s => TopM.raiseUBB s
+| OpM.RunRegion ix  args rgnk =>  do
+    denoteOpRegion rgns args ix
 
 def denoteOp (op: Op Δ):
     TopM Δ (BlockResult Δ) :=
@@ -378,8 +391,7 @@ def BlockResult.injectRight: BlockResult δ₂→ BlockResult (δ₁ + δ₂)
 def BlockResult.retractLeft: BlockResult (δ₁ + δ₂) -> Option (BlockResult δ₁) := sorry
 def BlockResult.retractRight: BlockResult (δ₁ + δ₂) -> Option (BlockResult δ₂) := sorry
 
-def injectSemanticsRight [Inhabited R]: Fitree (RegionE δ₂ +' UBE) R
-  -> Fitree (RegionE (δ₁ + δ₂) +' UBE) R
+def injectSemanticsRight [Inhabited R]: OpM δ₂ R -> OpM (δ₁ + δ₂) R
 | .Ret r => .Ret r
 | .Vis  (.inl regione) k =>
    match regione with  -- need the match to expose that T = BlockResult δ₁
@@ -390,8 +402,7 @@ def injectSemanticsRight [Inhabited R]: Fitree (RegionE δ₂ +' UBE) R
           | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
 | .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsRight (k t))
 
-def injectSemanticsLeft [Inhabited R]: Fitree (RegionE δ₁ +' UBE) R
-  -> Fitree (RegionE (δ₁ + δ₂) +' UBE) R
+def injectSemanticsLeft [Inhabited R]: OpM δ₁ R -> OpM (δ₁ + δ₂)  R
 | .Ret r => .Ret r
 | .Vis  (.inl regione) k =>
    match regione with  -- need the match to expose that T = BlockResult δ₁
