@@ -21,17 +21,6 @@ abbrev TypedArg (δ: Dialect α σ ε) := (τ: MLIRType δ) × MLIRType.eval τ
 @[simp]
 abbrev TypedArgs (δ: Dialect α σ ε) := List (TypedArg δ)
 
--- | TODO: throw error if we don't have enough names
-def denoteTypedArgs [Member (SSAEnvE Δ) E] (args: TypedArgs Δ) (names: List SSAVal): Fitree E Unit :=
- match args with
- | [] => return ()
- | ⟨τ, val⟩::args =>
-    match names with
-    | [] => return ()
-    | name :: names => do
-        Fitree.trigger (SSAEnvE.Set τ name val)
-        return ()
-
 
 -- TODO: Consider changing BlockResult.Branch.args into
 --       a TypedArgs (?)
@@ -57,7 +46,7 @@ inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
-  (regions: Nat)
+  (regions: Nat) -- TODO: surely, I can build the denotation of a region and pass it along to you?
   (attrs:   AttrDict δ)
 
 -- Effect to run a region
@@ -74,6 +63,8 @@ class Semantics (Δ: Dialect α σ ε)  where
   -- any region calls then emits of event of E. This function runs on the
   -- program's entire dialect Δ but returns none for any operation that is not
   -- part of δ.
+  -- TODO: make this such that it's a ddependent function, where we pass it the resTy and we expect
+  -- an answer that matches the types of the resTy of the IOp.
   semantics_op: IOp Δ → Fitree (RegionE Δ +' UBE) (BlockResult Δ)
 
 -- This attribute allows matching explicit effect families like `ArithE`, which
@@ -84,12 +75,40 @@ class Semantics (Δ: Dialect α σ ε)  where
 -- lemmas about `Fitree.trigger` from applying.
 -- attribute [reducible] Semantics.E
 
+-- The monad in which these computations are run
+abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except String) R
+
+def TopM.raiseUB {Δ: Dialect α σ ε} (message: String): TopM Δ R :=
+  Except.error message
+
+def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ.eval :=
+  sorry
+
+def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval): TopM Δ Unit :=
+  sorry
+
+inductive OpM (Δ: Dialect α σ ϵ): Type -> Type _ where
+| Ret: R -> OpM Δ R
+| RunRegion: Nat -> (BlockResult Δ -> R) -> OpM Δ R
+| Error: String -> OpM Δ R
+
+-- | TODO: throw error if we don't have enough names
+-- | TODO: Make this dependently typed to never allow such an error
+def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
+ match args with
+ | [] => return ()
+ | ⟨τ, val⟩::args =>
+    match names with
+    | [] => return ()
+    | name :: names => do
+        TopM.set τ name val
+
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
-def denoteOpRegion (regions0: List (Region Δ)) (args: TypedArgs Δ) (ix: Nat): Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
+def denoteOpRegion (regions0: List (Region Δ)) (args: TypedArgs Δ) (ix: Nat): TopM Δ (BlockResult Δ) :=
       match regions0 with
-      | [] => raiseUB s!"invalid denoteRegion"
+      | [] => TopM.raiseUB s!"invalid denoteRegion"
       | r::rs =>
          match ix with
          | 0 =>   denoteRegion r args
@@ -100,10 +119,10 @@ def denoteOpBase
    (res0: List (TypedSSAVal Δ))
    (args0: List (TypedSSAVal Δ))
    (regions0: List (Region Δ)) (attrs: AttrDict Δ):
-    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) := do
+    TopM Δ (BlockResult Δ) := do
       -- Read arguments from memory
       let args ← args0.mapM (fun (name, τ) => do
-          return ⟨τ, ← Fitree.trigger <| SSAEnvE.Get τ name⟩)
+          return ⟨τ, ← TopM.get τ name⟩)
       -- Evaluate regions
       -- Get the result types
       let resTy := res0.map Prod.snd
@@ -115,10 +134,12 @@ def denoteOpBase
         match e with
         | Sum.inl (RegionE.RunRegion i args) =>
               denoteOpRegion regions0 args  i
-        | Sum.inr ube => Fitree.trigger ube
+        | Sum.inr (UBE.UB (.some msg)) => TopM.raiseUB msg
+        | Sum.inr (UBE.UB .none) => TopM.raiseUB "UBE.UB"
+        | Sum.inr (UBE.Unhandled) => TopM.raiseUB "UBE.Unhandled"
 
 def denoteOp (op: Op Δ):
-    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
+    TopM Δ (BlockResult Δ) :=
   match op with
   | .mk name [] args0 regions0 attrs => do
       denoteOpBase name [] args0 regions0 attrs
@@ -127,19 +148,19 @@ def denoteOp (op: Op Δ):
       match br with
       | .Next ⟨τ, v⟩ =>
           -- Should we check that τ is res type here?
-          Fitree.trigger (SSAEnvE.Set τ res v)
+          TopM.set τ res v
           return br
       -- TODO: Semi-hack for yields from subregions
       | .Ret [⟨τ, v⟩] =>
-          Fitree.trigger (SSAEnvE.Set τ res v)
+          TopM.set τ res v
           return .Next ⟨τ, v⟩
       | _ =>
           return br
   | _ =>
-      raiseUB s!"op with more than one result: {op}"
+      TopM.raiseUB s!"op with more than one result: {op}"
 
 def denoteOps (stmts: List (Op Δ))
-  : Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) :=
+  : TopM Δ (BlockResult Δ) :=
  match stmts with
  | [] => return BlockResult.Next ⟨.unit, ()⟩
  | [stmt] => denoteOp stmt
@@ -148,7 +169,7 @@ def denoteOps (stmts: List (Op Δ))
       denoteOps stmts
 
 def denoteRegion (rgn: Region Δ) (args: TypedArgs Δ):
-    Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ) := do
+    TopM Δ (BlockResult Δ) := do
   match rgn with
   | Region.mk name formalArgsAndTypes ops =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
@@ -405,26 +426,17 @@ instance
 
 
 
-def run! {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
-    (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
+def run! {Δ: Dialect α' σ' ε'}  {R} [Inhabited R]
+    (t: TopM Δ R) (env: SSAEnv Δ):
     R × SSAEnv Δ :=
-  let t := interpSSA' t env
-  let t := interpUB! t
-  t.run
+   match t.run env with
+   | .error err => panic! s!"error when running progam: {err}"
+   | .ok val => val
 
-def run {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
-    (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
+def run {Δ: Dialect α' σ' ε'} {R}
+    (t: TopM  Δ R) (env: SSAEnv Δ):
     Except String (R × SSAEnv Δ) :=
-  let t := interpSSA' t env
-  let t := interpUB t
-  Fitree.run t
-
-def runLogged {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {R}
-    (t: Fitree (SSAEnvE Δ +' UBE) R) (env: SSAEnv Δ):
-    Except String ((R × String) × SSAEnv Δ) :=
-  let t := (interpSSALogged' t).run env
-  let t := interpUB t
-  Fitree.run t
+  StateT.run t env
 
 -- The property for two programs to execute with no error and satisfy a
 -- post-condition
@@ -446,7 +458,7 @@ def semanticPostCondition₂ {Δ: Dialect α' σ' ε'}
 
 class Denote (δ: Dialect α σ ε) [S: Semantics δ]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
-  denote: T δ → Fitree (SSAEnvE δ +'UBE) (BlockResult δ)
+  denote: T δ → TopM δ (BlockResult δ)
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
