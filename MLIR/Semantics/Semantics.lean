@@ -22,38 +22,47 @@ abbrev TypedArg (δ: Dialect α σ ε) := (τ: MLIRType δ) × MLIRType.eval τ
 abbrev TypedArgs (δ: Dialect α σ ε) := List (TypedArg δ)
 
 
--- TODO: Consider changing BlockResult.Branch.args into
---       a TypedArgs (?)
-inductive BlockResult {α σ ε} (δ: Dialect α σ ε)
-| Ret (rets:  TypedArgs δ)
-| Next (val: TypedArg δ) -- Waht the hell is next? I no longer recall...
+inductive OpM (Δ: Dialect α σ ϵ): Type -> Type _ where
+| Ret: R -> OpM Δ R
+/- We could have had RunRegion take a `Region` as a parameter.
+  This would mean that a user could, in theory, craft a request to run a region
+  to our main loop, and we would happily do so!
+  This means that the framework is capable of expressing *more* than MLIR.
+  It is capable of expressing of operations that 'JIT' regions during the execution.
+  
+  Ah ha, but we can't do that. If we try, the termination checker complains
+  that our function isn't well terminating!
+-/
+| RunRegion: Nat -> TypedArgs Δ -> (TypedArgs Δ -> OpM Δ R) -> OpM Δ R
+| Error: String -> OpM Δ R
 
-def BlockResult.toTypedArgs {δ: Dialect α σ ε} (blockResult: BlockResult δ) :=
-  match blockResult with
-  | .Ret rets => rets
-  | .Next val => []
 
-instance : Inhabited (BlockResult δ) where
-  default := .Ret []
+def OpM.map (f: A → B): OpM Δ A -> OpM Δ B
+| .Ret a => .Ret (f a)
+| .RunRegion ix args k => 
+    .RunRegion ix args (fun blockResult =>  (k blockResult).map f)
+| .Error s => .Error s
 
-instance (δ: Dialect α σ ε): ToString (BlockResult δ) where
-  toString := fun
-    | .Ret rets       => s!"Ret {rets}"
-    | .Next ⟨τ, val⟩  => s!"Next {val}: {τ}"
+
+def OpM.bind (ma: OpM Δ A) (a2mb: A -> OpM Δ B): OpM Δ B := 
+  match ma with
+  | .Ret a => a2mb a
+  | .Error s => .Error s
+  | .RunRegion ix args k =>
+      .RunRegion ix args (fun blockResult => (k blockResult).bind a2mb)
+
+instance : Monad (OpM Δ) where
+   pure := OpM.Ret
+   bind := OpM.bind
 
 -- Interpreted operation, like MLIR.AST.Op, but with less syntax
 inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
-  (regions: Nat) -- TODO: surely, I can build the denotation of a region and pass it along to you?
+  (regions: List (TypedArgs Δ → OpM Δ (TypedArgs Δ))) -- TODO: surely, I can build the denotation of a region and pass it along to you?
   (attrs:   AttrDict δ)
 
--- Effect to run a region
--- TODO: change this to also deal with scf.if and yield.
-inductive RegionE (Δ: Dialect α σ ε): Type -> Type
--- | TODO: figure out how to coerce BlockResult properly.
-| RunRegion (ix: Nat) (args: TypedArgs Δ): RegionE Δ (BlockResult Δ)
 
 -- The monad in which these computations are run
 abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except String) R
@@ -67,16 +76,6 @@ def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ
 def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval): TopM Δ Unit :=
   sorry
 
-inductive OpM (Δ: Dialect α σ ϵ): Type -> Type _ where
-| Retf: R -> OpM Δ R
-| RunRegion: Nat -> TypedArgs Δ →  (BlockResult Δ -> OpM Δ R) -> OpM Δ R
-| Error: String -> OpM Δ R
-
-
-def OpM.map (f: A → B): OpM Δ A -> OpM Δ B
-| .Ret a => .Ret (f a)
-| .RunRegion ix args k => .RunRegion ix args (fun blockResult =>  (k blockResult).map f)
-| .Error s => .Error s
 
 class Semantics (Δ: Dialect α σ ε)  where
   -- Operation semantics function: maps an IOp (morally an Op but slightly less
@@ -86,7 +85,7 @@ class Semantics (Δ: Dialect α σ ε)  where
   -- part of δ.
   -- TODO: make this such that it's a ddependent function, where we pass it the resTy and we expect
   -- an answer that matches the types of the resTy of the IOp.
-  semantics_op: IOp Δ → OpM Δ (BlockResult Δ)
+  semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
 
 -- This attribute allows matching explicit effect families like `ArithE`, which
 -- often appear from bottom-up inference like in `Fitree.trigger`, with their
@@ -107,82 +106,86 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
     | name :: names => do
         TopM.set τ name val
 
+-- Denote a region with an abstract `OpM.RunRegion`
+def denoteRegionOpM {Δ: Dialect α σ ε}
+  (_r: Region Δ) 
+  (ix: Nat): TypedArgs Δ → OpM Δ (TypedArgs Δ) := 
+   fun args => OpM.RunRegion ix args (fun retvals => OpM.Ret retvals)
+
+-- Denote the list of regions with an abstract `OpM.runRegion`
+def denoteRegionsOpM {Δ: Dialect α σ ε}
+  (regions: List (Region Δ))
+  (ix: Nat): List (TypedArgs Δ → OpM Δ (TypedArgs Δ)) :=
+ match regions with
+ | [] => []
+ | r :: rs => (denoteRegionOpM r ix) :: denoteRegionsOpM rs (ix + 1)
+
+-- Denote a region by using its denotation function from the list
+-- of regions. TODO: refactor to use Option
+def denoteRegionByIx
+  (rs0: List (TypedArgs Δ → TopM Δ (TypedArgs Δ)))
+ (ix: Nat) (args: TypedArgs Δ): TopM Δ (TypedArgs Δ) :=
+  match rs0 with
+  | [] => TopM.raiseUB s!"unknown region of ix {ix}"
+  | r:: rs' =>
+    match ix with 
+    | 0 => r args
+    | ix' + 1 => denoteRegionByIx rs' ix' args 
+-- Morphism from OpM to topM 
+def OpM.toTopM (rs0: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))):
+  OpM Δ (TypedArgs Δ) -> TopM Δ (TypedArgs Δ)
+| OpM.Ret r => pure r
+| OpM.Error s => TopM.raiseUB s 
+| OpM.RunRegion ix args k => do 
+       let ret <- denoteRegionByIx rs0 ix args
+       OpM.toTopM rs0 (k ret)
+
+
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
-def denoteOpRegion
-  (regions0: List (Region Δ))
-  (args: TypedArgs Δ)
-  (ix: Nat): TopM Δ (BlockResult Δ) :=
-      match regions0 with
-      | [] => TopM.raiseUB s!"invalid denoteRegion"
-      | r::rs =>
-         match ix with
-         | 0 =>   denoteRegion r args
-         | ix' + 1 => denoteOpRegion rs args ix'
+-- unfolded version of List.map denoteRegion.
+-- This allows the termination checker to view the termination.
+def mapDenoteRegion:
+  List (Region Δ) → 
+  List (TypedArgs Δ → TopM Δ (TypedArgs Δ))
+| [] => []
+| r :: rs => (denoteRegion r) :: mapDenoteRegion rs
 
-def denoteOpBase
-   (name: String)
-   (res0: List (TypedSSAVal Δ))
-   (args0: List (TypedSSAVal Δ))
-   (regions0: List (Region Δ)) (attrs: AttrDict Δ):
-    TopM Δ (BlockResult Δ) := do
-      -- Read arguments from memory
-      let args ← args0.mapM (fun (name, τ) => do
-          return ⟨τ, ← TopM.get τ name⟩)
-      -- Evaluate regions
-      -- Get the result types
-      let resTy := res0.map Prod.snd
-      -- Built the interpreted operation
-      let iop : IOp Δ := IOp.mk name resTy args regions0.length attrs
-      -- Use the dialect-provided semantics, and substitute regions
-      let t := S.semantics_op iop
-      match t with
-      | OpM.RunRegion i args rgnk => do
-             let retv <- denoteOpRegion regions0 args i
-             rgnk retv
-      | OpM.Ret r => TopM.Ret Δ r
-      | OpM.Error e => TopM.raiseUB e
-
-
-def denoteOpM (rgns: List (Region Δ)): OpM Δ R -> TopM Δ R
-| OpM.Ret r => TopM.Ret r
-| OpM.Error s => TopM.raiseUBB s
-| OpM.RunRegion ix  args rgnk =>  do
-    denoteOpRegion rgns args ix
-
+-- Convert a region to its denotation to establish finiteness.
+-- Then use this finiteness condition to evaluate region semantics.
+-- Use the morphism from OpM to TopM.
 def denoteOp (op: Op Δ):
-    TopM Δ (BlockResult Δ) :=
+    TopM Δ (TypedArgs Δ) :=
   match op with
-  | .mk name [] args0 regions0 attrs => do
-      denoteOpBase name [] args0 regions0 attrs
-  | .mk name [(res, resty)] args0 regions0 attrs => do
-      let br ← denoteOpBase name [(res, resty)] args0 regions0 attrs
-      match br with
-      | .Next ⟨τ, v⟩ =>
-          -- Should we check that τ is res type here?
-          TopM.set τ res v
-          return br
-      -- TODO: Semi-hack for yields from subregions
-      | .Ret [⟨τ, v⟩] =>
-          TopM.set τ res v
-          return .Next ⟨τ, v⟩
+  | .mk name res0 args0 regions0 attrs => do
+      let regionSemantics := mapDenoteRegion regions0 
+      let resTy := res0.map Prod.snd
+      let args ← args0.mapM (fun (name, τ) => do
+        pure ⟨τ, ← TopM.get τ name⟩)
+      -- Built the interpreted operation
+      let iop : IOp Δ := IOp.mk name resTy args (denoteRegionsOpM regions0 0) attrs
+      -- Use the dialect-provided semantics, and substitute regions
+      let ret ← OpM.toTopM regionSemantics (S.semantics_op iop) 
+      match (res0, ret) with
+      | ([res], [⟨τ, v⟩]) => 
+          TopM.set τ res.fst v
+          return ret
+      | ([], []) =>
+          return ret
       | _ =>
-          return br
-  | _ =>
-      TopM.raiseUB s!"op with more than one result: {op}"
-
-def denoteOps (stmts: List (Op Δ))
-  : TopM Δ (BlockResult Δ) :=
- match stmts with
- | [] => return BlockResult.Next ⟨.unit, ()⟩
- | [stmt] => denoteOp stmt
- | stmt::stmts => do
-      let _ ← denoteOp stmt
-      denoteOps stmts
+        TopM.raiseUB s!"more than one result or unmatched result/expected pair: {op}"
+-- denote a sequence of ops
+def denoteOps (stmts: List (Op Δ)): TopM Δ (TypedArgs Δ) := 
+   match stmts with
+   | [] => return  [⟨.unit, ()⟩]
+   | [stmt] => denoteOp stmt
+   | (stmt :: stmts') => do
+        let _ ← denoteOp stmt
+        denoteOps stmts'
 
 def denoteRegion (rgn: Region Δ) (args: TypedArgs Δ):
-    TopM Δ (BlockResult Δ) := do
+    TopM Δ (TypedArgs Δ) := do
   match rgn with
   | Region.mk name formalArgsAndTypes ops =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
@@ -332,24 +335,27 @@ def AttrDict.swapDialect: AttrDict (δ₁ + δ₂) -> AttrDict (δ₂ + δ₁)
 | _ => AttrDict.mk []
 
 
-def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁)
+def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁) := sorry
+/-
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType (δ₁ + δ₂)))
   (args:    TypedArgs (δ₁ + δ₂))
-  (regions: Nat)
+  (regions: List (TypedArgs (δ₁ + δ₂) -> OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂))))
   (attrs:   AttrDict (δ₁ + δ₂)) =>
      IOp.mk name
         (resTy.map MLIRType.swapDialect)
         (args.map TypedArg.swapDialect)
-        regions
         (AttrDict.swapDialect attrs)
+        (regions := sorry)
+-/
 
 -- Retract an IOp to the left component.
-def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
+def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁) := sorry
+/-
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType (δ₁ + δ₂)))
   (args:    TypedArgs (δ₁ + δ₂))
-  (regions: Nat)
+  (regions: List (TypedArgs (δ₁ + δ₂) -> OpM (δ₁+δ₂) (TypedArgs (δ₁ + δ₂))))
   (attrs:   AttrDict (δ₁ + δ₂)) =>
   match MLIRType.retractLeftList resTy with
   | .none => .none
@@ -360,7 +366,7 @@ def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁)
         match AttrDict.retractLeft attrs with
         | .none => .none
         | .some attrs' => .some (IOp.mk name resTy' args' regions attrs')
-
+-/
 
 def IOp.retractRight (op: IOp (δ₁ + δ₂)): Option (IOp δ₂) :=
   IOp.retractLeft (IOp.swapDialect op)
@@ -372,26 +378,10 @@ def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) := 
 def TypedArg.injectRight (ts: TypedArg (δ₂)): TypedArg (δ₁ +  δ₂) := sorry
 end
 -- need a way to inject args into larger space
-def RegionE.injectLeft: RegionE δ₁ (BlockResult δ₁) -> RegionE (δ₁ + δ₂) (BlockResult (δ₁ + δ₂))
-| .RunRegion ix args => .RunRegion ix (TypedArgs.injectLeft args)
+def TypedArgs.retractRight: TypedArgs (δ₁ + δ₂) -> Option (TypedArgs δ₂) := sorry
 
-def RegionE.injectRight: RegionE δ₂ (BlockResult δ₂) -> RegionE (δ₁ + δ₂) (BlockResult (δ₁ + δ₂))
-| .RunRegion ix args => .RunRegion ix (TypedArgs.injectRight args)
-
-
-
-def BlockResult.injectLeft: BlockResult δ₁→ BlockResult (δ₁ + δ₂)
-| .Ret (rets:  TypedArgs δ₁) => .Ret (TypedArgs.injectLeft rets)
-| .Next val => .Next (TypedArg.injectLeft val)
-
-def BlockResult.injectRight: BlockResult δ₂→ BlockResult (δ₁ + δ₂)
-| .Ret (rets:  TypedArgs δ₂) => .Ret (TypedArgs.injectRight rets)
-| .Next val => .Next (TypedArg.injectRight val)
-
-def BlockResult.retractLeft: BlockResult (δ₁ + δ₂) -> Option (BlockResult δ₁) := sorry
-def BlockResult.retractRight: BlockResult (δ₁ + δ₂) -> Option (BlockResult δ₂) := sorry
-
-def injectSemanticsRight [Inhabited R]: OpM δ₂ R -> OpM (δ₁ + δ₂) R
+def injectSemanticsRight [Inhabited R]: OpM δ₂ R -> OpM (δ₁ + δ₂) R := sorry
+/-
 | .Ret r => .Ret r
 | .Vis  (.inl regione) k =>
    match regione with  -- need the match to expose that T = BlockResult δ₁
@@ -401,8 +391,10 @@ def injectSemanticsRight [Inhabited R]: OpM δ₂ R -> OpM (δ₁ + δ₂) R
           | .some t' => injectSemanticsRight (k t')
           | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
 | .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsRight (k t))
+-/
 
-def injectSemanticsLeft [Inhabited R]: OpM δ₁ R -> OpM (δ₁ + δ₂)  R
+def injectSemanticsLeft [Inhabited R]: OpM δ₁ R -> OpM (δ₁ + δ₂)  R := sorry
+/-
 | .Ret r => .Ret r
 | .Vis  (.inl regione) k =>
    match regione with  -- need the match to expose that T = BlockResult δ₁
@@ -412,6 +404,7 @@ def injectSemanticsLeft [Inhabited R]: OpM δ₁ R -> OpM (δ₁ + δ₂)  R
           | .some t' => injectSemanticsLeft (k t')
           | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
 | .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsLeft (k t))
+-/
 
 end Retraction
 
@@ -429,11 +422,11 @@ instance
     -- TODO: Can I run both, and somehow interleave the two?
     match Retraction.IOp.retractLeft  op with
     | .some op₁ =>
-            (injectSemanticsLeft (S₁.semantics_op op₁)).map BlockResult.injectLeft
+            (injectSemanticsLeft (S₁.semantics_op op₁)).map TypedArgs.injectLeft
     | .none =>
         match Retraction.IOp.retractRight op with
-        | .some op₂ =>(injectSemanticsRight (S₂.semantics_op op₂)).map BlockResult.injectRight
-        | .none => Fitree.trigger $ UBE.UB "unknown mixture of dialects"
+        | .some op₂ => (injectSemanticsRight (S₂.semantics_op op₂)).map TypedArgs.injectRight
+        | .none => OpM.Error  "unknown mixture of dialects"
 
 
 
@@ -469,7 +462,7 @@ def semanticPostCondition₂ {Δ: Dialect α' σ' ε'}
 
 class Denote (δ: Dialect α σ ε) [S: Semantics δ]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
-  denote: T δ → TopM δ (BlockResult δ)
+  denote: T δ → TopM δ (TypedArgs δ)
 
 notation "⟦ " t " ⟧" => Denote.denote t
 
