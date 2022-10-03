@@ -14,12 +14,12 @@ TODO: Remove this restriction, and have a way to identify uniquely operations.
 -/
 
 mutual
-variable (nameMatch: SSAVal) (new_ops: List (BasicBlockStmt δ))
+variable (nameMatch: SSAVal) (new_ops: List (Op δ))
 
 def replaceOpInOp (op: Op δ) : Op δ := 
   match op with
-  | .mk name res args bbs regions attrs =>
-    Op.mk name res args bbs (replaceOpInRegions regions) attrs
+  | .mk name res args regions attrs =>
+    Op.mk name res args (replaceOpInRegions regions) attrs
 
 def replaceOpInRegions (regions: List (Region δ)) : List (Region δ) :=
   match regions with
@@ -29,18 +29,7 @@ def replaceOpInRegions (regions: List (Region δ)) : List (Region δ) :=
 
 def replaceOpInRegion (region: Region δ) : Region δ :=
   match region with
-  | .mk bbs => Region.mk (replaceOpInBBs bbs)
-
-def replaceOpInBBs (bbs: List (BasicBlock δ)) : List (BasicBlock δ) :=
-  match bbs with
-  | [] => []
-  | bb::bbs' => 
-    (replaceOpInBB bb)::(replaceOpInBBs bbs')
-
-def replaceOpInBB (bb: BasicBlock δ) : BasicBlock δ :=
-  match bb with
-  | .mk name args ops =>
-      BasicBlock.mk name args (replaceOpInOps ops)
+  | .mk name args ops => Region.mk name args (replaceOpInOps ops)
 
 def replaceOpInOps (stmts: List (Op δ)) : List (Op δ) :=
   match stmts with
