@@ -23,6 +23,10 @@ inductive Nu (F : Type _ -> Type _) : Type _ where
 abbrev Nu.getA {F: Type _ -> Type _}: Nu F -> Type _
 | Nu.mk A _a _f => A
 
+abbrev Nu.geta {F: Type _ -> Type _} (nu: Nu F): Nu.getA nu :=
+match nu with
+| Nu.mk _A a _f => a
+
 def Nu.get {F: Type _ -> Type _} {O: Type} (proj: {A: Type} -> F A -> O): Nu F -> O
 | Nu.mk A a f => proj (f a)
 
@@ -265,10 +269,9 @@ def Coitree.destruct (as: Coitree E T):CoitreeLayer E T :=
 TODO: how do I generate a Vis?
 -/
 open Nu in
-def Coitree.Vis [Inhabited R] (e: E T) (k: T -> Coitree E R): Coitree E R :=
- Nu.mk (T -> Bool) (fun _ => false)
-   (fun unit =>
-      CoitreeF.Vis e (fun handler => sorry))
+def Coitree.Vis [Inhabited R] (et: E T) (k: T -> Coitree E R): Coitree E R :=
+ Nu.mk (Option (Σ (t: T), (k t).getA)) .none
+   (fun state => CoitreeF.Vis et (fun t => .some ⟨t, (k t).geta⟩))
 
 open Nu in
 def Coitree.Ret (r: T): Coitree E T :=
