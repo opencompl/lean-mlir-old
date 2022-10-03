@@ -29,23 +29,26 @@ inductive OpM (Δ: Dialect α σ ϵ): Type -> Type _ where
   to our main loop, and we would happily do so!
   This means that the framework is capable of expressing *more* than MLIR.
   It is capable of expressing of operations that 'JIT' regions during the execution.
-  
+
   Ah ha, but we can't do that. If we try, the termination checker complains
   that our function isn't well terminating!
 -/
 | RunRegion: Nat -> TypedArgs Δ -> (TypedArgs Δ -> OpM Δ R) -> OpM Δ R
+| Unhandled: String → OpM Δ R
 | Error: String -> OpM Δ R
 
 
 def OpM.map (f: A → B): OpM Δ A -> OpM Δ B
 | .Ret a => .Ret (f a)
-| .RunRegion ix args k => 
+| .Unhandled s => .Unhandled s
+| .RunRegion ix args k =>
     .RunRegion ix args (fun blockResult =>  (k blockResult).map f)
 | .Error s => .Error s
 
 
-def OpM.bind (ma: OpM Δ A) (a2mb: A -> OpM Δ B): OpM Δ B := 
+def OpM.bind (ma: OpM Δ A) (a2mb: A -> OpM Δ B): OpM Δ B :=
   match ma with
+  | .Unhandled s => .Unhandled s
   | .Ret a => a2mb a
   | .Error s => .Error s
   | .RunRegion ix args k =>
@@ -108,8 +111,8 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
 
 -- Denote a region with an abstract `OpM.RunRegion`
 def denoteRegionOpM {Δ: Dialect α σ ε}
-  (_r: Region Δ) 
-  (ix: Nat): TypedArgs Δ → OpM Δ (TypedArgs Δ) := 
+  (_r: Region Δ)
+  (ix: Nat): TypedArgs Δ → OpM Δ (TypedArgs Δ) :=
    fun args => OpM.RunRegion ix args (fun retvals => OpM.Ret retvals)
 
 -- Denote the list of regions with an abstract `OpM.runRegion`
@@ -128,18 +131,19 @@ def denoteRegionByIx
   match rs0 with
   | [] => TopM.raiseUB s!"unknown region of ix {ix}"
   | r:: rs' =>
-    match ix with 
+    match ix with
     | 0 => r args
-    | ix' + 1 => denoteRegionByIx rs' ix' args 
--- Morphism from OpM to topM 
+    | ix' + 1 => denoteRegionByIx rs' ix' args
+
+-- Morphism from OpM to topM
 def OpM.toTopM (rs0: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))):
   OpM Δ (TypedArgs Δ) -> TopM Δ (TypedArgs Δ)
+| OpM.Unhandled s => TopM.raiseUB s!"unhandled {s}"
 | OpM.Ret r => pure r
-| OpM.Error s => TopM.raiseUB s 
-| OpM.RunRegion ix args k => do 
+| OpM.Error s => TopM.raiseUB s
+| OpM.RunRegion ix args k => do
        let ret <- denoteRegionByIx rs0 ix args
        OpM.toTopM rs0 (k ret)
-
 
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
@@ -147,7 +151,7 @@ variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 -- unfolded version of List.map denoteRegion.
 -- This allows the termination checker to view the termination.
 def mapDenoteRegion:
-  List (Region Δ) → 
+  List (Region Δ) →
   List (TypedArgs Δ → TopM Δ (TypedArgs Δ))
 | [] => []
 | r :: rs => (denoteRegion r) :: mapDenoteRegion rs
@@ -159,16 +163,16 @@ def denoteOp (op: Op Δ):
     TopM Δ (TypedArgs Δ) :=
   match op with
   | .mk name res0 args0 regions0 attrs => do
-      let regionSemantics := mapDenoteRegion regions0 
+      let regionSemantics := mapDenoteRegion regions0
       let resTy := res0.map Prod.snd
       let args ← args0.mapM (fun (name, τ) => do
         pure ⟨τ, ← TopM.get τ name⟩)
       -- Built the interpreted operation
       let iop : IOp Δ := IOp.mk name resTy args (denoteRegionsOpM regions0 0) attrs
       -- Use the dialect-provided semantics, and substitute regions
-      let ret ← OpM.toTopM regionSemantics (S.semantics_op iop) 
+      let ret ← OpM.toTopM regionSemantics (S.semantics_op iop)
       match (res0, ret) with
-      | ([res], [⟨τ, v⟩]) => 
+      | ([res], [⟨τ, v⟩]) =>
           TopM.set τ res.fst v
           return ret
       | ([], []) =>
@@ -176,7 +180,7 @@ def denoteOp (op: Op Δ):
       | _ =>
         TopM.raiseUB s!"more than one result or unmatched result/expected pair: {op}"
 -- denote a sequence of ops
-def denoteOps (stmts: List (Op Δ)): TopM Δ (TypedArgs Δ) := 
+def denoteOps (stmts: List (Op Δ)): TopM Δ (TypedArgs Δ) :=
    match stmts with
    | [] => return  [⟨.unit, ()⟩]
    | [stmt] => denoteOp stmt

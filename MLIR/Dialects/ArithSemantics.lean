@@ -85,25 +85,23 @@ def ComparisonPred.ofInt: Int → Option ComparisonPred
 --           ArithE (FinInt sz)
 
 def unary_semantics_op (op: IOp Δ)
-      (ctor: {sz: Nat} → FinInt sz → FinInt sz):
-    (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
+      (ctor: {sz: Nat} → FinInt sz → FinInt sz): OpM Δ (TypedArgs Δ) :=
   match op with
-  | IOp.mk _ _ [⟨.int sgn sz, arg⟩]  0 _ => do
+  | IOp.mk _ _ [⟨.int sgn sz, arg⟩]  [] _ => do
       let r := ctor arg
-      return BlockResult.Next ⟨.int sgn sz, r⟩
-  | IOp.mk .. =>  Fitree.trigger (UBE.Unhandled)
+      return [⟨.int sgn sz, r⟩]
+  | IOp.mk name .. =>  OpM.Unhandled name
 
 def binary_semantics_op {Δ: Dialect α' σ' ε'}
       (name: String) (args: List ((τ: MLIRType Δ) × τ.eval))
-      (ctor: {sz: Nat} → FinInt sz → FinInt sz → FinInt sz):
-    (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
+      (ctor: {sz: Nat} → FinInt sz → FinInt sz → FinInt sz): OpM Δ (TypedArgs Δ) :=
   match args with
   | [⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩] =>
       if EQ: sgn = sgn' /\ sz = sz' then  do
         let r := ctor lhs (EQ.2 ▸ rhs)
-        return BlockResult.Next ⟨.int sgn sz, r⟩
-      else Fitree.trigger UBE.Unhandled
-  | _ => Fitree.trigger UBE.Unhandled
+        return [⟨.int sgn sz, r⟩]
+      else OpM.Unhandled name
+  | _ => OpM.Unhandled name
 
 def cmpIndex (pred : ComparisonPred) (lhs rhs: Int): FinInt 1 :=
       let b: Bool :=
@@ -136,11 +134,9 @@ def cmpI (sz : ℕ) (pred : ComparisonPred) (lhs: FinInt sz) (rhs: FinInt sz): F
         | .uge => lhs.toUint >= rhs.toUint
       FinInt.ofInt 1 (if b then 1 else 0)
 
-#check MLIRType.eval
-def arith_semantics_op (o: IOp Δ):
-    (Fitree (RegionE Δ +' UBE) (BlockResult Δ)) :=
+def arith_semantics_op (o: IOp Δ): OpM Δ (TypedArgs Δ) :=
   match o with
-  | IOp.mk "arith.constant" [τ₁] [] 0 attrs =>
+  | IOp.mk "arith.constant" [τ₁] [] [] attrs =>
       match AttrDict.find attrs "value" with
       | some (.int value τ₂) =>
           if τ₁ = τ₂ then
@@ -148,15 +144,15 @@ def arith_semantics_op (o: IOp Δ):
             | .int sgn sz => do
                 -- TODO: Check range of constants
                 let v := FinInt.ofInt sz value
-                return BlockResult.Next ⟨.int sgn sz, v⟩
+                return [⟨.int sgn sz, v⟩]
             | .index => do
-                return BlockResult.Next ⟨.index, value⟩
-            | _ => Fitree.trigger (UBE.Unhandled)
-          else Fitree.trigger (UBE.Unhandled)
+                return [⟨.index, value⟩]
+            | _ => OpM.Unhandled "arith.constant"
+          else OpM.Unhandled "arith.constant"
       | some _
-      | none => Fitree.trigger (UBE.Unhandled)
+      | none => OpM.Unhandled "arith.constant"
 
-  | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] 0
+  | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] []
     attrs =>
       if EQ: sgn = sgn' /\ sz = sz' then
             match attrs.find "predicate" with
@@ -164,35 +160,34 @@ def arith_semantics_op (o: IOp Δ):
                 match (ComparisonPred.ofInt n) with
                 | some pred => do
                   let r := cmpI sz pred lhs (EQ.2 ▸ rhs)
-                  return BlockResult.Next ⟨.i1, r⟩
-                | none => Fitree.trigger (UBE.Unhandled)
+                  return [⟨.i1, r⟩]
+                | none => OpM.Unhandled "arith.cmpi"
             | some _
-            | none => Fitree.trigger (UBE.Unhandled)
-      else Fitree.trigger (UBE.Unhandled)
+            | none => OpM.Unhandled "arith.cmpi"
+      else OpM.Unhandled "arith.cmpi"
 
-  | IOp.mk "arith.cmpi" _ [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] 0 attrs =>
+  | IOp.mk "arith.cmpi" _ [ ⟨.index, lhs⟩, ⟨.index, rhs⟩ ] [] attrs =>
       match attrs.find "predicate" with
       | some (.int n (.int .Signless 64)) =>
           match (ComparisonPred.ofInt n) with
           | some pred => do
             let r := cmpIndex pred lhs rhs
-            return BlockResult.Next ⟨.i1, r⟩
-          | none => Fitree.trigger (UBE.Unhandled)
+            return [⟨.i1, r⟩]
+          | none => OpM.Unhandled "arith.cmpi"
       | some _
-      | none => Fitree.trigger (UBE.Unhandled)
+      | none => OpM.Unhandled "arith.cmpi"
 
-  | IOp.mk "arith.zext" [.int sgn₂ sz₂] [⟨.int sgn₁ sz₁, value⟩]  0 _ =>
+  | IOp.mk "arith.zext" [.int sgn₂ sz₂] [⟨.int sgn₁ sz₁, value⟩]  [] _ =>
       if sgn₁ = sgn₂ then do
         let r :=  FinInt.zext sz₂ value
-        return BlockResult.Next ⟨.int sgn₂ sz₂, r⟩
-      else Fitree.trigger (UBE.Unhandled)
+        return [⟨.int sgn₂ sz₂, r⟩]
+      else OpM.Unhandled "arith.zext"
 
-  | IOp.mk "arith.select" _ [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩]  0 _ =>
+  | IOp.mk "arith.select" _ [⟨.i1, b⟩, ⟨.int sgn sz, lhs⟩, ⟨.int sgn' sz', rhs⟩]  [] _ =>
       if EQ: sgn = sgn' /\ sz = sz' then  do
         let r := if b.toUint = 1 then lhs else (EQ.2 ▸ rhs)
-        return BlockResult.Next ⟨.int sgn sz, r⟩
-      else Fitree.trigger (UBE.Unhandled)
-
+        return [⟨.int sgn sz, r⟩]
+      else OpM.Unhandled "arith.select"
   | IOp.mk "arith.negi" .. =>
       unary_semantics_op o FinInt.neg
   | IOp.mk name _ args _ _  =>
@@ -207,7 +202,7 @@ def arith_semantics_op (o: IOp Δ):
       else if name = "arith.xori" then
         binary_semantics_op name args FinInt.xor
       else
-        Fitree.trigger (UBE.Unhandled)
+        OpM.Unhandled name
 
 instance: Semantics arith where
   semantics_op := arith_semantics_op
@@ -260,7 +255,7 @@ private theorem ops.constant.sem output value:
     denoteOp arith (ops.constant output value) =
   Fitree.Vis (E := SSAEnvE arith +' Semantics.E arith +' UBE)
     (Sum.inl <| SSAEnvE.Set .i32 output (FinInt.ofInt 32 value)) fun _ =>
-  Fitree.ret (BlockResult.Next (δ := arith)
+  Fitree.ret (TypedArgs.Next (δ := arith)
     ⟨.i32, FinInt.ofInt 32 value⟩) := by
   simp [ops.constant, denoteOp, denoteOpBase, Semantics.semantics_op]
   simp_itree
@@ -273,7 +268,7 @@ private theorem ops.negi.sem output input:
     (Sum.inl <| SSAEnvE.Get .i32 input) fun r =>
   Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.NegI 32 r) fun r =>
   Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
-  Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
+  Fitree.ret (TypedArgs.Next ⟨.i32, r⟩) := by
   simp [ops.negi, denoteOp, denoteOpBase, Semantics.semantics_op]
   simp_itree
 
@@ -283,7 +278,7 @@ private theorem ops.zext.sem sz₁ sz₂ output input:
     (Sum.inl <| @SSAEnvE.Get _ _ _ _ (.int .Signless sz₁) (instInhabitedEval _) input) fun r =>
   Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.Zext sz₁ sz₂ r) fun r =>
   Fitree.Vis (Sum.inl <| SSAEnvE.Set (.int .Signless sz₂) output r) fun _ =>
-  Fitree.ret (BlockResult.Next ⟨.int .Signless sz₂, r⟩) := by
+  Fitree.ret (TypedArgs.Next ⟨.int .Signless sz₂, r⟩) := by
   simp [ops.zext, denoteOp, denoteOpBase, Semantics.semantics_op]
   simp_itree
 
@@ -298,7 +293,7 @@ private theorem ops.select.sem output cond t f:
     (Sum.inl <| SSAEnvE.Get .i32 f) fun f =>
   Fitree.Vis (Sum.inr <| Sum.inl <| ArithE.Select 32 cond t f) fun r =>
   Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
-  Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
+  Fitree.ret (TypedArgs.Next ⟨.i32, r⟩) := by
   simp [ops.select, denoteOp, denoteOpBase, Semantics.semantics_op]
   simp_itree
 
@@ -313,7 +308,7 @@ private theorem ops._binary.sem name ctor output lhs rhs:
   Fitree.Vis (Sum.inl <| SSAEnvE.Get .i32 rhs) fun rhs =>
   Fitree.Vis (Sum.inr <| Sum.inl <| ctor 32 lhs rhs) fun r =>
   Fitree.Vis (Sum.inl <| SSAEnvE.Set .i32 output r) fun _ =>
-  Fitree.ret (BlockResult.Next ⟨.i32, r⟩) := by
+  Fitree.ret (TypedArgs.Next ⟨.i32, r⟩) := by
   intro h
   simp [denoteOp, denoteOpBase, Semantics.semantics_op]
   simp [List.zip, List.zipWith, List.mapM, List.map]
