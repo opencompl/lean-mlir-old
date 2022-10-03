@@ -343,7 +343,7 @@ private def cst1: BasicBlock arith := [mlir_bb|
 ]
 
 #eval run (Δ := arith) ⟦cst1⟧ (SSAEnv.empty (δ := arith))
-
+-/
 
 /-
 ### Rewriting heorems
@@ -362,13 +362,18 @@ def RHS: Op arith := [mlir_op|
 theorem equivalent (n m: FinInt 32):
     run ⟦LHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
-  simp [LHS, RHS, run]
-  rw [ops.addi.sem]
-  rw [ops.addi.sem]
-  simp [SSAEnvE.handle, cast_eq]
-  -- Unfold ArithE.handle only where it is applied to an explicit effect
-  repeat conv in ArithE.handle _ _ => simp [ArithE.handle]
-  simp [FinInt.add_comm]
+  simp [LHS, RHS,
+        run, StateT.run,
+        denoteOp, bind, List.mapM, StateT.bind,
+        List.mapM.loop, Except.bind, TopM.get, StateT.get, pure, Except.pure, StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval];
+   constructor;
+   unfold cast;
+   unfold MLIRType.eval;
+   simp;
+   rewrite [FinInt.add_comm'];
+   rfl;
+   rewrite [FinInt.add_comm'];
+   rfl;
 end th1
 
 /- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`

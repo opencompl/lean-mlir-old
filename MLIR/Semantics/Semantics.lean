@@ -73,11 +73,16 @@ abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except Str
 def TopM.raiseUB {Δ: Dialect α σ ε} (message: String): TopM Δ R :=
   Except.error message
 
-def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ.eval :=
-  sorry
+def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ.eval := do
+  let s ← StateT.get
+  match SSAEnv.get name τ s with
+  | .some v => return v
+  | .none => return default
 
-def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval): TopM Δ Unit :=
-  sorry
+def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval): TopM Δ Unit := do
+  let s ← StateT.get
+  StateT.set (SSAEnv.set name τ v s)
+
 
 
 class Semantics (Δ: Dialect α σ ε)  where

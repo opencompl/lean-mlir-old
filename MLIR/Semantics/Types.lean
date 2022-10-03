@@ -96,7 +96,7 @@ instance: DecidableEq (MLIRType δ) :=
    the elaborator, so instead we define it manually with the recursor.
    See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
 
-@[reducible, simp_itree]
+@[reducible, simp_itree, simp]
 def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
   MLIRType.recOn τ
     (motive_1 := fun _ => Type) -- MLIRType
