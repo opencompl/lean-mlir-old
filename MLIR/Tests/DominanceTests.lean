@@ -25,14 +25,14 @@ def DominanceTest.run : DominanceTest -> TestCase
     (name, match singleBBRegionObeySSA region [] with
             | some _ =>
             if expectSuccess then
-              .ok ()
+              .ok ""
             else
               .error "Dominance check succeeded, but expected failure"
             | none =>
             if expectSuccess then
               .error "Dominance check failed, but expected success"
             else
-              .ok ())
+              .ok "")
 
 def trueval :=
     DominanceTest.mk (func_ + arith + scf) "trueval" true [mlir_region| {

@@ -1,7 +1,7 @@
 
 namespace TestLib
 
-abbrev TestCase := String × Except String Unit
+abbrev TestCase := String × Except String String
 abbrev TestGroup := String × List TestCase
 abbrev TestSuite := List TestGroup
 
@@ -11,7 +11,7 @@ def runTestList (tests: List TestCase) : IO (Nat × Nat) := do
   let mut succeeded := 0
   for (name, test) in tests do
     match test with
-    | .ok () => IO.println s!"PASS {name}"; succeeded := succeeded + 1
+    | .ok msg  => IO.println s!"PASS {name}: {msg}"; succeeded := succeeded + 1
     | .error e => IO.println s!"FAIL {name}: {e}"; failed := failed + 1
   return (succeeded, failed)
 
