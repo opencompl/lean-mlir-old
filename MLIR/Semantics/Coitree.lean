@@ -271,7 +271,10 @@ TODO: how do I generate a Vis?
 open Nu in
 def Coitree.Vis [Inhabited R] (et: E T) (k: T -> Coitree E R): Coitree E R :=
  Nu.mk (Option (Σ (t: T), (k t).getA)) .none
-   (fun state => CoitreeF.Vis et (fun t => .some ⟨t, (k t).geta⟩))
+   (fun state => CoitreeF.Vis et
+       (fun t => match state with
+                 | .none => .some ⟨t, (k t).geta⟩
+                 | .some ⟨t', kta'⟩ =>  .some ⟨t', (k t').geta⟩))
 
 open Nu in
 def Coitree.Ret (r: T): Coitree E T :=
