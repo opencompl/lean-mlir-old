@@ -376,6 +376,7 @@ theorem equivalent (n m: FinInt 32):
    rfl;
 end th1
 
+/-
 /- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`
    https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1794 -/
 

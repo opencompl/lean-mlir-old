@@ -269,23 +269,7 @@ def TensorFlatIndex.merge
   })
 
 
-namespace TensorKD
-/-
-## Tensor type for fixed shape (K = 4)
 
-The data structure below represents a 4D tensor.
--/
-structure TensorKD where
-  shape0: Nat
-  shape1: Nat
-  shape2: Nat
-  shape3: Nat
-  data: List Int -- monomorphic tensors
-  h_data_size: data.length = (shape0 * shape1 * shape2 * shape3)
-
-
-
-end TensorKD
 
 
 /-

@@ -85,6 +85,7 @@ inductive MLIRType (δ: Dialect α σ ε) :=
 | fn: MLIRType δ -> MLIRType δ -> MLIRType δ
 | int: Signedness -> Nat -> MLIRType δ
 | float: Nat -> MLIRType δ
+| tensor: MLIRType δ -- tensor of int values. 
 | index:  MLIRType δ
 | tuple: List (MLIRType δ) -> MLIRType δ
 | undefined: String → MLIRType δ
@@ -247,6 +248,7 @@ def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .index       => .index
   | .tuple τs    => .tuple (coeMLIRTypeList τs)
   | .undefined n => .undefined n
+  | .tensor => .tensor
   | .extended s  => .extended (c.coe_σ _ _ s)
 
 def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
@@ -403,6 +405,7 @@ partial def docMLIRType: MLIRType δ → Doc
   | .int .Unsigned k => [doc| "u"k]
   | .int .Signed k => [doc| "si"k]
   | .float k => [doc| "f"k]
+  | .tensor => [doc| "tensor"]
   | .index => [doc| "index"]
   | .tuple ts => [doc| "(" (ts.map docMLIRType),* ")" ]
   | .fn dom codom => (docMLIRType dom) ++ " -> " ++ (docMLIRType codom)

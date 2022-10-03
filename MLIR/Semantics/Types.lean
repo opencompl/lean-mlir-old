@@ -33,8 +33,10 @@ Types that need improvements or refinements:
 import MLIR.Util.Arith
 import MLIR.Util.List
 import MLIR.Util.FinInt
+import MLIR.Util.KDTensor
 import MLIR.Semantics.Fitree
 import MLIR.AST
+
 
 import Lean
 import Lean.Elab.Term
@@ -108,6 +110,8 @@ def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
     (fun sgn sz => FinInt sz)
     -- .float
     (fun sz => Float)
+    -- .tensopr
+    (KDTensor)
     -- .index
     Int
     -- .tuple [Mapping motive_2 to motive_1]
@@ -138,6 +142,7 @@ def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
   | .int _ _ => .zero
   | .float _ => 0.0
   | .index => 0
+  | .tensor => KDTensor.empty
   | .tuple [] => ()
   | .tuple [τ] => τ.default
   | .tuple (τ₁::τ₂::l) => (τ₁.default, default $ .tuple (τ₂::l))
@@ -154,6 +159,7 @@ def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v
   | .float _ =>
       -- FIXME: Equality of floats
       if v₁ == v₂ then isTrue sorry else isFalse sorry
+  | .tensor => KDTensor.isEq v₁ v₂
   | .index => inferInstance
   | .tuple [] => inferInstance
   | .tuple [τ] => @eq τ v₁ v₂
@@ -178,6 +184,7 @@ def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   | .int .Signed 0, v => "<i0>"
   | .int .Signed (sz+1), v => toString v.toSint
   | .float _, v => toString v
+  | .tensor, t => toString t
   | .index, v => toString v
   | .tuple [], v => "()"
   | .tuple [τ], v => "(" ++ (@str τ v).drop 1

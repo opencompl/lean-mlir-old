@@ -251,6 +251,7 @@ def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → Option (MLIRType δ₁)
 | .int sgn sz => .some (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
 | .float sz => .some (.float sz) -- : Nat -> MLIRType δ
 | .index => .some (.index) --:  MLIRType δ
+| .tensor => .some .tensor
 | .tuple ts => do
     let ts' <- MLIRType.retractLeftList ts
     return .tuple ts'
@@ -272,6 +273,7 @@ def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
 | .float sz => (.float sz) -- : Nat -> MLIRType δ
 | .index => (.index) --:  MLIRType δ
 | .tuple ts => .tuple (MLIRType.swapDialectList ts)
+| .tensor => .tensor
 | .undefined s => (.undefined s) -- : String → MLIRType δ
 | .extended (Sum.inl σ₁) => .extended (Sum.inr σ₁)
 | .extended (Sum.inr σ₂) => .extended (Sum.inl σ₂)
@@ -287,6 +289,7 @@ def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁)
    -- TODO: need to convert from (vs: MLIRType.eval (.tuple ts)) to List (TypedArg δ)
    sorry
 | ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
+| ⟨.tensor, v⟩ => ⟨.tensor, v ⟩
 | ⟨.extended (Sum.inl σ₁), v ⟩ => ⟨.extended (Sum.inr σ₁), v⟩
 | ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended (Sum.inl σ₂), v⟩
 
@@ -317,6 +320,7 @@ match t with
 | ⟨.int sgn sz, v ⟩ => .some ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
 | ⟨ .float sz, v ⟩ => .some ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => .some ⟨.index, v ⟩ --:  MLIRType δ
+| ⟨.tensor, v⟩ => .some ⟨.tensor,v ⟩
 | ⟨.tuple ts, vs ⟩ =>
    -- TODO: need to convert from (vs: MLIRType.eval (.tuple ts)) to List (TypedArg δ)
    sorry
