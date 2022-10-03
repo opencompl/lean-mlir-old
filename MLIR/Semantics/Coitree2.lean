@@ -110,7 +110,10 @@ def ITreeF.fmap (f: X → Y): ITreeF E R X → ITreeF E R Y
 
 instance: Functor (ITreeF E R) where map := ITreeF.fmap
 
-def ITree (E: Type → Type) (R: Type) := ν (ITreeF E R)
+-- Because `VisF` quantifies on `T: Type`, we must build everything in Type 1.
+-- It is quite important to fix it here by specifying `ITreeF.{1}`, otherwise
+-- the universe game becomes quite complicated for no good reason.
+def ITree (E: Type → Type) (R: Type) := ν (ITreeF.{1} E R)
 
 def ITree.destruct: ITree E R → ITreeF E R (ITree E R)
   | ν.mk x f =>
@@ -119,12 +122,20 @@ def ITree.destruct: ITree E R → ITreeF E R (ITree E R)
       | .TauF t => .TauF (ν.mk t f)
       | .VisF e k => .VisF e (fun r => ν.mk (k r) f)
 
--- Tricky due to universes
-def ITree.construct.{u}: ITreeF E R (ITree.{u} E R) → ITree.{max 1 u} E R
+def ITree.construct: ITreeF E R (ITree E R) → ITree E R
   | .RetF r =>
       ν.mk (ULift.up r) (ITreeF.RetF ∘ ULift.down)
   | .TauF (@ν.mk _ X t f) =>
       @ν.mk _ (ITreeF E R X) (ITreeF.TauF t) (ITreeF.fmap f)
   | @ITreeF.VisF _ _ _ T e k =>
-      @ν.mk _ (ULift.{1,u} $ Option $ (t: T) × ν.X (k t)) (ULift.up .none)
-        (fun _ => .VisF e (fun t => .up $ .some ⟨t, (k t).x⟩))
+      @ν.mk _ (Option $ (t: T) × ν.X (k t)) .none
+        (fun _ => .VisF e (fun t => .some ⟨t, (k t).x⟩))
+
+def ITree.Ret (r: R): ITree E R :=
+  ITree.construct (.RetF r)
+
+def ITree.Tau (t: ITree E R): ITree E R :=
+  ITree.construct (.TauF t)
+
+def ITree.Vis (e: E T) (k: T → ITree E R): ITree E R :=
+  ITree.construct (.VisF e k)
