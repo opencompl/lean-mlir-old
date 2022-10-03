@@ -37,7 +37,7 @@ A program p1 refines a program p2 if p1 succeed whenever p2 succeed,
 with the same return value, and an environment refining p2 environment.
 -/
 
-def refines {Δ: Dialect α' σ' ε'} {R} (t1 t2: TopM Δ R) :=
+def TopM.refines {Δ: Dialect α' σ' ε'} {R} (t1 t2: TopM Δ R) :=
   ∀ env,
   match run t2 env, run t1 env with
   | .error _, _ => true
