@@ -63,7 +63,7 @@ inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
-  (regions: List (TypedArgs Δ → OpM Δ (TypedArgs Δ))) -- TODO: surely, I can build the denotation of a region and pass it along to you?
+  (regions: List (TypedArgs δ → OpM δ (TypedArgs δ))) -- TODO: surely, I can build the denotation of a region and pass it along to you?
   (attrs:   AttrDict δ)
 
 

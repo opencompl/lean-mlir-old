@@ -35,44 +35,37 @@ def run_loop_bounded_stepped [Monad m] (n: Nat) (lo: Int) (step: Int) (accum: a)
 def run_loop_bounded
   (n: Nat)
   (ix: Int)
-  (start: BlockResult Δ):
-    Fitree (RegionE Δ +' UBE) (BlockResult Δ) := do
+  (start: TypedArgs Δ)
+  (rgn: TypedArgs Δ → OpM Δ (TypedArgs Δ)): OpM Δ (TypedArgs Δ):= do
   match n with
   | 0 => return start
   | .succ n' => do
-    let (_: BlockResult Δ) <- Fitree.trigger (RegionE.RunRegion 0 [⟨MLIRType.index, ix⟩])
-    run_loop_bounded n' (ix + 1) (.Ret [])
+    let (_: TypedArgs Δ) <- rgn [⟨MLIRType.index, ix⟩]
+    run_loop_bounded n' (ix + 1) ([]) rgn
 
 
 -- | TODO: refactor to (1) an effect, (2) an interpretation
 -- | TODO: use the return type of Scf.For. For now, just do unit.
-def scf_semantics_op: IOp Δ →
-      Fitree (RegionE Δ +' UBE) (BlockResult Δ)
-
-  | IOp.mk "scf.if" _ [⟨.i1, b⟩]  2 _ =>
-      Fitree.trigger <| RegionE.RunRegion (if b == 1 then 0 else 1) []
-
-  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] 1 _ => do
+def scf_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
+  | IOp.mk "scf.if" _ [⟨.i1, b⟩]  [rthen, relse] _ => do
+      if b == 1 then rthen [] else relse []
+  | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [body] _ => do
     let nsteps : Int := (hi - lo) / step
     run_loop_bounded_stepped
-      (a := BlockResult Δ)
+      (a := TypedArgs Δ)
       (n := nsteps.toNat)
       (lo := lo)
       (step := step)
       (accum := default)
-      (eff := (fun i _ => Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, i⟩]))
+      (eff := (fun i _ => body [⟨.index, i⟩]))
+  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] [body] _ => do
+      run_loop_bounded (n := (hi - lo).toNat) (ix := lo) [] body
+  | IOp.mk "scf.yield" _ vs [] _ =>
+      return vs
 
-  | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] 1 _ => do
-      run_loop_bounded (n := (hi - lo).toNat) (ix := lo) (BlockResult.Ret [])
-
-  | IOp.mk "scf.yield" _ vs 0 _ =>
-      return BlockResult.Ret vs
-
-  | IOp.mk "scf.execute_region" _ args  1 _ => do
-      Fitree.trigger (RegionE.RunRegion 0 args)
-
-  | _ => Fitree.trigger UBE.Unhandled
-
+  | IOp.mk "scf.execute_region" _ args  [rgn] _ => do
+      rgn args
+  | IOp.mk name .. => OpM.Unhandled name
 
 instance: Semantics scf where
   semantics_op := scf_semantics_op
@@ -94,6 +87,7 @@ def INPUT (b: Bool): SSAEnv scf := SSAEnv.One [
 ]
 
 -- Pure unfolding-style proof
+/-
 theorem equivalent (b: Bool):
     run ⟦LHS r₁ r₂⟧ (INPUT b) =
     run ⟦if b then r₁ else r₂⟧ (INPUT b) := by
@@ -105,7 +99,7 @@ theorem equivalent (b: Bool):
   cases b <;> simp [List.get!]
   sorry -- proof broken when upgrading Lean.
   sorry -- proof broken when upgrading Lean.
-
+-/
 end SCF.IF
 
 
@@ -145,19 +139,21 @@ def INPUT (n: Nat): SSAEnv scf := SSAEnv.One [
   ⟨"c0", .index, 0⟩,
   ⟨"c1", .index, 1⟩]
 
+/-
 theorem peel_run_loop_bounded {n: Nat} {ix: Int} (start: BlockResult Δ):
   run_loop_bounded (n+1) ix start =
   Fitree.bind (Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, ix⟩])
     (fun (_: BlockResult Δ) => run_loop_bounded n (ix+1) (.Ret [])) := rfl
-
+-/
 -- The main requirement for this theorem is that `r` satisfies SSA invariants,
 -- ie. values available before it runs are unchanged by its execution. Here we
 -- assume something quite a bit stronger, to simplify the proof of the actual
 -- property, which is that a read can commute with running the region.
-
+/-
 theorem CORRECT_r (n:Nat) (r: Region scf) args:
     (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n) := by
   sorry
+-/
 /-
 theorem CORRECT_r_commute_run_interpRegion_SSAEnvE_get [S: Semantics scf]
   (CORRECT_r: (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n))
@@ -181,6 +177,7 @@ private theorem identity₁ (n: Nat):
   sorry
 
 -- Pretty slow due to simplifying scf_semantics_op which contains a large match
+/-
 theorem equivalent (n: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n)) =
     (run ⟦RHS r⟧ (INPUT n)) := by
@@ -204,6 +201,7 @@ theorem equivalent (n: Nat) (r: Region scf):
   simp [(by sorry: (0:Int) + (1:Int) = (1:Int))]
   all_goals simp [INPUT, cast_eq]
   -/
+-/
 end SCF.FOR_PEELING
 
 
@@ -238,7 +236,7 @@ def INPUT (n m: Nat): SSAEnv scf := SSAEnv.One [
       sorry
     }
    } -/
-
+/-
 theorem equivalent (n m: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n m)) =
     (run ⟦RHS r⟧ (INPUT n m)) := by
@@ -260,5 +258,5 @@ theorem equivalent (n m: Nat) (r: Region scf):
   -- At this point we need something similar to CORRECT_r_* above.
   -- simp [run_denoteOp_interp_region]
   -- all_goals simp [INPUT, cast_eq]
-
+-/
 end SCF.FOR_FUSION
