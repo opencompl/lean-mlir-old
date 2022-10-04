@@ -143,13 +143,8 @@ def ITree.Tau (t: ITree E R): ITree E R :=
 def ITree.Vis (e: E T) (k: T → ITree E R): ITree E R :=
   ITree.construct (.VisF e k)
 
-def ITreeF.cont (k: R -> ITree E U) (r: R): ITreeF E U ((r: R) × ν.X (k r)) :=
-  match H: k r with
-  | @ν.mk _ X x f =>
-      match f x with
-      | .RetF r => .RetF r
-      | .TauF x => .TauF ⟨r, cast (by simp [H, ν.X]) x⟩
-      | .VisF e k' => .VisF e (fun x => ⟨r, cast (by simp [H, ν.X]) (k' x)⟩)
+-- def ITreeF.cont (k: R -> ITree E U) (r: R): ITreeF E U ((r: R) × ν.X (k r)) :=
+--   ITreeF.fmap (⟨r,.⟩) $ (k r).f (k r).x
 
 -- Substitute every leaf `Ret x` with `k x`.
 def ITree.subst (k: R -> ITree E U): ITree E R → ITree E U
@@ -162,3 +157,19 @@ def ITree.subst (k: R -> ITree E U): ITree E R → ITree E U
             | .TauF t => .TauF (.inl t)
             | .VisF e k => .VisF e (.inl ∘ k)
         | .inr ⟨r, x⟩ => Functor.map (.inr ⟨r,.⟩) ((k r).f x))
+
+def ITree.bind (t: ITree E T) (k: T → ITree E R): ITree E R :=
+  subst k t
+
+def ITree.cat (k: T → ITree E U) (h: U → ITree E V): T → ITree E V :=
+  fun t => bind (k t) h
+
+def ITree.iter (step: I → ITree E (I ⊕ R)) (i: I): ITree E R :=
+  @ν.mk _ ((i: I) × ν.X (step i))
+          ⟨i, ν.x (step i)⟩
+          (fun ⟨i, x⟩ =>
+            match (step i).f x with
+            | .RetF (.inl i') => .TauF ⟨i', (step i').x⟩
+            | .RetF (.inr r) => .RetF r
+            | .TauF x => .TauF ⟨i, x⟩
+            | .VisF e k => .VisF e (fun x => ⟨i, k x⟩))
