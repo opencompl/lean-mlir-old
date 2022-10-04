@@ -52,13 +52,14 @@ def scf_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
       if b == 1 then rthen [] else relse []
   | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [body] _ => do
     let nsteps : Int := (hi - lo) / step
-    run_loop_bounded_stepped
+    let _  ← run_loop_bounded_stepped
       (a := TypedArgs Δ)
       (n := nsteps.toNat)
       (lo := lo)
       (step := step)
       (accum := default)
       (eff := (fun i _ => body [⟨.index, i⟩]))
+    return []
   | IOp.mk "scf.for'" _ [⟨.index, lo⟩, ⟨.index, hi⟩] [body] _ => do
       run_loop_bounded (n := (hi - lo).toNat) (ix := lo) [] body
   | IOp.mk "scf.yield" _ vs [] _ =>
