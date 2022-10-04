@@ -113,6 +113,7 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
     | [] => return ()
     | name :: names => do
         TopM.set τ name val
+        denoteTypedArgs args names
 
 -- Denote a region with an abstract `OpM.RunRegion`
 def denoteRegionOpM {Δ: Dialect α σ ε}
@@ -203,62 +204,24 @@ def denoteRegion (rgn: Region Δ) (args: TypedArgs Δ):
      denoteTypedArgs args formalArgs
      denoteOps ops
 
-/-
-def denoteRegions (rs: List (Region Δ)):
-    List (TypedArgs Δ → Fitree (SSAEnvE Δ +' UBE) (BlockResult Δ)) :=
- match rs with
- | [] => []
- | r :: rs => (denoteRegion r) :: denoteRegions rs
-
-def denoteRegion (r: Region Δ):
-    TypedArgs Δ → Fitree (SSAEnvE Δ +'UBE) (BlockResult Δ) :=
-  fun args =>
-  -- We only define semantics for single-basic-block regions
-  -- Furthermore, we tacticly assume that the region that we run will
-  -- return a `BlockResult.Ret`, since we don't bother handling
-  -- `BlockResult.Branch`.
-  match r with
-  | .mk [bb] => do
-      let result ← denoteBB bb args
-
-  | _ =>
-      raiseUB s!"invalid denoteRegion (>1 bb): {r}"
--/
 
 end
 
-namespace Retraction
+section Retraction
 
 variable {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
  variable   {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
 
-mutual
-
 -- TODO: create holes for things that are unknown? eg. use `undefined?
-def MLIRType.retractLeftList: List (MLIRType (δ₁ + δ₂)) -> Option (List (MLIRType δ₁))
-| [] => .some []
-| t::ts =>  do
-   let ts' <- MLIRType.retractLeftList ts
-   let t' <- (MLIRType.retractLeft t)
-   return t'::ts'
-
--- TODO: create holes for things that are unknown? eg. use `undefined?
-def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → Option (MLIRType δ₁)
-| .int sgn sz => .some (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
-| .float sz => .some (.float sz) -- : Nat -> MLIRType δ
-| .index => .some (.index) --:  MLIRType δ
-| .tensor => .some .tensor
-| .erased => .some .erased
-| .undefined s => .some (.undefined s) -- : String → MLIRType δ
-| .extended (Sum.inl σ₁) => .some (.extended σ₁) -- : σ → MLIRType δ
-| .extended (Sum.inr σ₂) => .none
-end
-
-mutual
-def MLIRType.swapDialectList: List (MLIRType (δ₁ + δ₂)) -> List (MLIRType (δ₂ + δ₁))
-| [] => []
-| t::ts =>  (MLIRType.swapDialect t) :: (MLIRType.swapDialectList ts)
-
+def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → MLIRType δ₁
+| .int sgn sz => .int sgn sz -- : Signedness -> Nat -> MLIRType δ
+| .float sz => .float sz -- : Nat -> MLIRType δ
+| .index => .index --:  MLIRType δ
+| .tensor => .tensor
+| .erased => .erased
+| .undefined s => .undefined s-- : String → MLIRType δ
+| .extended (Sum.inl σ₁) => .extended σ₁ -- : σ → MLIRType δ
+| .extended (Sum.inr σ₂) => .erased
 
 def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
 | .int sgn sz => (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
@@ -269,11 +232,6 @@ def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
 | .undefined s => (.undefined s) -- : String → MLIRType δ
 | .extended (Sum.inl σ₁) => .extended (Sum.inr σ₁)
 | .extended (Sum.inr σ₂) => .extended (Sum.inl σ₂)
-end
-
-
--- TODO: Do we need both tuple and TypedArgs?
-#check MLIRType.eval
 
 
 def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁)
@@ -286,43 +244,60 @@ def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁)
 | ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended (Sum.inl σ₂), v⟩
 | ⟨.erased, ()⟩ => ⟨.erased, ()⟩
 
+@[reducible, simp]
+def TypedArgs.swapDialect (ts: TypedArgs (δ₁ + δ₂)): TypedArgs (δ₂ + δ₁) :=
+  ts.map TypedArg.swapDialect
 
 
 
--- TODO: there is no need to have both a tuple type, and a list of
--- typed args. That's just madness.
-def TypedArg.retractLeft (t: TypedArg (δ₁ + δ₂)):  Option (TypedArg δ₁) :=
+def TypedArg.retractLeft (t: TypedArg (δ₁ + δ₂)):  TypedArg δ₁ :=
 match t with
-| ⟨.int sgn sz, v ⟩ => .some ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
-| ⟨ .float sz, v ⟩ => .some ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
-| ⟨.index, v⟩ => .some ⟨.index, v ⟩ --:  MLIRType δ
-| ⟨.tensor, v⟩ => .some ⟨.tensor,v ⟩
-| ⟨.undefined s, v ⟩ => .some ⟨.undefined s, v⟩ -- : String → MLIRType δ
-| ⟨.extended (Sum.inl σ₁), v ⟩ => .some ⟨.extended σ₁, v⟩ -- : σ → MLIRType δ
-| ⟨.extended (Sum.inr σ₂), v ⟩ => .none
-| ⟨.erased, ()⟩ => .some ⟨.erased, ()⟩
+| ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
+| ⟨ .float sz, v ⟩ => ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
+| ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
+| ⟨.tensor, v⟩ =>  ⟨.tensor,v ⟩
+| ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
+| ⟨.extended (Sum.inl σ₁), v ⟩ =>  ⟨.extended σ₁, v⟩ -- : σ → MLIRType δ
+| ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.erased, () ⟩
+| ⟨.erased, ()⟩ =>  ⟨.erased, ()⟩
 
-def TypedArgs.retractLeft: TypedArgs (δ₁ + δ₂) -> Option (TypedArgs δ₁)
-| [] => .some []
-| tv::ts =>
-  match TypedArg.retractLeft tv with
-  | .none => .none
-  | .some tv' =>
-       match TypedArgs.retractLeft ts with
-       | .some ts' => .some $ tv'::ts'
-       | .none => .none
+def TypedArg.retractRight (t: TypedArg (δ₁ + δ₂)):  TypedArg δ₂ :=
+match t with
+| ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
+| ⟨ .float sz, v ⟩ => ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
+| ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
+| ⟨.tensor, v⟩ =>  ⟨.tensor,v ⟩
+| ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
+| ⟨.extended (Sum.inl σ₁), v ⟩ =>  ⟨.erased, ()⟩ -- : σ → MLIRType δ
+| ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended σ₂, v ⟩
+| ⟨.erased, ()⟩ =>  ⟨.erased, ()⟩
+
+
+@[reducible, simp]
+def TypedArgs.retractLeft (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₁ := 
+  ts.map TypedArg.retractLeft
+
+@[reducible, simp]
+def TypedArgs.retractRight (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₂ := 
+  ts.map TypedArg.retractRight
 
 -- TODO: define the attribute dictionary retraction.
 -- Will need to rectact over entries, which will need a retraction over values.
-def AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> Option (AttrDict δ₁)
-| _ => .some (AttrDict.mk [])
+def AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> AttrDict δ
+| _ => AttrDict.mk []
 
 def AttrDict.swapDialect: AttrDict (δ₁ + δ₂) -> AttrDict (δ₂ + δ₁)
 | _ => AttrDict.mk []
 
+def OpM.swapDialect: OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂)) -> OpM (δ₂ + δ₁) (TypedArgs (δ₁ + δ₂))
+| OpM.Ret r => OpM.Ret r
+| OpM.Unhandled s => OpM.Unhandled s
+| OpM.Error s => OpM.Error s
+| OpM.RunRegion ix args k => 
+  OpM.RunRegion ix (TypedArgs.swapDialect args) (fun retargs =>
+              OpM.swapDialect (k (TypedArgs.swapDialect retargs)))
 
-def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁) := sorry
-/-
+def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁)
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType (δ₁ + δ₂)))
   (args:    TypedArgs (δ₁ + δ₂))
@@ -332,69 +307,84 @@ def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁) := sorry
         (resTy.map MLIRType.swapDialect)
         (args.map TypedArg.swapDialect)
         (AttrDict.swapDialect attrs)
-        (regions := sorry)
--/
+        -- conjugate region by swapping dialect.
+        (regions := regions.map  (fun rgnEff => (fun args => 
+                 (rgnEff (TypedArgs.swapDialect args)).swapDialect.map TypedArgs.swapDialect)))
+
+-- a -> a + b
+def TypedArg.injectLeft: TypedArg (δ₁) -> TypedArg (δ₁ +  δ₂)
+| ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
+| ⟨ .float sz, v ⟩ =>  ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
+| ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
+| ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
+| ⟨.tensor, v⟩ => ⟨.tensor, v ⟩
+| ⟨.extended σ, v ⟩ => ⟨.extended (Sum.inl σ), v⟩
+| ⟨.erased, ()⟩ => ⟨.erased, ()⟩
+
+
+@[reducible, simp]
+def TypedArg.injectRight: TypedArg δ₂ -> TypedArg (δ₁ + δ₂) := 
+  TypedArg.swapDialect ∘ TypedArg.injectLeft
+
+@[reducible, simp]
+def TypedArgs.injectLeft (ts: TypedArgs (δ₁)): TypedArgs (δ₁ + δ₂) := 
+  ts.map TypedArg.injectLeft
+
+@[reducible, simp]
+def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) := 
+  ts.map TypedArg.injectRight
+
+def OpM.retractLeft [Inhabited R]: OpM (δ₁+ δ₂) R -> OpM δ₁  R
+| OpM.Error s => OpM.Error s 
+| OpM.Unhandled s => OpM.Unhandled s
+| OpM.Ret r => OpM.Ret r
+| OpM.RunRegion ix args k => 
+  OpM.RunRegion ix args.retractLeft (fun results => (k results.injectLeft).retractLeft)
 
 -- Retract an IOp to the left component.
-def IOp.retractLeft: IOp (δ₁ + δ₂) -> Option (IOp δ₁) := sorry
-/-
+-- TODO: IOp needs to be profunctorial, region can use more stuff than the operation
+-- strictly has?
+def IOp.retractLeft: IOp (δ₁ + δ₂) -> IOp δ₁
 | IOp.mk  (name:    String) -- TODO: name should come from an Enum in δ.
-  (resTy:   List (MLIRType (δ₁ + δ₂)))
+  (resTys:   List (MLIRType (δ₁ + δ₂)))
   (args:    TypedArgs (δ₁ + δ₂))
   (regions: List (TypedArgs (δ₁ + δ₂) -> OpM (δ₁+δ₂) (TypedArgs (δ₁ + δ₂))))
   (attrs:   AttrDict (δ₁ + δ₂)) =>
-  match MLIRType.retractLeftList resTy with
-  | .none => .none
-  | .some resTy' =>
-    match TypedArg.retractLeftList args with
-    | .none => .none
-    | .some args' =>
-        match AttrDict.retractLeft attrs with
-        | .none => .none
-        | .some attrs' => .some (IOp.mk name resTy' args' regions attrs')
--/
+  let resTys' := resTys.map MLIRType.retractLeft
+  let args' := args.map TypedArg.retractLeft
+  let attrs' := AttrDict.retractLeft attrs
+  let regions' := regions.map (fun rgnEff => 
+    (fun args => (rgnEff args.injectLeft).retractLeft.map TypedArgs.retractLeft ))
+  (IOp.mk name resTys' args' regions' attrs')
 
-def IOp.retractRight (op: IOp (δ₁ + δ₂)): Option (IOp δ₂) :=
+def IOp.retractRight (op: IOp (δ₁ + δ₂)): IOp δ₂ :=
   IOp.retractLeft (IOp.swapDialect op)
 
-mutual
-def TypedArgs.injectLeft (ts: TypedArgs (δ₁)): TypedArgs (δ₁ +  δ₂) := sorry
-def TypedArg.injectLeft (ts: TypedArg (δ₁)): TypedArg (δ₁ +  δ₂) := sorry
-def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) := sorry
-def TypedArg.injectRight (ts: TypedArg (δ₂)): TypedArg (δ₁ +  δ₂) := sorry
-end
--- need a way to inject args into larger space
-def TypedArgs.retractRight: TypedArgs (δ₁ + δ₂) -> Option (TypedArgs δ₂) := sorry
+def OpM.injectLeft: OpM δ₁ (TypedArgs δ₁) -> OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂))
+| OpM.Ret r => OpM.Ret r.injectLeft
+| OpM.Error s => OpM.Error s
+| OpM.Unhandled s => OpM.Unhandled s
+| OpM.RunRegion ix args k => 
+  OpM.RunRegion ix args.injectLeft (fun args => (k args.retractLeft).injectLeft)
 
-def injectSemanticsRight [Inhabited R]: OpM δ₂ R -> OpM (δ₁ + δ₂) R := sorry
-/-
-| .Ret r => .Ret r
-| .Vis  (.inl regione) k =>
-   match regione with  -- need the match to expose that T = BlockResult δ₁
-   | .RunRegion ix args =>
-     .Vis (.inl (.RunRegion ix (TypedArgs.injectRight args))) (fun t =>
-          match BlockResult.retractRight t with
-          | .some t' => injectSemanticsRight (k t')
-          | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
-| .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsRight (k t))
--/
+@[simp, reducible]
+def OpM.injectRight: OpM δ₂ (TypedArgs δ₂) -> OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂))
+| OpM.Ret r => OpM.Ret r.injectRight
+| OpM.Error s => OpM.Error s
+| OpM.Unhandled s => OpM.Unhandled s
+| OpM.RunRegion ix args k => 
+  OpM.RunRegion ix args.injectRight (fun args => (k args.retractRight).injectRight)
 
-def injectSemanticsLeft [Inhabited R]: OpM δ₁ R -> OpM (δ₁ + δ₂)  R := sorry
-/-
-| .Ret r => .Ret r
-| .Vis  (.inl regione) k =>
-   match regione with  -- need the match to expose that T = BlockResult δ₁
-   | .RunRegion ix args =>
-     .Vis (.inl (.RunRegion ix (TypedArgs.injectLeft args))) (fun t =>
-          match BlockResult.retractLeft t with
-          | .some t' => injectSemanticsLeft (k t')
-          | .none =>  .Vis (.inr (UBE.Unhandled (α := Unit))) (fun _ =>  default))
-| .Vis (.inr ube) k => .Vis (.inr ube) (fun t => injectSemanticsLeft (k t))
--/
 
-end Retraction
 
-open Retraction in
+-- Or the two OpM, using unhandled as the unit for the or.
+def OpM.orUnhandled: OpM δ₁ (TypedArgs δ₁) 
+  -> OpM δ₂ (TypedArgs δ₂) -> OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂))
+| OpM.Unhandled _, x => x.injectRight
+| x, _ => x.injectLeft
+
+
+
 instance
     {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
     {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
@@ -403,16 +393,11 @@ instance
     : Semantics (δ₁ + δ₂) where
   -- semantics_op: IOp Δ → Fitree (RegionE Δ +' UBE) (BlockResult Δ)
   semantics_op op :=
-    -- TODO: need injections of RegionE δ₁ -> RegionE (δ₁ + δ₂)
-    -- TODO: need injection of BlockResult δ₁ -> BlockResult (δ₁ + δ₂)
-    -- TODO: Can I run both, and somehow interleave the two?
-    match Retraction.IOp.retractLeft  op with
-    | .some op₁ =>
-            (injectSemanticsLeft (S₁.semantics_op op₁)).map TypedArgs.injectLeft
-    | .none =>
-        match Retraction.IOp.retractRight op with
-        | .some op₂ => (injectSemanticsRight (S₂.semantics_op op₂)).map TypedArgs.injectRight
-        | .none => OpM.Error  "unknown mixture of dialects"
+    let op₁ := IOp.retractLeft  op
+    let op₂ := IOp.retractRight  op
+    let res1 :=  (S₁.semantics_op op₁)
+    let res2 :=  (S₂.semantics_op op₂)
+    OpM.orUnhandled res1 res2
 
 
 
