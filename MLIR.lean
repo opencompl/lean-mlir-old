@@ -7,6 +7,7 @@ import MLIR.EDSL
 import MLIR.Tests.TestLib
 import MLIR.Tests.AllTests
 import MLIR.Examples.FinIntBruteforce
+import MLIR.Semantics
 
 -- Testing imports for semantics
 import MLIR.Dialects.ToySemantics
