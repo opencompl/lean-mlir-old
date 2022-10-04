@@ -99,6 +99,11 @@ end
 ## ITree
 -/
 
+abbrev arrow1 (E: Type → Type _) (F: Type → Type _) :=
+  forall {T: Type}, E T → F T
+
+infixr:40 " ~> " => arrow1
+
 inductive ITreeF (E: Type → Type) (R: Type) (X: Type _) :=
   | RetF (r: R)
   | TauF (t: X)
@@ -173,3 +178,50 @@ def ITree.iter (step: I → ITree E (I ⊕ R)) (i: I): ITree E R :=
             | .RetF (.inr r) => .RetF r
             | .TauF x => .TauF ⟨i, x⟩
             | .VisF e k => .VisF e (fun x => ⟨i, k x⟩))
+
+-- BEGIN TODO MOVE
+class MonadIter (M: Type → Type) [Monad M] where
+  iter: (I → M (I ⊕ R)) → I → M R
+
+instance [Monad M] [MonadIter M]: MonadIter (StateT S M) where
+  iter step i := fun s =>
+    MonadIter.iter (fun (s, i) => do
+       let (x, s') ← StateT.run (step i) s
+       match x with
+       | .inl i => return .inl (s', i)
+       | .inr r => return .inr (r, s')
+    ) (s, i)
+
+instance [Monad M] [MonadIter M]: MonadIter (ReaderT S M) where
+  iter step i := fun ρ =>
+    MonadIter.iter (fun i => step i ρ) i
+
+instance [Monad M] [MonadIter M]: MonadIter (OptionT M) where
+  iter step i := OptionT.mk $
+    MonadIter.iter (fun i => do
+      let ox ← OptionT.run (step i)
+      return match ox with
+      | .none => .inr .none
+      | .some (.inl i) => .inl i
+      | .some (.inr r) => .inr (.some r)
+    ) i
+-- END TODO MOVE
+
+def ITree.map (f: R → S) (t: ITree E R): ITree E S :=
+  ITree.bind t (Ret ∘ f)
+
+def ITree.trigger: E ~> ITree E :=
+  fun e => Vis e Ret
+
+def ITree.ignore: ITree E R → ITree E Unit :=
+  ITree.map (fun _ => ())
+
+def ITree.spin: ITree E R :=
+  ν.mk PUnit.unit (fun _ => .TauF .unit)
+
+def ITree.forever (t: ITree E R): ITree E R :=
+  ν.mk t.x (fun x =>
+    match t.f x with
+    | .RetF _ => .TauF t.x
+    | .TauF x' => .TauF x'
+    | .VisF e k => .VisF e k)
