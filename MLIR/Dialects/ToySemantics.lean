@@ -115,18 +115,18 @@ def run_toy (t: Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit)
 
 -- TODO: Can we infer the builtin in there?
 def transpose_stmt: Op builtin := [mlir_op|
-  %t2 = "toy.transpose"(%t1): (tensor<2×4×i32>) -> tensor<4×2×i32>
+  %t2 = "toy.transpose"(%t1): (tensor<2×4×i32>) -> (tensor<4×2×i32>)
 ]
 
 def constant_stmt: Op builtin := [mlir_op|
   %t = "toy.constant"() {value=dense<[[1,2],[3,4]]>: tensor<2×2×i32>}:
-    () -> tensor<2×2×i32>
+    () -> (tensor<2×2×i32>)
 ]
 
 def double_transpose: Region builtin := [mlir_region| {
   ^dbl:
-    %t2 = "toy.transpose"(%t1): (tensor<2×4×i32>) -> tensor<4×2×i32>
-    %t3 = "toy.transpose"(%t2): (tensor<4×2×i32>) -> tensor<2×4×i32>
+    %t2 = "toy.transpose"(%t1): (tensor<2×4×i32>) -> (tensor<4×2×i32>)
+    %t3 = "toy.transpose"(%t2): (tensor<4×2×i32>) -> (tensor<2×4×i32>)
 }]
 
 #eval Fitree.run <| run_toy (toy_semantics_op transpose_stmt) SSAEnv.empty

@@ -62,17 +62,6 @@ def MLIRType.eq (τ₁ τ₂: MLIRType δ): Decidable (τ₁ = τ₂) := by
   <;> try (simp; exact inferInstance)
   <;> try apply isFalse MLIRType.noConfusion
 
-  case fn.fn a₁ b₁ a₂ b₂ =>
-    match eq a₁ a₂, eq b₁ b₂ with
-    | isTrue ha, isTrue hb => exact isTrue $ by rw [ha, hb]
-    | isFalse ha, _ => exact isFalse fun h => by cases h; cases ha rfl
-    | _, isFalse hb => exact isFalse fun h => by cases h; cases hb rfl
-
-  case tuple.tuple l₁ l₂ =>
-    match eqList l₁ l₂ with
-    | isTrue h => exact isTrue $ by rw [h]
-    | isFalse h => exact isFalse fun h' => by cases h'; cases h rfl
-
 private def MLIRType.eqList (l₁ l₂: List (MLIRType δ)): Decidable (l₁ = l₂) :=
   match l₁, l₂ with
   | [], [] => isTrue rfl
@@ -93,40 +82,24 @@ instance: DecidableEq (MLIRType δ) :=
 ### Evaluation into concrete Lean types
 -/
 
-/- MLIRType is a nested inductive type. Recursive functions on such types are
-   compiled to well-founded recursion. This prevents it from being reduced by
-   the elaborator, so instead we define it manually with the recursor.
-   See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
+/- MLIRType used to be a nested inductive type, due to the presence of function and tuple
+  types. We have removed this, since we do not need these types. Instead, arguments
+  and return values are decoreated with the expected type.
+
+ Note that Recursive functions on nested inductives are
+ compiled to well-founded recursion. This prevents it from being reduced by
+ the elaborator, so instead we define it manually with the recursor.
+ See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
 
 @[reducible, simp_itree, simp]
-def MLIR.AST.MLIRType.eval (τ: MLIRType δ): Type :=
-  MLIRType.recOn τ
-    (motive_1 := fun _ => Type) -- MLIRType
-    (motive_2 := fun _ => Type) -- List MLIRType
-    -- .fn (the only functions we can materialize are symbols)
-    -- TODO: (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => String) -- What? why is this string?
-    (fun τ₁ τ₂ eval_τ₁ eval_τ₂ => Unit) -- make this unit
-    -- .int
-    (fun sgn sz => FinInt sz)
-    -- .float
-    (fun sz => Float)
-    -- .tensopr
-    (KDTensor)
-    -- .index
-    Int
-    -- .tuple [Mapping motive_2 to motive_1]
-    (fun _ ih => ih)
-    -- .undefined
-    (fun name => Unit)
-    -- .generic
-    ε
-    -- [] (in .tuple)
-    Unit
-    -- (τ::l) (in .tuple)
-    (fun τ l eval_τ eval_l =>
-      match l with
-      | [] => eval_τ
-      | _  => eval_τ × eval_l)
+def MLIR.AST.MLIRType.eval: MLIRType δ -> Type
+| .float _ => Float
+| .int signedness sz=> FinInt sz
+| .tensor => KDTensor
+| .index => Int
+| .undefined _ => Unit
+| .extended σ => ε σ
+| .erased => Unit
 
 
 /-
@@ -138,39 +111,29 @@ inhabitants and a decidable equality.
 
 def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
   match τ with
-  | .fn τ₁ τ₂ => ()
   | .int _ _ => .zero
   | .float _ => 0.0
   | .index => 0
   | .tensor => KDTensor.empty
-  | .tuple [] => ()
-  | .tuple [τ] => τ.default
-  | .tuple (τ₁::τ₂::l) => (τ₁.default, default $ .tuple (τ₂::l))
   | .undefined name => ()
   | .extended s => DialectTypeIntf.inhabited s
+  | .erased => ()
+
+
 
 instance (τ: MLIRType δ): Inhabited τ.eval where
   default := τ.default
 
 def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
   match τ with
-  | .fn τ₁ τ₂ => inferInstance
   | .int _ _ => inferInstance
   | .float _ =>
       -- FIXME: Equality of floats
       if v₁ == v₂ then isTrue sorry else isFalse sorry
   | .tensor => KDTensor.isEq v₁ v₂
   | .index => inferInstance
-  | .tuple [] => inferInstance
-  | .tuple [τ] => @eq τ v₁ v₂
-  | .tuple (τ₁::τ₂::τs) =>
-      let (v₁, l₁) := v₁
-      let (v₂, l₂) := v₂
-      match eq v₁ v₂, @eq (.tuple (τ₂::τs)) l₁ l₂ with
-      | isTrue h₁, isTrue h₂ => isTrue $ by rw [h₁,h₂]
-      | isFalse h₁, _ => isFalse fun h => by cases h; cases h₁ rfl
-      | _, isFalse h₂ => isFalse fun h => by cases h; cases h₂ rfl
   | .undefined _ => inferInstance
+  | .erased => inferInstance
   | .extended s => DialectTypeIntf.eq s v₁ v₂
 
 instance {τ: MLIRType δ}: DecidableEq τ.eval :=
@@ -178,7 +141,6 @@ instance {τ: MLIRType δ}: DecidableEq τ.eval :=
 
 def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   match τ, v with
-  | .fn τ₁ τ₂, v => "<function type>"
   | .int .Signless _, v => toString v.toUint
   | .int .Unsigned _, v => toString v.toUint
   | .int .Signed 0, v => "<i0>"
@@ -186,11 +148,8 @@ def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   | .float _, v => toString v
   | .tensor, t => toString t
   | .index, v => toString v
-  | .tuple [], v => "()"
-  | .tuple [τ], v => "(" ++ (@str τ v).drop 1
-  | .tuple (τ₁::τ₂::τs), (v,vs) =>
-    "(" ++ str v ++ (@str (.tuple (τ₂::τs)) vs).drop 1
   | .undefined _, () => "<undefined>"
+  | .erased, () => "<erased>"
   | .extended s, v => DialectTypeIntf.str s v
 
 instance {τ: MLIRType δ}: ToString τ.eval where

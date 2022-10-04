@@ -277,8 +277,8 @@ def succ0 :  BBName := ([mlir_op_successor_arg| ^bb])
 syntax "[mlir_type|" mlir_type "]" : term
 
 -- TODO: Tuple and function types don't really exists (hardcoded Op notation)
-
-syntax "(" mlir_type,* ")" : mlir_type
+/-
+ syntax "(" mlir_type,* ")" : mlir_type
 macro_rules
 | `([mlir_type| ( $xs,* )]) => do
       let xs <- xs.getElems.mapM (fun x => `([mlir_type| $x]))
@@ -290,6 +290,8 @@ macro_rules
 -- | HACK: just switch to real parsing of lists
 -- syntax "(" mlir_type "," mlir_type "," mlir_type ")" : mlir_type
 syntax mlir_type "->" mlir_type : mlir_type
+-/
+
 syntax "{{" term "}}" : mlir_type
 syntax "!" str : mlir_type
 syntax "!" ident : mlir_type
@@ -340,44 +342,15 @@ def tyf32NoGap : MLIRTy := [mlir_type| f32]
 macro_rules
 | `([mlir_type| {{ $t }} ]) => return t -- antiquot type
 
--- macro_rules
---   | `([mlir_type| ( ) ]) => `(MLIRType.tuple [])
---   | `([mlir_type| ( $x:mlir_type )]) =>
---         `(MLIRType.tuple [ [mlir_type|$x] ])
---   | `([mlir_type| ( $x:mlir_type, $y:mlir_type )]) =>
---     `(MLIRType.tuple [ [mlir_type|$x], [mlir_type|$y] ] )
---   | `([mlir_type| ( $x:mlir_type, $y:mlir_type, $z:mlir_type )]) =>
---     `(MLIRType.tuple [ [mlir_type|$x], [mlir_type|$y], [mlir_type| $z ] ] )
-
-macro_rules
-  | `([mlir_type| $dom:mlir_type -> $codom:mlir_type]) =>
-     `(MLIRType.fn [mlir_type|$dom] [mlir_type|$codom])
-
-def ty0 : MLIRTy := [mlir_type| ( )]
-def tyi32 : MLIRTy := [mlir_type| i32] -- TODO: how to keep no gap?
--- def tyi32' : MLIRTy := ([mlir_type| i32) -- TODO: how to keep no gap?
-def tysingle : MLIRTy := [mlir_type| (i42)]
-def typair : MLIRTy := [mlir_type| (i32, i64)]
-def tyfn0 : MLIRTy := [mlir_type| () -> ()]
-def tyfn1 : MLIRTy := [mlir_type| (i11) -> (i12)]
-def tyfn2 : MLIRTy := [mlir_type| (i21, i22) -> (i23, i24)]
-def tyfn3 : MLIRTy := [mlir_type| (i21, i22, i23) -> (i23, i24, i25)]
-#print ty0
-#print tyi32
-#print typair
-#print tyfn0
-#print tyfn1
 -- #print tyi32'
 
 -- Uses dialect coercion empty → builtin
 example : MLIRType builtin := [mlir_type| i32]
--- Uses MLIRType coercion on the sublist (MLIRType.coeList)
-example : MLIRType builtin := [mlir_type| () -> ()]
+
 -- Uses dialect coercion empty → empty + builtin
 example : MLIRType (Dialect.empty + builtin) := [mlir_type| i32]
 -- More tricky: pushes coercion into the whole construction
--- (used to fail with HAppend in quoteMList)
-example : MLIRType (builtin + Dialect.empty) := [mlir_type| (i21, i22)]
+
 
 
 
@@ -761,12 +734,7 @@ example : AttrValue builtin := [mlir_attr_val| "foo"]
 -- Uses dialect coercion: empty → empty + builtin
 example : AttrValue (Dialect.empty + builtin) := [mlir_attr_val| "foo"]
 -- Uses dialect coercion after building an AttrValue Dialect.empty
-#check (AttrValue.type [mlir_type| (i32, i64) -> i32]: AttrValue builtin)
--- Uses dialect coercion in MLIRType inside the tuple, then propagates
-example : AttrValue builtin := AttrValue.type [mlir_type| (i32, i64) -> i32]
 
-def attrVal1Ty : AttrValue (Dialect.empty + builtin) := [mlir_attr_val| (i32, i64) -> i32]
-#reduce attrVal1Ty
 
 def attrVal1bTy : AttrValue builtin := [mlir_attr_val| i32]
 #reduce attrVal1bTy
@@ -855,9 +823,6 @@ macro_rules
 def attr0Str : AttrEntry builtin := [mlir_attr_entry| sym_name = "add"]
 #print attr0Str
 
-def attr1Type : AttrEntry builtin := [mlir_attr_entry| type = (i32, i32) -> i32]
-#print attr1Type
-
 def attr2Escape : AttrEntry builtin :=
    let x : AttrVal := [mlir_attr_val| 42]
    [mlir_attr_entry| sym_name = $(x)]
@@ -901,13 +866,14 @@ def nestedAttrDict0 : AttrDict Dialect.empty := [mlir_attr_dict| {foo = {bar = "
 
 --
 #check sepBy1
--- TODO: Does not support %var:index = ...
+
+-- Op with potential result
 syntax
   (mlir_op_operand "=")?
   strLit "(" mlir_op_operand,* ")"
          ( "(" mlir_region,* ")" )?
          (mlir_attr_dict)?
-  ":" "(" mlir_type,* ")" "->" mlir_type : mlir_op
+  ":" "(" mlir_type,* ")" "->" "("mlir_type,*")" : mlir_op
 
 macro_rules
   | `([mlir_op| $$($x) ]) => return x
@@ -919,13 +885,54 @@ macro_rules
         ( $operandsNames,* )
         $[ ( $rgns,* ) ]?
         $[ $attrDict ]?
-        : ( $operandsTypes,* ) -> $resType ]) => do
+        : ( $operandsTypes,* ) -> ( $resTypes,* ) ]) => do
 
         -- TODO: Needs a consistency check that `resName=none ↔ resType=.unit`
         let res ← match resName with
         | none => `(@List.nil (MLIR.AST.TypedSSAVal _))
-        | some name => `([([mlir_op_operand| $name], [mlir_type| $resType])])
+        | some name =>  
+           match resTypes.getElems with
+           | #[] => Macro.throwError s!"expected to have return type since result '{resName}' exists"
+           | #[resType] => `([([mlir_op_operand| $name], [mlir_type| $resType])]) 
+           | tys => Macro.throwError s!"expected single return type, found multiple '{tys}'"
+                      
 
+        -- TODO: Needs a consistency check that `operandsNames.length = operandsTypes.length`
+        let operands: List (MacroM <| TSyntax `term) :=
+          List.zipWith (fun x y => `(([mlir_op_operand| $x], [mlir_type| $y])))
+          operandsNames.getElems.toList operandsTypes.getElems.toList
+        let operands ← quoteMList (← operands.mapM id) (← `(MLIR.AST.TypedSSAVal _))
+        let attrDict <- match attrDict with
+                          | none => `(AttrDict.mk [])
+                          | some dict => `([mlir_attr_dict| $dict])
+        let rgnsList <- match rgns with
+                  | none => `(@List.nil (MLIR.AST.Region _))
+                  | some rgns => do
+                    let rngs <- rgns.getElems.mapM (fun x => `([mlir_region| $x]))
+                    quoteMList rngs.toList (<- `(MLIR.AST.Region _))
+
+        `(Op.mk $name -- name
+                $res -- results
+                $operands -- operands
+                $rgnsList -- regions
+                $attrDict) -- attrs
+
+-- Op with definite result
+syntax mlir_op_operand "="
+  strLit "(" mlir_op_operand,* ")"
+         ( "(" mlir_region,* ")" )?
+         (mlir_attr_dict)? ":" "(" mlir_type,* ")" "->" mlir_type : mlir_op
+
+macro_rules
+  | `([mlir_op|
+        $resName:mlir_op_operand =
+        $name:str
+        ( $operandsNames,* )
+        $[ ( $rgns,* ) ]?
+        $[ $attrDict ]?
+        : ( $operandsTypes,* ) -> $resType:mlir_type  ]) => do
+
+        let res ←   `([([mlir_op_operand| $resName], [mlir_type| $resType])]) 
         -- TODO: Needs a consistency check that `operandsNames.length = operandsTypes.length`
         let operands: List (MacroM <| TSyntax `term) :=
           List.zipWith (fun x y => `(([mlir_op_operand| $x], [mlir_type| $y])))
@@ -949,10 +956,10 @@ macro_rules
 
 
 def op1 : Op Dialect.empty :=
-  [mlir_op| "foo"(%x, %y) : (i32, i32) -> i32]
+  [mlir_op| "foo"(%x, %y) : (i32, i32) -> (i32) ]
 #print op1
 def op2: Op builtin :=
-  [mlir_op| %z = "foo"(%x, %y) : (i32, i32) -> i32]
+  [mlir_op| %z = "foo"(%x, %y) : (i32, i32) -> (i32)]
 #print op2
 
 def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32 ]
@@ -961,7 +968,7 @@ def bbop1 : SSAVal × MLIRTy := [mlir_bb_operand| %x : i32 ]
 def bb1NoArgs : Region builtin :=
   [mlir_region| {
      ^entry:
-     "foo"(%x, %y) : (i32, i32) -> i32
+     "foo"(%x, %y) : (i32, i32) -> (i32)
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
   }]
@@ -970,7 +977,7 @@ def bb1NoArgs : Region builtin :=
 def bb2SingleArg : Region builtin :=
   [mlir_region| {
      ^entry(%argp : i32):
-     "foo"(%x, %y) : (i32, i32) -> i32
+     "foo"(%x, %y) : (i32, i32) -> (i32)
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
   }]
@@ -980,7 +987,7 @@ def bb2SingleArg : Region builtin :=
 def bb3MultipleArgs : Region builtin :=
   [mlir_region| {
      ^entry(%argp : i32, %argq : i64):
-     "foo"(%x, %y) : (i32, i32) -> i32
+     "foo"(%x, %y) : (i32, i32) -> (i32)
       %z = "bar"(%x) : (i32) -> (i32)
       "std.return"(%x0) : (i42) -> ()
   }]
@@ -1013,18 +1020,13 @@ def rgn3 : Region builtin :=
 
 
 -- | test simple ops [no regions]
-def opcall1 : Op Dialect.empty := [mlir_op| "foo" (%x, %y) : (i32, i32) -> i32 ]
+def opcall1 : Op Dialect.empty := [mlir_op| "foo" (%x, %y) : (i32, i32) -> (i32) ]
 #print opcall1
 
 
-def opattr0 : Op Dialect.empty := [mlir_op|
- "foo"() { sym_name = "add", type = (i32, i32) -> i32 } : () -> ()
-]
-#print opattr0
-
 
 def oprgn0 : Op Dialect.empty := [mlir_op|
- "func"() ({ ^entry: %x = "foo.add"() : () -> ()} ) : () -> ()
+ "func"() ({ ^entry: %x = "foo.add"() : () -> (i64) } ) : () -> ()
 ]
 #reduce oprgn0
 
@@ -1034,9 +1036,9 @@ def opRgnAttr0 : Op builtin := [mlir_op|
   ^entry:
    "func"() ({
      ^bb0(%arg0:i32, %arg1:i32):
-      %zero = "std.addi"(%arg0 , %arg1) : (i32, i16) -> i64
+      %zero = "std.addi"(%arg0 , %arg1) : (i32, i16) -> (i64)
       "std.return"(%zero) : (i32) -> ()
-    }){sym_name = "add", type = (i32, i32) -> i32} : () -> ()
+    }){sym_name = "add"} : () -> ()
    "module_terminator"() : () -> ()
  }) : () -> ()
 ]
@@ -1078,10 +1080,6 @@ macro_rules
      `(Op.mk "func" [] [] [$rgn] $attrs)
 
 
-def func1 : Op Dialect.empty := [mlir_op| func @"main"() {
-  %x = "asm.int" () { "val" = 32 } : () -> (i32)
-}]
-#print func1
 
 syntax "module" "{" mlir_op* "}" : mlir_op
 

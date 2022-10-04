@@ -82,14 +82,13 @@ inductive Signedness :=
 deriving DecidableEq
 
 inductive MLIRType (δ: Dialect α σ ε) :=
-| fn: MLIRType δ -> MLIRType δ -> MLIRType δ
 | int: Signedness -> Nat -> MLIRType δ
 | float: Nat -> MLIRType δ
 | tensor: MLIRType δ -- tensor of int values. 
 | index:  MLIRType δ
-| tuple: List (MLIRType δ) -> MLIRType δ
 | undefined: String → MLIRType δ
 | extended: σ → MLIRType δ
+| erased: MLIRType δ -- A type that is erased by dialect retraction.
 
 -- We define "MLIRTy" to be just the basic types outside of any dialect
 abbrev MLIRTy := @MLIRType _ _ _ Dialect.empty
@@ -193,12 +192,6 @@ def Op.regions: Op δ -> List (Region δ)
 def Op.attrs: Op δ -> AttrDict δ
 | Op.mk _ _ _ _ attrs => attrs
 
-def Op.type: Op δ -> MLIRType δ
-| Op.mk _ [r] args .. =>
-    .fn (.tuple <| args.map Prod.snd) r.snd
-| Op.mk _ res args .. =>
-    .fn (.tuple <| args.map Prod.snd) (.tuple <| res.map Prod.snd)
-
 
 instance: Coe String SSAVal where
   coe (s: String) := SSAVal.SSAVal s
@@ -242,13 +235,12 @@ mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
 def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
-  | .fn τ₁ τ₂    => .fn (coeMLIRType τ₁) (coeMLIRType τ₂)
   | .int sgn n   => .int sgn n
   | .float n     => .float n
   | .index       => .index
-  | .tuple τs    => .tuple (coeMLIRTypeList τs)
   | .undefined n => .undefined n
-  | .tensor => .tensor
+  | .tensor => .tensor 
+  | .erased => .erased
   | .extended s  => .extended (c.coe_σ _ _ s)
 
 def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
@@ -407,9 +399,8 @@ partial def docMLIRType: MLIRType δ → Doc
   | .float k => [doc| "f"k]
   | .tensor => [doc| "tensor"]
   | .index => [doc| "index"]
-  | .tuple ts => [doc| "(" (ts.map docMLIRType),* ")" ]
-  | .fn dom codom => (docMLIRType dom) ++ " -> " ++ (docMLIRType codom)
   | .undefined name => [doc| "!" name]
+  | .erased => [doc| "erased"]
   | .extended sig => DialectTypeIntf.typeStr ε sig
 
 partial def docAttrVal: AttrValue δ → Doc
@@ -476,7 +467,7 @@ def op_to_doc (op: Op δ): Doc :=
           "\"" name "\""
           "(" (op.argNames),* ")"
           (ifdoc rgns.isEmpty then "" else "(" (nest (list_rgn_to_doc rgns);*) ")")
-          attrs ":" op.type]
+          attrs]
 
         /- v2: macros, but no if stuff
         [doc|
@@ -535,7 +526,6 @@ match a with
 | AttrEntry.mk k v => v
 
 
-def MLIRType.unit : MLIRType δ := MLIRType.tuple []
 def AttrDict.empty : AttrDict δ := AttrDict.mk []
 
 def Op.empty (name: String) : Op δ := Op.mk name [] [] [] AttrDict.empty

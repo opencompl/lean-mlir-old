@@ -187,7 +187,7 @@ def denoteOp (op: Op Δ):
 -- denote a sequence of ops
 def denoteOps (stmts: List (Op Δ)): TopM Δ (TypedArgs Δ) :=
    match stmts with
-   | [] => return  [⟨.unit, ()⟩]
+   | [] => return  []
    | [stmt] => denoteOp stmt
    | (stmt :: stmts') => do
         let _ ← denoteOp stmt
@@ -244,17 +244,11 @@ def MLIRType.retractLeftList: List (MLIRType (δ₁ + δ₂)) -> Option (List (M
 
 -- TODO: create holes for things that are unknown? eg. use `undefined?
 def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → Option (MLIRType δ₁)
-| .fn argty retty => do
-    let argty' <- MLIRType.retractLeft argty
-    let retty' <- MLIRType.retractLeft retty
-      return (.fn argty' retty')
 | .int sgn sz => .some (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
 | .float sz => .some (.float sz) -- : Nat -> MLIRType δ
 | .index => .some (.index) --:  MLIRType δ
 | .tensor => .some .tensor
-| .tuple ts => do
-    let ts' <- MLIRType.retractLeftList ts
-    return .tuple ts'
+| .erased => .some .erased
 | .undefined s => .some (.undefined s) -- : String → MLIRType δ
 | .extended (Sum.inl σ₁) => .some (.extended σ₁) -- : σ → MLIRType δ
 | .extended (Sum.inr σ₂) => .none
@@ -267,67 +261,46 @@ def MLIRType.swapDialectList: List (MLIRType (δ₁ + δ₂)) -> List (MLIRType 
 
 
 def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
-| .fn argty retty =>
-      .fn (MLIRType.swapDialect argty) (MLIRType.swapDialect retty)
 | .int sgn sz => (.int sgn sz) -- : Signedness -> Nat -> MLIRType δ
 | .float sz => (.float sz) -- : Nat -> MLIRType δ
 | .index => (.index) --:  MLIRType δ
-| .tuple ts => .tuple (MLIRType.swapDialectList ts)
+| .erased => .erased
 | .tensor => .tensor
 | .undefined s => (.undefined s) -- : String → MLIRType δ
 | .extended (Sum.inl σ₁) => .extended (Sum.inr σ₁)
 | .extended (Sum.inr σ₂) => .extended (Sum.inl σ₂)
 end
 
+
+-- TODO: Do we need both tuple and TypedArgs?
+#check MLIRType.eval
+
+
 def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁)
-| ⟨.fn argty retty, v⟩ =>
-    ⟨.fn (MLIRType.swapDialect argty) (MLIRType.swapDialect retty), () ⟩
 | ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
 | ⟨ .float sz, v ⟩ =>  ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
-| ⟨.tuple ts, vs ⟩ =>
-   -- TODO: need to convert from (vs: MLIRType.eval (.tuple ts)) to List (TypedArg δ)
-   sorry
 | ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
 | ⟨.tensor, v⟩ => ⟨.tensor, v ⟩
 | ⟨.extended (Sum.inl σ₁), v ⟩ => ⟨.extended (Sum.inr σ₁), v⟩
 | ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended (Sum.inl σ₂), v⟩
+| ⟨.erased, ()⟩ => ⟨.erased, ()⟩
 
 
-
-
-mutual
-def TypedArg.retractLeftList: List (TypedArg (δ₁ + δ₂)) -> Option (List (TypedArg δ₁))
-| [] => .some []
-| t::ts =>  do
-   let ts' <- retractLeftList ts
-   let t' <- (TypedArg.retractLeft t)
-   return t'::ts'
 
 
 -- TODO: there is no need to have both a tuple type, and a list of
 -- typed args. That's just madness.
 def TypedArg.retractLeft (t: TypedArg (δ₁ + δ₂)):  Option (TypedArg δ₁) :=
 match t with
-| ⟨.fn argty retty, v⟩ =>
-    match MLIRType.retractLeft argty with
-    | .none => .none
-    | .some argty' =>
-        match MLIRType.retractLeft retty with
-        | .none => .none
-        | .some retty' =>
-           .some ⟨.fn argty' retty', () ⟩
 | ⟨.int sgn sz, v ⟩ => .some ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
 | ⟨ .float sz, v ⟩ => .some ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => .some ⟨.index, v ⟩ --:  MLIRType δ
 | ⟨.tensor, v⟩ => .some ⟨.tensor,v ⟩
-| ⟨.tuple ts, vs ⟩ =>
-   -- TODO: need to convert from (vs: MLIRType.eval (.tuple ts)) to List (TypedArg δ)
-   sorry
 | ⟨.undefined s, v ⟩ => .some ⟨.undefined s, v⟩ -- : String → MLIRType δ
 | ⟨.extended (Sum.inl σ₁), v ⟩ => .some ⟨.extended σ₁, v⟩ -- : σ → MLIRType δ
 | ⟨.extended (Sum.inr σ₂), v ⟩ => .none
-end
+| ⟨.erased, ()⟩ => .some ⟨.erased, ()⟩
 
 def TypedArgs.retractLeft: TypedArgs (δ₁ + δ₂) -> Option (TypedArgs δ₁)
 | [] => .some []

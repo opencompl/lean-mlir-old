@@ -184,7 +184,7 @@ def for_trivial := SemanticTest.mk (func_ + scf + arith) "for_trivial.mlir" [mli
 
   %r = "scf.for"(%lower, %upper, %step) ({
     "scf.yield"(%step): (i32) -> ()
-  }): (i32, i32, i32) -> ()
+  }): (i32, i32, i32) -> (i32)
 
   %e = "arith.constant"() {value = 1: i32}: () -> i32
   %b = "arith.cmpi"(%e, %r) {predicate = 0 /- eq -/}: (i32, i32) -> i1
