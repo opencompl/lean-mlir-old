@@ -167,7 +167,7 @@ def mapDenoteRegion:
 -- Convert a region to its denotation to establish finiteness.
 -- Then use this finiteness condition to evaluate region semantics.
 -- Use the morphism from OpM to TopM.
-def denoteOp (op: Op Δ):
+def denoteOp (op: Op Δ) (terminator: Bool):
     TopM Δ (TypedArgs Δ) :=
   match op with
   | .mk name res0 args0 regions0 attrs => do
@@ -179,21 +179,31 @@ def denoteOp (op: Op Δ):
       let iop : IOp Δ := IOp.mk name resTy args (denoteRegionsOpM regions0 0) attrs
       -- Use the dialect-provided semantics, and substitute regions
       let ret ← OpM.toTopM regionSemantics (S.semantics_op iop)
-      match (res0, ret) with
-      | ([res], [⟨τ, v⟩]) =>
-          TopM.set τ res.fst v
-          return ret
-      | ([], []) =>
-          return ret
-      | _ =>
-        TopM.raiseUB s!"more than one result or unmatched result/expected pair: {op}"
--- denote a sequence of ops
+      if not terminator then
+        match (res0, ret) with
+        | ([res], [⟨τ, v⟩]) =>
+            TopM.set τ res.fst v
+            return ret
+        | ([], []) =>
+            return ret
+        | _ =>
+          TopM.raiseUB s!"more than one result or unmatched result/expected pair: {op}"
+      else  -- TODO: refactor this code to be easier to read!
+        match (res0, ret) with
+        | ([res], [⟨τ, v⟩]) =>
+            TopM.set τ res.fst v
+            return ret
+        | _ => return ret
+          
+
+  -- denote a sequence of ops
+
 def denoteOps (stmts: List (Op Δ)): TopM Δ (TypedArgs Δ) :=
    match stmts with
    | [] => return  []
-   | [stmt] => denoteOp stmt
+   | [stmt] => denoteOp stmt (terminator := true)
    | (stmt :: stmts') => do
-        let _ ← denoteOp stmt
+        let _ ← denoteOp stmt (terminator := false)
         denoteOps stmts'
 
 def denoteRegion (rgn: Region Δ) (args: TypedArgs Δ):
@@ -510,7 +520,7 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 notation "⟦ " t " ⟧" => Denote.denote t
 
 instance DenoteOp (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
-  denote op := denoteOp δ op
+  denote op := denoteOp δ op (terminator := true)
 
 -- This only works for single-BB regions with no arguments
 instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region where
@@ -519,6 +529,6 @@ instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region wh
 -- Not for regions because we need to specify the fuel
 
 @[simp] theorem Denote.denoteOp [Semantics δ]:
-  Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
+  Denote.denote (self := DenoteOp δ) op = denoteOp δ op (terminator := true) := rfl
 @[simp] theorem Denote.denoteRegion [Semantics δ]:
   Denote.denote (self := DenoteRegion δ) r = denoteRegion δ r [] := rfl
