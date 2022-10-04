@@ -129,6 +129,7 @@ instance {α₁ α₂} [i₁: DialectAttrIntf α₁] [i₂: DialectAttrIntf α�
 
 -- TODO: Document and finish the Dialect interface
 class Dialect (α σ) (ε: σ → Type): Type :=
+  name: String
   iα: DialectAttrIntf α
   iε: DialectTypeIntf σ ε
 
@@ -159,6 +160,7 @@ instance: DialectAttrIntf Void where
   str a       := nomatch a
 
 instance Dialect.empty: Dialect Void Void (fun _ => Unit) where
+  name := "Empty"
   iα := inferInstance
   iε := inferInstance
 
@@ -168,6 +170,7 @@ instance {α₁ σ₁ ε₁ α₂ σ₂ ε₂}:
   HAdd (Dialect α₁ σ₁ ε₁) (Dialect α₂ σ₂ ε₂)
        (Dialect (α₁ ⊕ α₂) (σ₁ ⊕ σ₂) (Sum.cases ε₁ ε₂)) where
   hAdd δ₁ δ₂ := {
+    name := s!"({δ₁.name}+{δ₂.name})"
     iα := inferInstance
     iε := inferInstance
   }

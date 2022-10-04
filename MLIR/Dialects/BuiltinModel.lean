@@ -1371,6 +1371,7 @@ abbrev builtin.α :=
 -/
 
 instance builtin: Dialect builtin.α builtin.σ builtin.ε where
+  name := "builtin"
   iα := inferInstance
   iε := inferInstance
 

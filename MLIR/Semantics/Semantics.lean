@@ -146,7 +146,7 @@ def denoteRegionByIx
 -- Morphism from OpM to topM
 def OpM.toTopM (rs0: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))):
   OpM Δ (TypedArgs Δ) -> TopM Δ (TypedArgs Δ)
-| OpM.Unhandled s => TopM.raiseUB s!"unhandled {s}"
+| OpM.Unhandled s => TopM.raiseUB s!"OpM.toTopM unhandled '{Δ.name}': {s}"
 | OpM.Ret r => pure r
 | OpM.Error s => TopM.raiseUB s
 | OpM.RunRegion ix args k => do
@@ -382,6 +382,9 @@ def OpM.injectRight: OpM δ₂ (TypedArgs δ₂) -> OpM (δ₁ + δ₂) (TypedAr
 -- Or the two OpM, using unhandled as the unit for the or.
 def OpM.orUnhandled: OpM δ₁ (TypedArgs δ₁) 
   -> OpM δ₂ (TypedArgs δ₂) -> OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂))
+| OpM.Error e, _ => OpM.Error e
+| _, OpM.Error e => OpM.Error e
+| OpM.Unhandled x, OpM.Unhandled y => OpM.Unhandled s!"(({δ₁.name}) ({x}) | ({δ₂.name}) ({y}))"
 | OpM.Unhandled _, x => x.injectRight
 | x, _ => x.injectLeft
 
@@ -395,8 +398,8 @@ instance
     : Semantics (δ₁ + δ₂) where
   -- semantics_op: IOp Δ → Fitree (RegionE Δ +' UBE) (BlockResult Δ)
   semantics_op op :=
-    let op₁ := IOp.retractLeft  op
-    let op₂ := IOp.retractRight  op
+    let op₁ := IOp.retractLeft op
+    let op₂ := IOp.retractRight op
     let res1 :=  (S₁.semantics_op op₁)
     let res2 :=  (S₂.semantics_op op₂)
     OpM.orUnhandled res1 res2

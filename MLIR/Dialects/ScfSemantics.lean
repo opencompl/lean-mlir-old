@@ -12,6 +12,7 @@ open MLIR.AST
 -/
 
 instance scf: Dialect Void Void (fun x => Unit) where
+  name := "scf"
   iα := inferInstance
   iε := inferInstance
 
@@ -65,7 +66,7 @@ def scf_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
 
   | IOp.mk "scf.execute_region" _ args  [rgn] _ => do
       rgn args
-  | IOp.mk name .. => OpM.Unhandled name
+  | IOp.mk name .. => OpM.Unhandled ("scf unhandled: " ++ name)
 
 instance: Semantics scf where
   semantics_op := scf_semantics_op

@@ -28,6 +28,7 @@ open MLIR.AST
 -/
 
 instance arith: Dialect Void Void (fun _ => Unit) where
+  name := "arith"
   iα := inferInstance
   iε := inferInstance
 
@@ -90,7 +91,7 @@ def unary_semantics_op (op: IOp Δ)
   | IOp.mk _ _ [⟨.int sgn sz, arg⟩]  [] _ => do
       let r := ctor arg
       return [⟨.int sgn sz, r⟩]
-  | IOp.mk name .. =>  OpM.Unhandled name
+  | IOp.mk name .. =>  OpM.Unhandled s!"unary_semantics_op: unhandled {name}"
 
 def binary_semantics_op {Δ: Dialect α' σ' ε'}
       (name: String) (args: List ((τ: MLIRType Δ) × τ.eval))
@@ -100,8 +101,8 @@ def binary_semantics_op {Δ: Dialect α' σ' ε'}
       if EQ: sgn = sgn' /\ sz = sz' then  do
         let r := ctor lhs (EQ.2 ▸ rhs)
         return [⟨.int sgn sz, r⟩]
-      else OpM.Unhandled name
-  | _ => OpM.Unhandled name
+      else OpM.Unhandled s!"binary_semantics_op: sgn != sgn' || sz != sz': {name}"
+  | _ => OpM.Unhandled s!"binary_semantics_op: unhandled {name}"
 
 def cmpIndex (pred : ComparisonPred) (lhs rhs: Int): FinInt 1 :=
       let b: Bool :=
@@ -147,10 +148,10 @@ def arith_semantics_op (o: IOp Δ): OpM Δ (TypedArgs Δ) :=
                 return [⟨.int sgn sz, v⟩]
             | .index => do
                 return [⟨.index, value⟩]
-            | _ => OpM.Unhandled "arith.constant"
-          else OpM.Unhandled "arith.constant"
+            | _ => OpM.Error s! "arith.constant: unknown type {τ₂}"
+          else OpM.Error "arith.constant: retty not equal to value ty"
       | some _
-      | none => OpM.Unhandled "arith.constant"
+      | nofne => OpM.Error "arith.constant: cannot find value"
 
   | IOp.mk "arith.cmpi" _ [ ⟨(.int sgn sz), lhs⟩, ⟨(.int sgn' sz'), rhs⟩ ] []
     attrs =>
@@ -202,7 +203,7 @@ def arith_semantics_op (o: IOp Δ): OpM Δ (TypedArgs Δ) :=
       else if name = "arith.xori" then
         binary_semantics_op name args FinInt.xor
       else
-        OpM.Unhandled name
+        OpM.Unhandled (s!"generic_check {name}")
 
 instance: Semantics arith where
   semantics_op := arith_semantics_op
