@@ -63,7 +63,13 @@ def scf_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
       run_loop_bounded (n := (hi - lo).toNat) (ix := lo) [] body
   | IOp.mk "scf.yield" _ vs [] _ =>
       return vs
-
+  | IOp.mk "scf.assert" _ [⟨.i1, arg⟩] [] attrs =>
+    if arg  == 0 then
+      let err := match attrs.find "msg" with -- TODO: convert this to a pattern match.
+          | .some (.str str) => str
+          | _ => ""
+      OpM.Error s!"{err}: {arg} <assert failed>"
+    else return [] -- success
   | IOp.mk "scf.execute_region" _ args  [rgn] _ => do
       rgn args
   | IOp.mk name .. => OpM.Unhandled ("scf unhandled: " ++ name)

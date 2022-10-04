@@ -119,6 +119,7 @@ inductive AttrValue (δ: Dialect α σ ε) :=
 | opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRType δ) -> AttrValue δ
 | unit: AttrValue δ
 | extended: α → AttrValue δ
+| erased: AttrValue δ
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
@@ -271,6 +272,7 @@ def Region.ops (region: Region δ): List (Op δ) :=
   match region with
   | Region.mk name args ops => ops
 
+-- TODO: delete CoeDialect
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
@@ -290,6 +292,7 @@ private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
   | .opaqueElements d v τ => .opaqueElements d v τ
   | .unit => .unit
   | .extended a => .extended (c.coe_α _ _ a)
+  | .erased => .erased
 
 private def coeAttrValueList: List (AttrValue δ₁) → List (AttrValue δ₂)
   | [] => []
@@ -419,6 +422,7 @@ partial def docAttrVal: AttrValue δ → Doc
   | .opaqueElements dialect val ty => [doc| "#opaque<" (dialect) ","  (val) ">" ":" (docMLIRType ty)]
   | .unit => "()"
   | .extended a => DialectAttrIntf.str a
+  | .erased => "<erased>"
 
 partial def docAttrEntry: AttrEntry δ → Doc
   | .mk k v => k ++ " = " ++ (docAttrVal v)

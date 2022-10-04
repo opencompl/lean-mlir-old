@@ -285,11 +285,78 @@ def TypedArgs.retractRight (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₂ :=
 
 -- TODO: define the attribute dictionary retraction.
 -- Will need to rectact over entries, which will need a retraction over values.
-def AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> AttrDict δ
-| _ => AttrDict.mk []
+mutual
+def AttrValues.retractLeft: List (AttrValue  (δ₁ + δ₂)) -> List (AttrValue δ₁)
+| [] => []
+| a::as => a.retractLeft:: AttrValues.retractLeft as
 
-def AttrDict.swapDialect: AttrDict (δ₁ + δ₂) -> AttrDict (δ₂ + δ₁)
-| _ => AttrDict.mk []
+def MLIR.AST.AttrValue.retractLeft: AttrValue (δ₁ + δ₂) -> AttrValue δ₁
+| .symbol s => .symbol s 
+| .str s => .str s
+| .int i t => .int i (MLIRType.retractLeft t)
+| .bool b => .bool b
+| .float f t => .float f (MLIRType.retractLeft t)
+| .type t => .type (MLIRType.retractLeft t) 
+| .affine aff => .affine aff
+| .list as => .list <| AttrValues.retractLeft as
+| .extended (.inl x) => .extended x
+| .extended (.inr _) => .erased
+| .erased => .erased
+| .opaque_ dialect value => .opaque_ dialect value
+| .opaqueElements dialect value ty => .opaqueElements dialect value .erased
+| .unit => .unit
+| .dict d => .dict <| d.retractLeft
+| .alias x => .alias x
+| .nestedsymbol x y => .nestedsymbol x.retractLeft y.retractLeft
+
+
+def MLIR.AST.AttrEntry.retractLeft: AttrEntry (δ₁ + δ₂) -> AttrEntry δ₁
+| .mk k v => .mk k v.retractLeft
+
+def AttrEntries.retractLeft: List (AttrEntry (δ₁ + δ₂)) -> List (AttrEntry δ₁)
+| [] => []
+| e :: es => e.retractLeft :: AttrEntries.retractLeft es
+
+def MLIR.AST.AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> AttrDict δ₁
+| .mk es => AttrDict.mk (AttrEntries.retractLeft es)
+end
+
+-- Retract right
+mutual
+def AttrValues.swapDialect: List (AttrValue  (δ₁ + δ₂)) -> List (AttrValue (δ₂  + δ₁))
+| [] => []
+| a::as => a.swapDialect:: AttrValues.swapDialect as
+
+def MLIR.AST.AttrValue.swapDialect: AttrValue (δ₁ + δ₂) -> AttrValue (δ₂ + δ₁)
+| .symbol s => .symbol s 
+| .str s => .str s
+| .int i t => .int i (MLIRType.swapDialect t)
+| .bool b => .bool b
+| .float f t => .float f (MLIRType.swapDialect t)
+| .type t => .type (MLIRType.swapDialect t) 
+| .affine aff => .affine aff
+| .list as => .list <| AttrValues.swapDialect as
+| .extended (.inl x) => .extended (.inr x)
+| .extended (.inr x) => .extended (.inl x)
+| .erased => .erased
+| .opaque_ dialect value => .opaque_ dialect value
+| .opaqueElements dialect value ty => .opaqueElements dialect value .erased
+| .unit => .unit
+| .dict d => .dict <| d.swapDialect
+| .alias x => .alias x
+| .nestedsymbol x y => .nestedsymbol x.swapDialect y.swapDialect
+
+
+def MLIR.AST.AttrEntry.swapDialect: AttrEntry (δ₁ + δ₂) -> AttrEntry (δ₂ + δ₁)
+| .mk k v => .mk k v.swapDialect
+
+def AttrEntries.swapDialect: List (AttrEntry (δ₁ + δ₂)) -> List (AttrEntry (δ₂ + δ₁))
+| [] => []
+| e :: es => e.swapDialect :: AttrEntries.swapDialect es
+
+def MLIR.AST.AttrDict.swapDialect: AttrDict (δ₁ + δ₂) -> AttrDict (δ₂ + δ₁)
+| .mk es => AttrDict.mk (AttrEntries.swapDialect es)
+end
 
 def OpM.swapDialect: OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂)) -> OpM (δ₂ + δ₁) (TypedArgs (δ₁ + δ₂))
 | OpM.Ret r => OpM.Ret r

@@ -28,7 +28,7 @@ open System
 -- https://github.com/leanprover/lean4/blob/master/tests/playground/file.lean
 def main (xs: List String): IO UInt32 := do
   if xs.length == 0 then
-    -- main_end_to_end_linalg
+    IO.println "usage: mlir [--run-test-suite] [--extract-semantic-tests]"
     return 0
   else if xs == ["--run-test-suite"] then
     let b ← TestLib.runTestSuite AllTests.testSuite
