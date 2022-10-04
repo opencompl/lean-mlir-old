@@ -87,19 +87,14 @@ def INPUT (b: Bool): SSAEnv scf := SSAEnv.One [
 ]
 
 -- Pure unfolding-style proof
-/-
 theorem equivalent (b: Bool):
     run ⟦LHS r₁ r₂⟧ (INPUT b) =
     run ⟦if b then r₁ else r₂⟧ (INPUT b) := by
   simp [LHS, INPUT, denoteRegion,  denoteOps, denoteTypedArgs]
-  simp [denoteOp, denoteOpBase, List.map, List.zip, List.zipWith, List.mapM, List.mapM.loop]
-  simp [Semantics.semantics_op, scf_semantics_op]
-  simp [run, interpUB_bind, interpSSA'_bind]
-  simp [SSAEnvE.handle, cast_eq]
-  cases b <;> simp [List.get!]
+  simp [denoteOp, List.map, List.zip, List.zipWith, List.mapM, List.mapM.loop, pure, 
+        StateT.pure, Except.pure, Except.ok, OpM.toTopM, TopM.get, SSAEnv.get, StateT.get,
+        StateT.bind]
   sorry -- proof broken when upgrading Lean.
-  sorry -- proof broken when upgrading Lean.
--/
 end SCF.IF
 
 

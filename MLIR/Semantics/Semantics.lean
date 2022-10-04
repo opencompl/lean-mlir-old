@@ -69,6 +69,8 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 
 -- The monad in which these computations are run
 abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except String) R
+def TopM.run (t: TopM Δ R) (env: SSAEnv Δ): Except String (R × SSAEnv Δ) :=
+  StateT.run t env
 
 def TopM.raiseUB {Δ: Dialect α σ ε} (message: String): TopM Δ R :=
   Except.error message

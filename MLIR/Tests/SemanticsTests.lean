@@ -15,23 +15,13 @@ inductive SemanticTest :=
 def SemanticTest.name: SemanticTest → String
   | @SemanticTest.mk _ _ _ δ _ str r => str
 
-def SemanticTest.run (t: SemanticTest): String := "TODO: fixup SemanticTest"
-/-
+def SemanticTest.run (t: SemanticTest): Except String String := 
   let (@SemanticTest.mk α σ ε δ S _ r) := t
-  let t := denoteRegion r []
-  let t := interpSSA' t SSAEnv.empty
-  let t: Fitree (Semantics.E scf +' UBE) _ :=
-    t.interp (Fitree.case (Fitree.case
-      (fun _ e => Fitree.translate Member.inject (S.handle _ e))
-      (fun _ e => Fitree.trigger e))
-    (fun _ e => Fitree.trigger e))
-  let t: Fitree UBE _ :=
-    t.interp (Fitree.case ControlFlowE.handleLogged Fitree.liftHandler)
-  let t := interpUB t
-  match Fitree.run t with
-  | .error msg => "error: " ++ msg
-  | .ok ((r, env), assertLog) => assertLog
--/
+  let t := denoteRegion (rgn := r) (args := [])
+  match t.run (SSAEnv.empty) with
+  | .error msg => .error ("error: " ++ msg)
+  | .ok ((_r, env)) => .ok (s!"ok. final env: {env}")
+
 
 def trueval := SemanticTest.mk (func_ + arith) "trueval.mlir" [mlir_region| {
   %true = "arith.constant" () {value = 1: i1}: () -> i1
@@ -229,9 +219,11 @@ def semanticTests: List SemanticTest := [
 
 open TestLib
 
-def SemanticTest.toTest (t: SemanticTest) : TestCase := (t.name, .ok ("TODO: fixup SemanticTest.toTest"))
-  -- | "" => (t.name, .ok ())
-  -- | s => (t.name, .error s)
+def SemanticTest.toTest (t: SemanticTest) : TestCase := 
+  match t.run with 
+  | .ok msg => (t.name, .ok msg)
+  | .error err => (t.name, .error err)
+
 
 def testGroup : TestGroup :=
   ("semantic_test", semanticTests.map (λ t => (t.toTest)))
