@@ -2,6 +2,11 @@
 This file defines the theory of K-dimensional arrays (for fixed K=4).
 This aspires to be generalized to arbitrary dimensions, but for now,
 we develop the theory for fixed dimension.
+
+TODO: please unify:
+- MLIR/Model/BuiltinModel.lean
+- MLIR/Util/KDTensor.lean
+- MLIR/Semantics/TensorElem.lean
 -/
 
 structure KDTensor where

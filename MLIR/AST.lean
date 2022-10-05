@@ -109,6 +109,7 @@ inductive AttrValue (δ: Dialect α σ ε) :=
 | float : Float -> MLIRType δ -> AttrValue δ
 | type : MLIRType δ -> AttrValue δ
 | affine: AffineMap -> AttrValue δ
+| permutation: List Nat -> AttrValue δ -- a permutation
 | list: List (AttrValue δ) -> AttrValue δ
 -- | guaranteee: both components will be AttrValue δ.Symbol.
 -- | TODO: factor symbols out.
@@ -278,6 +279,7 @@ variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [
 
 private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
   | .symbol s => .symbol s
+  | .permutation p => .permutation p
   | .str s => .str s
   | .int i τ => .int i τ
   | .bool b => .bool b
@@ -408,6 +410,7 @@ partial def docMLIRType: MLIRType δ → Doc
 
 partial def docAttrVal: AttrValue δ → Doc
   | .symbol s => "@" ++ doc_surround_dbl_quot s
+  | .permutation ps => [doc| "[permutation " (ps),* "]"]
   | .nestedsymbol s t => (docAttrVal s) ++ "::" ++ (docAttrVal t)
   | .str str => doc_surround_dbl_quot str
   | .type ty => docMLIRType ty
