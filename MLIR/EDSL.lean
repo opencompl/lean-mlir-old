@@ -324,6 +324,9 @@ macro_rules
 macro_rules
 | `([mlir_type| ! $x:ident ]) => `(MLIRType.undefined $(Lean.quote x.getId.toString))
 
+macro_rules
+  | `([mlir_type| $$($q)]) => `($q)
+
 def tyIndex : MLIRTy := [mlir_type| index]
 #eval tyIndex
 

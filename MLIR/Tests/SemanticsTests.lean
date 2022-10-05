@@ -3,6 +3,7 @@ import MLIR.AST
 import MLIR.Dialects.ArithSemantics
 import MLIR.Dialects.FuncSemantics
 import MLIR.Dialects.ScfSemantics
+import MLIR.Dialects.CustomTypeSemantics
 import MLIR.Tests.TestLib
 open MLIR.AST
 
@@ -204,6 +205,31 @@ def for_bound := SemanticTest.mk (func_ + scf + arith) "for_bound.mlir" [mlir_re
   "func.return" (%z): (index) -> ()
 }]
 
+
+-- TODO: why does this need the manual coercions?
+def if_true_custom_type := SemanticTest.mk (CustomTypeDialect + scf + arith) "if_true_custom_type.mlir" 
+  [mlir_region| {
+  %b = "customtype.true" () : () -> ($(.extended (.inl (.inl (.inl CustomType.CBool)))))
+  %x1 = "arith.constant"() {value = 12: i16}: () -> i16
+  %x2 = "arith.constant"() {value = 16: i16}: () -> i16
+
+  %y = "customtype.if"(%b) ({
+    %x1 = "arith.constant"() {value = 3: i16}: () -> i16
+    "scf.yield"(%x1): (i16) -> ()
+  }, {
+    %x2 = "arith.constant"() {value = 4: i16}: () -> i16
+    "scf.yield"(%x2): (i16) -> ()
+  }): ($(.extended (.inl (.inl (.inl CustomType.CBool))))) -> i16
+
+  %e = "arith.constant"() {value = 3: i16}: () -> i16
+  %b1 = "arith.cmpi" (%y, %e) {predicate = 0 /- eq -/}: (i16, i16) -> i1
+  "scf.assert"(%b1) {msg="<FAILED>"}: (i1) -> ()
+
+  %z = "arith.constant" () {value = 0: i32}: () -> i32
+  "scf.yield" (%z): (i32) -> ()
+}]
+
+
 def semanticTests: List SemanticTest := [
   trueval,
   add,
@@ -211,8 +237,10 @@ def semanticTests: List SemanticTest := [
   xor,
   rw1,
   if_true,
+  
   if_false,
   if_select,
+  if_true_custom_type,
 --  for_trivial,
   for_bound
 ]

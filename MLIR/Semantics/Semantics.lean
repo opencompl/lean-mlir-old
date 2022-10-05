@@ -467,6 +467,8 @@ def OpM.orUnhandled: OpM δ₁ (TypedArgs δ₁)
 
 
 
+-- TODO: Allow the semantics to be defined in such a way that a dialect like `scf`
+-- can successfully 'forward' extended type arguments.
 instance
     {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
     {α₂ σ₂ ε₂} {δ₂: Dialect α₂ σ₂ ε₂}
