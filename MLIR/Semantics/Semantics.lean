@@ -552,3 +552,44 @@ instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region wh
   Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
 @[simp] theorem Denote.denoteRegion [Semantics δ]:
   Denote.denote (self := DenoteRegion δ) r = denoteRegion δ r [] := rfl
+
+
+/-
+### PostSSAEnv
+
+A PostSSAEnv is a predicate on an environment, that check that it can be the
+resulting environment of the interpretation of a TopM monad.
+-/
+
+def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
+  ∃ env' v, run m env' = .ok (v, env)
+
+def ExceptMonad.split {x: Except ε α} {y: α -> Except ε α}:
+  (do let t <- x; y t) = .ok v -> ∃ x_v, x = .ok x_v := by
+  cases x <;> intro H <;> try contradiction;
+  rename_i a
+  exists a
+
+def postSSAEnv.env_set_preserves [Semantics δ] (op: Op δ) (env: SSAEnv δ) :
+    postSSAEnv ⟦op⟧ env →
+    ∀ name, op.res.all (fun v => v.fst ≠ name) ->
+    op.args.all (fun v => v.fst ≠ name) ->
+    postSSAEnv ⟦op⟧ (env.set name τ v) := by
+  intros HPost name HNameNeStmtName HNameNotInArgs
+  unfold postSSAEnv at *
+  have ⟨env', r, HRunStmt⟩ := HPost
+  
+  -- The SSAEnv before the interpretation is the same as the first one,
+  -- but with the added value.
+  exists (env'.set name τ v), r
+
+  -- We unfold run definition in the hypothesis and the goal
+  simp [Denote.denote]; simp [Denote.denote] at HRunStmt
+  unfold denoteOp; unfold denoteOp at HRunStmt
+  simp; simp at HRunStmt
+  split
+  simp [run]; simp [run] at HRunStmt
+
+  have ⟨runargs_env, HRunargs⟩ := ExceptMonad.split HRunStmt
+
+  sorry
