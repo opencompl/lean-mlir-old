@@ -139,7 +139,7 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
   return Lean.mkIdent (Lean.Name.append Lean.Name.anonymous outstr)   
 
 
-inductive matcher_done : matcher -> Prop where
+inductive matcher_done : matcher -> Type where
 | done: matcher_done matcher.done
 | root_done: (m: matcher) 
       -> (PRF: matcher_done m)
@@ -209,8 +209,8 @@ def begin (m: matcher)
 
 -- %x2 = set %x1 %k %v
 -- %root = get %x2 %k
-def proof : ∃ m, matcher_done m := by {
-  apply Exists.intro;
+def proof : Σ m, matcher_done m := by {
+  apply Sigma.mk;
   apply root;
   apply kind? "get";
   apply arg? 0 "x2";
@@ -221,9 +221,10 @@ def proof : ∃ m, matcher_done m := by {
   apply arg? 1 "k";
   apply arg? 2 "v";
   apply focus! "root"; 
-
   repeat constructor;
 }
+
+#print proof
 
 
 -- inductive op where
