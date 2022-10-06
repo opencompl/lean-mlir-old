@@ -179,6 +179,10 @@ def TopM.mapDenoteRegion:
 | [] => []
 | r :: rs => (TopM.scoped ∘ denoteRegion r) :: TopM.mapDenoteRegion rs
 
+def denoteOpArgs (args: List (TypedSSAVal Δ)) : TopM Δ (List (TypedArg Δ)) := do
+  args.mapM (fun (name, τ) => do
+        pure ⟨τ, ← TopM.get τ name⟩)
+
 -- Convert a region to its denotation to establish finiteness.
 -- Then use this finiteness condition to evaluate region semantics.
 -- Use the morphism from OpM to TopM.
@@ -187,8 +191,7 @@ def denoteOp (op: Op Δ):
   match op with
   | .mk name res0 args0 regions0 attrs => do
       let resTy := res0.map Prod.snd
-      let args ← args0.mapM (fun (name, τ) => do
-        pure ⟨τ, ← TopM.get τ name⟩)
+      let args ← denoteOpArgs args0
       -- Built the interpreted operation
       let iop : IOp Δ := IOp.mk name resTy args (OpM.denoteRegions regions0 0) attrs
       -- Use the dialect-provided semantics, and substitute regions
