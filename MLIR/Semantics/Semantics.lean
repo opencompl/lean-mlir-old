@@ -10,7 +10,9 @@ import MLIR.Semantics.Fitree
 import MLIR.Semantics.FitreeLaws
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.UB
+import MLIR.Semantics.Dominance
 import MLIR.AST
+import MLIR.Util.Monads
 open MLIR.AST
 
 
@@ -567,18 +569,19 @@ resulting environment of the interpretation of a TopM monad.
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
 
-def ExceptMonad.split {x: Except ε α} {y: α -> Except ε α}:
-  (do let t <- x; y t) = .ok v -> ∃ x_v, x = .ok x_v := by
-  cases x <;> intro H <;> try contradiction;
-  rename_i a
-  exists a
+def run_denoteOpArgs_env_set_preserves [S: Semantics Δ]
+    (args: List (TypedSSAVal Δ)) (name: SSAVal):
+  name ∉ (args.map Prod.fst) ->
+  ∀ env r res_env, StateT.run (denoteOpArgs Δ args) env = Except.ok (r, res_env) ->
+  ∀ τ v, StateT.run (denoteOpArgs Δ args) (env.set name τ v) =
+    Except.ok (r, res_env.set name τ v) := by
+sorry
 
-def postSSAEnv.env_set_preserves [Semantics δ] (op: Op δ) (env: SSAEnv δ) :
+def postSSAEnv.env_set_preserves [S: Semantics δ] (op: Op δ) (env: SSAEnv δ) :
     postSSAEnv ⟦op⟧ env →
-    ∀ name, op.res.all (fun v => v.fst ≠ name) ->
-    op.args.all (fun v => v.fst ≠ name) ->
+    ∀ name, isVarFreeInOp name op ->
     postSSAEnv ⟦op⟧ (env.set name τ v) := by
-  intros HPost name HNameNeStmtName HNameNotInArgs
+  intros HPost name HFreeVar
   unfold postSSAEnv at *
   have ⟨env', r, HRunStmt⟩ := HPost
   
@@ -590,9 +593,22 @@ def postSSAEnv.env_set_preserves [Semantics δ] (op: Op δ) (env: SSAEnv δ) :
   simp [Denote.denote]; simp [Denote.denote] at HRunStmt
   unfold denoteOp; unfold denoteOp at HRunStmt
   simp; simp at HRunStmt
-  split
+  cases op; case mk op_name res args regions attrs =>
   simp [run]; simp [run] at HRunStmt
 
-  have ⟨runargs_env, HRunargs⟩ := ExceptMonad.split HRunStmt
+  -- Split the arguments part
+  have ⟨⟨denotedArgs, argsEnv⟩, HRunArgs⟩ := ExceptMonad.split HRunStmt
+  rw [HRunArgs, ExceptMonad.simp_ok] at HRunStmt
+  
+  -- Use the preservation theorem on the arguments
+  have HNotUsed : name ∉ (args.map Prod.fst) := by {
+    have HNotUsed := freeInOp_implies_not_used HFreeVar
+    simp [isUsed, Op.argNames] at HNotUsed
+    apply HNotUsed
+  }
+  have HRunArgsSet :=
+    run_denoteOpArgs_env_set_preserves _ _ HNotUsed _ _ _ HRunArgs
+  rw [HRunArgsSet, ExceptMonad.simp_ok]
+  simp; simp at HRunStmt
 
   sorry

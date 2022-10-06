@@ -14,7 +14,6 @@ def List.mapM_nil {m : Type u → Type v} [Monad m] {α : Type w} {β : Type u} 
 
 -- Is it possible to prove this? Do we need lawful monad for this?
 def List.mapM_cons {m : Type u → Type v} [Monad m] {α : Type w} {β : Type u} (f : α → m β) (head: α) (tail: List α):
-    List.mapM f (head::tail) = (do
          let head' ← f head
          let tail' ← mapM f tail
          return head'::tail') := by
