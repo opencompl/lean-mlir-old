@@ -305,6 +305,7 @@ def AttrValues.retractLeft: List (AttrValue  (δ₁ + δ₂)) -> List (AttrValue
 def MLIR.AST.AttrValue.retractLeft: AttrValue (δ₁ + δ₂) -> AttrValue δ₁
 | .symbol s => .symbol s 
 | .permutation p => .permutation p
+| .nat n => .nat n
 | .str s => .str s
 | .int i t => .int i (MLIRType.retractLeft t)
 | .bool b => .bool b
@@ -343,6 +344,7 @@ def AttrValues.swapDialect: List (AttrValue  (δ₁ + δ₂)) -> List (AttrValue
 def MLIR.AST.AttrValue.swapDialect: AttrValue (δ₁ + δ₂) -> AttrValue (δ₂ + δ₁)
 | .symbol s => .symbol s 
 | .permutation p => .permutation p
+| .nat n => .nat n
 | .str s => .str s
 | .int i t => .int i (MLIRType.swapDialect t)
 | .bool b => .bool b

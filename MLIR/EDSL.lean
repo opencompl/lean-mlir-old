@@ -838,7 +838,7 @@ def attr3Unit : AttrEntry builtin :=
 
 def attr4Negative : AttrEntry builtin :=
    [mlir_attr_entry| value = -1: i32]
-#print attr4Negative
+#reduce attr4Negative
 
 
 declare_syntax_cat mlir_attr_dict

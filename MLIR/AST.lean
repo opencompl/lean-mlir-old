@@ -107,6 +107,7 @@ inductive AttrValue (δ: Dialect α σ ε) :=
 | symbol: String -> AttrValue δ -- symbol ref attr
 | str : String -> AttrValue δ
 | int : Int -> MLIRType δ -> AttrValue δ
+| nat: Nat -> AttrValue δ
 | bool : Bool -> AttrValue δ
 | float : Float -> MLIRType δ -> AttrValue δ
 | type : MLIRType δ -> AttrValue δ
@@ -282,6 +283,7 @@ mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
 private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
+  | .nat n => .nat n
   | .symbol s => .symbol s
   | .permutation p => .permutation p
   | .str s => .str s
@@ -421,6 +423,7 @@ partial def docAttrVal: AttrValue δ → Doc
   | .str str => doc_surround_dbl_quot str
   | .type ty => docMLIRType ty
   | .int i ty => doc i ++ " : " ++ docMLIRType ty
+  | .nat i => doc i ++ " : " ++ "index"
   | .bool b => if b then "true" else "false"
   | .float f ty => doc f ++ " : " ++ docMLIRType ty
   | .affine aff => "affine_map<" ++ doc aff ++ ">"
@@ -570,6 +573,23 @@ def AttrDict.find (attrs: AttrDict δ) (name: String): Option (AttrValue δ) :=
       match entries.find? (fun entry => entry.key == name) with
       | some v => v.value
       | none => none
+
+def AttrDict.find_nat (attrs: AttrDict δ) 
+  (name: String): Option Nat := 
+  match attrs.find name with
+  | .some (AttrValue.nat i) =>  .some i
+  | _ => .none
+
+def AttrDict.find_int (attrs: AttrDict δ) 
+  (name: String): Option (Int × MLIRType δ) :=
+  match attrs.find name with
+  | .some (AttrValue.int i ty) =>  .some (i, ty)
+  | _ => .none
+
+def AttrDict.find_int' (attrs: AttrDict δ) (name: String): Option Int :=
+  match attrs.find name with
+  | .some (AttrValue.int i _) =>  .some i
+  | _ => .none
 
 @[simp] theorem AttrDict.find_none {δ: Dialect α σ ε}:
     AttrDict.find (δ := δ) (AttrDict.mk []) n' = none := by

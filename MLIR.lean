@@ -22,27 +22,29 @@ open IO
 open System
 
 
--- TOPLEVEL PARSER
--- ==============
-
 -- https://github.com/leanprover/lean4/blob/master/tests/playground/file.lean
 def main (xs: List String): IO UInt32 := do
   if xs.length == 0 then
     IO.println "usage: mlir [--run-test-suite] [--extract-semantic-tests]"
     return 0
   else if xs == ["--run-test-suite"] then
-    let b ← TestLib.runTestSuite AllTests.testSuite
-    return (if b then 0 else 1)
-  else if xs.length == 2 && xs.head! == "--extract-semantic-tests" then
+    -- | do-notation improvements.
+    return (if (← TestLib.runTestSuite AllTests.testSuite) then 0 else 1)
+  else if H:(xs.length == 2) && xs.head! == "--extract-semantic-tests" then
     SemanticsTests.semanticTests.forM fun t => do
       let (SemanticsTests.SemanticTest.mk S name r) := t
-      let fn: Op (S + scf) := .mk "func.func" [] [] [r]
-        (.mk [.mk "sym_name" $ .str "main"])
-      let rgn: Region (S + scf) := .mk "entry" [] [fn]
+      let fn: Op (S + scf) := 
+        .mk 
+        (name := "func.func") -- argument names
+        (res := [])
+        (args := [])
+        (regions := [r])
+        (attrs := [mlir_attr_dict| { "sym_name" = "main"}]) -- macros
+      let rgn: Region (S + scf) := .mk "entry" [] [fn] 
       let m: Op (S + scf) := .mk "builtin.module" [] [] [rgn] .empty
-      let out_folder := xs.drop 1 |>.head!
-      IO.println s!"extracting {out_folder}/{name}..."
-      let code := layout80col $ Pretty.doc m
+      let out_folder := List.getF xs (by { exact 1 }) (by { simp_all; }) -- proof
+      IO.println s!"extracting {out_folder}/{name}..." -- string interpolation
+      let code := layout80col <| Pretty.doc m
       FS.writeFile s!"{out_folder}/{name}" code
     return 0
   else

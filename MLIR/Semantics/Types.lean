@@ -145,6 +145,7 @@ def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v
 instance {τ: MLIRType δ}: DecidableEq τ.eval :=
   MLIRType.eval.eq
 
+
 def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   match τ, v with
   | .int .Signless _, v => toString v.toUint
