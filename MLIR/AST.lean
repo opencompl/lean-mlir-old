@@ -84,7 +84,9 @@ deriving DecidableEq
 inductive MLIRType (δ: Dialect α σ ε) :=
 | int: Signedness -> Nat -> MLIRType δ
 | float: Nat -> MLIRType δ
-| tensor: MLIRType δ -- tensor of int values. 
+| tensor1d: MLIRType δ -- tensor of int values. 
+| tensor2d: MLIRType δ -- tensor of int values. 
+| tensor4d: MLIRType δ -- tensor of int values. 
 | index:  MLIRType δ
 | undefined: String → MLIRType δ
 | extended: σ → MLIRType δ
@@ -241,7 +243,9 @@ def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .float n     => .float n
   | .index       => .index
   | .undefined n => .undefined n
-  | .tensor => .tensor 
+  | .tensor1d => .tensor1d
+  | .tensor2d => .tensor2d
+  | .tensor4d => .tensor4d
   | .erased => .erased
   | .extended s  => .extended (c.coe_σ _ _ s)
 
@@ -402,7 +406,9 @@ partial def docMLIRType: MLIRType δ → Doc
   | .int .Unsigned k => [doc| "u"k]
   | .int .Signed k => [doc| "si"k]
   | .float k => [doc| "f"k]
-  | .tensor => [doc| "tensor"]
+  | .tensor1d => [doc| "tensor1d"]
+  | .tensor2d => [doc| "tensor2d"]
+  | .tensor4d => [doc| "tensor4d"]
   | .index => [doc| "index"]
   | .undefined name => [doc| "!" name]
   | .erased => [doc| "erased"]

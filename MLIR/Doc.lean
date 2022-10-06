@@ -24,8 +24,6 @@ inductive Doc : Type where
   | Text: String -> Doc
 
 
-
-
 class Pretty (a : Type u) where
   doc : a -> Doc
 

@@ -18,8 +18,12 @@ instance linalg: Dialect Void Void (fun x => Unit) where
 def linalg_region_adaptor2d:
 
 def linalg_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
+  | IOp.mk "linalg.extractslice2d" _ [⟨.tensor, t⟩]  [r] dict => sorry
+  | IOp.mk "linalg.insertslice2d" _ [⟨.tensor, t⟩]  [r] dict => sorry
+  | IOp.mk "linalg.fill2d" _ [⟨.tensor, t⟩]  [r] dict => sorry
+  | IOp.mk "linalg.tile1d" _ [⟨.tensor, t⟩]  [r] dict => sorry
+  | IOp.mk "linalg.transpose2d"   _ [⟨.tensor, t⟩]  [r] dict => sorry
+  | IOp.mk "linalg.generic2d" _ [⟨.tensor, t⟩]  [r] dict => sorry
   | IOp.mk "linalg.parallel2d" _ [⟨.tensor, t⟩]  [r] dict => do
       return []
   | _ => OpM.Unhandled "unhandled linalg.generic"
-
-

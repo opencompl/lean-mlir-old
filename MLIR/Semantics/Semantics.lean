@@ -24,15 +24,6 @@ abbrev TypedArgs (δ: Dialect α σ ε) := List (TypedArg δ)
 
 inductive OpM (Δ: Dialect α σ ϵ): Type -> Type _ where
 | Ret: R -> OpM Δ R
-/- We could have had RunRegion take a `Region` as a parameter.
-  This would mean that a user could, in theory, craft a request to run a region
-  to our main loop, and we would happily do so!
-  This means that the framework is capable of expressing *more* than MLIR.
-  It is capable of expressing of operations that 'JIT' regions during the execution.
-
-  Ah ha, but we can't do that. If we try, the termination checker complains
-  that our function isn't well terminating!
--/
 | RunRegion: Nat -> TypedArgs Δ -> (TypedArgs Δ -> OpM Δ R) -> OpM Δ R
 | Unhandled: String → OpM Δ R
 | Error: String -> OpM Δ R
@@ -229,7 +220,9 @@ def MLIRType.retractLeft: MLIRType (δ₁ + δ₂) → MLIRType δ₁
 | .int sgn sz => .int sgn sz -- : Signedness -> Nat -> MLIRType δ
 | .float sz => .float sz -- : Nat -> MLIRType δ
 | .index => .index --:  MLIRType δ
-| .tensor => .tensor
+| .tensor1d => .tensor1d
+| .tensor2d => .tensor2d
+| .tensor4d => .tensor4d
 | .erased => .erased
 | .undefined s => .undefined s-- : String → MLIRType δ
 | .extended (Sum.inl σ₁) => .extended σ₁ -- : σ → MLIRType δ
@@ -240,7 +233,9 @@ def MLIRType.swapDialect: MLIRType (δ₁ + δ₂) -> MLIRType (δ₂ + δ₁)
 | .float sz => (.float sz) -- : Nat -> MLIRType δ
 | .index => (.index) --:  MLIRType δ
 | .erased => .erased
-| .tensor => .tensor
+| .tensor1d => .tensor1d
+| .tensor2d => .tensor2d
+| .tensor4d => .tensor4d
 | .undefined s => (.undefined s) -- : String → MLIRType δ
 | .extended (Sum.inl σ₁) => .extended (Sum.inr σ₁)
 | .extended (Sum.inr σ₂) => .extended (Sum.inl σ₂)
@@ -251,7 +246,10 @@ def TypedArg.swapDialect: TypedArg (δ₁ + δ₂) -> TypedArg (δ₂ + δ₁)
 | ⟨ .float sz, v ⟩ =>  ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
 | ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
-| ⟨.tensor, v⟩ => ⟨.tensor, v ⟩
+
+| ⟨.tensor1d, v⟩ => ⟨.tensor1d, v ⟩
+| ⟨.tensor2d, v⟩ => ⟨.tensor2d, v ⟩
+| ⟨.tensor4d, v⟩ => ⟨.tensor4d, v ⟩
 | ⟨.extended (Sum.inl σ₁), v ⟩ => ⟨.extended (Sum.inr σ₁), v⟩
 | ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended (Sum.inl σ₂), v⟩
 | ⟨.erased, ()⟩ => ⟨.erased, ()⟩
@@ -267,7 +265,9 @@ match t with
 | ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
 | ⟨ .float sz, v ⟩ => ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
-| ⟨.tensor, v⟩ =>  ⟨.tensor,v ⟩
+| ⟨.tensor1d, v⟩ =>  ⟨.tensor1d,v ⟩
+| ⟨.tensor2d, v⟩ =>  ⟨.tensor2d,v ⟩
+| ⟨.tensor4d, v⟩ =>  ⟨.tensor4d,v ⟩
 | ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
 | ⟨.extended (Sum.inl σ₁), v ⟩ =>  ⟨.extended σ₁, v⟩ -- : σ → MLIRType δ
 | ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.erased, () ⟩
@@ -278,7 +278,9 @@ match t with
 | ⟨.int sgn sz, v ⟩ =>  ⟨ .int sgn sz, v ⟩ -- : Signedness -> Nat -> MLIRType δ
 | ⟨ .float sz, v ⟩ => ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
-| ⟨.tensor, v⟩ =>  ⟨.tensor,v ⟩
+| ⟨.tensor1d, v⟩ =>  ⟨.tensor1d,v ⟩
+| ⟨.tensor2d, v⟩ =>  ⟨.tensor2d,v ⟩
+| ⟨.tensor4d, v⟩ =>  ⟨.tensor4d,v ⟩
 | ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
 | ⟨.extended (Sum.inl σ₁), v ⟩ =>  ⟨.erased, ()⟩ -- : σ → MLIRType δ
 | ⟨.extended (Sum.inr σ₂), v ⟩ => ⟨.extended σ₂, v ⟩
@@ -398,7 +400,9 @@ def TypedArg.injectLeft: TypedArg (δ₁) -> TypedArg (δ₁ +  δ₂)
 | ⟨ .float sz, v ⟩ =>  ⟨.float sz, v ⟩ -- : Nat -> MLIRType δ
 | ⟨.index, v⟩ => ⟨.index, v ⟩ --:  MLIRType δ
 | ⟨.undefined s, v ⟩ =>  ⟨.undefined s, v⟩ -- : String → MLIRType δ
-| ⟨.tensor, v⟩ => ⟨.tensor, v ⟩
+| ⟨.tensor1d, v⟩ => ⟨.tensor1d, v ⟩
+| ⟨.tensor2d, v⟩ => ⟨.tensor2d, v ⟩
+| ⟨.tensor4d, v⟩ => ⟨.tensor4d, v ⟩
 | ⟨.extended σ, v ⟩ => ⟨.extended (Sum.inl σ), v⟩
 | ⟨.erased, ()⟩ => ⟨.erased, ()⟩
 
@@ -511,7 +515,6 @@ def semanticPostCondition₂ {Δ: Dialect α' σ' ε'}
 @[simp] theorem semanticPostCondition₂_ok_ok:
   semanticPostCondition₂ (Except.ok (r₁, env₁)) (Except.ok (r₂, env₂)) f =
   f r₁ env₁ r₂ env₂ := rfl
-
 
 /-
 ### Denotation notation

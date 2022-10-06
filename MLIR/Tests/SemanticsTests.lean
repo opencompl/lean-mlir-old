@@ -63,6 +63,8 @@ def sub := SemanticTest.mk (func_ + arith) "sub.mlir" [mlir_region| {
   "func.return" (%z): (i32) -> ()
 }]
 
+#print sub
+
 def xor := SemanticTest.mk (func_ + arith) "xor.mlir" [mlir_region| {
   %r1 = "arith.constant" () {value = 17: i8}: () -> i8
   %r2 = "arith.constant" () {value = 25: i8}: () -> i8

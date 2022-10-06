@@ -297,14 +297,12 @@ structure Tensor (τ: MLIRTy) where
 -- indexes: [A1, A2, A3]:
 -- flattened index:
 --    A1 + S1 (A2 + S2(A3))
--- TODO: Define this inductively.
 structure TensorIndex (shape: List Nat) where
   ixs: List Nat -- indexes into the tensor
   h_ix_length: ixs.length = shape.length -- Invariant: we have as many indexes as there are dimensions
   h_ix_bound: ∀ (i: Nat) (INBOUNDS: i < shape.length),
     List.getF ixs i (h_ix_length ▸ INBOUNDS) < shape[i] -- Invariant: the dimensions are inbounds.
 
--- TODO: replace the values in the dim by a TensorFlatIndex
 inductive TensorIndex': List Nat -> Type :=
 |  Empty: TensorIndex' []
 |  Dim (bound0: Nat)
@@ -316,13 +314,7 @@ Two TensorIndexes are equal if their shapes and indexes are equals.
 -/
 def TensorIndex.eq_proof_irrelevant (shape: List ℕ) (t1 t2: TensorIndex shape)
   (IXEQ: t1.ixs = t2.ixs): t1 = t2 := by {
-  induction t1;
-  case mk ixs1 HLEN1 HBOUND1 => {
-  induction t2;
-  case mk ixs1 HLEN2 HBOUND2 => {
-   simp [IXEQ];
-  }
-  }
+  cases t1 <;> simp [IXEQ]
 }
 
 /-
@@ -1045,7 +1037,7 @@ theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i
   }
 }
 
--- TODO thursday: Implement `mapWithIndex` under the assumption that v.shape has no zeroes.
+-- TODO Implement `mapWithIndex` under the assumption that v.shape has no zeroes.
 def Tensor.mapWithIndex {σ τ} (v: Tensor σ) (f: TensorIndex v.shape → σ.eval → τ.eval): Tensor τ :=
    v.mapWithFlatIndex (fun flatIx s =>
       let idx : TensorIndex v.shape :=
