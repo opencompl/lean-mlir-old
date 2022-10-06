@@ -10,8 +10,8 @@ open MLIR.AST
 /-
 ### Refinement of SSA environment
 
-One SSA environment is a refinement of the other if all variables
-defined in the environment are also defined by the other first one.
+One SSA environment `e1` is a refinement of an environment `e2` if all variables
+defined in `e2` are also defined by `e1`, and have the same values.
 -/
 
 def SSAEnv.refines (env1 env2: SSAEnv δ) : Prop :=
@@ -33,8 +33,8 @@ theorem SSAEnv.refines_set :
 /-
 ### Refinement of programs
 
-A program p1 refines a program p2 if p1 succeed whenever p2 succeed,
-with the same return value, and an environment refining p2 environment.
+A program `p1` refines a program `p2` if `p1` succeed whenever `p2` succeed,
+with the same return value, and an environment refining `p2` environment.
 -/
 
 def TopM.refines {Δ: Dialect α' σ' ε'} {R} (t1 t2: TopM Δ R) :=
