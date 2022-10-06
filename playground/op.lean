@@ -1,10 +1,14 @@
+-- Show this, is an interesting collection of Lean features.
 import Lean.PrettyPrinter
-import Std.Data.AssocList
+import Lean
+-- import Data.AssocList
 import Lean.Meta
 open Lean.PrettyPrinter
 open Lean.Meta
 open Std
-open Std.AssocList
+open Lean
+
+-- open Std.Data.AssocList
 
 inductive matcher where
 | done: matcher
@@ -46,6 +50,7 @@ structure MatchInfo where
   ops: List String -- list to maintain order of introduction. Earliest first
   opArgs: AssocList String (RBMap Nat String compare)
 
+#check TSyntax
 partial def computeMatcher_ (m: Lean.Syntax) 
   : Lean.PrettyPrinter.UnexpandM  MatchInfo :=
 match m with
@@ -57,28 +62,28 @@ match m with
                 }
 | `(matcher.focus! $name $m) => do
     let prev <- computeMatcher_ m
-    match name.isStrLit? with
+    match name.raw.isStrLit? with
     | some n => -- update focus
       if (prev.ops.contains n) 
       then return { prev with focus := n }
       else  -- | add new op
         return { prev with focus := n, ops := n::prev.ops }
-    | _ =>  prev
+    | _ =>  return prev
 | `(matcher.kind? $kind $m) => do
     let prev <- computeMatcher_ m
-    match kind.isStrLit? with
+    match kind.raw.isStrLit? with
     | some k => -- | update kind
       return { prev with kinds := prev.kinds.insert (prev.focus) k }
-    | _ =>  prev
+    | _ =>  return prev
 | `(matcher.arg? $ix $name $m) => do
     let prev <- computeMatcher_ m
-    match (ix.isNatLit?, name.isStrLit?) with
+    match (ix.raw.isNatLit?, name.raw.isStrLit?) with
     | (some ix, some name) => 
       let args := match prev.opArgs.find? prev.focus with
         | none => RBMap.fromList [(ix, name)] compare
         | some args => args.insert ix name
       return { prev with opArgs := prev.opArgs.insert prev.focus args }
-    | _ => prev 
+    | _ => return prev 
 | m => return { focus := toString ""
                 , kinds := RBMap.empty
                 , ops := []
@@ -92,14 +97,9 @@ declare_syntax_cat str_newline
 partial def stx_vgroup_strings (ss: Array String)
 : Lean.PrettyPrinter.UnexpandM Lean.Syntax := do
 
-  let si := Lean.SourceInfo.original 
-      "".toSubstring 0
-      "asd".toSubstring 1
-  -- let newline :=   Lean.Syntax.atom si "atom"
-  
   let newline :=
     -- Lean.mkNode `antiquot #[Lean.Syntax.atom si "atom"]
-    Lean.mkNode Lean.nullKind #[Lean.mkAtom "atom"]
+    Lean.mkNode `term #[Lean.mkAtom "atom"]
   -- let newline := 
   --   Lean.Syntax.ident si 
   --     "\n\n".toSubstring
@@ -126,7 +126,7 @@ partial def unexpandMatch (m: Lean.Syntax) : Lean.PrettyPrinter.UnexpandM Lean.S
     | none => s := s ++ "??? ["
     
     match matchinfo.opArgs.find? opName with
-    | none => ()
+    | none => pure ()
     | some args =>
       for (argix, argname) in args do 
         s := s ++ "(arg" ++ toString argix ++ "=%" ++ argname ++ ")" ++ " "
@@ -160,13 +160,14 @@ inductive matcher_done : matcher -> Prop where
   -> matcher_done (matcher.focus! s m)
 
 
+#check TSyntax
 @[appUnexpander matcher_done]
 partial def unexpandMatcherDoneProp : 
 Lean.PrettyPrinter.Unexpander :=  fun m => 
 match m with
 | `(matcher_done $arg) => do
       unexpandMatch arg
-| unk => `("MATCHER_DONE_UNK" $unk)
+| unk => `("MATCHER_DONE_UNK" $(TSyntax.mk unk))
 
 
 -- def root (m: matcher) 
