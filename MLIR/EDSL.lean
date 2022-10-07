@@ -531,6 +531,12 @@ def tensorTy4 := [mlir_type| tensor<* × f32>]
 example : MLIRType (builtin + Dialect.empty) := [mlir_type| tensor<* × f32>]
 
 
+syntax "tensor1d" : mlir_type
+macro_rules
+| `([mlir_type| tensor1d ]) => do
+    `(MLIRType.tensor1d)
+
+def tensor1dTest : MLIRType empty := [mlir_type| tensor1d]
 
 -- EDSL MLIR USER ATTRIBUTES
 -- =========================

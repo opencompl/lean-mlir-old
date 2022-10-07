@@ -2,6 +2,7 @@ import MLIR.Util.Mathlib4.NatBasic
 import MLIR.Util.Mathlib4.Dvd
 import MLIR.Util.Mathlib4.NatLemmas
 import MLIR.Util.List
+import MLIR.Util.FinInt 
 
 /-
 This file defines the theory of K-dimensional arrays (for fixed K=4).
@@ -16,7 +17,7 @@ TODO: please unify:
 
 structure Tensor1D where
   shape0: Nat
-  data: List Int --  -> Int
+  data: List (FinInt 32) --  -> Int
   h_data_size: data.length = shape0
 
 def Tensor1D.isEq (v1 v2: Tensor1D): Decidable (v1 = v2) := by {
@@ -39,7 +40,7 @@ All other operations must be written in terms of these primitives.
 -/
 def Tensor1D.empty: Tensor1D := { shape0 := 0, data := [], h_data_size :=  rfl }
 
-def Tensor1D.fill (t: Tensor1D) (cst: Int): Tensor1D :=  {
+def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
   shape0 := t.shape0
   data := List.replicate t.shape0 cst
   h_data_size := by { simp[List.length_replicate] }
@@ -623,3 +624,23 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
   rewrite [RHS];
   apply List.zip_flat_index_go_get (xs := xs) (ix := 0) (bound := List.length xs) (deltaIx := getIx) (GETIX := GETIX);
 }
+
+
+def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.shape0 →  (FinInt 32) →  (FinInt 32)): 
+  Tensor1D :=
+  Tensor1D.mk (shape0 := v.shape0)
+    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by {
+   rewrite [List.length_map];
+   rewrite [← List.length_zip_flat_index];
+   rewrite [v.h_data_size];
+   apply Eq.refl;
+  })
+
+def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Mon: Monad M] 
+  (v: Tensor1D) (f: TensorFlatIndex v.shape0 → (FinInt 32) → M (FinInt 32)): 
+  M Tensor1D := do 
+  let data <- 
+      (List.zipFlatIndex v.data).mapM (fun (val, ix) => f (v.h_data_size ▸ ix) val)
+  let temp := Tensor1D.mk data.length data rfl
+  return temp
+  

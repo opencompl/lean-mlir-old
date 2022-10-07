@@ -3,6 +3,7 @@ import MLIR.AST
 import MLIR.Dialects.ArithSemantics
 import MLIR.Dialects.FuncSemantics
 import MLIR.Dialects.ScfSemantics
+import MLIR.Dialects.LinalgSemantics
 import MLIR.Dialects.CustomTypeSemantics
 import MLIR.Tests.TestLib
 open MLIR.AST
