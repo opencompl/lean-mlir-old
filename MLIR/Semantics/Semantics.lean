@@ -54,11 +54,15 @@ inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
-  (regions: List (TypedArgs δ → OpM δ (TypedArgs δ))) -- TODO: surely, I can build the denotation of a region and pass it along to you?
+  (regions: List (TypedArgs δ → OpM δ (TypedArgs δ)))
   (attrs:   AttrDict δ)
 
 
 -- The monad in which these computations are run
+-- TODO: make `TopM.set` fail if we write to an already defined value.
+-- This enforces the SSA property.
+-- TODO: make `runRegion` clear the SSA state, forcing the region
+-- to be isolated from above. 
 abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except String) R
 def TopM.run (t: TopM Δ R) (env: SSAEnv Δ): Except String (R × SSAEnv Δ) :=
   StateT.run t env
@@ -74,9 +78,23 @@ def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ
 
 def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval): TopM Δ Unit := do
   let s ← StateT.get
-  StateT.set (SSAEnv.set name τ v s)
+  match SSAEnv.get name τ s with 
+  | .some v' => if v == v' then pure () else TopM.raiseUB "setting to SSA value twice!"
+  | .none => StateT.set (SSAEnv.set name τ v s)
 
 
+/-
+TODO:
+
+theorem raiseUB_commutes
+theorem set_commutes_noninterfereing_set
+theorem set_commutes_noninterfereing_get
+theorem set_interference_ub
+theorem set_commutes_set:
+theorem get_commutes_get
+theorem get_commutes_noninterfering_set
+theorem get_set
+-/
 
 class Semantics (Δ: Dialect α σ ε)  where
   -- Operation semantics function: maps an IOp (morally an Op but slightly less
