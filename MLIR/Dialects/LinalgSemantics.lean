@@ -29,7 +29,12 @@ def linalg_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
     let len ←  OpM.findIndex dict "len"
     let t' := t.extract len
     return [⟨.tensor1d, t'⟩] 
- | IOp.mk "linalg.fill1d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
+ | IOp.mk "linalg.fill1d" _ [⟨.tensor1d, t⟩]  [r] dict => do
+     let len ←  OpM.findIndex dict "len"
+     let cst ←  OpM.findIndex dict "cst"
+     let t' := t.fill cst
+     return [⟨.tensor1d, t'⟩]
+
  | IOp.mk "linalg.generic1d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
  | IOp.mk "linalg.extractslice2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
  | IOp.mk "linalg.insertslice2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
