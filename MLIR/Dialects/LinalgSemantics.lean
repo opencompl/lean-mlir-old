@@ -15,7 +15,6 @@ instance linalg: Dialect Void Void (fun x => Unit) where
   iα := inferInstance
   iε := inferInstance
 
-def linalg_region_adaptor2d:
 
 
 def OpM.findIndex (d: AttrDict δ) (key: String): OpM Δ Nat :=

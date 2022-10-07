@@ -63,6 +63,30 @@ def getF_map {α β} (l: List α) (f: α → β) n h:
       | 0 => by simp [getF]
       | m+1 => by simp [getF, ih]
 
+theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i < xs.length),
+ List.Mem (List.getF xs i INBOUND) xs := by {
+  intros α xs;
+  induction xs;
+  case nil => {
+    intros i INBOUND; simp at INBOUND;
+    simp [Nat.not_lt_zero] at INBOUND;
+  }
+  case cons x' xs IH => {
+    intros i INBOUND;
+    cases i;
+    case zero => {
+       simp [List.getF];
+       constructor;
+    }
+    case succ i' => {
+     simp [List.getF];
+     constructor;
+     apply IH;
+   }
+  }
+}
+
+
 /- theorem getF_eq_get {α} (l: List α) n:
     get? l n.val = some (getF l n) := by -/
 

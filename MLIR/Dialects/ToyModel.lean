@@ -2,6 +2,7 @@
 
 import MLIR.Dialects.BuiltinModel
 import MLIR.Util.List
+import MLIR.Util.KDTensor
 
 open DimList
 open MLIR.AST (TensorElem)
@@ -42,7 +43,7 @@ def transpose (t: Matrix n m τ): Matrix m n τ :=
             apply transpose_remap_bound; assumption),
     h_refines := by simp,
     h_data_size := by
-      simp [TensorElem.shapeProd, List.foldr];
+      simp [shapeProd, List.foldr];
       rw [t.h_data_size, dim_known_prod_refines _ t.h_refines] <;>
       simp [Nat.mul_comm] }
 

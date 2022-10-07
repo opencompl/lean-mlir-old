@@ -10,6 +10,7 @@ a concrete `builtin.tensor` value.
 import MLIR.AST
 import MLIR.Semantics.Types
 import MLIR.Util.List
+import MLIR.Util.KDTensor
 
 open MLIR.AST
 
@@ -63,12 +64,6 @@ TODO: Integrate TensorElem invariants into the verifier
 -/
 
 namespace MLIR.AST.TensorElem
-
-def shapeProd: List Nat → Nat :=
-  List.foldr (·*·) 1
-
-theorem shape_prod_nil: shapeProd (0::l) = 0 := by
-  induction l <;> simp [shapeProd, List.foldr]
 
 -- Check whether a tensor literal matches a concrete shape
 def hasShape: TensorElem → List Nat → Bool
@@ -354,7 +349,7 @@ theorem dim_known_project_eq {D: DimList}:
   induction S <;> simp; assumption
 
 theorem dim_known_prod_refines {D: DimList}:
-    D.known → shapeRefines S D → TensorElem.shapeProd S = D.prod := by
+    D.known → shapeRefines S D → shapeProd S = D.prod := by
   intros Hknown; revert S; induction D <;> intros S Hrefines <;> simp
   case nil =>
     cases S; simp; simp at Hrefines
@@ -362,10 +357,9 @@ theorem dim_known_prod_refines {D: DimList}:
     cases S; simp at Hrefines
     cases head <;> simp at *
     rw [←Hrefines.1, ←ih Hknown Hrefines.2]
-    simp [TensorElem.shapeProd, List.foldr]
 
 theorem dim_known_prod (D: DimList):
-    D.known → TensorElem.shapeProd D.project = D.prod :=
+    D.known → shapeProd D.project = D.prod :=
   fun Hknown =>
     dim_known_prod_refines Hknown (dim_known_project_refines Hknown)
 
