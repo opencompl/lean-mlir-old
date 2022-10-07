@@ -569,46 +569,143 @@ resulting environment of the interpretation of a TopM monad.
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
 
-def run_denoteOpArgs_env_set_preserves [S: Semantics Δ]
-    (args: List (TypedSSAVal Δ)) (name: SSAVal):
-  name ∉ (args.map Prod.fst) ->
-  ∀ env r res_env, StateT.run (denoteOpArgs Δ args) env = Except.ok (r, res_env) ->
-  ∀ τ v, StateT.run (denoteOpArgs Δ args) (env.set name τ v) =
-    Except.ok (r, res_env.set name τ v) := by
+def denoteOpArgs_env_set_preserves [S: Semantics Δ]
+    {args: List (TypedSSAVal Δ)}:
+    denoteOpArgs Δ args env = Except.ok (r, resEnv) ->
+    denoteOpArgs Δ args (env.set name τ v) = Except.ok (r, resEnv.set name τ v) := by
 sorry
+
+def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs Δ}:
+    denoteTypedArgs regArgs vals env = Except.ok (res, env')->
+    denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) =
+      Except.ok (res, SSAEnv.set name τ v env') := by
+  sorry
+
+mutual
+variable {Δ: Dialect α σ ε} [S: Semantics Δ]
+
+def run_denoteOp_env_set_preserves {op: Op Δ} :
+    denoteOp Δ op isTerminator env = Except.ok (r, env') ->
+    denoteOp Δ op isTerminator (SSAEnv.set name τ v env) =
+      Except.ok (r, SSAEnv.set name τ v env') := by
+  -- unfold the denotation
+  unfold denoteOp; simp
+  cases op; case mk op_name res args regions attrs =>
+  simp [bind, StateT.bind, Except.bind]
+  intro H
+
+  -- Take care of the arguments
+  split at H <;> try contradiction
+  case h_2 _ argsRes HargsRes => 
+  rw [denoteOpArgs_env_set_preserves HargsRes]
+  simp
+
+  -- Take care of the op and its regions
+  split at H <;> try contradiction
+  case h_2 _ opRes HopRes =>
+  rw [run_denoteOpOp_env_set_preserves HopRes]
+  sorry
+
+
+def run_denoteOps_env_set_preserves {ops: List (Op Δ)} :
+    denoteOps Δ ops env = Except.ok (res, env') ->
+    denoteOps Δ ops (SSAEnv.set name τ v env) = Except.ok (res, SSAEnv.set name τ v env') := by
+  -- We recursively call the preservation on each operation we encounter
+  unfold denoteOps
+  split
+  -- No operations case
+  case h_1 =>
+    simp; intros H
+    cases H <;> rfl
+  -- One operation case (terminator)
+  case h_2 ops op =>
+    apply run_denoteOp_env_set_preserves
+  -- Two operations case
+  case h_3 head ops _ =>
+    intros H
+    have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
+    simp [bind, StateT.bind, Except.bind] at *
+    simp [run_denoteOp_env_set_preserves Hhead]
+    simp [Hhead] at H
+    apply run_denoteOps_env_set_preserves
+    trivial
+
+
+def run_denoteRegion_env_set_preserves {region} :
+    denoteRegion Δ region regArgs env = Except.ok (res, env') ->
+    denoteRegion Δ region regArgs (env.set name τ v) = Except.ok (res, env'.set name τ v) := by
+  cases region; case mk reg_name args ops =>
+  unfold denoteRegion; simp
+  simp [bind]; simp [StateT.bind]
+  intros H
+  cases Hargs: (denoteTypedArgs regArgs (List.map Prod.fst args) env)
+  case error e =>
+    rw [Hargs] at H
+    contradiction
+  case ok discr =>
+    have ⟨_, discr⟩ := discr
+    rw [Hargs] at H
+    simp [bind, Except.bind] at H
+    rw [run_denoteTypedArgs_env_set_preserves Hargs]
+    simp [bind, Except.bind]
+    apply run_denoteOps_env_set_preserves
+    apply H
+
+
+def run_denoteRegionByIx_env_set_preserves {regions} :
+    denoteRegionByIx (mapDenoteRegion Δ regions) idx args env =
+      Except.ok (res, env') ->
+    denoteRegionByIx (mapDenoteRegion Δ regions) idx args (env.set name τ v) =
+      Except.ok (res, env'.set name τ v) := by 
+  -- We just find the region we have to run, and apply the recursion
+  unfold denoteRegionByIx
+  unfold mapDenoteRegion
+  cases regions <;> simp <;> intro H <;> try contradiction
+  case cons head tail =>
+  cases idx
+  case zero =>
+    simp at *
+    simp [run_denoteRegion_env_set_preserves H]
+  case succ idx' =>
+    simp at *
+    apply (run_denoteRegionByIx_env_set_preserves H)
+    
+
+def run_denoteOpOp_env_set_preserves {regions} {opM} :
+    OpM.toTopM (mapDenoteRegion Δ regions) opM env = Except.ok (r, resEnv) -> 
+    OpM.toTopM (mapDenoteRegion Δ regions) opM
+      (env.set name τ v) = Except.ok (r, (resEnv.set name τ v)) := by
+  intros H
+  cases opM <;> try contradiction
+
+  -- Ret case, we return the same value in both cases, so this is trivial
+  case Ret ret =>
+    unfold OpM.toTopM; unfold OpM.toTopM at H
+    cases H <;> simp
+    rfl
+
+  -- Running a region. We have to do a mutual induction here.
+  case RunRegion idx args continuation => 
+    unfold OpM.toTopM; unfold OpM.toTopM at H
+    simp [bind, StateT.bind, Except.bind] at *
+    split at H <;> try contradiction
+    case h_2 denoteRegRes HdenoteReg => 
+    have ⟨denoteRegResV, denoteRegResEnv⟩ := denoteRegRes
+    simp at *
+    simp [run_denoteRegionByIx_env_set_preserves HdenoteReg]
+    apply run_denoteOpOp_env_set_preserves
+    assumption
+
+end
+termination_by
+  run_denoteOp_env_set_preserves op => sizeOf op
+  run_denoteOps_env_set_preserves ops => sizeOf ops
+  run_denoteRegion_env_set_preserves region => sizeOf region
+  run_denoteRegionByIx_env_set_preserves regions => sizeOf regions
+  run_denoteOpOp_env_set_preserves regions opM => sizeOf opM
 
 def postSSAEnv.env_set_preserves [S: Semantics δ] (op: Op δ) (env: SSAEnv δ) :
     postSSAEnv ⟦op⟧ env →
     ∀ name, isVarFreeInOp name op ->
     postSSAEnv ⟦op⟧ (env.set name τ v) := by
-  intros HPost name HFreeVar
-  unfold postSSAEnv at *
-  have ⟨env', r, HRunStmt⟩ := HPost
-  
-  -- The SSAEnv before the interpretation is the same as the first one,
-  -- but with the added value.
-  exists (env'.set name τ v), r
-
-  -- We unfold run definition in the hypothesis and the goal
-  simp [Denote.denote]; simp [Denote.denote] at HRunStmt
-  unfold denoteOp; unfold denoteOp at HRunStmt
-  simp; simp at HRunStmt
-  cases op; case mk op_name res args regions attrs =>
-  simp [run]; simp [run] at HRunStmt
-
-  -- Split the arguments part
-  have ⟨⟨denotedArgs, argsEnv⟩, HRunArgs⟩ := ExceptMonad.split HRunStmt
-  rw [HRunArgs, ExceptMonad.simp_ok] at HRunStmt
-  
-  -- Use the preservation theorem on the arguments
-  have HNotUsed : name ∉ (args.map Prod.fst) := by {
-    have HNotUsed := freeInOp_implies_not_used HFreeVar
-    simp [isUsed, Op.argNames] at HNotUsed
-    apply HNotUsed
-  }
-  have HRunArgsSet :=
-    run_denoteOpArgs_env_set_preserves _ _ HNotUsed _ _ _ HRunArgs
-  rw [HRunArgsSet, ExceptMonad.simp_ok]
-  simp; simp at HRunStmt
-
   sorry
