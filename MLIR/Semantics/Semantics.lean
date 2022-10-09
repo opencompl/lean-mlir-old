@@ -645,11 +645,15 @@ def OpM.toTopM_regions_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ
     simp [HdenoteIx]
     apply OpM.toTopM_regions_env_set_preserves <;> assumption
 
+def TopM.set_env_set_preserves :
+  TopM.set τ name v env = Except.ok (r, env') ->
+  TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by sorry
 
 mutual
-variable {Δ: Dialect α σ ε} [S: Semantics Δ]
+variable {Δ: Dialect α σ ε} [S: Semantics Δ] (name: SSAVal) (τ: MLIRType Δ) (v: MLIRType.eval τ)
 
-def run_denoteOp_env_set_preserves {op: Op Δ} :
+def run_denoteOp_env_set_preserves (op: Op Δ) :
+    ∀ isTerminator env r env',
     denoteOp Δ op isTerminator env = Except.ok (r, env') ->
     denoteOp Δ op isTerminator (SSAEnv.set name τ v env) =
       Except.ok (r, SSAEnv.set name τ v env') := by
@@ -657,7 +661,7 @@ def run_denoteOp_env_set_preserves {op: Op Δ} :
   unfold denoteOp; simp
   cases op; case mk op_name res args regions attrs =>
   simp [bind, StateT.bind, Except.bind]
-  intro H
+  intro isTerminator env r env' H
 
   -- Take care of the arguments
   split at H <;> try contradiction
@@ -665,14 +669,63 @@ def run_denoteOp_env_set_preserves {op: Op Δ} :
   rw [denoteOpArgs_env_set_preserves HargsRes]
   simp
 
-  -- Take care of the op and its regions
+  -- Take care of the regions
   split at H <;> try contradiction
-  case h_2 _ opRes HopRes =>
-  rw [run_denoteOpOp_env_set_preserves HopRes]
-  sorry
+  case h_2 _ opR HopRes =>
+  have ⟨opR, opEnv'⟩ := opR
+  have Hind := @OpM.toTopM_regions_env_set_preserves
+  specialize (@Hind _ _ _ _ _ (mapDenoteRegion Δ regions) name τ v)
+  specialize (@Hind (mapDenoteRegion_env_set_preserves _))
+  rw [Hind _ _ _ _ HopRes]
+  simp 
+
+  -- This could take a quarter of the lines if split was working :/
+  cases isTerminator <;> simp at *
+  case true => 
+    cases res
+    case nil => simp at *; cases H; rfl
+    case cons headRes tailRes =>
+      cases tailRes
+      case cons => simp at *; cases H; rfl
+      case nil =>
+        cases opR
+        case nil => simp at *; cases H; rfl
+        case cons opRHead opRTail => 
+          cases opRTail
+          case cons => simp at *; cases H; rfl
+          case nil =>
+            simp at *
+            split at H <;> try contradiction
+            case h_2 setRes HSetRes => 
+            rw [TopM.set_env_set_preserves HSetRes]
+            simp; cases H; rfl
+  case false =>
+    cases res
+    case nil =>
+      simp at *
+
+      cases opR
+      case nil => simp at *; cases H; rfl
+      case cons => simp at *; cases H
+    case cons resHead resTail =>
+      cases resTail
+      case cons => simp at *; cases H
+      case nil =>
+        cases opR
+        case nil => simp at *; cases H
+        case cons opRHead opRTail =>
+          cases opRTail
+          case cons => simp at *; cases H
+          case nil =>
+            simp at *
+            split at H <;> try contradiction
+            case h_2 setRes HSetRes => 
+            rw [TopM.set_env_set_preserves HSetRes]
+            simp; cases H; rfl
 
 
-def run_denoteOps_env_set_preserves {ops: List (Op Δ)} :
+def run_denoteOps_env_set_preserves (ops: List (Op Δ)) :
+    ∀ env res env',
     denoteOps Δ ops env = Except.ok (res, env') ->
     denoteOps Δ ops (SSAEnv.set name τ v env) = Except.ok (res, SSAEnv.set name τ v env') := by
   -- We recursively call the preservation on each operation we encounter
@@ -680,30 +733,31 @@ def run_denoteOps_env_set_preserves {ops: List (Op Δ)} :
   split
   -- No operations case
   case h_1 =>
-    simp; intros H
+    simp; intros _ _ _ H
     cases H <;> rfl
   -- One operation case (terminator)
   case h_2 ops op =>
     apply run_denoteOp_env_set_preserves
   -- Two operations case
   case h_3 head ops _ =>
-    intros H
+    intros _ _ _ H
     have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
     simp [bind, StateT.bind, Except.bind] at *
-    simp [run_denoteOp_env_set_preserves Hhead]
+    simp [run_denoteOp_env_set_preserves _ _ _ _ _ Hhead]
     simp [Hhead] at H
     apply run_denoteOps_env_set_preserves
     trivial
 
 
-def run_denoteRegion_env_set_preserves {region} :
-    denoteRegion Δ region regArgs env = Except.ok (res, env') ->
-    denoteRegion Δ region regArgs (env.set name τ v) = Except.ok (res, env'.set name τ v) := by
-  cases region; case mk reg_name args ops =>
+def denoteRegion_env_set_preserves region :
+    ∀ args env res env',
+    denoteRegion Δ region args env = Except.ok (res, env') ->
+    denoteRegion Δ region args (env.set name τ v) = Except.ok (res, env'.set name τ v) := by
+  cases region; case mk reg_name regArgs ops =>
   unfold denoteRegion; simp
   simp [bind]; simp [StateT.bind]
-  intros H
-  cases Hargs: (denoteTypedArgs regArgs (List.map Prod.fst args) env)
+  intros args env res env' H
+  cases Hargs: (denoteTypedArgs args (List.map Prod.fst regArgs) env)
   case error e =>
     rw [Hargs] at H
     contradiction
@@ -715,37 +769,33 @@ def run_denoteRegion_env_set_preserves {region} :
     simp [bind, Except.bind]
     apply run_denoteOps_env_set_preserves
     apply H
-    
+  
+def mapDenoteRegion_env_set_preserves regions:
+  ∀ region args env res env', region ∈ (mapDenoteRegion Δ regions) ->
+    region args env = Except.ok (res, env') ->
+    region args (env.set name τ v)  = Except.ok (res, env'.set name τ v) := by
+  cases regions
+  case nil =>
+    intros _ _ _ _ _ _
+    contradiction
+  case cons head tail =>
+    intros region args env res env' HregIn Hreg
+    simp [mapDenoteRegion] at HregIn
+    cases HregIn
+    case head =>
+      apply denoteRegion_env_set_preserves
+      assumption
+    case tail =>
+      apply mapDenoteRegion_env_set_preserves <;> assumption
 
-def run_denoteOpOp_env_set_preserves {regions} {opM} :
-    OpM.toTopM (mapDenoteRegion Δ regions) opM env = Except.ok (r, resEnv) -> 
-    OpM.toTopM (mapDenoteRegion Δ regions) opM
-      (env.set name τ v) = Except.ok (r, (resEnv.set name τ v)) := by
-  intros H
 
-  sorry
-
-/-  intros H
-  cases opM <;> try contradiction
-
-  -- Ret case, we return the same value in both cases, so this is trivial
-  case Ret ret =>
-    unfold OpM.toTopM; unfold OpM.toTopM at H
-    cases H <;> simp
-    rfl
-
-  -- Running a region. We have to do a mutual induction here.
-  case RunRegion idx args continuation => 
-    unfold OpM.toTopM; unfold OpM.toTopM at H
-    simp [bind, StateT.bind, Except.bind] at *
-    split at H <;> try contradiction
-    case h_2 denoteRegRes HdenoteReg => 
-    have ⟨denoteRegResV, denoteRegResEnv⟩ := denoteRegRes
-    simp at *
-    simp [run_denoteRegionByIx_env_set_preserves HdenoteReg]
-    apply run_denoteOpOp_env_set_preserves
-    assumption-/
 end
+termination_by
+  run_denoteOp_env_set_preserves op => sizeOf op
+  run_denoteOps_env_set_preserves ops => sizeOf ops
+  denoteRegion_env_set_preserves region => sizeOf region
+  mapDenoteRegion_env_set_preserves regions => sizeOf regions
+
 
 def postSSAEnv.env_set_preserves [S: Semantics δ] (op: Op δ) (env: SSAEnv δ) :
     postSSAEnv ⟦op⟧ env →
