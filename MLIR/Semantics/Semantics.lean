@@ -581,6 +581,71 @@ def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs 
       Except.ok (res, SSAEnv.set name τ v env') := by
   sorry
 
+def run_denoteRegionByIx_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ] 
+  (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
+    ∀ name τ v,
+    (∀ region args env res env', region ∈ regions ->
+      region args env = Except.ok (res, env') ->
+      region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
+      ) ->
+    ∀ idx args env res env', 
+    denoteRegionByIx regions idx args env = Except.ok (res, env') ->
+    denoteRegionByIx regions idx args (env.set name τ v) =
+      Except.ok (res, env'.set name τ v) := by 
+  -- We just find the region we have to run, and apply the recursion
+  unfold denoteRegionByIx
+  cases regions <;> simp <;> intros name τ v H idx args env res env' Hrun <;> try contradiction
+  case cons head tail =>    
+    cases idx
+    case zero =>
+      simp at *
+      specialize (H head args env res env' (by constructor) Hrun)
+      assumption
+    case succ idx' =>
+      simp at *
+      let Hind := (run_denoteRegionByIx_env_set_preserves tail)
+      specialize (Hind name τ v)
+      specialize (Hind (by 
+        intros region args env res env' Hregions Hrun
+        specialize (H region args env res env' (by constructor; assumption) Hrun)
+        assumption
+      ))
+      specialize (Hind idx' args env res env' Hrun)
+      assumption
+
+
+def OpM.toTopM_regions_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ]
+  (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
+    ∀ name τ v,
+    (∀ region args env res env', region ∈ regions ->
+      region args env = Except.ok (res, env') ->
+      region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
+      ) ->
+    ∀ opM env res env',
+    OpM.toTopM regions opM env = Except.ok (res, env') -> 
+    OpM.toTopM regions opM (env.set name τ v) = Except.ok (res, (env'.set name τ v)) := by
+  intros name τ v Hregs opM env res env' H
+  cases opM <;> try contradiction
+
+  -- Ret case, we return the same value in both cases, so this is trivial
+  case Ret ret =>
+    unfold OpM.toTopM; unfold OpM.toTopM at H
+    cases H <;> simp
+    rfl
+
+  -- Running a region. This is the inductive case over opM
+  case RunRegion idx args continuation =>
+    unfold OpM.toTopM; unfold OpM.toTopM at H
+    have ⟨⟨resReg, envReg⟩, HReg⟩ := ExceptMonad.split H
+    simp [Bind.bind, StateT.bind, Except.bind] at *
+    rw [HReg] at H; simp at H
+
+    have HdenoteIx := @run_denoteRegionByIx_env_set_preserves
+    specialize (HdenoteIx regions name τ v Hregs idx args env _ _ HReg)
+    simp [HdenoteIx]
+    apply OpM.toTopM_regions_env_set_preserves <;> assumption
+
+
 mutual
 variable {Δ: Dialect α σ ε} [S: Semantics Δ]
 
@@ -650,25 +715,6 @@ def run_denoteRegion_env_set_preserves {region} :
     simp [bind, Except.bind]
     apply run_denoteOps_env_set_preserves
     apply H
-
-
-def run_denoteRegionByIx_env_set_preserves {regions} :
-    denoteRegionByIx (mapDenoteRegion Δ regions) idx args env =
-      Except.ok (res, env') ->
-    denoteRegionByIx (mapDenoteRegion Δ regions) idx args (env.set name τ v) =
-      Except.ok (res, env'.set name τ v) := by 
-  -- We just find the region we have to run, and apply the recursion
-  unfold denoteRegionByIx
-  unfold mapDenoteRegion
-  cases regions <;> simp <;> intro H <;> try contradiction
-  case cons head tail =>
-  cases idx
-  case zero =>
-    simp at *
-    simp [run_denoteRegion_env_set_preserves H]
-  case succ idx' =>
-    simp at *
-    apply (run_denoteRegionByIx_env_set_preserves H)
     
 
 def run_denoteOpOp_env_set_preserves {regions} {opM} :
@@ -676,6 +722,10 @@ def run_denoteOpOp_env_set_preserves {regions} {opM} :
     OpM.toTopM (mapDenoteRegion Δ regions) opM
       (env.set name τ v) = Except.ok (r, (resEnv.set name τ v)) := by
   intros H
+
+  sorry
+
+/-  intros H
   cases opM <;> try contradiction
 
   -- Ret case, we return the same value in both cases, so this is trivial
@@ -694,15 +744,8 @@ def run_denoteOpOp_env_set_preserves {regions} {opM} :
     simp at *
     simp [run_denoteRegionByIx_env_set_preserves HdenoteReg]
     apply run_denoteOpOp_env_set_preserves
-    assumption
-
+    assumption-/
 end
-termination_by
-  run_denoteOp_env_set_preserves op => sizeOf op
-  run_denoteOps_env_set_preserves ops => sizeOf ops
-  run_denoteRegion_env_set_preserves region => sizeOf region
-  run_denoteRegionByIx_env_set_preserves regions => sizeOf regions
-  run_denoteOpOp_env_set_preserves regions opM => sizeOf opM
 
 def postSSAEnv.env_set_preserves [S: Semantics δ] (op: Op δ) (env: SSAEnv δ) :
     postSSAEnv ⟦op⟧ env →
