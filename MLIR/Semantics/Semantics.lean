@@ -728,25 +728,25 @@ def run_denoteOps_env_set_preserves (ops: List (Op Δ)) :
     ∀ env res env',
     denoteOps Δ ops env = Except.ok (res, env') ->
     denoteOps Δ ops (SSAEnv.set name τ v env) = Except.ok (res, SSAEnv.set name τ v env') := by
-  -- We recursively call the preservation on each operation we encounter
+
   unfold denoteOps
-  split
-  -- No operations case
-  case h_1 =>
+  cases ops
+  case nil =>
     simp; intros _ _ _ H
     cases H <;> rfl
-  -- One operation case (terminator)
-  case h_2 ops op =>
-    apply run_denoteOp_env_set_preserves
-  -- Two operations case
-  case h_3 head ops _ =>
-    intros _ _ _ H
-    have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
-    simp [bind, StateT.bind, Except.bind] at *
-    simp [run_denoteOp_env_set_preserves _ _ _ _ _ Hhead]
-    simp [Hhead] at H
-    apply run_denoteOps_env_set_preserves
-    trivial
+  case cons head tail =>
+    have HIndOp := @run_denoteOp_env_set_preserves head
+    have HIndOps := @run_denoteOps_env_set_preserves tail
+    cases tail
+    case nil =>
+      apply HIndOp 
+    case cons head2 tail2 =>
+      intros _ _ _ H
+      have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
+      simp [bind, StateT.bind, Except.bind] at *
+      simp [HIndOp _ _ _ _ Hhead]
+      rw [Hhead] at H; simp at H
+      apply HIndOps <;> assumption      
 
 
 def denoteRegion_env_set_preserves region :
@@ -779,14 +779,17 @@ def mapDenoteRegion_env_set_preserves regions:
     intros _ _ _ _ _ _
     contradiction
   case cons head tail =>
+    -- Lean is breaking if we put this induction lower
+    have HRegInd := @denoteRegion_env_set_preserves head
+    have HRegsInd := @mapDenoteRegion_env_set_preserves tail
     intros region args env res env' HregIn Hreg
     simp [mapDenoteRegion] at HregIn
     cases HregIn
     case head =>
-      apply denoteRegion_env_set_preserves
+      apply HRegInd
       assumption
     case tail =>
-      apply mapDenoteRegion_env_set_preserves <;> assumption
+      apply HRegsInd <;> assumption
 
 
 end
