@@ -75,14 +75,8 @@ def linalg_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
             | [⟨.i32, v⟩] => pure v
             | _ => OpM.Error s!"linalg.generic1d: unknown return value '{rets}'")
       return [⟨.tensor1d, t'⟩]
- | IOp.mk "linalg.extractslice2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.insertslice2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.fill2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.generic2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.tile1d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
  | IOp.mk "linalg.transpose2d"   _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.parallel2d" _ [⟨.tensor1d, t⟩]  [r] dict => do
-      return []
+ | IOp.mk "linalg.tile2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
 
@@ -163,3 +157,21 @@ theorem equiv (t: Tensor1D):
     }
 
 end ExtractSliceGenericCommute1D
+
+namespace Generic1DFusion
+
+variable (r s : Region linalg)
+
+def LHS: Region linalg  := [mlir_region| {
+   %x = "linalg.generic1d" (%t) ($(r)): (tensor1d) -> (tensor1d)
+   %y = "linalg.generic1d" (%x) ($(s)): (tensor1d) -> (tensor1d)
+}]
+def RHS : Region linalg := [mlir_region| {
+   %y = "linalg.generic1d" (%t) ({
+   ^entry(%x: i32):
+     %v1 = "region.run" (%x)  ($(r)) {} : (index) -> (index)
+     %v2 = "region.run" (%v1)  ($(s)) {} : (index) -> (index)
+     "scf.yield"(%v2): (i32) -> (i32)
+   }): (tensor1d) -> (tensor1d)
+}]
+end Generic1DFusion
