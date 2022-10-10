@@ -1,6 +1,5 @@
 .PHONY: all build test debug doc
-all: build utils/egg-herbie test
-
+all: build utils/egg-herbie
 
 build:
 	@ lake build
