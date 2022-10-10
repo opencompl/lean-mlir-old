@@ -175,3 +175,40 @@ def RHS : Region linalg := [mlir_region| {
    }): (tensor1d) -> (tensor1d)
 }]
 end Generic1DFusion
+
+namespace Generic1DTiling
+variable (r s : Region linalg)
+-- Need a precondition that the width is divisible by 4.
+
+def LHS: Region linalg  := [mlir_region| {
+   %y = "linalg.generic1d" (%x) ($(r)): (tensor1d) -> (tensor1d)
+}]
+def RHS : Region linalg := [mlir_region| {
+   %width = "linalg.dim" (%x)  { "index" = 0 : index } : (tensor1d) -> (index)
+   %four = "arith.constant" () { "value" = 4 : index } : () -> (index)
+   %num_tiles = "arith.div"(%width , %four) : (index, index) -> (index)
+   %y = "scf.for_iter" (%zero, %num_tiles, %x) ({ -- begin, end, loop variable.
+     ^entry(%i: index):
+       %xchunk = "linalg.extractindex"(%x, %i_times_four, %four) : (tensor1d, index, index) -> (tensor1d)
+       %ychunk = "linalg.generic1d" (%xchunk) ($(r)): (tensor1d) -> (tensor1d)
+       %yout = "linalg.insertindex"(%x, %i_times_four, %ychunk) : (tensor1d, index, tensor1d) -> (tensor1d)
+       "scf.yield"(%yout) : (tensor1d) -> (tensor1d)
+   }): (tensor1d) -> (tensor1d)
+}]
+end Generic1DTiling
+
+namespace Generic2DTiling
+
+end Generic2DTiling
+
+namespace Transpose2D
+
+def LHS: Region linalg  := [mlir_region| {
+   %x = "linalg.transpsose2d" (%t) : (tensor2d) -> (tensor2d)
+   %y = "linalg.transpose2d" (%x) : (tensor2d) -> (tensor2d)
+}]
+def RHS : Region linalg := [mlir_region| {
+   %y = "scf.id"(%x) : (tensor2d) -> (tensor2d)
+}]
+
+end Transpose2D

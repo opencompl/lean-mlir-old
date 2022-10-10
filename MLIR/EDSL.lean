@@ -538,6 +538,13 @@ macro_rules
 
 def tensor1dTest : MLIRType empty := [mlir_type| tensor1d]
 
+syntax "tensor2d" : mlir_type
+macro_rules
+| `([mlir_type| tensor2d ]) => do
+    `(MLIRType.tensor2d)
+
+def tensor2dTest : MLIRType empty := [mlir_type| tensor2d]
+
 -- EDSL MLIR USER ATTRIBUTES
 -- =========================
 
@@ -899,12 +906,12 @@ macro_rules
         -- TODO: Needs a consistency check that `resName=none ↔ resType=.unit`
         let res ← match resName with
         | none => `(@List.nil (MLIR.AST.TypedSSAVal _))
-        | some name =>  
+        | some name =>
            match resTypes.getElems with
            | #[] => Macro.throwError s!"expected to have return type since result '{resName}' exists"
-           | #[resType] => `([([mlir_op_operand| $name], [mlir_type| $resType])]) 
+           | #[resType] => `([([mlir_op_operand| $name], [mlir_type| $resType])])
            | tys => Macro.throwError s!"expected single return type, found multiple '{tys}'"
-                      
+
 
         -- TODO: Needs a consistency check that `operandsNames.length = operandsTypes.length`
         let operands: List (MacroM <| TSyntax `term) :=
@@ -941,7 +948,7 @@ macro_rules
         $[ $attrDict ]?
         : ( $operandsTypes,* ) -> $resType:mlir_type  ]) => do
 
-        let res ←   `([([mlir_op_operand| $resName], [mlir_type| $resType])]) 
+        let res ←   `([([mlir_op_operand| $resName], [mlir_type| $resType])])
         -- TODO: Needs a consistency check that `operandsNames.length = operandsTypes.length`
         let operands: List (MacroM <| TSyntax `term) :=
           List.zipWith (fun x y => `(([mlir_op_operand| $x], [mlir_type| $y])))
