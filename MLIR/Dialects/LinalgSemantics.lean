@@ -15,11 +15,11 @@ open MLIR.AST
 Consider the following MWE:
 
 ```lean
-structure DepProof where 
-   val: Nat 
+structure DepProof where
+   val: Nat
    H: val = 0
 
-def MonadicDepProof [Mon: Monad M]: M DepProof := do 
+def MonadicDepProof [Mon: Monad M]: M DepProof := do
    let v ← pure 0
    return {
       val := v
@@ -86,7 +86,7 @@ def linalg_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
 
-instance : Semantics linalg where  
+instance : Semantics linalg where
    semantics_op := linalg_semantics_op
 /-
 For each transformation, we implement
@@ -97,35 +97,36 @@ For each transformation, we implement
 namespace ExtractSliceFillCommuteOneD
 
 theorem extract_fill_commute:
- Tensor1D.fill (Tensor1D.extract t extractlen) fillval = 
+ Tensor1D.fill (Tensor1D.extract t extractlen) fillval =
  Tensor1D.extract (Tensor1D.fill t fillval) extractlen := by {
    simp [Tensor1D.fill, Tensor1D.extract];
    sorry -- this is the part where we need to do list gymnastiics
  }
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS : Region linalg  := [mlir_region| {
-   %x = "linalg.extractslice1d" (%t) { len = 10 : index }: (tensor1d) -> (tensor1d) 
-   %out = "linalg.fill1d" (%x) { cst = 42 : index }: (tensor1d) -> (tensor1d) 
+   %x = "linalg.extractslice1d" (%t) { len = 10 : index }: (tensor1d) -> (tensor1d)
+   %out = "linalg.fill1d" (%x) { cst = 42 : index }: (tensor1d) -> (tensor1d)
 }]
 def RHS : Region linalg := [mlir_region| {
-   %x = "linalg.fill1d" (%t) { cst = 42 : index }: (tensor1d) -> (tensor1d) 
-   %out = "linalg.extractslice1d" (%x) { len = 10 : index }: (tensor1d) -> (tensor1d) 
+   %x = "linalg.fill1d" (%t) { cst = 42 : index }: (tensor1d) -> (tensor1d)
+   %out = "linalg.extractslice1d" (%x) { len = 10 : index }: (tensor1d) -> (tensor1d)
 }]
 /-
 TODO: Create a predicate to say that the programs agree on output value `out`.
 -/
-theorem equiv (t: Tensor1D): 
+/-
+theorem equiv (t: Tensor1D):
    run ⟦LHS⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
       simp[LHS, RHS];
-      simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure, 
+      simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast];
-      save;
-      sorry -- at this point, apply the theorem [extract_fill_commute]
-    } 
+
+ }
+-/
 
 end ExtractSliceFillCommuteOneD
 
@@ -136,26 +137,28 @@ variable (r : Region linalg)
 
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS: Region linalg  := [mlir_region| {
-   %x = "linalg.generic1d" (%t) ($(r)) { len = 10 : index }: (tensor1d) -> (tensor1d) 
-   %out = "linalg.fill1d" (%x) { cst = 42 : index }: (tensor1d) -> (tensor1d) 
+   %x = "linalg.generic1d" (%t) ($(r)) { len = 10 : index }: (tensor1d) -> (tensor1d)
+   %out = "linalg.fill1d" (%x) { cst = 42 : index }: (tensor1d) -> (tensor1d)
 }]
 def RHS : Region linalg := [mlir_region| {
-   %x = "linalg.generic1d" (%t) ($(r)) { cst = 42 : index }: (tensor1d) -> (tensor1d) 
-   %out = "linalg.extractslice1d" (%x) { len = 10 : index }: (tensor1d) -> (tensor1d) 
+   %x = "linalg.generic1d" (%t) ($(r)) { cst = 42 : index }: (tensor1d) -> (tensor1d)
+   %out = "linalg.extractslice1d" (%x) { len = 10 : index }: (tensor1d) -> (tensor1d)
 }]
 
-theorem equiv (t: Tensor1D): 
+theorem equiv (t: Tensor1D):
    run ⟦LHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) =
     run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
       simp[LHS, RHS];
-      simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure, 
+      simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast, mapDenoteRegion, OpM.toTopM, denoteRegion];
       save;
       simp [Semantics.semantics_op];
-      simp[linalg_semantics_op];
+      sorry
+      sorry
+      -- simp[linalg_semantics_op];
 
     }
 
