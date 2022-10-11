@@ -724,19 +724,17 @@ def run_denoteOp_env_set_preserves (op: Op Δ) :
             simp; cases H; rfl
 
 
-def run_denoteOps_env_set_preserves (ops: List (Op Δ)) :
-    ∀ env res env',
+def run_denoteOps_env_set_preserves :
+    ∀ (ops: List (Op Δ)) env res env',
     denoteOps Δ ops env = Except.ok (res, env') ->
-    denoteOps Δ ops (SSAEnv.set name τ v env) = Except.ok (res, SSAEnv.set name τ v env') := by
-
-  unfold denoteOps
-  cases ops
-  case nil =>
+    denoteOps Δ ops (SSAEnv.set name τ v env) = Except.ok (res, SSAEnv.set name τ v env')
+  | [] => by
+    unfold denoteOps
     simp; intros _ _ _ H
     cases H <;> rfl
-  case cons head tail =>
+  | head::tail => by
+    unfold denoteOps
     have HIndOp := @run_denoteOp_env_set_preserves head
-    have HIndOps := @run_denoteOps_env_set_preserves tail
     cases tail
     case nil =>
       apply HIndOp 
@@ -746,7 +744,7 @@ def run_denoteOps_env_set_preserves (ops: List (Op Δ)) :
       simp [bind, StateT.bind, Except.bind] at *
       simp [HIndOp _ _ _ _ Hhead]
       rw [Hhead] at H; simp at H
-      apply HIndOps <;> assumption      
+      apply run_denoteOps_env_set_preserves <;> assumption
 
 
 def denoteRegion_env_set_preserves region :
@@ -770,26 +768,22 @@ def denoteRegion_env_set_preserves region :
     apply run_denoteOps_env_set_preserves
     apply H
   
-def mapDenoteRegion_env_set_preserves regions:
-  ∀ region args env res env', region ∈ (mapDenoteRegion Δ regions) ->
+def mapDenoteRegion_env_set_preserves:
+  ∀ regions region args env res env', region ∈ (mapDenoteRegion Δ regions) ->
     region args env = Except.ok (res, env') ->
-    region args (env.set name τ v)  = Except.ok (res, env'.set name τ v) := by
-  cases regions
-  case nil =>
+    region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
+  | [] => by
     intros _ _ _ _ _ _
     contradiction
-  case cons head tail =>
-    -- Lean is breaking if we put this induction lower
-    have HRegInd := @denoteRegion_env_set_preserves head
-    have HRegsInd := @mapDenoteRegion_env_set_preserves tail
+  | head::tail => by
     intros region args env res env' HregIn Hreg
     simp [mapDenoteRegion] at HregIn
     cases HregIn
     case head =>
-      apply HRegInd
+      apply (@denoteRegion_env_set_preserves head)
       assumption
     case tail =>
-      apply HRegsInd <;> assumption
+      apply mapDenoteRegion_env_set_preserves <;> assumption
 
 
 end
