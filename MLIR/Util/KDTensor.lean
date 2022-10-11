@@ -607,13 +607,15 @@ def List.zipFlatIndex (xs: List α): List (α × TensorFlatIndex xs.length) :=
 
 
 -- zipFlatIndex preserves length of the list
-theorem List.length_zip_flat_index (xs: List α):  xs.length = (List.zipFlatIndex xs).length:= by {
+@[simp]
+theorem List.length_zip_flat_index (xs: List α): length (List.zipFlatIndex xs) = length xs := by {
+  apply Eq.symm;
   apply zip_flat_index_go_length;
 }
 
 -- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
 theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
-  (List.getF (List.zipFlatIndex xs) getIx (List.length_zip_flat_index xs ▸ GETIX)) = (List.getF xs getIx GETIX, TensorFlatIndex.mk (bound := xs.length) getIx GETIX) := by {
+  (List.getF (List.zipFlatIndex xs) getIx (by simp; apply GETIX)) = (List.getF xs getIx GETIX, TensorFlatIndex.mk (bound := xs.length) getIx GETIX) := by {
   simp[zipFlatIndex];
   have RHS :  { ix := getIx, h_ix_inbound := GETIX : TensorFlatIndex (xs.length) } = {ix := 0 + getIx, h_ix_inbound := by { simp; apply GETIX } : TensorFlatIndex (xs.length)} := by {
     simp;
@@ -626,17 +628,39 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
 def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.shape0 →  (FinInt 32) →  (FinInt 32)):
   Tensor1D :=
   Tensor1D.mk (shape0 := v.shape0)
-    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by {
-   rewrite [List.length_map];
-   rewrite [← List.length_zip_flat_index];
-   rewrite [v.h_data_size];
-   apply Eq.refl;
-  })
+    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
 
-def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Mon: Monad M]
+def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Monad M]
   (v: Tensor1D) (f: TensorFlatIndex v.shape0 → (FinInt 32) → M (FinInt 32)):
   M Tensor1D := do
   let data <-
       (List.zipFlatIndex v.data).mapM (fun (val, ix) => f (v.h_data_size ▸ ix) val)
   let temp := Tensor1D.mk data.length data rfl
   return temp
+
+theorem List.mapM_loop_map [Monad M] [LawfulMonad M]
+    (l: List α) (f: α → β) (fM: α → M β) (results: List β):
+    (forall a, fM a = return f a) →
+    List.mapM.loop fM l results = return results.reverse ++ l.map f := by
+  intros h
+  revert results
+  induction l with
+  | nil => intros results; simp [map]; rfl
+  | cons a l ih =>
+      intros results
+      simp [mapM.loop, map, h, ih, reverse_cons, append_assoc]
+
+theorem List.mapM_map [Monad M] [LawfulMonad M] (l: List α) (f: α → β) (fM: α → M β):
+    (forall a, fM a = return f a) →
+    l.mapM fM = return l.map f := by
+  apply List.mapM_loop_map
+
+theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
+    (forall flat_index val, fM flat_index val = return f flat_index val) →
+    mapMWithFlatIndex v fM = return mapWithFlatIndex v f := by
+  intros h
+  unfold mapWithFlatIndex
+  unfold mapMWithFlatIndex
+  rw [List.mapM_map]
+  . simp [v.h_data_size]; rfl
+  . intros a; cases a; simp [h]

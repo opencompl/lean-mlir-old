@@ -49,6 +49,8 @@ instance : Monad (OpM Δ) where
    pure := OpM.Ret
    bind := OpM.bind
 
+instance : LawfulMonad (OpM Δ) := sorry
+
 -- Interpreted operation, like MLIR.AST.Op, but with less syntax
 inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
@@ -185,7 +187,7 @@ def denoteOp (op: Op Δ) (terminator: Bool):
             TopM.set τ res.fst v
             return ret
         | _ => return ret
-          
+
 
   -- denote a sequence of ops
 
@@ -288,11 +290,11 @@ match t with
 
 
 @[reducible, simp]
-def TypedArgs.retractLeft (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₁ := 
+def TypedArgs.retractLeft (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₁ :=
   ts.map TypedArg.retractLeft
 
 @[reducible, simp]
-def TypedArgs.retractRight (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₂ := 
+def TypedArgs.retractRight (ts: TypedArgs (δ₁ + δ₂)): TypedArgs δ₂ :=
   ts.map TypedArg.retractRight
 
 -- TODO: define the attribute dictionary retraction.
@@ -303,14 +305,14 @@ def AttrValues.retractLeft: List (AttrValue  (δ₁ + δ₂)) -> List (AttrValue
 | a::as => a.retractLeft:: AttrValues.retractLeft as
 
 def MLIR.AST.AttrValue.retractLeft: AttrValue (δ₁ + δ₂) -> AttrValue δ₁
-| .symbol s => .symbol s 
+| .symbol s => .symbol s
 | .permutation p => .permutation p
 | .nat n => .nat n
 | .str s => .str s
 | .int i t => .int i (MLIRType.retractLeft t)
 | .bool b => .bool b
 | .float f t => .float f (MLIRType.retractLeft t)
-| .type t => .type (MLIRType.retractLeft t) 
+| .type t => .type (MLIRType.retractLeft t)
 | .affine aff => .affine aff
 | .list as => .list <| AttrValues.retractLeft as
 | .extended (.inl x) => .extended x
@@ -342,14 +344,14 @@ def AttrValues.swapDialect: List (AttrValue  (δ₁ + δ₂)) -> List (AttrValue
 | a::as => a.swapDialect:: AttrValues.swapDialect as
 
 def MLIR.AST.AttrValue.swapDialect: AttrValue (δ₁ + δ₂) -> AttrValue (δ₂ + δ₁)
-| .symbol s => .symbol s 
+| .symbol s => .symbol s
 | .permutation p => .permutation p
 | .nat n => .nat n
 | .str s => .str s
 | .int i t => .int i (MLIRType.swapDialect t)
 | .bool b => .bool b
 | .float f t => .float f (MLIRType.swapDialect t)
-| .type t => .type (MLIRType.swapDialect t) 
+| .type t => .type (MLIRType.swapDialect t)
 | .affine aff => .affine aff
 | .list as => .list <| AttrValues.swapDialect as
 | .extended (.inl x) => .extended (.inr x)
@@ -378,7 +380,7 @@ def OpM.swapDialect: OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂)) -> OpM (δ�
 | OpM.Ret r => OpM.Ret r
 | OpM.Unhandled s => OpM.Unhandled s
 | OpM.Error s => OpM.Error s
-| OpM.RunRegion ix args k => 
+| OpM.RunRegion ix args k =>
   OpM.RunRegion ix (TypedArgs.swapDialect args) (fun retargs =>
               OpM.swapDialect (k (TypedArgs.swapDialect retargs)))
 
@@ -393,7 +395,7 @@ def IOp.swapDialect: IOp (δ₁ + δ₂) -> IOp (δ₂ + δ₁)
         (args.map TypedArg.swapDialect)
         (AttrDict.swapDialect attrs)
         -- conjugate region by swapping dialect.
-        (regions := regions.map  (fun rgnEff => (fun args => 
+        (regions := regions.map  (fun rgnEff => (fun args =>
                  (rgnEff (TypedArgs.swapDialect args)).swapDialect.map TypedArgs.swapDialect)))
 
 -- a -> a + b
@@ -410,22 +412,22 @@ def TypedArg.injectLeft: TypedArg (δ₁) -> TypedArg (δ₁ +  δ₂)
 
 
 @[reducible, simp]
-def TypedArg.injectRight: TypedArg δ₂ -> TypedArg (δ₁ + δ₂) := 
+def TypedArg.injectRight: TypedArg δ₂ -> TypedArg (δ₁ + δ₂) :=
   TypedArg.swapDialect ∘ TypedArg.injectLeft
 
 @[reducible, simp]
-def TypedArgs.injectLeft (ts: TypedArgs (δ₁)): TypedArgs (δ₁ + δ₂) := 
+def TypedArgs.injectLeft (ts: TypedArgs (δ₁)): TypedArgs (δ₁ + δ₂) :=
   ts.map TypedArg.injectLeft
 
 @[reducible, simp]
-def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) := 
+def TypedArgs.injectRight (ts: TypedArgs (δ₂)): TypedArgs (δ₁ + δ₂) :=
   ts.map TypedArg.injectRight
 
 def OpM.retractLeft [Inhabited R]: OpM (δ₁+ δ₂) R -> OpM δ₁  R
-| OpM.Error s => OpM.Error s 
+| OpM.Error s => OpM.Error s
 | OpM.Unhandled s => OpM.Unhandled s
 | OpM.Ret r => OpM.Ret r
-| OpM.RunRegion ix args k => 
+| OpM.RunRegion ix args k =>
   OpM.RunRegion ix args.retractLeft (fun results => (k results.injectLeft).retractLeft)
 
 -- Retract an IOp to the left component.
@@ -440,7 +442,7 @@ def IOp.retractLeft: IOp (δ₁ + δ₂) -> IOp δ₁
   let resTys' := resTys.map MLIRType.retractLeft
   let args' := args.map TypedArg.retractLeft
   let attrs' := AttrDict.retractLeft attrs
-  let regions' := regions.map (fun rgnEff => 
+  let regions' := regions.map (fun rgnEff =>
     (fun args => (rgnEff args.injectLeft).retractLeft.map TypedArgs.retractLeft ))
   (IOp.mk name resTys' args' regions' attrs')
 
@@ -451,7 +453,7 @@ def OpM.injectLeft: OpM δ₁ (TypedArgs δ₁) -> OpM (δ₁ + δ₂) (TypedArg
 | OpM.Ret r => OpM.Ret r.injectLeft
 | OpM.Error s => OpM.Error s
 | OpM.Unhandled s => OpM.Unhandled s
-| OpM.RunRegion ix args k => 
+| OpM.RunRegion ix args k =>
   OpM.RunRegion ix args.injectLeft (fun args => (k args.retractLeft).injectLeft)
 
 @[simp, reducible]
@@ -459,13 +461,13 @@ def OpM.injectRight: OpM δ₂ (TypedArgs δ₂) -> OpM (δ₁ + δ₂) (TypedAr
 | OpM.Ret r => OpM.Ret r.injectRight
 | OpM.Error s => OpM.Error s
 | OpM.Unhandled s => OpM.Unhandled s
-| OpM.RunRegion ix args k => 
+| OpM.RunRegion ix args k =>
   OpM.RunRegion ix args.injectRight (fun args => (k args.retractRight).injectRight)
 
 
 
 -- Or the two OpM, using unhandled as the unit for the or.
-def OpM.orUnhandled: OpM δ₁ (TypedArgs δ₁) 
+def OpM.orUnhandled: OpM δ₁ (TypedArgs δ₁)
   -> OpM δ₂ (TypedArgs δ₂) -> OpM (δ₁ + δ₂) (TypedArgs (δ₁ + δ₂))
 | OpM.Error e, _ => OpM.Error e
 | _, OpM.Error e => OpM.Error e
