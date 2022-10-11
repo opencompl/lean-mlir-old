@@ -177,7 +177,7 @@ def RHS : Region linalg := [mlir_region| {
 end Generic1DFusion
 
 namespace Generic1DTiling
-variable (r s : Region linalg)
+variable (r: Region linalg)
 -- Need a precondition that the width is divisible by 4.
 
 def LHS: Region linalg  := [mlir_region| {
