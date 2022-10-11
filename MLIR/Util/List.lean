@@ -18,8 +18,25 @@ theorem all_nil {α} (P: α → Bool):
     all [] P = true := by
   simp [all, foldr]
 
+@[simp]
+theorem length_take {α} (as: List α) (len: Nat):
+  (as.take len).length = min as.length len := by sorry
 
--- getF
+theorem length_take_le (as: List α) (len: Nat):
+    (as.take len).length ≤ as.length := by
+  simp [length_take]
+  apply min_le_left
+
+@[simp]
+theorem length_drop {α} (as: List α) (k: Nat):
+  (as.drop k).length = as.length - k:= by sorry
+
+@[simp] -- repeat for @[simp]
+theorem length_replicate_2 {α} (N: Nat) (a: α):
+    length (List.replicate N a) = N :=
+  length_replicate _ _
+
+-- getF and reasoning on lists by extensionality
 
 def getF {α} (l: List α) (n: Nat) (h: n < l.length): α :=
   match l, n, h with
@@ -62,6 +79,36 @@ def getF_map {α β} (l: List α) (f: α → β) n h:
       exact match n with
       | 0 => by simp [getF]
       | m+1 => by simp [getF, ih]
+
+@[simp]
+def getF_replicate {α} (a: α) (N: Nat) (h: n < N):
+    getF (List.replicate N a) n (by simp [List.length_replicate, h]) = a := by
+  revert n
+  induction N with
+  | zero => intros n h; cases h
+  | succ m ih =>
+      intros n h
+      simp [replicate]
+      cases n <;> simp [getF]
+      rw [ih]
+      apply Nat.lt_of_succ_lt_succ; assumption
+
+@[simp]
+def getF_take {α: Type} {l: List α} {N n: Nat} (h: n < length (take N l)):
+    getF (List.take N l) n h = getF l n (by
+      simp [length_take] at h
+      apply Nat.lt_of_lt_of_le h
+      apply Nat.min_le_left) := by
+  revert n l
+  induction N with
+  | zero => intros l n h; cases h
+  | succ m ih =>
+      intros l n h
+      cases l with
+      | nil => simp [take]
+      | cons head tail =>
+          simp [take]
+          cases n <;> simp [getF, ih]
 
 theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i < xs.length),
  List.Mem (List.getF xs i INBOUND) xs := by {

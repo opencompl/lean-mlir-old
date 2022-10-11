@@ -2,7 +2,7 @@ import MLIR.Util.Mathlib4.NatBasic
 import MLIR.Util.Mathlib4.Dvd
 import MLIR.Util.Mathlib4.NatLemmas
 import MLIR.Util.List
-import MLIR.Util.FinInt 
+import MLIR.Util.FinInt
 
 /-
 This file defines the theory of K-dimensional arrays (for fixed K=4).
@@ -43,19 +43,16 @@ def Tensor1D.empty: Tensor1D := { shape0 := 0, data := [], h_data_size :=  rfl }
 def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
   shape0 := t.shape0
   data := List.replicate t.shape0 cst
-  h_data_size := by { simp[List.length_replicate] }
+  h_data_size := List.length_replicate _ _
 }
-theorem List.length_take {α} (as: List α) (len: Nat): (as.take len).length = min as.length len := by sorry
 
 -- Extract upto len `len` from the tensor.
 def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
- { 
+ {
     shape0 := min t.shape0 len,
     data := t.data.take len,
     h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
  }
-
-theorem List.length_drop {α} (as: List α) (k: Nat): (as.drop k).length = as.length - k:= by sorry
 
 -- Offset the indexes into the tensor by `+offset`.
 def Tensor1D.offset (t: Tensor1D) (offset: Nat): Tensor1D := {
@@ -449,7 +446,7 @@ def TensorIndex'.getLinearizedIndexNumber
 
 theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
   intros a b; constructor;
-  case mp => { 
+  case mp => {
      intros A_LT_B;
      simp [GT.gt]; exact A_LT_B;
   }
@@ -626,7 +623,7 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
 }
 
 
-def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.shape0 →  (FinInt 32) →  (FinInt 32)): 
+def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.shape0 →  (FinInt 32) →  (FinInt 32)):
   Tensor1D :=
   Tensor1D.mk (shape0 := v.shape0)
     (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by {
@@ -636,11 +633,10 @@ def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.shape0 →  (F
    apply Eq.refl;
   })
 
-def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Mon: Monad M] 
-  (v: Tensor1D) (f: TensorFlatIndex v.shape0 → (FinInt 32) → M (FinInt 32)): 
-  M Tensor1D := do 
-  let data <- 
+def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Mon: Monad M]
+  (v: Tensor1D) (f: TensorFlatIndex v.shape0 → (FinInt 32) → M (FinInt 32)):
+  M Tensor1D := do
+  let data <-
       (List.zipFlatIndex v.data).mapM (fun (val, ix) => f (v.h_data_size ▸ ix) val)
   let temp := Tensor1D.mk data.length data rfl
   return temp
-  

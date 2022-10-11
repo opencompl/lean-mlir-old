@@ -94,7 +94,12 @@ theorem extract_fill_commute:
  Tensor1D.fill (Tensor1D.extract t extractlen) fillval =
  Tensor1D.extract (Tensor1D.fill t fillval) extractlen := by {
    simp [Tensor1D.fill, Tensor1D.extract];
-   sorry -- this is the part where we need to do list gymnastiics
+   apply List.extF
+   intros n h; simp; simp at h
+   repeat rw [List.getF_replicate]
+   . apply Nat.lt_min_left; apply h
+   . simp
+   . assumption
  }
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS : Region linalg  := [mlir_region| {

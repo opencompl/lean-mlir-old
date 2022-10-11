@@ -176,3 +176,11 @@ end Int
 
 theorem Nat.minus_plus_one {a: Nat} (h: a > 0): a - 1 + 1 = a := by
   cases a; simp at h; rfl
+
+theorem Nat.min_le_left {a b: Nat}: min a b ≤ a := sorry
+
+theorem Nat.min_le_right {a b: Nat}: min a b ≤ b := sorry
+
+theorem Nat.lt_min_left {a b c: Nat}: c < min a b → c < a := sorry
+
+theorem Nat.lt_min_right {a b c: Nat}: c < min a b → c < b := sorry
