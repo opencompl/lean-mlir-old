@@ -51,17 +51,23 @@ instance : Monad (OpM Δ) where
 
 instance : LawfulMonad (OpM Δ) := sorry
 
+/-
+Denotation of the _syntax_ of the op.
+-/
 -- Interpreted operation, like MLIR.AST.Op, but with less syntax
 inductive IOp (δ: Dialect α σ ε) := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
   (resTy:   List (MLIRType δ))
   (args:    TypedArgs δ)
-  (regions: List (TypedArgs δ → OpM δ (TypedArgs δ))) -- TODO: surely, I can build the denotation of a region and pass it along to you?
+  -- | Since this simply constructs the corresponding
+  -- `RunRegion` call, consider removing this.
+  (regions: List (TypedArgs δ → OpM δ (TypedArgs δ)))
   (attrs:   AttrDict δ)
 
 
 -- The monad in which these computations are run
-abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except String) R
+abbrev TopM (Δ: Dialect α σ ε) (R: Type _) :=
+  StateT (SSAEnv Δ) (Except String) R
 def TopM.run (t: TopM Δ R) (env: SSAEnv Δ): Except String (R × SSAEnv Δ) :=
   StateT.run t env
 
