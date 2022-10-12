@@ -1,6 +1,5 @@
 .PHONY: all build test debug doc
-all: build test
-
+all: build utils/egg-herbie
 
 build:
 	@ lake build
@@ -18,3 +17,6 @@ semtest: build
 doc:
 	doc-gen4 / MLIR
 	cd build/doc && python3 -m http.server 80
+
+utils/egg-herbie:
+	cd lean_packages/egg-tactic && lake build && cp json-egg/target/release/egg-herbie ../../utils

@@ -44,6 +44,12 @@ instance linalg: Dialect Void Void (fun x => Unit) where
   iε := inferInstance
 
 
+-- We assume that we only run regions that behave purely (otherwise most of the
+-- theorems on generic don't work).
+def validGenericRegion {Δ: Dialect α σ ε} (r: Region Δ) (f: Int → FinInt 32 → FinInt 32) :=
+  forall (i: Int) (v: FinInt 32),
+  denoteRegionOpM r 0 [⟨.index, i⟩, ⟨.i32, v⟩] = return [⟨.i32, f i v⟩]
+
 
 def OpM.findIndex (d: AttrDict δ) (key: String): OpM Δ Nat :=
  match d.find_int key with
@@ -58,7 +64,7 @@ def OpM.findI32 (d: AttrDict δ) (key: String): OpM Δ (FinInt 32) :=
 
 -- in general, xtract slice has offset, size, stride.
 -- We ignore the stride and offset for now, just use size.
-def linalg_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
+def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
  | IOp.mk "linalg.extractslice1d" _ [⟨.tensor1d, t⟩] [] dict => do
     let len ←  OpM.findIndex dict "len"
     let t' := t.extract len
@@ -102,6 +108,18 @@ def linalg_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
       return []
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
+theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec types attrs}:
+  validGenericRegion r rSpec →
+  linalg_semantics_op (Δ := Δ)
+      (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [denoteRegionOpM r 0] attrs) =
+    return [⟨.tensor1d, t.mapWithFlatIndex (fun idx val => rSpec idx.ix val)⟩] := by
+  intros h
+  simp [linalg_semantics_op]
+  simp [validGenericRegion] at h
+  simp [h]
+  rw [Tensor1D.mapM_map]
+  . rfl
+  . intros; rfl
 
 instance : Semantics linalg where
    semantics_op := linalg_semantics_op
@@ -117,7 +135,12 @@ theorem extract_fill_commute:
  Tensor1D.fill (Tensor1D.extract t extractlen) fillval =
  Tensor1D.extract (Tensor1D.fill t fillval) extractlen := by {
    simp [Tensor1D.fill, Tensor1D.extract];
-   sorry -- this is the part where we need to do list gymnastiics
+   apply List.extF
+   intros n h; simp; simp at h
+   repeat rw [List.getF_replicate]
+   . apply Nat.lt_min_left; apply h
+   . simp
+   . assumption
  }
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS : Region linalg  := [mlir_region| {
@@ -131,6 +154,7 @@ def RHS : Region linalg := [mlir_region| {
 /-
 TODO: Create a predicate to say that the programs agree on output value `out`.
 -/
+/-
 theorem equiv (t: Tensor1D):
    run ⟦LHS⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
@@ -140,9 +164,9 @@ theorem equiv (t: Tensor1D):
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast];
-      save;
-      sorry -- at this point, apply the theorem [extract_fill_commute]
-    }
+
+ }
+-/
 
 end ExtractSliceFillCommuteOneD
 
@@ -161,9 +185,19 @@ def RHS : Region linalg := [mlir_region| {
    %out = "linalg.extractslice1d" (%x) { len = 10 : index }: (tensor1d) -> (tensor1d)
 }]
 
-theorem equiv (t: Tensor1D):
+@[simp]
+theorem OpM.bind_ret {Δ: Dialect α σ ε} (a: α) (k: α → OpM Δ β):
+  bind (OpM.Ret a) k = k a := rfl
+
+@[simp]
+theorem OpM.toTopM_pure {r: TypedArgs Δ}:
+  OpM.toTopM rs (pure r) env = Except.ok (r, env) := rfl
+
+theorem equiv (t: Tensor1D) r rSpec:
+   validGenericRegion r rSpec →
    run ⟦LHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) =
-    run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
+   run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
+      intros valid_r;
       simp[LHS, RHS];
       simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
@@ -171,24 +205,70 @@ theorem equiv (t: Tensor1D):
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast, mapDenoteRegion, OpM.toTopM, denoteRegion];
       save;
+      simp [denoteRegionsOpM];
       simp [Semantics.semantics_op];
+      sorry; sorry
+      /-
       -- simp[linalg_semantics_op];
       sorry
       -- this is blocked on: 
       --  + 'failed to generate equality theorems for match expression'
+      -/
     }
 end ExtractSliceGenericCommute1D
 
-namespace TransposeInvolutive
--- TODO; write statement of transpose being involutive
-end TransposeInvolutive
 
+namespace Generic1DFusion
 
--- can split one large loop into two nested loops
-namespace Tiling1D
-end Tiling1D
+variable (r s : Region linalg)
 
--- add a fake instructoin that runs a loop backwards, see that this has
--- the same value.
-namespace Reversal1D
-end Reversal1D
+def LHS: Region linalg  := [mlir_region| {
+   %x = "linalg.generic1d" (%t) ($(r)): (tensor1d) -> (tensor1d)
+   %y = "linalg.generic1d" (%x) ($(s)): (tensor1d) -> (tensor1d)
+}]
+def RHS : Region linalg := [mlir_region| {
+   %y = "linalg.generic1d" (%t) ({
+   ^entry(%x: i32):
+     %v1 = "region.run" (%x)  ($(r)) {} : (index) -> (index)
+     %v2 = "region.run" (%v1)  ($(s)) {} : (index) -> (index)
+     "scf.yield"(%v2): (i32) -> (i32)
+   }): (tensor1d) -> (tensor1d)
+}]
+end Generic1DFusion
+
+namespace Generic1DTiling
+variable (r: Region linalg)
+-- Need a precondition that the width is divisible by 4.
+
+def LHS: Region linalg  := [mlir_region| {
+   %y = "linalg.generic1d" (%x) ($(r)): (tensor1d) -> (tensor1d)
+}]
+def RHS : Region linalg := [mlir_region| {
+   %width = "linalg.dim" (%x)  { "index" = 0 : index } : (tensor1d) -> (index)
+   %four = "arith.constant" () { "value" = 4 : index } : () -> (index)
+   %num_tiles = "arith.div"(%width , %four) : (index, index) -> (index)
+   %y = "scf.for_iter" (%zero, %num_tiles, %x) ({ -- begin, end, loop variable.
+     ^entry(%i: index):
+       %xchunk = "linalg.extractindex"(%x, %i_times_four, %four) : (tensor1d, index, index) -> (tensor1d)
+       %ychunk = "linalg.generic1d" (%xchunk) ($(r)): (tensor1d) -> (tensor1d)
+       %yout = "linalg.insertindex"(%x, %i_times_four, %ychunk) : (tensor1d, index, tensor1d) -> (tensor1d)
+       "scf.yield"(%yout) : (tensor1d) -> (tensor1d)
+   }): (tensor1d) -> (tensor1d)
+}]
+end Generic1DTiling
+
+namespace Generic2DTiling
+
+end Generic2DTiling
+
+namespace Transpose2D
+
+def LHS: Region linalg  := [mlir_region| {
+   %x = "linalg.transpsose2d" (%t) : (tensor2d) -> (tensor2d)
+   %y = "linalg.transpose2d" (%x) : (tensor2d) -> (tensor2d)
+}]
+def RHS : Region linalg := [mlir_region| {
+   %y = "scf.id"(%x) : (tensor2d) -> (tensor2d)
+}]
+
+end Transpose2D

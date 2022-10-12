@@ -75,12 +75,7 @@ instance {τ}: DecidableEq (Tensor τ) := fun t₁ t₂ => by
 
 def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapeProd v.shape) → σ.eval → τ.eval): Tensor τ :=
   Tensor.mk (shape := v.shape)
-    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by {
-   rewrite [List.length_map];
-   rewrite [← List.length_zip_flat_index];
-   rewrite [v.h_data_size];
-   apply Eq.refl;
-  })
+    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
 
 
 -- getter at a flat index
@@ -254,10 +249,10 @@ instance: DialectTypeIntf σ_UnrankedTensor ε_UnrankedTensor where
 
 def List.zipMul (as: List Nat) (bs: List Nat) (H: as.length = bs.length): List Nat :=
  match as with
- | [] => match bs with 
+ | [] => match bs with
          | [] => []
          | b::bs' => nomatch H
- | a::as' => 
+ | a::as' =>
     match bs with
     | [] => nomatch H
     | b::bs' => (a*b):: List.zipMul as' bs' (by { simp at H; assumption })

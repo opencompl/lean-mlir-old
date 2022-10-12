@@ -10,3 +10,5 @@ lean_exe «mlir» {
   root := `MLIR
   supportInterpreter := true
 }
+
+require «egg-tactic» from git  "https://github.com/opencompl/egg-tactic-code" @ "499ef2d"

@@ -2,7 +2,7 @@ import MLIR.Util.Mathlib4.NatBasic
 import MLIR.Util.Mathlib4.Dvd
 import MLIR.Util.Mathlib4.NatLemmas
 import MLIR.Util.List
-import MLIR.Util.FinInt 
+import MLIR.Util.FinInt
 
 /-
 This file defines the theory of K-dimensional arrays (for fixed K=4).
@@ -45,7 +45,6 @@ def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
   data := List.replicate t.size0 cst
   h_data_size := by { simp[List.length_replicate] }
 }
-theorem List.length_take {α} (as: List α) (len: Nat): (as.take len).length = min as.length len := by sorry
 
 -- Extract upto len `len` from the tensor.
 def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
@@ -54,8 +53,6 @@ def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
     data := t.data.take len,
     h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
  }
-
-theorem List.length_drop {α} (as: List α) (k: Nat): (as.drop k).length = as.length - k:= by sorry
 
 -- Offset the indexes into the tensor by `+offset`.
 def Tensor1D.offset (t: Tensor1D) (offset: Nat): Tensor1D := {
@@ -107,6 +104,9 @@ structure TensorSubview2D (maxsize0: Nat) (maxsize1: Nat): Type where
   size1: Nat 
   IX0: size0 <= maxsize0 
   IX1: size1 <= maxsize1
+
+
+  
 
 
 -- enlarge the tensor index to index a larger space.
@@ -209,6 +209,73 @@ instance : Inhabited Tensor2D where
 
 instance : ToString Tensor2D where
   toString t := "Tensor2D"
+
+
+/-
+Create a tensor2d filled with the same value.
+-/
+def Tensor2D.fill (t: Tensor2D) (val: Int): Tensor2D :=
+  Tensor2D.mk t.size0 t.size1 (fun _ix => val)
+
+def Tensor2D.extractslice
+  (t: Tensor2D)
+  (size0 size1: Nat)
+  (SIZE0: size0 <= t.size0) (SIZE1: size1 <= t.size1): Tensor2D :=
+   Tensor2D.mk size0 size1
+    (fun ix => t.data (ix.enlarge SIZE0 SIZE1))
+
+
+def Tensor2D.extractslice' (large: Tensor2D)
+  (subview: TensorSubview2D large.size0 large.size1): Tensor2D :=
+  Tensor2D.mk subview.size0 subview.size1 
+    (fun ix => large.data (ix.enlarge subview.IX0 subview.IX1))
+
+-- Transpose of a tensor by swapping indexes
+def Tensor2D.transpose (t: Tensor2D): Tensor2D :=
+  Tensor2D.mk t.size1 t.size0 (fun ix => t.data ix.transpose)
+
+-- Stride index into a tensor, scaling the indexing by `stride0, stride1`. 
+def Tensor2D.stride (t: Tensor2D) (stride0 stride1: Nat)
+  (STRIDE0: stride0 > 0) (STRIDE1: stride1 > 0): Tensor2D :=
+  Tensor2D.mk (t.size0 / stride0) (t.size1 / stride1) 
+    (fun ix => t.data <| (ix.stride stride0 stride1).enlarge
+    (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE0; })
+    (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE1; }))
+
+
+def Tensor2D.toSubview (t: Tensor2D): TensorSubview2D t.size0 t.size1 :=  {
+    size0 := t.size0,
+    size1 := t.size1,
+    IX0 := by simp,
+    IX1 := by simp,
+  }
+
+
+def TensorIndex2D.isInSubview (t: Tensor2D) (subview: TensorSubview2D t.size0 t.size1)
+  (ix: TensorIndex2D t.size0 t.size1): 
+  Option (TensorIndex2D subview.size0 subview.size1) :=
+  dite (ix.ix0 < subview.size0)
+  (fun LT0 => 
+    dite (ix.ix1 < subview.size1)
+    (fun LT1 => 
+      .some (TensorIndex2D.mk ix.ix0 ix.ix1 LT0 LT1)
+    )
+    (fun GEQ1 => .none))
+  (fun GEQ0 => .none)
+
+/-
+Represents that `small` is located inside a slice of `large`.
+-/
+structure TensorSlice2D (small large: Tensor2D) where 
+  SIZE0: small.size0 <= large.size0
+  SIZE1: small.size1 <= large.size1
+
+def TensorSlice2D.toSubview (slice: TensorSlice2D small large): 
+  TensorSubview2D large.size0 large.size1 := {
+    size0 := small.size0,
+    size1 := small.size1,
+    IX0 := slice.SIZE0,
+    IX1 := slice.SIZE1 }
 
 /-
 4D Tensors
@@ -548,7 +615,7 @@ def TensorIndex'.getLinearizedIndexNumber
 
 theorem Nat.lt_iff_gt: ∀ (a: Nat) (b: Nat), a < b <-> b > a := by {
   intros a b; constructor;
-  case mp => { 
+  case mp => {
      intros A_LT_B;
      simp [GT.gt]; exact A_LT_B;
   }
@@ -709,13 +776,15 @@ def List.zipFlatIndex (xs: List α): List (α × TensorFlatIndex xs.length) :=
 
 
 -- zipFlatIndex preserves length of the list
-theorem List.length_zip_flat_index (xs: List α):  xs.length = (List.zipFlatIndex xs).length:= by {
+@[simp]
+theorem List.length_zip_flat_index (xs: List α): length (List.zipFlatIndex xs) = length xs := by {
+  apply Eq.symm;
   apply zip_flat_index_go_length;
 }
 
 -- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
 theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
-  (List.getF (List.zipFlatIndex xs) getIx (List.length_zip_flat_index xs ▸ GETIX)) = (List.getF xs getIx GETIX, TensorFlatIndex.mk (bound := xs.length) getIx GETIX) := by {
+  (List.getF (List.zipFlatIndex xs) getIx (by simp; apply GETIX)) = (List.getF xs getIx GETIX, TensorFlatIndex.mk (bound := xs.length) getIx GETIX) := by {
   simp[zipFlatIndex];
   have RHS :  { ix := getIx, h_ix_inbound := GETIX : TensorFlatIndex (xs.length) } = {ix := 0 + getIx, h_ix_inbound := by { simp; apply GETIX } : TensorFlatIndex (xs.length)} := by {
     simp;
@@ -724,125 +793,43 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
   apply List.zip_flat_index_go_get (xs := xs) (ix := 0) (bound := List.length xs) (deltaIx := getIx) (GETIX := GETIX);
 }
 
-def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (FinInt 32) →  (FinInt 32)): 
+
+def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (FinInt 32) →  (FinInt 32)):
   Tensor1D :=
   Tensor1D.mk (size0 := v.size0)
-    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by {
-   rewrite [List.length_map];
-   rewrite [← List.length_zip_flat_index];
-   rewrite [v.h_data_size];
-   apply Eq.refl;
-  })
+    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
 
-def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Mon: Monad M] 
-  (v: Tensor1D) (f: TensorFlatIndex v.size0 → (FinInt 32) → M (FinInt 32)): 
-  M Tensor1D := do 
-  let data <- 
+def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Monad M]
+  (v: Tensor1D) (f: TensorFlatIndex v.size0 → (FinInt 32) → M (FinInt 32)):
+  M Tensor1D := do
+  let data <-
       (List.zipFlatIndex v.data).mapM (fun (val, ix) => f (v.h_data_size ▸ ix) val)
   let temp := Tensor1D.mk data.length data rfl
   return temp
-  
 
-/-
-Create a tensor2d filled with the same value.
--/
-def Tensor2D.fill (t: Tensor2D) (val: Int): Tensor2D :=
-  Tensor2D.mk t.size0 t.size1 (fun _ix => val)
+theorem List.mapM_loop_map [Monad M] [LawfulMonad M]
+    (l: List α) (f: α → β) (fM: α → M β) (results: List β):
+    (forall a, fM a = return f a) →
+    List.mapM.loop fM l results = return results.reverse ++ l.map f := by
+  intros h
+  revert results
+  induction l with
+  | nil => intros results; simp [map]; rfl
+  | cons a l ih =>
+      intros results
+      simp [mapM.loop, map, h, ih, reverse_cons, append_assoc]
 
-def Tensor2D.extractslice
-  (t: Tensor2D)
-  (size0 size1: Nat)
-  (SIZE0: size0 <= t.size0) (SIZE1: size1 <= t.size1): Tensor2D :=
-   Tensor2D.mk size0 size1
-    (fun ix => t.data (ix.enlarge SIZE0 SIZE1))
+theorem List.mapM_map [Monad M] [LawfulMonad M] (l: List α) (f: α → β) (fM: α → M β):
+    (forall a, fM a = return f a) →
+    l.mapM fM = return l.map f := by
+  apply List.mapM_loop_map
 
-
-def Tensor2D.extractslice' (large: Tensor2D)
-  (subview: TensorSubview2D large.size0 large.size1): Tensor2D :=
-  Tensor2D.mk subview.size0 subview.size1 
-    (fun ix => large.data (ix.enlarge subview.IX0 subview.IX1))
-
--- Transpose of a tensor by swapping indexes
-def Tensor2D.transpose (t: Tensor2D): Tensor2D :=
-  Tensor2D.mk t.size1 t.size0 (fun ix => t.data ix.transpose)
-
--- Stride index into a tensor, scaling the indexing by `stride0, stride1`. 
-def Tensor2D.stride (t: Tensor2D) (stride0 stride1: Nat)
-  (STRIDE0: stride0 > 0) (STRIDE1: stride1 > 0): Tensor2D :=
-  Tensor2D.mk (t.size0 / stride0) (t.size1 / stride1) 
-    (fun ix => t.data <| (ix.stride stride0 stride1).enlarge
-    (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE0; })
-    (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE1; }))
-
-
-def Tensor2D.toSubview (t: Tensor2D): TensorSubview2D t.size0 t.size1 :=  {
-    size0 := t.size0,
-    size1 := t.size1,
-    IX0 := by simp,
-    IX1 := by simp,
-  }
-
-
-def TensorIndex2D.isInSubview (t: Tensor2D) (subview: TensorSubview2D t.size0 t.size1)
-  (ix: TensorIndex2D t.size0 t.size1): 
-  Option (TensorIndex2D subview.size0 subview.size1) :=
-  dite (ix.ix0 < subview.size0)
-  (fun LT0 => 
-    dite (ix.ix1 < subview.size1)
-    (fun LT1 => 
-      .some (TensorIndex2D.mk ix.ix0 ix.ix1 LT0 LT1)
-    )
-    (fun GEQ1 => .none))
-  (fun GEQ0 => .none)
-
-/-
-Represents that `small` is located inside a slice of `large`.
--/
-structure TensorSlice2D (small large: Tensor2D) where 
-  SIZE0: small.size0 <= large.size0
-  SIZE1: small.size1 <= large.size1
-
-def TensorSlice2D.toSubview (slice: TensorSlice2D small large): 
-  TensorSubview2D large.size0 large.size1 := {
-    size0 := small.size0,
-    size1 := small.size1,
-    IX0 := slice.SIZE0,
-    IX1 := slice.SIZE1 }
-
-/-
-Sorta wrong, this only inserts a slice at the top-left.
-Need a more general theory of inserting into the correct slice.
-We need a notion of a slice, subview is insufficient, because
-a subview does not witness that the shape of 'small' is inside 'large',
-only that *some* subview is inside large.
--/
-def Tensor2D.insertslice (large: Tensor2D)
-  {small: Tensor2D} (slice: TensorSlice2D small large): Tensor2D :=
-  Tensor2D.mk (large.size0) (large.size1) 
-    (fun ix => 
-      match ix.isInSubview large slice.toSubview  with 
-      | .some ix' => small.data ix'
-      | .none => large.data ix
-    ) 
-
-
-theorem extract_of_insert_id: ∀ (large small: Tensor2D) (slice: TensorSlice2D small large),
-  (large.insertslice slice).extractslice' slice.toSubview = small := by sorry
-
-
-
-  /-
-  
-  ### 3D Tensors
-
-  -/
-
-
-  /-
-  ##### Permutations
-  -/
-
-
-  /-
-  ##### Tiling
-  -/
+theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
+    (forall flat_index val, fM flat_index val = return f flat_index val) →
+    mapMWithFlatIndex v fM = return mapWithFlatIndex v f := by
+  intros h
+  unfold mapWithFlatIndex
+  unfold mapMWithFlatIndex
+  rw [List.mapM_map]
+  . simp [v.h_data_size]; rfl
+  . intros a; cases a; simp [h]
