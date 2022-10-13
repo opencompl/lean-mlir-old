@@ -650,34 +650,16 @@ def TopM.set_env_set_preserves :
   TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by sorry
 
 
-/-
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--/
+
 mutual
 variable {Δ: Dialect α σ ε} [S: Semantics Δ] (name: SSAVal) (τ: MLIRType Δ) (v: MLIRType.eval τ)
 
--- XXXXXXXXXX_run_denoteOp_env_set_preserves
---   XXXXXXXXXX_mapDenoteRegion_env_set_preserves
---     XXXXXXXXXX_denoteRegion_env_set_preserves
---        XXXXXXXXXX_run_denoteOps_env_set_preserves
---          XXXXXXXXXX_run_denoteOp_env_set_preserves
-def XXXXXXXXXX_run_denoteOp_env_set_preserves: ∀ (op: Op Δ),
+-- run_denoteOp_env_set_preserves
+--   mapDenoteRegion_env_set_preserves
+--     denoteRegion_env_set_preserves
+--        run_denoteOps_env_set_preserves
+--          run_denoteOp_env_set_preserves
+def run_denoteOp_env_set_preserves: ∀ (op: Op Δ),
     ∀ isTerminator env r env',
     denoteOp Δ op isTerminator env = Except.ok (r, env') ->
     denoteOp Δ op isTerminator (SSAEnv.set name τ v env) =
@@ -700,7 +682,7 @@ def XXXXXXXXXX_run_denoteOp_env_set_preserves: ∀ (op: Op Δ),
     have ⟨opR, opEnv'⟩ := opR
     have Hind := @OpM.toTopM_regions_env_set_preserves
     specialize (@Hind _ _ _ _ _ (mapDenoteRegion Δ regions) name τ v)
-    specialize (@Hind (XXXXXXXXXX_mapDenoteRegion_env_set_preserves regions))
+    specialize (@Hind (mapDenoteRegion_env_set_preserves regions))
     rw [Hind _ _ _ _ HopRes]
     simp
 
@@ -749,7 +731,7 @@ def XXXXXXXXXX_run_denoteOp_env_set_preserves: ∀ (op: Op Δ),
               simp; cases H; rfl
 
 
-def XXXXXXXXXX_run_denoteOps_env_set_preserves :
+def run_denoteOps_env_set_preserves :
     ∀ (ops: List (Op Δ)) env res env',
     denoteOps Δ ops env = Except.ok (res, env') ->
     denoteOps Δ ops (SSAEnv.set name τ v env) = Except.ok (res, SSAEnv.set name τ v env')
@@ -761,24 +743,24 @@ def XXXXXXXXXX_run_denoteOps_env_set_preserves :
     unfold denoteOps
     match TAIL:tail with
     | .nil =>
-        have HIndOp := @XXXXXXXXXX_run_denoteOp_env_set_preserves head
+        have HIndOp := @run_denoteOp_env_set_preserves head
         apply HIndOp
     | .cons head2 tail2 =>
-        have HIndOp := @XXXXXXXXXX_run_denoteOp_env_set_preserves head
+        have HIndOp := @run_denoteOp_env_set_preserves head
         intros _ _ _ H
         have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
         simp [bind, StateT.bind, Except.bind] at *
         simp [HIndOp _ _ _ _ Hhead]
         rw [Hhead] at H; simp at H
         /- @math-fehr: This is not decreasing!
-        Not decreasing: apply (XXXXXXXXXX_run_denoteOps_env_set_preserves _) <;> assumption
+        Not decreasing: apply (run_denoteOps_env_set_preserves _) <;> assumption
         -/
         rw[<- TAIL];
-        apply (XXXXXXXXXX_run_denoteOps_env_set_preserves tail);
+        apply (run_denoteOps_env_set_preserves tail);
         rw[TAIL]; assumption;
 
 
-def XXXXXXXXXX_denoteRegion_env_set_preserves: ∀ region,
+def denoteRegion_env_set_preserves: ∀ region,
     ∀ args env res env',
     denoteRegion Δ region args env = Except.ok (res, env') ->
     denoteRegion Δ region args (env.set name τ v) = Except.ok (res, env'.set name τ v)
@@ -796,10 +778,10 @@ def XXXXXXXXXX_denoteRegion_env_set_preserves: ∀ region,
       simp [bind, Except.bind] at H
       rw [run_denoteTypedArgs_env_set_preserves Hargs]
       simp [bind, Except.bind]
-      apply (XXXXXXXXXX_run_denoteOps_env_set_preserves ops)
+      apply (run_denoteOps_env_set_preserves ops)
       apply H
 
-def XXXXXXXXXX_mapDenoteRegion_env_set_preserves:
+def mapDenoteRegion_env_set_preserves:
   ∀ regions region args env res env', region ∈ (mapDenoteRegion Δ regions) ->
     region args env = Except.ok (res, env') ->
     region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
@@ -811,29 +793,15 @@ def XXXXXXXXXX_mapDenoteRegion_env_set_preserves:
     simp [mapDenoteRegion] at HregIn
     cases HregIn
     case head =>
-      apply (@XXXXXXXXXX_denoteRegion_env_set_preserves head)
+      apply (@denoteRegion_env_set_preserves head)
       assumption
     case tail =>
-      apply (XXXXXXXXXX_mapDenoteRegion_env_set_preserves tail) <;> assumption
+      apply (mapDenoteRegion_env_set_preserves tail) <;> assumption
 
 
 end
 
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
--- ============================
+
 
 
 def postSSAEnv.env_set_preserves [S: Semantics δ] (op: Op δ) (env: SSAEnv δ) :
