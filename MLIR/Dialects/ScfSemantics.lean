@@ -99,7 +99,7 @@ theorem equivalent (b: Bool):
     run ⟦LHS r₁ r₂⟧ (INPUT b) =
     run ⟦if b then r₁ else r₂⟧ (INPUT b) := by
   simp [LHS, INPUT, denoteRegion,  denoteOps, denoteTypedArgs]
-  simp [denoteOp, List.map, List.zip, List.zipWith, List.mapM, List.mapM.loop, pure, 
+  simp [denoteOp, List.map, List.zip, List.zipWith, List.mapM, List.mapM.loop, pure,
         StateT.pure, Except.pure, Except.ok, OpM.toTopM, TopM.get, SSAEnv.get, StateT.get,
         StateT.bind]
   sorry -- proof broken when upgrading Lean.

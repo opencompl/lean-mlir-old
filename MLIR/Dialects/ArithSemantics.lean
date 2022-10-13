@@ -367,14 +367,9 @@ theorem equivalent (n m: FinInt 32):
         run, StateT.run,
         denoteOp, bind, List.mapM, StateT.bind,
         List.mapM.loop, Except.bind, TopM.get, StateT.get, pure, Except.pure, StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval];
-   constructor;
    unfold cast;
    unfold MLIRType.eval;
-   simp;
-   rewrite [FinInt.add_comm'];
-   rfl;
-   rewrite [FinInt.add_comm'];
-   rfl;
+   simp[FinInt.add_comm'];
 end th1
 
 /-
