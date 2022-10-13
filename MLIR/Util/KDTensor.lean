@@ -82,12 +82,6 @@ instance : Inhabited Tensor1D where
 instance : ToString Tensor1D where
   toString t := "Tensor1D"
 
-
-structure Point2D where 
-  x: Nat
-  y: Nat 
-
-
 structure TensorIndex2D (size0: Nat) (size1: Nat): Type where 
   ix0: Nat
   ix1: Nat 
@@ -126,16 +120,6 @@ def TensorIndex2D.enlarge {size0 size0' size1 size1': Nat}
         apply Nat.lt_of_lt_of_le H INC1;
     }
   }
--- extract subview: (n, m) of (N, M)
--- subview: TensorSubview2D n m
--- tensor: Tensor N M
--- hypothesis: (n <= N) (m <= M)
--- produce: Tensor n m
---   ix => TensorIndex2D n m
---     ix.size0 < n
---     ix.size1 < m
-
-
 def TensorIndex2D.transpose
   (ix: TensorIndex2D size0 size1): TensorIndex2D size1 size0 := {
     ix0 := ix.ix1
@@ -144,7 +128,7 @@ def TensorIndex2D.transpose
     IX1 := ix.IX0
   }
 
-lemma Nat.lt_mul_cancel_left (a b x: Nat) (H: a < b): a * x < b * x := by sorry;
+lemma Nat.lt_mul_cancel_left (a b x: Nat) (H: a < b): a * x < b * x := by sorry_arith;
 
 def TensorIndex2D.stride (ix: TensorIndex2D size0 size1) (stride0: Nat) (stride1: Nat):
   TensorIndex2D (size0*stride0) (size1*stride1) := {
@@ -569,11 +553,9 @@ def TensorFlatIndex.merge
      sorry
   })
 
-
-
-
-
-
+/-
+Fully generic ND index. Currently unused.
+-/
 inductive TensorIndex': List Nat -> Type :=
 |  Empty: TensorIndex' []
 |  Dim (bound0: Nat)
