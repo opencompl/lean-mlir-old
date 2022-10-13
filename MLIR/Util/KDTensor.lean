@@ -128,19 +128,19 @@ def TensorIndex2D.transpose
     IX1 := ix.IX0
   }
 
-lemma Nat.lt_mul_cancel_left (a b x: Nat) (H: a < b): a * x < b * x := by sorry_arith;
+lemma Nat.lt_mul_cancel_left (a b x: Nat) (H: a < b) (XNEQ0: 0 < x): a * x < b * x := by sorry_arith;
 
-def TensorIndex2D.stride (ix: TensorIndex2D size0 size1) (stride0: Nat) (stride1: Nat):
-  TensorIndex2D (size0*stride0) (size1*stride1) := {
+def TensorIndex2D.stride (ix: TensorIndex2D size0 size1) (stride0: Nat) (STRIDE0: 0 < stride0)
+  (stride1: Nat) (STRIDE1: 0 < stride1): TensorIndex2D (size0*stride0) (size1*stride1) := {
   ix0 := ix.ix0 * stride0
   ix1 := ix.ix1 * stride1
   IX0 := by { 
       have H: ix.ix0 < size0 := ix.IX0;
-      simp [H, Nat.lt_mul_cancel_left]; 
+      apply Nat.lt_mul_cancel_left <;> assumption
      }
   IX1 := by { 
       have H: ix.ix1 < size1 := ix.IX1;
-      simp [H, Nat.lt_mul_cancel_left]; 
+      apply Nat.lt_mul_cancel_left <;> assumption
   }
 }
 /-
@@ -220,9 +220,9 @@ def Tensor2D.transpose (t: Tensor2D): Tensor2D :=
 
 -- Stride index into a tensor, scaling the indexing by `stride0, stride1`. 
 def Tensor2D.stride (t: Tensor2D) (stride0 stride1: Nat)
-  (STRIDE0: stride0 > 0) (STRIDE1: stride1 > 0): Tensor2D :=
+  (STRIDE0: 0 < stride0) (STRIDE1:  0 < stride1): Tensor2D :=
   Tensor2D.mk (t.size0 / stride0) (t.size1 / stride1) 
-    (fun ix => t.data <| (ix.stride stride0 stride1).enlarge
+    (fun ix => t.data <| (ix.stride stride0 STRIDE0 stride1 STRIDE1).enlarge
     (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE0; })
     (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE1; }))
 
