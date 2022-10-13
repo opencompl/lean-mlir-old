@@ -759,21 +759,24 @@ def XXXXXXXXXX_run_denoteOps_env_set_preserves :
     cases H <;> rfl
   | head::tail => by
     unfold denoteOps
-    cases tail
-    case nil =>
-      have HIndOp := @XXXXXXXXXX_run_denoteOp_env_set_preserves head
-      apply HIndOp
-    case cons head2 tail2 =>
-      have HIndOp := @XXXXXXXXXX_run_denoteOp_env_set_preserves head
-      intros _ _ _ H
-      have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
-      simp [bind, StateT.bind, Except.bind] at *
-      simp [HIndOp _ _ _ _ Hhead]
-      rw [Hhead] at H; simp at H
-      /- @math-fehr: This is not decreasing!
-      Not decreasing: apply (XXXXXXXXXX_run_denoteOps_env_set_preserves tail2) <;> assumption
-      -/
-      sorry
+    match TAIL:tail with
+    | .nil =>
+        have HIndOp := @XXXXXXXXXX_run_denoteOp_env_set_preserves head
+        apply HIndOp
+    | .cons head2 tail2 =>
+        have HIndOp := @XXXXXXXXXX_run_denoteOp_env_set_preserves head
+        intros _ _ _ H
+        have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
+        simp [bind, StateT.bind, Except.bind] at *
+        simp [HIndOp _ _ _ _ Hhead]
+        rw [Hhead] at H; simp at H
+        /- @math-fehr: This is not decreasing!
+        Not decreasing: apply (XXXXXXXXXX_run_denoteOps_env_set_preserves _) <;> assumption
+        -/
+        rw[<- TAIL];
+        apply (XXXXXXXXXX_run_denoteOps_env_set_preserves tail);
+        rw[TAIL]; assumption;
+
 
 def XXXXXXXXXX_denoteRegion_env_set_preserves: ∀ region,
     ∀ args env res env',
