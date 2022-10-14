@@ -587,57 +587,22 @@ resulting environment of the interpretation of a TopM monad.
 -/
 
 macro "simp_semantics_monad" : tactic =>   
-  `(tactic| simp [List.mapM, List.mapM.loop, pure, StateT.pure, Except.pure, bind, StateT.bind, Except.bind, TopM.get, StateT.get])
+  `(tactic| simp_monad; repeat (rw [TopM.get_unfold]); simp)
 
 macro "simp_semantics_monad" "at" Hname:ident : tactic =>   
-  `(tactic| simp [List.mapM, List.mapM.loop, pure, StateT.pure, Except.pure, bind, StateT.bind, Except.bind, TopM.get, StateT.get] at $Hname:ident)
+  `(tactic| simp_monad at $Hname; repeat (rw [TopM.get_unfold] at $Hname:ident); simp at $Hname:ident)
 
 macro "simp_semantics_monad" "at" "*" : tactic =>   
-  `(tactic| simp [List.mapM, List.mapM.loop, pure, StateT.pure, Except.pure, bind, StateT.bind, Except.bind, TopM.get, StateT.get] at *)
-
+  `(tactic| simp_monad at *; repeat (rw [TopM.get_unfold] at *); simp at *)
 
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
-
-theorem TopM.get_unfold {Δ} (τ: MLIRType Δ) (name: SSAVal) (env: SSAEnv Δ) :
-    TopM.get τ name env =
-    Except.ok (
-      (match env.get name τ with
-      | some v => v
-      | none => default)
-      , env) := by
-  sorry
-  
-
-theorem TopM.get_env_set_commutes :
-    name' ≠ name ->
-    TopM.get τ name env = Except.ok (r, env') ->
-    TopM.get τ name (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
-  intros Hne
-  simp_semantics_monad
-  rw [SSAEnv.get_set_ne_val] <;> try assumption
-  cases (env.get name τ) <;> intros H <;> simp at * <;> have ⟨H1, H2⟩ := H <;> subst r <;> subst env <;> simp
-
 
 theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
     (args: List (TypedSSAVal Δ)):
     ∀ env r resEnv,
     denoteOpArgs Δ args env = Except.ok (r, resEnv) ->
     ∀ τ v, denoteOpArgs Δ args (env.set name τ v) = Except.ok (r, resEnv.set name τ v) := by
-  unfold denoteOpArgs
-  induction args
-  case nil =>
-    intros env r resEnv H
-    simp_except_monad at *
-    cases H; subst r env; simp
-  case cons val tail HInd =>
-    have ⟨τVal, vVal⟩ := val
-    intros env r resEnv H τ v
-    simp_except_monad at *
-    split at H <;> try contradiction
-    case h_2 getRes HgetRes =>
-    split at HgetRes <;> try contradiction
-    simp_except_monad at *; subst getRes
     sorry
     
     
