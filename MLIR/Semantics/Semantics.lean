@@ -61,15 +61,13 @@ inductive IOp (δ: Dialect α σ ε) := | mk
 
 
 -- The monad in which these computations are run
--- TODO: make `TopM.set` fail if we write to an already defined value.
--- This enforces the SSA property.
--- TODO: make `runRegion` clear the SSA state, forcing the region
--- to be isolated from above.
 abbrev TopM (Δ: Dialect α σ ε) (R: Type _) := StateT (SSAEnv Δ) (Except (String × (SSAEnv Δ))) R
 def TopM.run (t: TopM Δ R) (env: SSAEnv Δ): Except (String × (SSAEnv Δ)) (R × SSAEnv Δ) :=
   StateT.run t env
 
 def TopM.scoped (t: TopM Δ R): TopM Δ R := do
+  -- TODO: convert this to using the `SSAEnv`'s ability to a stack of `SSAScope`,
+  -- instead of approximating it with overwriting the `SSAEnv` temporarily.
   let state ← get -- save scope
   let res ← t -- run computation
   set state -- restore scope
@@ -103,7 +101,6 @@ theorem set_interference_ub
 theorem set_commutes_set:
 theorem get_commutes_get
 theorem get_commutes_noninterfering_set
-theorem get_set
 -/
 
 class Semantics (Δ: Dialect α σ ε)  where
