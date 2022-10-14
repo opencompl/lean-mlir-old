@@ -48,7 +48,7 @@ instance linalg: Dialect Void Void (fun x => Unit) where
 -- theorems on generic don't work).
 def validGenericRegion {Δ: Dialect α σ ε} (r: Region Δ) (f: Int → FinInt 32 → FinInt 32) :=
   forall (i: Int) (v: FinInt 32),
-  denoteRegionOpM r 0 [⟨.index, i⟩, ⟨.i32, v⟩] = return [⟨.i32, f i v⟩]
+  OpM.denoteRegion r 0 [⟨.index, i⟩, ⟨.i32, v⟩] = return [⟨.i32, f i v⟩]
 
 
 def OpM.findIndex (d: AttrDict δ) (key: String): OpM Δ Nat :=
@@ -81,14 +81,37 @@ def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
             | [⟨.i32, v⟩] => pure v
             | _ => OpM.Error s!"linalg.generic1d: unknown return value '{rets}'")
       return [⟨.tensor1d, t'⟩]
- | IOp.mk "linalg.transpose2d"   _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.tile2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
+ | IOp.mk "linalg.extractslice2d" _ [⟨.tensor2d, t⟩]  [r] dict =>  do
+      let len0 ←  OpM.findIndex dict "len0"
+      let len1 ←  OpM.findIndex dict "len1"
+      dite (α := OpM Δ (TypedArgs Δ))
+         (len0 <= t.size0)
+         (fun LEQ0 =>
+            dite (len1 <= t.size1)
+               (fun LEQ1 => do
+                  let subview : TensorSubview2D t.size0 t.size1
+                     := { size0 := len0, size1 := len1, IX0 := LEQ0, IX1 := LEQ1}
+                  let t' := t.extractslice' subview
+                  return [⟨.tensor2d, t'⟩])
+               (fun GT0 => OpM.Error "expected index inbounds"))
+         (fun GT1 => OpM.Error "expected index inbounds")
+ | IOp.mk "linalg.fill2d" _ [⟨.tensor2d, t⟩]  [r] dict => do
+     let cst ←  OpM.findI32 dict "cst"
+     let t' := t.fill (FinInt.toSint cst)
+     return [⟨.tensor2d, t'⟩]
+ | IOp.mk "linalg.transpose2d"   _ [⟨.tensor2d, t⟩]  [r] dict => do
+     let t' := t.transpose
+     return [⟨.tensor2d, t'⟩]
+ | IOp.mk "linalg.insertslice2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
+ | IOp.mk "linalg.generic2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
+ | IOp.mk "linalg.parallel2d" _ [⟨.tensor1d, t⟩]  [r] dict => do
+      return []
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
 theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec types attrs}:
   validGenericRegion r rSpec →
   linalg_semantics_op (Δ := Δ)
-      (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [denoteRegionOpM r 0] attrs) =
+      (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [OpM.denoteRegion r 0] attrs) =
     return [⟨.tensor1d, t.mapWithFlatIndex (fun idx val => rSpec idx.ix val)⟩] := by
   intros h
   simp [linalg_semantics_op]
@@ -176,22 +199,22 @@ theorem equiv (t: Tensor1D) r rSpec:
    run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
       intros valid_r;
       simp[LHS, RHS];
-      simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure,
+      simp_all[denoteRegion, run, StateT.run, List.map, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
-            StateT.set, cast, mapDenoteRegion, OpM.toTopM, denoteRegion];
+            StateT.set, cast, OpM.denoteRegions, TopM.mapDenoteRegion,
+             OpM.toTopM, denoteRegion];
       save;
-      simp [denoteRegionsOpM];
       simp [Semantics.semantics_op];
-      rw [linalg_semantics_generic1d valid_r];
-      save;
+      rewrite [linalg_semantics_generic1d];
       simp;
-      sorry
-      sorry
+      sorry;
+      sorry;
+      sorry;
     }
-
 end ExtractSliceGenericCommute1D
+
 
 namespace Generic1DFusion
 

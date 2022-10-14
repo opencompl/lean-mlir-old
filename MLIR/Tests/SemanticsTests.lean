@@ -17,11 +17,11 @@ inductive SemanticTest :=
 def SemanticTest.name: SemanticTest → String
   | @SemanticTest.mk _ _ _ δ _ str r => str
 
-def SemanticTest.run (t: SemanticTest): Except String String := 
+def SemanticTest.run (t: SemanticTest): Except String String :=
   let (@SemanticTest.mk α σ ε δ S _ r) := t
   let t := denoteRegion (rgn := r) (args := [])
   match t.run (SSAEnv.empty) with
-  | .error msg => .error ("error: " ++ msg)
+  | .error (msg, state) => .error (s!"error: {msg}\n\tenv: {state}")
   | .ok ((_r, env)) => .ok (s!"ok. final env: {env}")
 
 
@@ -163,7 +163,7 @@ def if_select := SemanticTest.mk (func_ + scf + arith) "if_select.mlir" [mlir_re
   %y2 = "arith.select"(%b, %x1, %x2): (i1, i16, i16) -> i16
 
   %b1 = "arith.cmpi" (%y1, %y2) {predicate = 0 /- eq -/}: (i16, i16) -> i1
-  "scf.assert"(%b1) {msg="<FAILED>"}: (i1) -> ()
+  "scf.assert"(%b1) {msg="<y1 == y2>"}: (i1) -> ()
 
   %z = "arith.constant" () {value = 0: i32}: () -> i32
   "func.return" (%z): (i32) -> ()
@@ -188,18 +188,37 @@ def for_trivial := SemanticTest.mk (func_ + scf + arith) "for_trivial.mlir" [mli
   "func.return" (%z): (i32) -> ()
 }]
 
-def for_bound := SemanticTest.mk (func_ + scf + arith) "for_bound.mlir" [mlir_region| {
+def for_bound_stepped := SemanticTest.mk (func_ + scf + arith) "for_bound_stepped.mlir" [mlir_region| {
   %lower = "arith.constant"() {value =  0: index}: () -> index
   %upper = "arith.constant"() {value = 18: index}: () -> index
-  %step  = "arith.constant"() {value =  1: index}: () -> index
+  %step  = "arith.constant"() {value =  3: index}: () -> index
 
   "scf.for"(%lower, %upper, %step) ({
     ^bb(%i: index):
       %b1 = "arith.cmpi"(%i, %lower) {predicate = 5 /- sge -/}: (index, index) -> i1
-      "scf.assert"(%b1) {msg="<FAILED>"}: (i1) -> ()
+      "scf.assert"(%b1) {msg="<assert i >= lower >"}: (i1) -> ()
 
       %b2 = "arith.cmpi"(%i, %upper) {predicate = 3 /- sle -/}: (index, index) -> i1
-      "scf.assert"(%b2) {msg="<FAILED>"}: (i1) -> ()
+      "scf.assert"(%b2) {msg="<assert i <= upper>"}: (i1) -> ()
+
+      "scf.yield"(%step): (index) -> ()
+  }): (index, index, index) -> ()
+
+  %z = "arith.constant" () {value = 0: index}: () -> index
+  "func.return" (%z): (index) -> ()
+}]
+
+
+def for_bound := SemanticTest.mk (func_ + scf + arith) "for_bound.mlir" [mlir_region| {
+  %lower = "arith.constant"() {value =  0: index}: () -> index
+  %upper = "arith.constant"() {value = 18: index}: () -> index
+
+  "scf.for'"(%lower, %upper) ({
+    ^bb(%i: index):
+      %b1 = "arith.cmpi"(%i, %lower) {predicate = 5 /- sge -/}: (index, index) -> i1
+      "scf.assert"(%b1) {msg="<[assert i >= lower]>"}: (i1) -> ()
+      %b2 = "arith.cmpi"(%i, %upper) {predicate = 3 /- sle -/}: (index, index) -> i1
+      "scf.assert"(%b2) {msg="<[assert i <= upper]>"}: (i1) -> ()
 
       "scf.yield"(%step): (index) -> ()
   }): (index, index, index) -> ()
@@ -210,18 +229,18 @@ def for_bound := SemanticTest.mk (func_ + scf + arith) "for_bound.mlir" [mlir_re
 
 
 -- TODO: why does this need the manual coercions?
-def if_true_custom_type := SemanticTest.mk (CustomTypeDialect + scf + arith) "if_true_custom_type.mlir" 
+def if_true_custom_type := SemanticTest.mk (CustomTypeDialect + scf + arith) "if_true_custom_type.mlir"
   [mlir_region| {
   %b = "customtype.true" () : () -> ($(.extended (.inl (.inl (.inl CustomType.CBool)))))
   %x1 = "arith.constant"() {value = 12: i16}: () -> i16
   %x2 = "arith.constant"() {value = 16: i16}: () -> i16
 
   %y = "customtype.if"(%b) ({
-    %x1 = "arith.constant"() {value = 3: i16}: () -> i16
-    "scf.yield"(%x1): (i16) -> ()
+    %x11 = "arith.constant"() {value = 3: i16}: () -> i16
+    "scf.yield"(%x11): (i16) -> ()
   }, {
-    %x2 = "arith.constant"() {value = 4: i16}: () -> i16
-    "scf.yield"(%x2): (i16) -> ()
+    %x22 = "arith.constant"() {value = 4: i16}: () -> i16
+    "scf.yield"(%x22): (i16) -> ()
   }): ($(.extended (.inl (.inl (.inl CustomType.CBool))))) -> i16
 
   %e = "arith.constant"() {value = 3: i16}: () -> i16
@@ -240,18 +259,19 @@ def semanticTests: List SemanticTest := [
   xor,
   rw1,
   if_true,
-  
+
   if_false,
   if_select,
   if_true_custom_type,
 --  for_trivial,
-  for_bound
+  for_bound,
+  for_bound_stepped
 ]
 
 open TestLib
 
-def SemanticTest.toTest (t: SemanticTest) : TestCase := 
-  match t.run with 
+def SemanticTest.toTest (t: SemanticTest) : TestCase :=
+  match t.run with
   | .ok msg => (t.name, .ok msg)
   | .error err => (t.name, .error err)
 
