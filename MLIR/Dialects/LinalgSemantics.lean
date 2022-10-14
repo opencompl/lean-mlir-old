@@ -199,21 +199,19 @@ theorem equiv (t: Tensor1D) r rSpec:
    run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
       intros valid_r;
       simp[LHS, RHS];
-      simp_all[denoteRegion, run, StateT.run, denoteTypedArgs, pure, StateT.pure, Except.pure,
+      simp_all[denoteRegion, run, StateT.run, List.map, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
-            StateT.set, cast, OpM.denoteRegion, OpM.toTopM, denoteRegion];
+            StateT.set, cast, OpM.denoteRegions, TopM.mapDenoteRegion,
+             OpM.toTopM, denoteRegion];
       save;
-      simp [OpM.denoteRegion];
       simp [Semantics.semantics_op];
-      sorry; sorry
-      /-
-      -- simp[linalg_semantics_op];
-      sorry
-      -- this is blocked on:
-      --  + 'failed to generate equality theorems for match expression'
-      -/
+      rewrite [linalg_semantics_generic1d];
+      simp;
+      sorry;
+      sorry;
+      sorry;
     }
 end ExtractSliceGenericCommute1D
 
