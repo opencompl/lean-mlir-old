@@ -573,7 +573,12 @@ def denoteOpArgs_env_set_preserves [S: Semantics Δ]
     {args: List (TypedSSAVal Δ)}:
     denoteOpArgs Δ args env = Except.ok (r, resEnv) ->
     denoteOpArgs Δ args (env.set name τ v) = Except.ok (r, resEnv.set name τ v) := by
-sorry
+  unfold denoteOpArgs
+  induction args
+  case nil =>
+    simp [List.mapM]
+    sorry
+  case cons _ _ => sorry
 
 def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs Δ}:
     denoteTypedArgs regArgs vals env = Except.ok (res, env')->
@@ -589,11 +594,11 @@ def run_denoteRegionByIx_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics 
       region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
       ) ->
     ∀ idx args env res env', 
-    denoteRegionByIx regions idx args env = Except.ok (res, env') ->
-    denoteRegionByIx regions idx args (env.set name τ v) =
+    TopM.denoteRegionsByIx regions idx args env = Except.ok (res, env') ->
+    TopM.denoteRegionsByIx regions idx args (env.set name τ v) =
       Except.ok (res, env'.set name τ v) := by 
   -- We just find the region we have to run, and apply the recursion
-  unfold denoteRegionByIx
+  unfold TopM.denoteRegionsByIx
   cases regions <;> simp <;> intros name τ v H idx args env res env' Hrun <;> try contradiction
   case cons head tail =>    
     cases idx
@@ -660,16 +665,16 @@ variable {Δ: Dialect α σ ε} [S: Semantics Δ] (name: SSAVal) (τ: MLIRType �
 --        run_denoteOps_env_set_preserves
 --          run_denoteOp_env_set_preserves
 def run_denoteOp_env_set_preserves: ∀ (op: Op Δ),
-    ∀ isTerminator env r env',
-    denoteOp Δ op isTerminator env = Except.ok (r, env') ->
-    denoteOp Δ op isTerminator (SSAEnv.set name τ v env) =
+    ∀ env r env',
+    denoteOp Δ op env = Except.ok (r, env') ->
+    denoteOp Δ op (SSAEnv.set name τ v env) =
       Except.ok (r, SSAEnv.set name τ v env')
   | Op.mk op_name res args regions attrs => by
     -- unfold the denotation
     unfold denoteOp; simp
 
     simp [bind, StateT.bind, Except.bind]
-    intro isTerminator env r env' H
+    intro env r env' H
 
     -- Take care of the arguments
     split at H <;> try contradiction
@@ -681,55 +686,28 @@ def run_denoteOp_env_set_preserves: ∀ (op: Op Δ),
     case h_2 _ opR HopRes =>
     have ⟨opR, opEnv'⟩ := opR
     have Hind := @OpM.toTopM_regions_env_set_preserves
-    specialize (@Hind _ _ _ _ _ (mapDenoteRegion Δ regions) name τ v)
+    specialize (@Hind _ _ _ _ _ (TopM.mapDenoteRegion Δ regions) name τ v)
     specialize (@Hind (mapDenoteRegion_env_set_preserves regions))
     rw [Hind _ _ _ _ HopRes]
     simp
-
-    -- This could take a quarter of the lines if split was working :/
-    cases isTerminator <;> simp at *
-    case true =>
-      cases res
-      case nil => simp at *; cases H; rfl
-      case cons headRes tailRes =>
-        cases tailRes
-        case cons => simp at *; cases H; rfl
-        case nil =>
-          cases opR
-          case nil => simp at *; cases H; rfl
-          case cons opRHead opRTail =>
-            cases opRTail
-            case cons => simp at *; cases H; rfl
-            case nil =>
-              simp at *
-              split at H <;> try contradiction
-              case h_2 setRes HSetRes =>
-              rw [TopM.set_env_set_preserves HSetRes]
-              simp; cases H; rfl
-    case false =>
-      cases res
+    cases res
+    case nil => simp at *; cases H; rfl
+    case cons headRes tailRes =>
+      cases tailRes
+      case cons _ _ => simp at *; cases H 
       case nil =>
-        simp at *
-
+        simp 
         cases opR
-        case nil => simp at *; cases H; rfl
-        case cons => simp at *; cases H
-      case cons resHead resTail =>
-        cases resTail
-        case cons => simp at *; cases H
-        case nil =>
-          cases opR
-          case nil => simp at *; cases H
-          case cons opRHead opRTail =>
-            cases opRTail
-            case cons => simp at *; cases H
-            case nil =>
+        case nil => simp at *; cases H 
+        case cons opRHead opRTail => 
+          cases opRTail
+          case cons _ _ =>  simp at *; cases H
+          case nil => 
               simp at *
               split at H <;> try contradiction
               case h_2 setRes HSetRes =>
               rw [TopM.set_env_set_preserves HSetRes]
               simp; cases H; rfl
-
 
 def run_denoteOps_env_set_preserves :
     ∀ (ops: List (Op Δ)) env res env',
@@ -750,11 +728,8 @@ def run_denoteOps_env_set_preserves :
         intros _ _ _ H
         have ⟨⟨res ,env''⟩, Hhead⟩ := ExceptMonad.split H
         simp [bind, StateT.bind, Except.bind] at *
-        simp [HIndOp _ _ _ _ Hhead]
+        simp [HIndOp _ _ _ Hhead]
         rw [Hhead] at H; simp at H
-        /- @math-fehr: This is not decreasing!
-        Not decreasing: apply (run_denoteOps_env_set_preserves _) <;> assumption
-        -/
         rw[<- TAIL];
         apply (run_denoteOps_env_set_preserves tail);
         rw[TAIL]; assumption;
@@ -782,7 +757,7 @@ def denoteRegion_env_set_preserves: ∀ region,
       apply H
 
 def mapDenoteRegion_env_set_preserves:
-  ∀ regions region args env res env', region ∈ (mapDenoteRegion Δ regions) ->
+  ∀ regions region args env res env', region ∈ (TopM.mapDenoteRegion Δ regions) ->
     region args env = Except.ok (res, env') ->
     region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
   | [] => by
@@ -790,15 +765,20 @@ def mapDenoteRegion_env_set_preserves:
     contradiction
   | head::tail => by
     intros region args env res env' HregIn Hreg
-    simp [mapDenoteRegion] at HregIn
+    simp [TopM.mapDenoteRegion] at HregIn
     cases HregIn
     case head =>
-      apply (@denoteRegion_env_set_preserves head)
-      assumption
+      simp [TopM.scoped, Function.comp, bind, StateT.bind, Except.bind] at *
+      simp [get, getThe, MonadStateOf.get, StateT.get, pure, Except.pure] at *
+      split at Hreg <;> try contradiction
+      case h_2 _ regRes Hreg' =>
+      have ⟨regRes, regResEnv⟩ := regRes
+      rw [@denoteRegion_env_set_preserves head] <;> try assumption
+      simp [set, StateT.set, pure, Except.pure, StateT.pure] at *
+      cases Hreg; subst env regRes
+      simp
     case tail =>
       apply (mapDenoteRegion_env_set_preserves tail) <;> assumption
-
-
 end
 
 
