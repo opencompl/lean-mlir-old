@@ -92,6 +92,26 @@ def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval
   | .some v' => if v == v' then pure () else TopM.raiseUB "setting to SSA value twice!"
   | .none => StateT.set (SSAEnv.set name τ v s)
 
+theorem TopM.get_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (env: SSAEnv Δ) :
+    TopM.get τ name env =
+    Except.ok (
+      (match env.get name τ with
+      | some v => v
+      | none => default)
+      , env) := by
+  simp [TopM.get]
+  simp_monad
+  cases (env.get name τ) <;> rfl
+
+theorem TopM.get_env_set_commutes :
+    name' ≠ name ->
+    TopM.get τ name env = Except.ok (r, env') ->
+    TopM.get τ name (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
+  intros Hne
+  repeat (rw [TopM.get_unfold])
+  simp_monad
+  simp_ssaenv
+  cases (env.get name τ) <;> intros H <;> simp at * <;> have ⟨H1, H2⟩ := H <;> subst r <;> subst env <;> simp
 
 /-
 TODO:
