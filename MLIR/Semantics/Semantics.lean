@@ -566,19 +566,62 @@ A PostSSAEnv is a predicate on an environment, that check that it can be the
 resulting environment of the interpretation of a TopM monad.
 -/
 
+macro "simp_semantics_monad" : tactic =>   
+  `(tactic| simp [List.mapM, List.mapM.loop, pure, StateT.pure, Except.pure, bind, StateT.bind, Except.bind, TopM.get, StateT.get])
+
+macro "simp_semantics_monad" "at" Hname:ident : tactic =>   
+  `(tactic| simp [List.mapM, List.mapM.loop, pure, StateT.pure, Except.pure, bind, StateT.bind, Except.bind, TopM.get, StateT.get] at $Hname:ident)
+
+macro "simp_semantics_monad" "at" "*" : tactic =>   
+  `(tactic| simp [List.mapM, List.mapM.loop, pure, StateT.pure, Except.pure, bind, StateT.bind, Except.bind, TopM.get, StateT.get] at *)
+
+
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
 
-def denoteOpArgs_env_set_preserves [S: Semantics Δ]
-    {args: List (TypedSSAVal Δ)}:
+theorem TopM.get_unfold {Δ} (τ: MLIRType Δ) (name: SSAVal) (env: SSAEnv Δ) :
+    TopM.get τ name env =
+    Except.ok (
+      (match env.get name τ with
+      | some v => v
+      | none => default)
+      , env) := by
+  sorry
+  
+
+theorem TopM.get_env_set_commutes :
+    name' ≠ name ->
+    TopM.get τ name env = Except.ok (r, env') ->
+    TopM.get τ name (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
+  intros Hne
+  simp_semantics_monad
+  rw [SSAEnv.get_set_ne_val] <;> try assumption
+  cases (env.get name τ) <;> intros H <;> simp at * <;> have ⟨H1, H2⟩ := H <;> subst r <;> subst env <;> simp
+
+
+theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
+    (args: List (TypedSSAVal Δ)):
+    ∀ env r resEnv,
     denoteOpArgs Δ args env = Except.ok (r, resEnv) ->
-    denoteOpArgs Δ args (env.set name τ v) = Except.ok (r, resEnv.set name τ v) := by
+    ∀ τ v, denoteOpArgs Δ args (env.set name τ v) = Except.ok (r, resEnv.set name τ v) := by
   unfold denoteOpArgs
   induction args
   case nil =>
-    simp [List.mapM]
+    intros env r resEnv H
+    simp_except_monad at *
+    cases H; subst r env; simp
+  case cons val tail HInd =>
+    have ⟨τVal, vVal⟩ := val
+    intros env r resEnv H τ v
+    simp_except_monad at *
+    split at H <;> try contradiction
+    case h_2 getRes HgetRes =>
+    split at HgetRes <;> try contradiction
+    simp_except_monad at *; subst getRes
     sorry
-  case cons _ _ => sorry
+    
+    
+
 
 def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs Δ}:
     denoteTypedArgs regArgs vals env = Except.ok (res, env')->
