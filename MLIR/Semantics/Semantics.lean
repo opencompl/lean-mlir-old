@@ -598,14 +598,40 @@ macro "simp_semantics_monad" "at" "*" : tactic =>
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
 
+
 theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
     (args: List (TypedSSAVal Δ)):
     ∀ env r resEnv,
     denoteOpArgs Δ args env = Except.ok (r, resEnv) ->
+    ∀ name, args.all (fun arg => name ≠ arg.fst) ->
     ∀ τ v, denoteOpArgs Δ args (env.set name τ v) = Except.ok (r, resEnv.set name τ v) := by
-    sorry
-    
-    
+  induction args
+  case nil =>
+    intros env r resEnv H
+    simp [denoteOpArgs] at *
+    simp_monad at *
+    cases H; subst r env; simp
+  case cons head tail HInd =>
+    intros env r resEnv H name Hname τ v
+    simp [denoteOpArgs]; simp [denoteOpArgs] at H
+    have ⟨headName, headτ⟩ := head
+    simp_monad at *
+    cases Hhead: (TopM.get headτ headName env)
+    case error _ =>
+      rw [Hhead] at H; contradiction
+    case ok headRes =>
+      rw [Hhead] at H
+      simp [List.all, List.foldr] at Hname
+      have ⟨Hname_head, _⟩ := Hname
+      rw [TopM.get_env_set_commutes Hname_head Hhead]
+      simp at *
+      split at H <;> try contradiction
+      case h_2 rTail Htail =>
+      have ⟨rTailRes, rTailEnv⟩ := rTail
+      simp at H; have ⟨_, _⟩ := H; subst r resEnv
+      simp [denoteOpArgs] at *
+      simp [bind, StateT.bind, Except.bind, pure, StateT.pure, Except.pure] at HInd
+      rw [HInd] <;> assumption
 
 
 def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs Δ}:
