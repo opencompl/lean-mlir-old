@@ -255,6 +255,8 @@ namespace Generic1DFusion
 
 variable (r s : Region linalg)
 
+-- See section MapMCommute.
+-- See section MapMCommute
 -- fmap f . fmap g == fmap (f . g)
 -- true iff f commutes with g?
 -- mapM f >=> mapM g == mapM (f >=> g)
