@@ -48,7 +48,7 @@ def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
 
 -- Extract upto len `len` from the tensor.
 def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
- { 
+ {
     size0 := min t.size0 len,
     data := t.data.take len,
     h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
@@ -82,25 +82,65 @@ instance : Inhabited Tensor1D where
 instance : ToString Tensor1D where
   toString t := "Tensor1D"
 
-structure TensorIndex2D (size0: Nat) (size1: Nat): Type where 
+structure TensorIndex2D (size0: Nat) (size1: Nat): Type where
   ix0: Nat
-  ix1: Nat 
+  ix1: Nat
   IX0: ix0 < size0
   IX1: ix1 < size1
 
+
+def TensorIndex2D.toFin: TensorIndex2D size0 size1 -> Fin (size0 * size1) := fun ix => {
+  val := ix.ix0 * size1 + ix.ix1
+  isLt := by {
+    have IX0: ix.ix0 < size0 := ix.IX0;
+    have IX1: ix.ix1 < size1 := ix.IX1;
+    simp_arith;
+    sorry
+  }
+}
+
+-- subst, contradiction, assumption, simp.
+def TensorIndex2D.ofFin: Fin (size0 * size1) -> TensorIndex2D size0 size1 := fun ix => {
+  ix0 := (ix.val) / size1
+  ix1 := ix.val % size1
+  IX0 := by {
+    have H: ix.val < size0 * size1 := ix.isLt;
+    rewrite[Nat.div_lt_iff_lt_mul] <;> simp[H];
+    cases size1 <;> simp_arith at * <;> try contradiction;
+  }
+  IX1 := by {
+      apply Nat.mod_lt;
+      cases size1 <;> simp_arith at * <;> try contradiction;
+      apply Fin.elim0 <;> assumption;
+  }
+}
+
+def TensorIndex2D.toFin_ofFin_eq:
+  ∀ (t: TensorIndex2D size0 size1), TensorIndex2D.ofFin t.toFin = t := by {
+    intros t;
+    simp [TensorIndex2D.toFin, TensorIndex2D.ofFin];
+    cases t;
+    case mk ix0' ix1' IX0' IX1' => {
+      simp_arith;
+      constructor;
+      sorry
+      sorry
+    }
+
+  }
 /-
 A subview into a 2D tensor.
 -/
-structure TensorSubview2D (maxsize0: Nat) (maxsize1: Nat): Type where 
-  -- ix0: Nat 
-  -- ix1: Nat 
-  size0: Nat 
-  size1: Nat 
-  IX0: size0 <= maxsize0 
+structure TensorSubview2D (maxsize0: Nat) (maxsize1: Nat): Type where
+  -- ix0: Nat
+  -- ix1: Nat
+  size0: Nat
+  size1: Nat
+  IX0: size0 <= maxsize0
   IX1: size1 <= maxsize1
 
 
-  
+
 
 
 -- enlarge the tensor index to index a larger space.
@@ -109,7 +149,7 @@ def TensorIndex2D.enlarge {size0 size0' size1 size1': Nat}
   (ix: TensorIndex2D size0 size1): TensorIndex2D size0' size1' := {
     ix0 := ix.ix0
     ix1 := ix.ix1
-    IX0 := by {  
+    IX0 := by {
         have H: ix.ix0 < size0 := ix.IX0;
         simp_arith;
         apply Nat.lt_of_lt_of_le H INC0;
@@ -134,15 +174,16 @@ def TensorIndex2D.stride (ix: TensorIndex2D size0 size1) (stride0: Nat) (STRIDE0
   (stride1: Nat) (STRIDE1: 0 < stride1): TensorIndex2D (size0*stride0) (size1*stride1) := {
   ix0 := ix.ix0 * stride0
   ix1 := ix.ix1 * stride1
-  IX0 := by { 
+  IX0 := by {
       have H: ix.ix0 < size0 := ix.IX0;
       apply Nat.lt_mul_cancel_left <;> assumption
      }
-  IX1 := by { 
+  IX1 := by {
       have H: ix.ix1 < size1 := ix.IX1;
       apply Nat.lt_mul_cancel_left <;> assumption
   }
 }
+
 /-
 2D Tensors
 -/
@@ -150,10 +191,30 @@ structure Tensor2D where
   size0: Nat
   size1: Nat
   /- Switch to using TensorIndex? -/
-  data: TensorIndex2D size0 size1 -> Int 
+  data: TensorIndex2D size0 size1 -> Int
 
+/-
+def decideEqData (f g: TensorIndex2D size0 size1 -> Int): Decidable (f = g) :=
+-/
+
+#check DecidableEq
 def Tensor2D.isEq (v1 v2: Tensor2D): Decidable (v1 = v2) :=
-  .isTrue sorry -- FIXME: check if we ever use decidable equality 
+  match decEq (v1.size0) (v2.size0) with
+  | Decidable.isTrue SIZE0 =>
+      match decEq (v1.size1) (v2.size1) with
+      | Decidable.isTrue SIZE1 => Decidable.isTrue sorry
+      | Decidable.isFalse prf =>
+          Decidable.isFalse (by {
+            intro H;
+            cases H;
+            contradiction;
+          })
+  | Decidable.isFalse prf =>
+      Decidable.isFalse (by {
+        intro H;
+        cases H;
+        contradiction;
+      })
 
 def Tensor2D.empty: Tensor2D :=
   { size0 := 0, size1 := 0, data := fun ix => by {
@@ -169,9 +230,9 @@ given a larger tensor of size (t.size0 x t.size1)
 -/
 def TensorSubview2D.extract (view: TensorSubview2D n m)
   (t: Tensor2D)
-  (HN: n <= t.size0) (HM: m <= t.size1): Tensor2D  := 
+  (HN: n <= t.size0) (HM: m <= t.size1): Tensor2D  :=
   Tensor2D.mk view.size0 view.size1
-    (fun ix => t.data (ix.enlarge 
+    (fun ix => t.data (ix.enlarge
         (by {
           have HMID : view.size0 <= n := view.IX0;
           apply Nat.le_trans;
@@ -185,7 +246,7 @@ def TensorSubview2D.extract (view: TensorSubview2D n m)
         })))
 
 def Tensor2D.extractSubview (t: Tensor2D) (subview: TensorSubview2D t.size0 t.size1):
-  Tensor2D  := Tensor2D.mk subview.size0 subview.size1 
+  Tensor2D  := Tensor2D.mk subview.size0 subview.size1
     (fun ix => (subview.extract t (by simp) (by simp)).data ix )
 
 instance : Inhabited Tensor2D where
@@ -211,17 +272,17 @@ def Tensor2D.extractslice
 
 def Tensor2D.extractslice' (large: Tensor2D)
   (subview: TensorSubview2D large.size0 large.size1): Tensor2D :=
-  Tensor2D.mk subview.size0 subview.size1 
+  Tensor2D.mk subview.size0 subview.size1
     (fun ix => large.data (ix.enlarge subview.IX0 subview.IX1))
 
 -- Transpose of a tensor by swapping indexes
 def Tensor2D.transpose (t: Tensor2D): Tensor2D :=
   Tensor2D.mk t.size1 t.size0 (fun ix => t.data ix.transpose)
 
--- Stride index into a tensor, scaling the indexing by `stride0, stride1`. 
+-- Stride index into a tensor, scaling the indexing by `stride0, stride1`.
 def Tensor2D.stride (t: Tensor2D) (stride0 stride1: Nat)
   (STRIDE0: 0 < stride0) (STRIDE1:  0 < stride1): Tensor2D :=
-  Tensor2D.mk (t.size0 / stride0) (t.size1 / stride1) 
+  Tensor2D.mk (t.size0 / stride0) (t.size1 / stride1)
     (fun ix => t.data <| (ix.stride stride0 STRIDE0 stride1 STRIDE1).enlarge
     (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE0; })
     (by { rewrite[<- Nat.le_div_iff_mul_le]; simp_arith; apply STRIDE1; }))
@@ -236,12 +297,12 @@ def Tensor2D.toSubview (t: Tensor2D): TensorSubview2D t.size0 t.size1 :=  {
 
 
 def TensorIndex2D.isInSubview (t: Tensor2D) (subview: TensorSubview2D t.size0 t.size1)
-  (ix: TensorIndex2D t.size0 t.size1): 
+  (ix: TensorIndex2D t.size0 t.size1):
   Option (TensorIndex2D subview.size0 subview.size1) :=
   dite (ix.ix0 < subview.size0)
-  (fun LT0 => 
+  (fun LT0 =>
     dite (ix.ix1 < subview.size1)
-    (fun LT1 => 
+    (fun LT1 =>
       .some (TensorIndex2D.mk ix.ix0 ix.ix1 LT0 LT1)
     )
     (fun GEQ1 => .none))
@@ -250,11 +311,11 @@ def TensorIndex2D.isInSubview (t: Tensor2D) (subview: TensorSubview2D t.size0 t.
 /-
 Represents that `small` is located inside a slice of `large`.
 -/
-structure TensorSlice2D (small large: Tensor2D) where 
+structure TensorSlice2D (small large: Tensor2D) where
   SIZE0: small.size0 <= large.size0
   SIZE1: small.size1 <= large.size1
 
-def TensorSlice2D.toSubview (slice: TensorSlice2D small large): 
+def TensorSlice2D.toSubview (slice: TensorSlice2D small large):
   TensorSubview2D large.size0 large.size1 := {
     size0 := small.size0,
     size1 := small.size1,
@@ -780,6 +841,12 @@ def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (Fi
   Tensor1D :=
   Tensor1D.mk (size0 := v.size0)
     (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
+
+def Tensor1D.mapM {M: Type -> Type} [Monad M]
+  (v: Tensor1D) (f: (FinInt 32) → M (FinInt 32)):
+  M Tensor1D := do
+  let data <- List.mapM f v.data
+  pure (Tensor1D.mk data.length data rfl)
 
 def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Monad M]
   (v: Tensor1D) (f: TensorFlatIndex v.size0 → (FinInt 32) → M (FinInt 32)):

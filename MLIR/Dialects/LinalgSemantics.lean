@@ -73,7 +73,13 @@ def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
      let cst ←  OpM.findI32 dict "cst"
      let t' := t.fill cst
      return [⟨.tensor1d, t'⟩]
-
+ | IOp.mk "linalg.generic1d'" _ [⟨.tensor1d, t⟩] [r] _ => do -- generic1d without array index.
+      let t' <- t.mapM (fun val => do
+            let rets ← r [⟨.i32, val⟩]
+            match rets with
+            | [⟨.i32, v⟩] => pure v
+            | _ => OpM.Error s!"linalg.generic1d: unknown return value '{rets}'")
+      return [⟨.tensor1d, t'⟩]
  | IOp.mk "linalg.generic1d" _ [⟨.tensor1d, t⟩] [r] _ => do
       let t' <- t.mapMWithFlatIndex (fun idx val => do
             let rets ← r [⟨.index, idx.ix⟩, ⟨.i32, val⟩]
@@ -175,6 +181,9 @@ end ExtractSliceFillCommuteOneD
 namespace ExtractSliceGenericCommute1D
 variable (r : Region linalg)
 
+-- {pre} TopM {post}
+-- {x1 = 10 * x2 = 30 * x4 = 50}
+
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS: Region linalg  := [mlir_region| {
    %x = "linalg.generic1d" (%t) ($(r)) { len = 10 : index }: (tensor1d) -> (tensor1d)
@@ -215,14 +224,70 @@ theorem equiv (t: Tensor1D) r rSpec:
     }
 end ExtractSliceGenericCommute1D
 
+namespace mapMCommute
+def fish [Monad m] (f: a -> m b) (g: b -> m c): a -> m c := fun a => (f a) >>= g
+
+theorem mapM_cons [M: Monad m] [LM: LawfulMonad m] (x: a) (xs: List a) (f: a -> m b):
+  List.mapM f (x :: xs) =  f x >>= (fun b => do let bs <- List.mapM f xs; pure (b :: bs)) := by {
+  simp[List.mapM, List.mapM.loop];
+  sorry;
+}
+theorem commute_implies_mapM_commute [Monad m] [LawfulMonad m]
+  (f g : a -> m a ) (k: List a -> a -> m b)
+  (COMMUTE: forall {b: Type} (x y : a)  (k: a -> a -> m b), f x >>= (fun r1 => (g y >>= fun r2 => k r1 r2 )) =
+                                        g y >>= fun r2 => f x >>= fun r1 => k r1 r2):
+  List.mapM f xs >>= (fun r1 => (g y >>= fun r2 => k r1 r2 )) =
+                                        g y >>= fun r2 => List.mapM f xs >>= fun r1 => k r1 r2 := by sorry
+
+theorem mapM_commute [M: Monad m] [LM: LawfulMonad m]
+  (f g: a -> m a) (COMMUTE: forall {b : Type} (x y : a)  (k: a -> a -> m b), f x >>= (fun r1 => (g y >>= fun r2 => k r1 r2 )) =
+                                        g y >>= fun r2 => f x >>= fun r1 => k r1 r2)
+  : fish (List.mapM f) (List.mapM g) = List.mapM (fish f g) := by {
+
+     funext x;
+     induction x;
+     case nil => {
+          simp[fish, List.mapM, List.mapM.loop];
+     }
+     case cons head tail IH => {
+       simp[fish];
+       rewrite [mapM_cons];
+       rewrite [mapM_cons];
+
+       simp [bind_assoc]
+       simp[mapM_cons];
+       congr; -- remove the head
+       funext x';
+       rewrite [commute_implies_mapM_commute];
+       congr;
+       funext x';
+       simp [fish] at IH;
+       rewrite [<- IH];
+       simp[bind_assoc];
+       apply COMMUTE;
+
+     }
+
+}
+
+end mapMCommute
 
 namespace Generic1DFusion
 
+
 variable (r s : Region linalg)
 
+-- See section MapMCommute.
+-- See section MapMCommute
+-- fmap f . fmap g == fmap (f . g)
+-- true iff f commutes with g?
+-- mapM f >=> mapM g == mapM (f >=> g)
+-- naive proof: induction on size of %t.
+-- god's proof in the book: show that the computation of y[i] looks like
+--     as what's written below. (need some notion of funext on the array).
 def LHS: Region linalg  := [mlir_region| {
-   %x = "linalg.generic1d" (%t) ($(r)): (tensor1d) -> (tensor1d)
-   %y = "linalg.generic1d" (%x) ($(s)): (tensor1d) -> (tensor1d)
+   %x = "linalg.generic1d" (%t) ($(r)): (tensor1d) -> (tensor1d) -- fmap r | x[i] <- r(t(i))
+   %y = "linalg.generic1d" (%x) ($(s)): (tensor1d) -> (tensor1d) -- fmap s | y[i] <- s(x[i]) = s(r(t(i)))
 }]
 def RHS : Region linalg := [mlir_region| {
    %y = "linalg.generic1d" (%t) ({
@@ -260,6 +325,7 @@ namespace Generic2DTiling
 end Generic2DTiling
 
 namespace Transpose2D
+
 
 def LHS: Region linalg  := [mlir_region| {
    %x = "linalg.transpsose2d" (%t) : (tensor2d) -> (tensor2d)
