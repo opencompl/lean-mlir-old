@@ -127,6 +127,17 @@ instance {α₁ α₂} [i₁: DialectAttrIntf α₁] [i₂: DialectAttrIntf α�
 ### Dialects
 -/
 
+/-
+inductive CustomAttr α where
+  eq: DecidableEq α
+-/
+
+
+-- τ is types required to define the signature of the Op.
+structure Op where
+  code: Type -- eg. inductive Add, inductive Sub, etc.
+
+
 -- TODO: Document and finish the Dialect interface
 class Dialect (α σ) (ε: σ → Type): Type :=
   name: String

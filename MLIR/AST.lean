@@ -84,9 +84,9 @@ deriving DecidableEq
 inductive MLIRType (δ: Dialect α σ ε) :=
 | int: Signedness -> Nat -> MLIRType δ
 | float: Nat -> MLIRType δ
-| tensor1d: MLIRType δ -- tensor of int values. 
-| tensor2d: MLIRType δ -- tensor of int values. 
-| tensor4d: MLIRType δ -- tensor of int values. 
+| tensor1d: MLIRType δ -- tensor of int values.
+| tensor2d: MLIRType δ -- tensor of int values.
+| tensor4d: MLIRType δ -- tensor of int values.
 | index:  MLIRType δ
 | undefined: String → MLIRType δ
 | extended: σ → MLIRType δ
@@ -102,15 +102,15 @@ abbrev MLIRType.i32: MLIRType δ := MLIRType.int .Signless 32
 abbrev TypedSSAVal (δ: Dialect α σ ε) := SSAVal × MLIRType δ
 
 mutual
+
 -- | TODO: factor Symbol out from AttrValue
 inductive AttrValue (δ: Dialect α σ ε) :=
 | symbol: String -> AttrValue δ -- symbol ref attr
 | str : String -> AttrValue δ
-| int : Int -> MLIRType δ -> AttrValue δ
+| int : Int -> AttrValue δ
 | nat: Nat -> AttrValue δ
 | bool : Bool -> AttrValue δ
-| float : Float -> MLIRType δ -> AttrValue δ
-| type : MLIRType δ -> AttrValue δ
+| float : Float -> AttrValue δ
 | affine: AffineMap -> AttrValue δ
 | permutation: List Nat -> AttrValue δ -- a permutation
 | list: List (AttrValue δ) -> AttrValue δ
@@ -211,16 +211,10 @@ instance : Coe String (AttrValue δ) where
   coe (s: String) := AttrValue.str s
 
 instance : Coe Int (AttrValue δ) where
-  coe (i: Int) := AttrValue.int i (MLIRType.int .Signless 64)
-
-instance : Coe (MLIRType δ) (AttrValue δ) where
-  coe (t: MLIRType δ) := AttrValue.type t
+  coe (i: Int) := AttrValue.int i
 
 instance : Coe (String × AttrValue δ) (AttrEntry δ) where
   coe (v: String × AttrValue δ) := AttrEntry.mk v.fst v.snd
-
-instance : Coe (String × MLIRType δ) (AttrEntry δ) where
-  coe (v: String × MLIRType δ) := AttrEntry.mk v.fst (AttrValue.type v.snd)
 
 instance : Coe  (AttrEntry δ) (String × AttrValue δ) where
   coe (v: AttrEntry δ) :=
@@ -287,10 +281,9 @@ private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
   | .symbol s => .symbol s
   | .permutation p => .permutation p
   | .str s => .str s
-  | .int i τ => .int i τ
+  | .int i => .int i
   | .bool b => .bool b
-  | .float f τ => .float f τ
-  | .type τ => .type τ
+  | .float f  => .float f
   | .affine map => .affine map
   | .list l => .list (coeAttrValueList l)
   | .nestedsymbol a₁ a₂ => .nestedsymbol (coeAttrValue a₁) (coeAttrValue a₂)
@@ -421,11 +414,10 @@ partial def docAttrVal: AttrValue δ → Doc
   | .permutation ps => [doc| "[permutation " (ps),* "]"]
   | .nestedsymbol s t => (docAttrVal s) ++ "::" ++ (docAttrVal t)
   | .str str => doc_surround_dbl_quot str
-  | .type ty => docMLIRType ty
-  | .int i ty => doc i ++ " : " ++ docMLIRType ty
+  | .int i => doc i ++ ":" ++ "i64"
   | .nat i => doc i ++ " : " ++ "index"
   | .bool b => if b then "true" else "false"
-  | .float f ty => doc f ++ " : " ++ docMLIRType ty
+  | .float f => doc f ++ ":" ++ "f64"
   | .affine aff => "affine_map<" ++ doc aff ++ ">"
   | .list xs => "[" ++ Doc.Nest (vintercalate_doc (xs.map docAttrVal) ", ") ++ "]"
   | .alias a => "#" ++ a
@@ -574,21 +566,21 @@ def AttrDict.find (attrs: AttrDict δ) (name: String): Option (AttrValue δ) :=
       | some v => v.value
       | none => none
 
-def AttrDict.find_nat (attrs: AttrDict δ) 
-  (name: String): Option Nat := 
+def AttrDict.find_nat (attrs: AttrDict δ)
+  (name: String): Option Nat :=
   match attrs.find name with
   | .some (AttrValue.nat i) =>  .some i
   | _ => .none
 
-def AttrDict.find_int (attrs: AttrDict δ) 
-  (name: String): Option (Int × MLIRType δ) :=
+def AttrDict.find_int (attrs: AttrDict δ)
+  (name: String): Option Int :=
   match attrs.find name with
-  | .some (AttrValue.int i ty) =>  .some (i, ty)
+  | .some (AttrValue.int i) => .some i
   | _ => .none
 
 def AttrDict.find_int' (attrs: AttrDict δ) (name: String): Option Int :=
   match attrs.find name with
-  | .some (AttrValue.int i _) =>  .some i
+  | .some (AttrValue.int i) =>  .some i
   | _ => .none
 
 @[simp] theorem AttrDict.find_none {δ: Dialect α σ ε}:
@@ -603,9 +595,6 @@ def AttrDict.find_int' (attrs: AttrDict δ) (name: String): Option Int :=
   simp [AttrDict.find, List.find?, AttrEntry.key, AttrEntry.value, H]
 
 def AttrDict.addString (attrs: AttrDict δ) (k: String) (v: String): AttrDict δ :=
-    AttrEntry.mk k (v: AttrValue δ) :: attrs
-
-def AttrDict.addType (attrs: AttrDict δ) (k: String) (v: MLIRType δ): AttrDict δ :=
     AttrEntry.mk k (v: AttrValue δ) :: attrs
 
 
