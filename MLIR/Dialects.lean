@@ -153,7 +153,7 @@ instance EmptyCode: Code Void where
   showCode c := by cases c
   showDecoded c d := by cases c
 
-instance [Code code] [Code code']: Code (code ⊕ code') where
+instance CodeSum [C1: Code code] [C2: Code code']: Code (code ⊕ code') where
   decideCode c c' :=
     match c with
     | .inl cl => match c' with
@@ -192,12 +192,27 @@ instance [Code code] [Code code']: Code (code ⊕ code') where
 /-
 A code can inject into a larger code, if the decoding
 of the code is consistent.
+Note that this is a higher-order-typeclass: It relates
+the two *Codes* together, since we must know the explicit
+typeclass instance (C1, C2) if we are to succeed
+in proving that retract and inject are well behaved.
 -/
-class InjectCode (CODE: Code code) (CODE': Code code') where
+class CodeInjection (C1: Code code) (C2: Code code') where
    injectCode: code → code'
-   retractCode: code' → code
-   retractWellBehaved: ∀ (c: code), retractCode (injectCode c) = c
-   injectWellBehaved: ∀ (c: code), CODE'.decode (injectCode c) = CODE.decode c
+   injectValue: (c: code) -> (v: C1.decode c) → C2.decode (injectCode c)
+   retract: code' → Option code
+   retractWellBehaved: ∀ (c: code), retract (injectCode c) = .some c
+   injectWellBehaved: ∀ (c: code), C2.decode (injectCode c) = C1.decode c
+
+instance [C1: Code c1] [C2: Code c2] : CodeInjection C1 (CodeSum (C1 := C1) (C2 := C2)) where
+  injectCode := Sum.inl
+  injectValue c v := v
+  retract
+  | Sum.inl c1 => .some c1
+  | Sum.inr _ => .none
+  retractWellBehaved c := rfl
+  injectWellBehaved c := by { simp; rfl; }
+  
 
 -- TODO: Document and finish the Dialect interface
 class Dialect (α σ) (ε: σ → Type): Type :=

@@ -16,22 +16,26 @@ open MLIR.AST
 
 abbrev TypedArg (type: Type) [ct: Code type] := (τ: MLIRType type) × MLIRType.eval τ
 
+def TypedArg.inject (type type': Type) [ct: Code type] [ct': Code type'] [inj: CodeInjection ct ct']: TypedArg type -> TypedArg type'
+| ⟨τ, v⟩ => ⟨MLIRType.inject τ, MLIRType.injectEval τ v⟩
+  
 -- | Abbreviation with a typeclass context?
 @[simp]
 abbrev TypedArgs (type: Type) [ct: Code type] := List (TypedArg type)
+
+def TypedArgs.inject (type type': Type) [ct: Code type] [ct': Code type'] [inj: CodeInjection ct ct']: TypedArgs type -> TypedArgs type'
+| ts => ts.map (TypedArg.inject type type')
 
 
 inductive OpM (type: Type) [ct: Code type]: Type -> Type _ where
 | Ret: R -> OpM type R
 | RunRegion: Nat -> TypedArgs type -> (TypedArgs type -> OpM type R) -> OpM type R
-| GetArg: Nat -> (t: type) -> (ct.decode t -> OpM type R) -> OpM type R  -- get an argument
 | Unhandled: String → OpM type R
 | Error: String -> OpM type R
 
 
 def OpM.map [Code type] (f: A → B): OpM type A -> OpM type B
 | .Ret a => .Ret (f a)
-| .GetArg ix t k => .GetArg ix t (fun arg => (k arg).map f)
 | .Unhandled s => .Unhandled s
 | .RunRegion ix args k =>
     .RunRegion ix args (fun blockResult =>  (k blockResult).map f)
@@ -52,12 +56,12 @@ instance [Code type]: Monad (OpM type) where
 
 instance [Code type]: LawfulMonad (OpM type) := sorry
 
-inductive IOp (attrs type: Type) [ct: Code type]  [ca: Code attrs] := | mk
+inductive IOp (attr type type': Type) [ct: Code type]  [ct': Code type'] [ci: CodeInjection ct ct'] [ca: Code attr] := | mk
   (name:    String) -- TODO: name should come from an Enum in δ.
-  (resTy:   List (MLIRType type))
-  (args:    TypedArgs type)
-  (regions: List (TypedArgs type → OpM type (TypedArgs type)))
-  (attrs:   AttrDict attrs)
+  (resTy:   List (MLIRType type'))
+  (args:    TypedArgs type')
+  (regions: List (TypedArgs type' → OpM type' (TypedArgs type')))
+  (attrs:   AttrDict attr)
 
 
 -- The monad in which these computations are run
@@ -111,7 +115,7 @@ class Semantics (attr type: Type) [ct: Code type] [ca: Code attr]  where
   -- part of δ.
   -- TODO: make this such that it's a ddependent function, where we pass it the resTy and we expect
   -- an answer that matches the types of the resTy of the IOp.
-  semantics_op {attr' type': Type} [ct': Code type'] [ca': Code attr'] [inj: InjectCode ca ca']: IOp attr type → OpM type (TypedArgs type)
+  semantics_op {type': Type} [ct': Code type'] [inj: CodeInjection ct ct']: IOp attr type type' → OpM type' (TypedArgs type')
 
 -- This attribute allows matching explicit effect families like `ArithE`, which
 -- often appear from bottom-up inference like in `Fitree.trigger`, with their
@@ -133,16 +137,16 @@ def denoteTypedArgs [ct: Code type] (args: TypedArgs type) (names: List SSAVal):
         TopM.set τ name val
         denoteTypedArgs args names
 
--- Denote a region with an abstract `OpM.RunRegion`
-def OpM.denoteRegion {attr type: Type} [ct: Code type] 
-  (_r: Region attr type)
-  (ix: Nat): TypedArgs type → OpM type (TypedArgs type) :=
-   fun args => OpM.RunRegion ix args (fun retvals => OpM.Ret retvals)
 
 -- Denote the list of regions with an abstract `OpM.runRegion`
-def OpM.denoteRegions {attr type: Type}  [ct: Code type]
+def OpM.denoteRegions {attr type type': Type}  [ct: Code type] [ct': Code type']
   (regions: List (Region attr type))
-  (ix: Nat): List (TypedArgs type → OpM type (TypedArgs type)) :=
+  (ix: Nat): List (TypedArgs type' → OpM type' (TypedArgs type')) :=
+  -- Denote a region with an abstract `OpM.RunRegion`
+let OpM.denoteRegion
+  (_r: Region attr type)
+  (ix: Nat): TypedArgs type' → OpM type' (TypedArgs type') :=
+   fun args => OpM.RunRegion ix args (fun retvals => OpM.Ret retvals)
  match regions with
  | [] => []
  | r :: rs => (OpM.denoteRegion r ix) :: OpM.denoteRegions rs (ix + 1)
@@ -160,22 +164,27 @@ def TopM.denoteRegionsByIx [ct: Code type]
     | ix' + 1 => TopM.denoteRegionsByIx rs' ix' args
 
 -- Morphism from OpM to topM
-def OpM.toTopM [ct: Code type] [ca: Code attrs] (rs0: List (TypedArgs type → TopM type (TypedArgs type))):
-  OpM type (TypedArgs type) -> TopM type (TypedArgs type)
+def OpM.toTopM [ct': Code type'] (rs0: List (TypedArgs type' → TopM type' (TypedArgs type'))):
+  OpM type' (TypedArgs type') -> TopM type' (TypedArgs type')
 | OpM.Unhandled s => TopM.raiseUB s!"OpM.toTopM unhandled {s}"
 | OpM.Ret r => pure r
 | OpM.Error s => TopM.raiseUB s
 | OpM.RunRegion ix args k => do
        let ret <- TopM.denoteRegionsByIx rs0 ix args
-       OpM.toTopM (ct := ct) (ca := ca) rs0 (k ret)
+       OpM.toTopM (ct' := ct') rs0 (k ret)
 mutual
-variable [ct: Code type] [ca: Code attr] [S: Semantics attr type]
+variable 
+  [ct: Code type]
+  [ct': Code type']
+  [INJ: CodeInjection ct ct']
+  [ca: Code attr]
+  [S: Semantics attr type]
 
 -- unfolded version of List.map denoteRegion.
 -- This allows the termination checker to view the termination.
 def TopM.mapDenoteRegion:
-  List (Region attrs type) →
-  List (TypedArgs type → TopM type (TypedArgs type))
+  List (Region attr type) →
+  List (TypedArgs type' → TopM type' (TypedArgs type'))
 | [] => []
 | r :: rs => (TopM.scoped ∘ denoteRegion r) :: TopM.mapDenoteRegion rs
 
@@ -183,16 +192,17 @@ def TopM.mapDenoteRegion:
 -- Then use this finiteness condition to evaluate region semantics.
 -- Use the morphism from OpM to TopM.
 def denoteOp (op: Op attr type):
-    TopM type (TypedArgs type) :=
+    TopM type' (TypedArgs type') :=
   match op with
   | .mk name res0 args0 regions0 attrs => do
-      let resTy := res0.map Prod.snd
+      let resTy := res0.map (fun res => res.inject.snd)
       let args ← args0.mapM (fun (name, τ) => do
-        pure ⟨τ, ← TopM.get τ name⟩)
+        let τ' := MLIRType.inject τ
+        pure ⟨τ', ← TopM.get τ' name⟩)
       -- Built the interpreted operation
-      let iop : IOp attr type := IOp.mk name resTy args (OpM.denoteRegions regions0 0) attrs
+      let iop : IOp attr type type' := IOp.mk name resTy args (OpM.denoteRegions (ct := ct) (ct' := ct') regions0 0) attrs
       -- Use the dialect-provided semantics, and substitute regions
-      let ret ← OpM.toTopM (TopM.mapDenoteRegion regions0) (S.semantics_op iop)
+      let ret ← OpM.toTopM (ct' := ct') (TopM.mapDenoteRegion regions0) (S.semantics_op iop)
       match res0 with
       | [] => pure ()
       | [res] => match ret with
@@ -201,7 +211,7 @@ def denoteOp (op: Op attr type):
       | _ => TopM.raiseUB s!"denoteOp: expected 0 or 1 results, got '{res0}'"
       return ret
   -- denote a sequence of ops
-def denoteOps (stmts: List (Op type)): TopM type (TypedArgs type) :=
+def denoteOps (stmts: List (Op attr type)): TopM type' (TypedArgs type') :=
    match stmts with
    | [] => return  []
    | [stmt] => denoteOp stmt
@@ -209,8 +219,8 @@ def denoteOps (stmts: List (Op type)): TopM type (TypedArgs type) :=
         let _ ← denoteOp stmt
         denoteOps stmts'
 
-def denoteRegion (rgn: Region attrs type) (args: TypedArgs type):
-    TopM type (TypedArgs type) := do
+def denoteRegion (rgn: Region attr type) (args: TypedArgs type'):
+    TopM type' (TypedArgs type') := do
   match rgn with
   | Region.mk name formalArgsAndTypes ops =>
      -- TODO: check that types in [TypedArgs] is equal to types at [bb.args]
@@ -218,10 +228,9 @@ def denoteRegion (rgn: Region attrs type) (args: TypedArgs type):
      let formalArgs : List SSAVal := formalArgsAndTypes.map Prod.fst
      denoteTypedArgs args formalArgs
      denoteOps ops
-
-
 end
 
+/-
 section Retraction
 
 variable {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
@@ -502,39 +511,44 @@ instance
     let res1 :=  (S₁.semantics_op op₁)
     let res2 :=  (S₂.semantics_op op₂)
     OpM.orUnhandled res1 res2
+-/
 
 
 
-def run! {type: Dialect α' σ' ε'}  {R} [Inhabited R]
+def run! [ct: Code type]  {R} [Inhabited R]
     (t: TopM type R) (env: SSAEnv type):
     R × SSAEnv type :=
    match t.run env with
    | .error err => panic! s!"error when running progam: {err}"
    | .ok val => val
 
-def run {type: Dialect α' σ' ε'} {R}
+def run [ct: Code type] {R}
     (t: TopM  type R) (env: SSAEnv type):
     Except (String × SSAEnv type) (R × SSAEnv type) :=
   StateT.run t env
 
 -- The property for two programs to execute with no error and satisfy a
 -- post-condition
-def semanticPostCondition₂ {type: Dialect α' σ' ε'}
+def semanticPostCondition₂ [ct: Code type]
     (t₁ t₂: Except String (R × SSAEnv type))
     (f: R → SSAEnv type → R → SSAEnv type → Prop) :=
   match t₁, t₂ with
   | .ok (r₁, env₁), .ok (r₂, env₂) => f r₁ env₁ r₂ env₂
   | _, _ => False
 
-@[simp] theorem semanticPostCondition₂_ok_ok:
+/-
+@[simp] theorem semanticPostCondition₂_ok_ok [ct: Code type]:
   semanticPostCondition₂ (Except.ok (r₁, env₁)) (Except.ok (r₂, env₂)) f =
   f r₁ env₁ r₂ env₂ := rfl
+-/
 
 /-
 ### Denotation notation
 -/
 
-class Denote (δ: Dialect α σ ε) [S: Semantics δ]
+/-
+TODO: fix this back up
+class Denote [ct: Code type] [ca: Code attr] [S: Semantics attr type]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
   denote: T δ → TopM δ (TypedArgs δ)
 
@@ -552,3 +566,4 @@ instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region wh
   Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
 @[simp] theorem Denote.denoteRegion [Semantics δ]:
   Denote.denote (self := DenoteRegion δ) r = denoteRegion δ r [] := rfl
+-/

@@ -106,6 +106,21 @@ def MLIR.AST.MLIRType.eval: MLIRType type -> Type
 | .erased => Unit
 
 
+@[reducible, simp_itree, simp]
+def MLIR.AST.MLIRType.injectEval [ct: Code type] [ct': Code type'] [inj: CodeInjection ct ct']: (τ: MLIRType type) -> (v: τ.eval) -> eval (τ.inject (inj := inj))
+| .float _, v => v
+| .int _ _, v=> v
+| .tensor1d, v=> v
+| .tensor2d, v=> v
+| .tensor4d, v => v
+| .index, v => v
+| .undefined _, v => v
+| .extended e, v => inj.injectValue e v
+| .erased, v => v
+
+
+
+
 /-
 ### Properties of evaluated types
 

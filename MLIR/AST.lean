@@ -237,13 +237,90 @@ def Region.ops (region: Region attr ty): List (Op attr ty) :=
   | Region.mk name args ops => ops
 
 
+section CoeAlongCodeInjection
+@[reducible, simp]
+def MLIRType.inject [ct: Code type] [ct': Code type'] [inj: CodeInjection ct ct'] :
+ MLIRType type → MLIRType type'
+  | .int sgn n   => .int sgn n
+  | .float n     => .float n
+  | .index       => .index
+  | .undefined n => .undefined n
+  | .tensor1d => .tensor1d
+  | .tensor2d => .tensor2d
+  | .tensor4d => .tensor4d
+  | .erased => .erased
+  | .extended s  => .extended (inj.injectCode ct ct' s)
+
+@[reducible, simp]
+def TypedSSAVal.inject [ct: Code type] [ct': Code type'] [inj: CodeInjection ct ct'] :
+ TypedSSAVal type → TypedSSAVal type'
+| (v, τ) => (v, MLIRType.inject τ)
+
+-- instance CoeMLIRTypeAlongInjection [ct: Code type] [ct': Code type'] [CodeInjection ct ct'] : Coe (MLIRType type) (MLIRType type') where
+--   coe := coeMLIRType
+
+/-
+mutual
+variable [δ₁: Dialect attr₁ σ₁ ε₁] [δ₂: Dialect attr₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
+
+private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
+  | .nat n => .nat n
+  | .symbol s => .symbol s
+  | .permutation p => .permutation p
+  | .str s => .str s
+  | .int i => .int i
+  | .bool b => .bool b
+  | .float f  => .float f
+  | .affine map => .affine map
+  | .list l => .list (coeAttrValueList l)
+  | .nestedsymbol a₁ a₂ => .nestedsymbol (coeAttrValue a₁) (coeAttrValue a₂)
+  | .alias s => .alias s
+  | .dict d => .dict (coeAttrDict d)
+  | .opaque_ d v => .opaque_ d v
+  | .opaqueElements d v ty => .opaqueElements d v ty
+  | .unit => .unit
+  | .extended a => .extended (c.coe_attr _ _ a)
+  | .erased => .erased
+
+private def coeAttrValueList: List (AttrValue δ₁) → List (AttrValue δ₂)
+  | [] => []
+  | v :: values => coeAttrValue v :: coeAttrValueList values
+
+private def coeAttrEntry: AttrEntry δ₁ → AttrEntry δ₂
+  | .mk key value => .mk key (coeAttrValue value)
+
+private def coeAttrEntryList: List (AttrEntry δ₁) → List (AttrEntry δ₂)
+  | [] => []
+  | e :: entries => coeAttrEntry e :: coeAttrEntryList entries
+
+private def coeAttrDict: AttrDict δ₁ → AttrDict δ₂
+  | .mk entries => .mk <| coeAttrEntryList entries
+end
+
+instance {δ₁: Dialect attr₁ σ₁ ε₁} {δ₂: Dialect attr₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
+    Coe (AttrValue δ₁) (AttrValue δ₂) where
+  coe := coeAttrValue
+
+instance {δ₁: Dialect attr₁ σ₁ ε₁} {δ₂: Dialect attr₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
+    Coe (AttrEntry δ₁) (AttrEntry δ₂) where
+  coe := coeAttrEntry
+
+instance {δ₁: Dialect attr₁ σ₁ ε₁} {δ₂: Dialect attr₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
+    Coe (AttrDict δ₁) (AttrDict δ₂) where
+  coe := coeAttrDict
+  -/
+
+
+
+end CoeAlongCodeInjection
+
 -- Coercions across dialects
 /-
 variable [δ₁: Dialect attr₁ σ₁ ε₁] [δ₂: Dialect attr₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 -/
 
 /-
-def coeMLIRType [ty: Code ty] [ty': Code ty'] [inj: InjectCode ty ty']:
+def coeMLIRType [ty: Code ty] [ty': Code ty'] [inj: CodeInject ty ty']:
  MLIRType ty  → MLIRType ty'
   | .int sgn n   => .int sgn n
   | .float n     => .float n
@@ -253,10 +330,10 @@ def coeMLIRType [ty: Code ty] [ty': Code ty'] [inj: InjectCode ty ty']:
   | .tensor2d => .tensor2d
   | .tensor4d => .tensor4d
   | .erased => .erased
-  | .extended s  => .extended (inj.injectCode ty ty' s)
+  | .extended s  => .extended (inj.CodeInject ty ty' s)
 
 
-instance {ty: Code ty} {ty': Code ty'} [inj: InjectCode ty ty']:
+instance {ty: Code ty} {ty': Code ty'} [inj: CodeInject ty ty']:
     Coe (MLIRType ty) (MLIRType ty') where
   coe := coeMLIRType
 
