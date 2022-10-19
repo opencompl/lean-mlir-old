@@ -127,15 +127,51 @@ instance {α₁ α₂} [i₁: DialectAttrIntf α₁] [i₂: DialectAttrIntf α�
 ### Dialects
 -/
 
+
 /-
-inductive CustomAttr α where
-  eq: DecidableEq α
+A general structure representing the encoding of some
+data via a decidable, serializable 'code'.
 -/
+class Code (code: Type) where
+  decideCode: DecidableEq code
+  decode: code -> Type
+  showCode: code → String
+  -- readCode: String → Option code
+  --  readShowCode: readCode (showCode c) = .some c
 
 
--- τ is types required to define the signature of the Op.
-structure Op where
-  code: Type -- eg. inductive Add, inductive Sub, etc.
+instance [Code code] [Code code']: Code (code ⊕ code') where
+  decideCode c c' :=
+    match c with
+    | .inl cl => match c' with
+                 | .inl cl' =>
+                   match (Code.decideCode cl cl') with
+                   | .isTrue H => Decidable.isTrue (by congr)
+                   | .isFalse H => Decidable.isFalse
+                              (fun contra => by { cases contra; contradiction; })
+                 | .inr cr' => Decidable.isFalse (by simp)
+    | .inr cr =>
+                 match c' with
+                 | .inr cr' =>
+                   match (Code.decideCode cr cr') with
+                   | .isTrue H => Decidable.isTrue (by congr)
+                   | .isFalse H => Decidable.isFalse
+                              (fun contra => by { cases contra; contradiction; })
+                 | .inl cl' => Decidable.isFalse (by simp)
+  showCode
+  | .inl cl => Code.showCode cl
+  | .inr cr => Code.showCode cr
+
+  decode
+  | .inl cl => Code.decode cl
+  | .inr cr => Code.decode cr
+
+
+
+structure DSLTypes (code: Type) where
+  decode: code → Type
+
+structure DSLAttrs where
 
 
 -- TODO: Document and finish the Dialect interface
