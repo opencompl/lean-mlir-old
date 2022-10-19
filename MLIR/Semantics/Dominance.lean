@@ -19,20 +19,20 @@ defined in the scope.
 -/
 
 -- List of typed values that are in scope
-abbrev DomContext (δ: Dialect α σ ε) := List (SSAVal × MLIRType δ)
+abbrev DomContext (type: Type) := List (SSAVal × MLIRType type)
 
 -- Add a typed SSA value in the context
-def DomContext.addVal (ctx: DomContext δ) (val: SSAVal) (τ: MLIRType δ) :
-    DomContext δ :=
+def DomContext.addVal (ctx: DomContext type) (val: SSAVal) (τ: MLIRType type) :
+    DomContext type :=
   (val, τ)::ctx
 
 -- Return true if an SSA name is already defined
-def DomContext.isValDefined (ctx: DomContext δ) (val: SSAVal) : Bool :=
+def DomContext.isValDefined (ctx: DomContext type) (val: SSAVal) : Bool :=
   (ctx.find? (val == ·.fst)).isSome
 
 -- Return true if an SSA value has already been defined with the correct type
-def DomContext.isValUseCorrect (ctx: DomContext δ) (val: SSAVal)
-    (τ: MLIRType δ) : Bool :=
+def DomContext.isValUseCorrect [Code type] (ctx: DomContext type) (val: SSAVal)
+    (τ: MLIRType type) : Bool :=
   match (ctx.find? (val == ·.fst)) with
   | some (_, τ') => τ == τ'
   | none => false
@@ -43,7 +43,7 @@ def valDefinitionObeySSA (val: TypedSSAVal δ) (ctx: DomContext δ)
   if ctx.isValDefined val.fst then none else ctx.addVal val.fst val.snd
 
 -- Check that operands are already defined, with
-def operandsDefinitionObeySSA (args: List (TypedSSAVal δ)) (ctx: DomContext δ) : Bool :=
+def operandsDefinitionObeySSA [ct: Code type] (args: List (TypedSSAVal type)) (ctx: DomContext type) : Bool :=
   args.all (λ ⟨val, τ⟩ => ctx.isValUseCorrect val τ)
 
 /-
@@ -53,7 +53,7 @@ Check that an IR satisfies SSA.
 -/
 
 mutual
-def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContext δ) :=
+def singleBBRegionOpObeySSA [Code type] (op: Op attr type) (ctx: DomContext type) : Option (DomContext type) :=
   match op with
   | Op.mk _ results operands regions _ => do
     -- Check operands
@@ -64,12 +64,12 @@ def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContex
     let _ <- singleBBRegionRegionsObeySSA regions ctx
     -- Check results
     let ctx' <- match results with
-             | [] => ctx
+             | [] => .some ctx
              | [result] => valDefinitionObeySSA result ctx
              | _ => none
     ctx'
 
-def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
+def singleBBRegionRegionsObeySSA [Code type] (regions: List (Region attr type)) (ctx: DomContext type) : Option (DomContext type) :=
   match regions with
   | region::regions' => do
     let _ <- (singleBBRegionObeySSA region ctx)
@@ -77,14 +77,14 @@ def singleBBRegionRegionsObeySSA (regions: List (Region δ)) (ctx: DomContext δ
     ctx
   | [] => some ctx
 
-def singleBBRegionObeySSA (region: Region δ) (ctx: DomContext δ) : Option (DomContext δ) :=
+def singleBBRegionObeySSA [Code type] (region: Region attr type) (ctx: DomContext type) : Option (DomContext type) :=
   match region with
   | .mk name args stmts =>
     (args.foldlM (fun ctx arg => valDefinitionObeySSA arg ctx) ctx).bind
     (singleBBRegionOpsObeySSA stmts)
 
 
-def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (DomContext δ) :=
+def singleBBRegionOpsObeySSA [Code type](ops: List (Op attr type)) (ctx: DomContext type) : Option (DomContext type) :=
   match ops with
   | op::ops' => (singleBBRegionOpObeySSA op ctx).bind (singleBBRegionOpsObeySSA ops')
   | [] => some ctx
@@ -127,11 +127,11 @@ def valDefHasUniqueNames (ctx: NameContext) (val: SSAVal)
     none
 
 mutual
-def hasUniqueNamesOp (op: Op δ) (ctx: NameContext) : Option NameContext :=
+def hasUniqueNamesOp (op: Op attr type) (ctx: NameContext) : Option NameContext :=
   match op with
   | Op.mk _ _ _ regions _ => hasUniqueNamesRegions regions ctx
 
-def hasUniqueNamesRegions (regions: List (Region δ)) (ctx: NameContext) :
+def hasUniqueNamesRegions (regions: List (Region attr type)) (ctx: NameContext) :
     Option NameContext :=
   match regions with
   | region::regions' => do
@@ -139,7 +139,7 @@ def hasUniqueNamesRegions (regions: List (Region δ)) (ctx: NameContext) :
     (hasUniqueNamesRegions regions' ctx')
   | [] => none
 
-def hasUniqueNamesRegion (rgn: Region δ) (ctx: NameContext) :
+def hasUniqueNamesRegion (rgn: Region attr type) (ctx: NameContext) :
     Option NameContext :=
   match rgn with
   | .mk _ args ops => do
@@ -147,7 +147,7 @@ def hasUniqueNamesRegion (rgn: Region δ) (ctx: NameContext) :
       args.foldlM (fun ctx arg => valDefHasUniqueNames ctx arg.fst) ctx
     hasUniqueNamesOps ops ctx'
 
-def hasUniqueNamesOps (ops: List (Op δ)) (ctx: NameContext) :
+def hasUniqueNamesOps (ops: List (Op attr type)) (ctx: NameContext) :
     Option NameContext :=
   match ops with
   | op::ops' => do
@@ -166,20 +166,20 @@ Get the definition of a variable, or check if it is used
 mutual
 variable (mVar: SSAVal)
 
-def isSSADefInOp (op: Op δ) : Bool :=
+def isSSADefInOp (op: Op attr type) : Bool :=
   match op with
   | .mk _ _ _ regions _ => isSSADefInRegions regions
 
-def isSSADefInRegions (regions: List (Region δ)) : Bool :=
+def isSSADefInRegions (regions: List (Region attr type)) : Bool :=
   match regions with
   | [] => False
   | region::regions' => isSSADefInRegion region || isSSADefInRegions regions'
 
-def isSSADefInRegion (rgn: Region δ) : Bool :=
+def isSSADefInRegion (rgn: Region attr type) : Bool :=
   match rgn with
   | .mk _ _ ops => isSSADefInOps ops
 
-def isSSADefInOps (ops: List (Op δ)) : Bool :=
+def isSSADefInOps (ops: List (Op attr type)) : Bool :=
   match ops with
   | [] => False
   | op::ops' => isSSADefInOp op || isSSADefInOps ops'
@@ -190,7 +190,7 @@ end
 Check if the variable used by the operation.
 Do not check inside the regions inside the operation.
 -/
-def isUsed (var: SSAVal) (op: Op δ) : Bool :=
+def isUsed (var: SSAVal) (op: Op attr type) : Bool :=
   var ∈ op.argNames
 
 /-
@@ -198,29 +198,29 @@ Check if `op` is used by `user`.
 An operation is used by another operation if one of its
 argument is used by the operation.
 -/
-def isOpUsed (op user: Op δ) : Bool :=
+def isOpUsed (op user: Op attr type) : Bool :=
   op.resNames.any (fun arg => isUsed arg user)
 
 
 mutual
 variable (mVar: SSAVal)
 
-def isSSAUsedInOp (op: Op δ) : Bool :=
+def isSSAUsedInOp (op: Op attr type) : Bool :=
   match op with
   | .mk _ _ _ regions _ =>
     isUsed mVar op || isSSAUsedInRegions regions
 
-def isSSAUsedInRegions (regions: List (Region δ)) : Bool :=
+def isSSAUsedInRegions (regions: List (Region attr type)) : Bool :=
   match regions with
   | [] => False
   | region::regions' => isSSAUsedInRegion region || isSSAUsedInRegions regions'
 
 
-def isSSAUsedInRegion (rgn: Region δ) : Bool :=
+def isSSAUsedInRegion (rgn: Region attr type) : Bool :=
   match rgn with
   | .mk _ _ ops => isSSAUsedInOps ops
 
-def isSSAUsedInOps (ops: List (Op δ)) : Bool :=
+def isSSAUsedInOps (ops: List (Op attr type)) : Bool :=
   match ops with
   | [] => False
   | op::ops' => isSSAUsedInOp op || isSSAUsedInOps ops'
@@ -230,25 +230,25 @@ end
 mutual
 variable (mVar: SSAVal)
 
-def getDefiningOpInOp (op: Op δ) : Option (Op δ) :=
+def getDefiningOpInOp (op: Op attr type) : Option (Op attr type) :=
   if mVar ∈ op.resNames then
     some op
   else
     match op with
     | .mk _ _ _ regions _ => getDefiningOpInRegions regions
 
-def getDefiningOpInRegions (regions: List (Region δ)) : Option (Op δ) :=
+def getDefiningOpInRegions (regions: List (Region attr type)) : Option (Op attr type) :=
   match regions with
   | [] => none
   | region::regions' =>
     (getDefiningOpInRegion region).orElse
     (fun () => getDefiningOpInRegions regions')
 
-def getDefiningOpInRegion (rgn: Region δ) : Option (Op δ) :=
+def getDefiningOpInRegion (rgn: Region attr type) : Option (Op attr type) :=
   match rgn with
   | .mk _ _ ops => getDefiningOpInOps ops
 
-def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
+def getDefiningOpInOps (ops: List (Op attr type)) : Option (Op attr type) :=
   match ops with
   | [] => none
   | op::ops' =>
