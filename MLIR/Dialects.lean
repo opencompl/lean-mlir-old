@@ -199,7 +199,6 @@ class InjectCode (CODE: Code code) (CODE': Code code') where
    retractWellBehaved: ∀ (c: code), retractCode (injectCode c) = c
    injectWellBehaved: ∀ (c: code), CODE'.decode (injectCode c) = CODE.decode c
 
-
 -- TODO: Document and finish the Dialect interface
 class Dialect (α σ) (ε: σ → Type): Type :=
   name: String

@@ -163,7 +163,7 @@ def MLIRType.eval.str {τ: MLIRType type} (v: τ.eval): String :=
   | .erased, () => "<erased>"
   | .extended s, v => Code.showDecoded s v
 
-instance [ct: Code type] {τ: MLIRType type}: ToString τ.eval where
+
   toString := MLIRType.eval.str
 
 end -- of section defining type
