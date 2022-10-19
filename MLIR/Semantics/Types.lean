@@ -49,8 +49,8 @@ open Lean.Elab.Term
 open Lean.Parser.Term
 
 section
-variable (type: Type)
-variable [τ: Code type]
+variable {type: Type}
+variable [ct: Code type]
 
 /-
 ### Decidable equality for MLIRType
@@ -58,13 +58,13 @@ variable [τ: Code type]
 
 mutual
 
-def MLIRType.eq (τ₁ τ₂: MLIRType τ): Decidable (τ₁ = τ₂) := by
-  have DECIDE : DecidableEq type := τ.decideCode
+def MLIRType.eq (τ₁ τ₂: MLIRType type): Decidable (τ₁ = τ₂) := by
+  have DECIDE : DecidableEq type := ct.decideCode
   cases τ₁ <;> cases τ₂
   <;> try (simp; exact inferInstance)
   <;> try apply isFalse MLIRType.noConfusion
 
-private def MLIRType.eqList (l₁ l₂: List (MLIRType τ)): Decidable (l₁ = l₂) :=
+private def MLIRType.eqList (l₁ l₂: List (MLIRType type)): Decidable (l₁ = l₂) :=
   match l₁, l₂ with
   | [], [] => isTrue rfl
   | τ₁::l₁, τ₂::l₂ =>
@@ -76,8 +76,8 @@ private def MLIRType.eqList (l₁ l₂: List (MLIRType τ)): Decidable (l₁ = l
   | _::_, [] => isFalse List.noConfusion
 end
 
-instance: DecidableEq (MLIRType τ) :=
-  MLIRType.eq _
+instance: DecidableEq (MLIRType type) :=
+  MLIRType.eq
 
 
 /-
@@ -94,7 +94,7 @@ instance: DecidableEq (MLIRType τ) :=
  See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
 
 @[reducible, simp_itree, simp]
-def MLIR.AST.MLIRType.eval: MLIRType α -> Type
+def MLIR.AST.MLIRType.eval: MLIRType type -> Type
 | .float _ => Float
 | .int signedness sz=> FinInt sz
 | .tensor1d => Tensor1D
@@ -113,7 +113,7 @@ The requirements from the type interface allow us to prove that MLIR types have
 inhabitants and a decidable equality.
 -/
 
-def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
+def MLIR.AST.MLIRType.default (τ: MLIRType type): τ.eval :=
   match τ with
   | .int _ _ => .zero
   | .float _ => 0.0
@@ -127,10 +127,10 @@ def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
 
 
 
-instance (τ: MLIRType δ): Inhabited τ.eval where
+instance (τ: MLIRType type): Inhabited τ.eval where
   default := τ.default
 
-def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
+def MLIRType.eval.eq {τ: MLIRType type} (v₁ v₂: τ.eval): Decidable (v₁ = v₂) :=
   match τ with
   | .int _ _ => inferInstance
   | .float _ =>
@@ -144,11 +144,11 @@ def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v
   | .erased => inferInstance
   | .extended s => Code.decideDecoded s v₁ v₂
 
-instance {τ: MLIRType δ}: DecidableEq τ.eval :=
+instance {τ: MLIRType type}: DecidableEq τ.eval :=
   MLIRType.eval.eq
 
 
-def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
+def MLIRType.eval.str {τ: MLIRType type} (v: τ.eval): String :=
   match τ, v with
   | .int .Signless _, v => toString v.toUint
   | .int .Unsigned _, v => toString v.toUint
@@ -163,7 +163,7 @@ def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   | .erased, () => "<erased>"
   | .extended s, v => Code.showDecoded s v
 
-instance {τ: MLIRType δ}: ToString τ.eval where
+instance [ct: Code type] {τ: MLIRType type}: ToString τ.eval where
   toString := MLIRType.eval.str
 
-end -- of section defining δ
+end -- of section defining type

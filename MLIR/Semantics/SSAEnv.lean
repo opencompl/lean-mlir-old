@@ -34,23 +34,20 @@ import MLIR.AST
 open MLIR.AST
 
 section
-variable {α σ: Type} {ε: σ → Type}
 
--- SSAScope
-
-def SSAScope (δ: Dialect α σ ε) :=
-  List (SSAVal × (τ: MLIRType δ) × τ.eval)
+def SSAScope (t: Type) [ct: Code t] :=
+  List (SSAVal × (τ: MLIRType t) × τ.eval)
 
 @[simp]
-def SSAScope.getT {δ: Dialect α σ ε} (name: SSAVal):
-  SSAScope δ → Option ((τ: MLIRType δ) × τ.eval)
+def SSAScope.getT [ct: Code t] (name: SSAVal):
+  SSAScope t → Option ((τ: MLIRType t) × τ.eval)
   | [] => none
   | ⟨name', τ, v⟩ :: l =>
       if name' = name then some ⟨τ,v⟩ else getT name l
 
 @[simp]
-def SSAScope.get {δ: Dialect α σ ε} (name: SSAVal):
-  SSAScope δ → (τ: MLIRType δ) → Option τ.eval
+def SSAScope.get [ct: Code t] (name: SSAVal):
+  SSAScope t → (τ: MLIRType t) → Option τ.eval
   | [], _ => none
   | ⟨name', τ', v'⟩ :: l, τ =>
       if H: name' = name then
@@ -61,18 +58,18 @@ def SSAScope.get {δ: Dialect α σ ε} (name: SSAVal):
       else get name l τ
 
 @[simp]
-def SSAScope.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
-  SSAScope δ → SSAScope δ
+def SSAScope.set [ct: Code t] (name: SSAVal) (τ: MLIRType t) (v: τ.eval):
+  SSAScope t → SSAScope t
   | [] => [⟨name, τ, v⟩]
   | ⟨name', τ', v'⟩ :: l =>
       if name' = name
       then ⟨name', τ, v⟩ :: l
       else ⟨name', τ', v'⟩ :: set name τ v l
 
-def SSAScope.str {δ: Dialect α σ ε} (scope: SSAScope δ): String :=
+def SSAScope.str [ct: Code t] (scope: SSAScope t): String :=
   "\n".intercalate <| scope.map fun ⟨name, τ, v⟩ => s!"{name} = {v} : {τ}"
 
-instance {δ: Dialect α σ ε}: ToString (SSAScope δ) where
+instance [ct: Code t]: ToString (SSAScope t) where
   toString := SSAScope.str
 
 /- Maybe useful in the future, for proofs
@@ -87,9 +84,9 @@ def SSAScope.maps (l: SSAScope) (name: SSAVal) (τ: MLIRTy) (v: τ.eval) :=
 
 -- SSAScope proofs
 
-theorem SSAScope.getT_set_ne (v v': SSAVal):
+theorem SSAScope.getT_set_ne [ct: Code t] (v v': SSAVal):
     v' ≠ v →
-    ∀ (scope: SSAScope δ) (τ: MLIRType δ) val,
+    ∀ (scope: SSAScope t) (τ: MLIRType t) val,
     getT v (set v' τ val scope) = getT v scope := by
   intros Hne scope τ val
   induction scope with
@@ -101,8 +98,8 @@ theorem SSAScope.getT_set_ne (v v': SSAVal):
     . byCases H2: head.fst = v
       assumption
 
-theorem SSAScope.getT_set_eq (scope: SSAScope δ) (v: SSAVal) (τ: MLIRType δ) val:
-    getT v (set v τ val scope) = some ⟨τ, val⟩  := by
+theorem SSAScope.getT_set_eq [ct: Code t] (scope: SSAScope t) (v: SSAVal) (τ: MLIRType t) val:
+    getT  v (set  v τ val scope) = some ⟨τ, val⟩  := by
   induction scope with
   | nil => simp
   | cons head tail =>
@@ -110,9 +107,9 @@ theorem SSAScope.getT_set_eq (scope: SSAScope δ) (v: SSAVal) (τ: MLIRType δ) 
     byCases H: head.fst = v
     assumption
 
-theorem SSAScope.get_set_ne_val (v v': SSAVal):
+theorem SSAScope.get_set_ne_val [ct: Code t] (v v': SSAVal):
     v' ≠ v →
-    ∀ (scope: SSAScope δ) (τ τ': MLIRType δ) val,
+    ∀ (scope: SSAScope t) (τ τ': MLIRType t) val,
     get v (set v' τ val scope) τ' = get v scope τ' := by
   intros Hne scope τ τ' val
   induction scope with
@@ -123,9 +120,9 @@ theorem SSAScope.get_set_ne_val (v v': SSAVal):
     . simp [Hne]
     . byCases H2: head.fst = v <;> try assumption
 
-theorem SSAScope.get_set_ne_type (τ τ': MLIRType δ):
+theorem SSAScope.get_set_ne_type [ct: Code t] (τ τ': MLIRType t):
     τ' ≠ τ →
-    ∀ (scope: SSAScope δ) (v: SSAVal) val,
+    ∀ (scope: SSAScope t) (v: SSAVal) val,
     get v (set v τ' val scope) τ = none := by
   intros Hne scope v val
   induction scope with
@@ -136,7 +133,7 @@ theorem SSAScope.get_set_ne_type (τ τ': MLIRType δ):
     . simp [Hne]
     . byCases H2: head.fst = v <;> try assumption
 
-theorem SSAScope.get_set_eq (v: SSAVal) (scope: SSAScope δ) (τ: MLIRType δ) val:
+theorem SSAScope.get_set_eq [ct: Code t] (v: SSAVal) (scope: SSAScope t) (τ: MLIRType t) val:
     get v (set v τ val scope) τ = some val := by
   induction scope with
   | nil => simp; apply cast_eq
@@ -147,46 +144,46 @@ theorem SSAScope.get_set_eq (v: SSAVal) (scope: SSAScope δ) (τ: MLIRType δ) v
 
 -- SSAEnv
 
-inductive SSAEnv (δ: Dialect α σ ε) :=
-  | One (scope: SSAScope δ)
-  | Cons (head: SSAScope δ) (tail: SSAEnv δ)
+inductive SSAEnv (t: Type) [ct: Code t] :=
+  | One (scope: SSAScope t)
+  | Cons (head: SSAScope t) (tail: SSAEnv t)
 
-instance: Inhabited (SSAEnv δ) where
+instance [Code t]: Inhabited (SSAEnv t) where
   default := .One []
 
 -- An SSA environment with a single empty SSAScope
-def SSAEnv.empty {δ: Dialect α σ ε}: SSAEnv δ := One []
+def SSAEnv.empty [ct: Code t]: SSAEnv t := One []
 
-def SSAEnv.str {δ: Dialect α σ ε} (env: SSAEnv δ): String :=
+def SSAEnv.str [ct: Code t] (env: SSAEnv t): String :=
   match env with
   | One s => s.toString
   | Cons head tail => head.toString ++ "---\n" ++ tail.str
 
-instance {δ: Dialect α σ ε}: ToString (SSAEnv δ) where
+instance {ct: Code t}: ToString (SSAEnv t) where
   toString := SSAEnv.str
 
-def SSAEnv.getT {δ: Dialect α σ ε} (name: SSAVal):
-  SSAEnv δ → Option ((τ: MLIRType δ) × τ.eval)
+def SSAEnv.getT [ct: Code t] (name: SSAVal):
+  SSAEnv t → Option ((τ: MLIRType t) × τ.eval)
   | One s => s.getT name
   | Cons s l => s.getT name <|> getT name l
 
-def SSAEnv.get {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ):
-  SSAEnv δ → Option τ.eval
+def SSAEnv.get [ct: Code t] (name: SSAVal) (τ: MLIRType t):
+  SSAEnv t → Option τ.eval
   | One s => s.get name τ
   | Cons s l => s.get name τ <|> get name τ l
 
-@[simp] def SSAEnv.get_One:
+@[simp] def SSAEnv.get_One [ct: Code t] {scope: SSAScope t (ct := ct)} {τ: MLIRType t}:
   SSAEnv.get name τ (.One scope) = scope.get name τ := rfl
 
-def SSAEnv.set {δ: Dialect α σ ε} (name: SSAVal) (τ: MLIRType δ) (v: τ.eval):
-  SSAEnv δ → SSAEnv δ
+def SSAEnv.set [ct: Code t] (name: SSAVal) (τ: MLIRType t) (v: τ.eval):
+  SSAEnv t → SSAEnv t
   | One s => One (s.set name τ v)
   | Cons s l => Cons (s.set name τ v) l
 
-@[simp] def SSAEnv.set_One:
+@[simp] def SSAEnv.set_One [ct: Code t] {scope: SSAScope t (ct := ct)} {τ: MLIRType t} {v: τ.eval}:
   SSAEnv.set name τ v (.One scope) = .One (scope.set name τ v) := rfl
 
-instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
+instance {ct: Code t}: DecidableEq ((τ: MLIRType t) × τ.eval) :=
   fun ⟨τ₁, v₁⟩ ⟨τ₂, v₂⟩ =>
     if H: τ₁ = τ₂ then
       if H': cast (by simp [H]) v₁ = v₂ then
@@ -194,14 +191,14 @@ instance {δ: Dialect α σ ε}: DecidableEq ((τ: MLIRType δ) × τ.eval) :=
       else isFalse fun h => by cases h; cases H' rfl
     else isFalse fun h => by cases h; cases H rfl
 
-def SSAEnv.eqOn (l: List SSAVal) (env₁ env₂: SSAEnv δ): Bool :=
+def SSAEnv.eqOn [ct: Code t] (l: List SSAVal) (env₁ env₂: SSAEnv t): Bool :=
   l.all (fun v => env₁.getT v == env₂.getT v)
 
 -- SSAEnv theorems
 
-theorem SSAEnv.getT_set_ne (v v': SSAVal):
+theorem SSAEnv.getT_set_ne [ct: Code t] (v v': SSAVal):
     v' ≠ v →
-    ∀ (env: SSAEnv δ) (τ: MLIRType δ) val,
+    ∀ (env: SSAEnv t) (τ: MLIRType t) val,
     getT v (set v' τ val env) = getT v env := by
   intros Hne env τ val
   cases env with
@@ -214,7 +211,7 @@ theorem SSAEnv.getT_set_ne (v v': SSAVal):
     rw [SSAScope.getT_set_ne]
     assumption
 
-theorem SSAEnv.getT_set_eq (env: SSAEnv δ) (v: SSAVal) (τ: MLIRType δ) val:
+theorem SSAEnv.getT_set_eq [ct: Code type] (env: SSAEnv type) (v: SSAVal) (τ: MLIRType type) val:
     getT v (SSAEnv.set v τ val env) = some ⟨τ, val⟩  := by
   cases env with
   | One s =>
@@ -224,9 +221,9 @@ theorem SSAEnv.getT_set_eq (env: SSAEnv δ) (v: SSAVal) (τ: MLIRType δ) val:
     simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
     simp [SSAScope.getT_set_eq]
 
-theorem SSAEnv.get_set_ne_val (v v': SSAVal):
+theorem SSAEnv.get_set_ne_val [ct: Code t] (v v': SSAVal):
     v' ≠ v →
-    ∀ (env: SSAEnv δ) (τ τ': MLIRType δ) val,
+    ∀ (env: SSAEnv t) (τ τ': MLIRType t) val,
     get v τ' (set v' τ val env) = get v τ' env := by
   intros Hne env τ τ' val
   cases env with
@@ -239,7 +236,7 @@ theorem SSAEnv.get_set_ne_val (v v': SSAVal):
     rw [SSAScope.get_set_ne_val]
     assumption
 
-theorem SSAEnv.get_set_eq (v: SSAVal) (env: SSAEnv δ) (τ: MLIRType δ) val:
+theorem SSAEnv.get_set_eq [ct: Code type] (v: SSAVal) (env: SSAEnv type) (τ: MLIRType type) val:
     get v τ (set v τ val env) = some val := by
   cases env with
   | One s =>
@@ -252,12 +249,13 @@ theorem SSAEnv.get_set_eq (v: SSAVal) (env: SSAEnv δ) (τ: MLIRType δ) val:
 
 -- Interactions manipulating the environment
 
-inductive SSAEnvE (δ: Dialect α σ ε): Type → Type where
-  | Get: (τ: MLIRType δ) → [Inhabited τ.eval] → SSAVal → SSAEnvE δ τ.eval
-  | Set: (τ: MLIRType δ) → SSAVal → τ.eval → SSAEnvE δ Unit
+inductive SSAEnvE (type: Type) [ct: Code type]: Type → Type where
+  | Get: (τ: MLIRType type) → SSAVal → SSAEnvE type τ.eval
+  | Set: (τ: MLIRType type) → SSAVal → τ.eval → SSAEnvE type Unit
 
 @[simp_itree]
-def SSAEnvE.handle {E}: SSAEnvE δ ~> StateT (SSAEnv δ) (Fitree E) :=
+def SSAEnvE.handle {E} {type: Type} [ct: Code type]:
+  SSAEnvE type ~> StateT (SSAEnv type) (Fitree E) :=
   fun _ e env =>
     match e with
     | Get τ name =>
@@ -267,8 +265,8 @@ def SSAEnvE.handle {E}: SSAEnvE δ ~> StateT (SSAEnv δ) (Fitree E) :=
     | Set τ name v =>
         return (.unit, env.set name τ v)
 
-def SSAEnvE.handleLogged {E}:
-    SSAEnvE δ ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
+def SSAEnvE.handleLogged {E} {type: Type} [ct: Code type]:
+    SSAEnvE type ~> WriterT (StateT (SSAEnv type) (Fitree E)) :=
   fun _ e => do
     let env <- WriterT.lift StateT.get
     match e with
@@ -286,13 +284,13 @@ def SSAEnvE.handleLogged {E}:
         return ()
 
 @[simp_itree]
-def SSAEnv.get? {E} (δ: Dialect α σ ε) [Member (SSAEnvE δ) E]
-  (τ: MLIRType δ) (name: SSAVal): Fitree E τ.eval :=
+def SSAEnv.get? {E} [ct: Code type] [Member (SSAEnvE type) E]
+  (τ: MLIRType type) (name: SSAVal): Fitree E τ.eval :=
     Fitree.trigger (SSAEnvE.Get τ name)
 
 @[simp_itree]
-def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
-    (τ: MLIRType δ) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
+def SSAEnv.set? {E} [ct: Code type] [Member (SSAEnvE type) E]
+    (τ: MLIRType type) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
   match name? with
   | some name =>
       Fitree.trigger (SSAEnvE.Set τ name v)
@@ -301,47 +299,46 @@ def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
 
 -- Handlers
 
-def interpSSA (t: Fitree (SSAEnvE δ) R): StateT (SSAEnv δ) (Fitree Void1) R :=
+def interpSSA [ct: Code type] (t: Fitree (SSAEnvE type) R): StateT (SSAEnv type) (Fitree Void1) R :=
   t.interpState SSAEnvE.handle
 
-def interpSSA' {E} (t: Fitree (SSAEnvE δ +' E) R):
-    StateT (SSAEnv δ) (Fitree E) R :=
+def interpSSA'  [ct: Code type] {E} (t: Fitree (SSAEnvE type +' E) R):
+    StateT (SSAEnv type) (Fitree E) R :=
   t.interpState (Fitree.case SSAEnvE.handle Fitree.liftHandler)
 
-def interpSSALogged (t: Fitree (SSAEnvE δ) R):
-    WriterT (StateT (SSAEnv δ) (Fitree Void1)) R :=
+def interpSSALogged [ct: Code type] (t: Fitree (SSAEnvE type) R):
+    WriterT (StateT (SSAEnv type) (Fitree Void1)) R :=
   t.interp SSAEnvE.handleLogged
 
-def interpSSALogged' {E} (t: Fitree (SSAEnvE δ +' E) R):
-    WriterT (StateT (SSAEnv δ) (Fitree E)) R :=
+def interpSSALogged' [ct: Code type]  {E} (t: Fitree (SSAEnvE type +' E) R):
+    WriterT (StateT (SSAEnv type) (Fitree E)) R :=
   t.interp (Fitree.case SSAEnvE.handleLogged Fitree.liftHandler)
 
-@[simp] theorem interpSSA'_Vis_left {δ: Dialect α σ ε}
-    (k: T → Fitree (SSAEnvE δ +' E) R) (e: SSAEnvE δ T) (s₁: SSAEnv δ):
+@[simp] theorem interpSSA'_Vis_left [ct: Code type]
+    (k: T → Fitree (SSAEnvE type +' E) R) (e: SSAEnvE type T) (s₁: SSAEnv type):
   interpSSA' (Fitree.Vis (Sum.inl e) k) s₁ =
   Fitree.bind (SSAEnvE.handle _ e s₁) (fun (x,s₂) => interpSSA' (k x) s₂) :=
   rfl
 
-@[simp] theorem interpSSA'_Vis_right (k: T → Fitree (SSAEnvE Δ +' E) R):
+@[simp] theorem interpSSA'_Vis_right [Code type] (k: T → Fitree (SSAEnvE type +' E) R):
   interpSSA' (Fitree.Vis (Sum.inr e) k) =
   fun s => Fitree.Vis e (fun x => interpSSA' (k x) s) := rfl
 
-@[simp] theorem interpSSA'_ret {δ: Dialect α σ ε}:
-  @interpSSA' _ _ _ δ _ E (Fitree.ret r) = fun s => Fitree.ret (r,s) := rfl
+@[simp] theorem interpSSA'_ret [ct: Code type]: interpSSA' (ct := ct) (E := E) (Fitree.ret r) = fun s => Fitree.ret (r,s) := rfl
 
 private theorem pair_eta {α β: Type} (x: α × β): (x.fst, x.snd) = x :=
   match x with
   | (_, _) => rfl
 
-@[simp] theorem interpSSA'_trigger_MemberSumL {Δ: Dialect α' σ' ε'}
-    (e: SSAEnvE Δ T) (s₁: SSAEnv Δ):
-  interpSSA' (@Fitree.trigger (SSAEnvE Δ) (SSAEnvE Δ +' E) _ MemberSumL e) s₁ =
+@[simp] theorem interpSSA'_trigger_MemberSumL [Code type]
+    (e: SSAEnvE type T) (s₁: SSAEnv type):
+  interpSSA' (@Fitree.trigger (SSAEnvE type) (SSAEnvE type +' E) _ MemberSumL e) s₁ =
   SSAEnvE.handle _ e s₁ := by
   simp [Fitree.trigger, pair_eta]
 
-theorem interpSSA'_bind {δ: Dialect α σ ε}
-    (t: Fitree (SSAEnvE δ +' E) T) (k: T → Fitree (SSAEnvE δ +' E) R)
-    (s₁: SSAEnv δ):
-  interpSSA' (δ := δ) (Fitree.bind t k) s₁ =
+theorem interpSSA'_bind [ct: Code type]
+    (t: Fitree (SSAEnvE type +' E) T) (k: T → Fitree (SSAEnvE type +' E) R)
+    (s₁: SSAEnv type):
+  interpSSA' (type := type) (Fitree.bind t k) s₁ =
   Fitree.bind (interpSSA' t s₁) (fun (x,s₂) => interpSSA' (k x) s₂) := by
   apply Fitree.interpState_bind

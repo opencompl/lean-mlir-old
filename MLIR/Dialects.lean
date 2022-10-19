@@ -146,12 +146,12 @@ class Code (code: Type) where
   showDecoded: (c: code) -> decode c → String
 
 instance EmptyCode: Code Void where
-  decideCode c c' := by cases c
+  decideCode c c' := by cases c'
   inhabited c := by cases c
   decode c := by cases c
   decideDecoded c := by cases c
   showCode c := by cases c
-  showDecoded c _ := by cases c
+  showDecoded c d := by cases c
 
 instance [Code code] [Code code']: Code (code ⊕ code') where
   decideCode c c' :=
