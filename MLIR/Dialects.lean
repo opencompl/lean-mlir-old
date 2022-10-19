@@ -133,17 +133,25 @@ instance {α₁ α₂} [i₁: DialectAttrIntf α₁] [i₂: DialectAttrIntf α�
 
 /-
 A general structure representing the encoding of some
-data via a decidable, serializable 'code'.
+data via a decidable, serializable 'code', and an
+accompanying 'decode' function which decodes the code
+into the Type universe.
 -/
 class Code (code: Type) where
   decideCode: DecidableEq code
   decode: code -> Type
+  inhabited: (c: code) -> decode c
+  decideDecoded: (c: code) -> DecidableEq (decode c)
   showCode: code → String
+  showDecoded: (c: code) -> decode c → String
 
 instance EmptyCode: Code Void where
   decideCode c c' := by cases c
+  inhabited c := by cases c
   decode c := by cases c
+  decideDecoded c := by cases c
   showCode c := by cases c
+  showDecoded c _ := by cases c
 
 instance [Code code] [Code code']: Code (code ⊕ code') where
   decideCode c c' :=
@@ -167,9 +175,18 @@ instance [Code code] [Code code']: Code (code ⊕ code') where
   | .inl cl => Code.showCode cl
   | .inr cr => Code.showCode cr
 
+  inhabited
+  | .inl cl => (Code.inhabited cl)
+  | .inr cr => (Code.inhabited cr)
   decode
   | .inl cl => Code.decode cl
   | .inr cr => Code.decode cr
+  decideDecoded
+  | .inl cl, d => Code.decideDecoded cl d
+  | .inr cr, d => Code.decideDecoded cr d
+  showDecoded
+  | .inl cl, v => Code.showDecoded cl v
+  | .inr cr, v => Code.showDecoded cr v
 
 
 /-

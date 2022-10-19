@@ -49,7 +49,8 @@ open Lean.Elab.Term
 open Lean.Parser.Term
 
 section
-variable {α σ ε} [δ: Dialect α σ ε]
+variable (type: Type)
+variable [τ: Code type]
 
 /-
 ### Decidable equality for MLIRType
@@ -57,12 +58,13 @@ variable {α σ ε} [δ: Dialect α σ ε]
 
 mutual
 
-def MLIRType.eq (τ₁ τ₂: MLIRType δ): Decidable (τ₁ = τ₂) := by
+def MLIRType.eq (τ₁ τ₂: MLIRType τ): Decidable (τ₁ = τ₂) := by
+  have DECIDE : DecidableEq type := τ.decideCode
   cases τ₁ <;> cases τ₂
   <;> try (simp; exact inferInstance)
   <;> try apply isFalse MLIRType.noConfusion
 
-private def MLIRType.eqList (l₁ l₂: List (MLIRType δ)): Decidable (l₁ = l₂) :=
+private def MLIRType.eqList (l₁ l₂: List (MLIRType τ)): Decidable (l₁ = l₂) :=
   match l₁, l₂ with
   | [], [] => isTrue rfl
   | τ₁::l₁, τ₂::l₂ =>
@@ -74,8 +76,8 @@ private def MLIRType.eqList (l₁ l₂: List (MLIRType δ)): Decidable (l₁ = l
   | _::_, [] => isFalse List.noConfusion
 end
 
-instance: DecidableEq (MLIRType δ) :=
-  MLIRType.eq
+instance: DecidableEq (MLIRType τ) :=
+  MLIRType.eq _
 
 
 /-
@@ -92,7 +94,7 @@ instance: DecidableEq (MLIRType δ) :=
  See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
 
 @[reducible, simp_itree, simp]
-def MLIR.AST.MLIRType.eval: MLIRType δ -> Type
+def MLIR.AST.MLIRType.eval: MLIRType α -> Type
 | .float _ => Float
 | .int signedness sz=> FinInt sz
 | .tensor1d => Tensor1D
@@ -100,7 +102,7 @@ def MLIR.AST.MLIRType.eval: MLIRType δ -> Type
 | .tensor4d => Tensor4D
 | .index => Int
 | .undefined _ => Unit
-| .extended σ => ε σ
+| .extended e => Code.decode e
 | .erased => Unit
 
 
@@ -120,7 +122,7 @@ def MLIR.AST.MLIRType.default (τ: MLIRType δ): τ.eval :=
   | .tensor2d => Tensor2D.empty
   | .tensor4d => Tensor4D.empty
   | .undefined name => ()
-  | .extended s => DialectTypeIntf.inhabited s
+  | .extended s => Code.inhabited s
   | .erased => ()
 
 
@@ -140,7 +142,7 @@ def MLIRType.eval.eq {τ: MLIRType δ} (v₁ v₂: τ.eval): Decidable (v₁ = v
   | .index => inferInstance
   | .undefined _ => inferInstance
   | .erased => inferInstance
-  | .extended s => DialectTypeIntf.eq s v₁ v₂
+  | .extended s => Code.decideDecoded s v₁ v₂
 
 instance {τ: MLIRType δ}: DecidableEq τ.eval :=
   MLIRType.eval.eq
@@ -159,7 +161,7 @@ def MLIRType.eval.str {τ: MLIRType δ} (v: τ.eval): String :=
   | .index, v => toString v
   | .undefined _, () => "<undefined>"
   | .erased, () => "<erased>"
-  | .extended s, v => DialectTypeIntf.str s v
+  | .extended s, v => Code.showDecoded s v
 
 instance {τ: MLIRType δ}: ToString τ.eval where
   toString := MLIRType.eval.str
