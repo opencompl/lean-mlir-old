@@ -200,18 +200,23 @@ in proving that retract and inject are well behaved.
 class CodeInjection (C1: Code code) (C2: Code code') where
    injectCode: code → code'
    injectValue: (c: code) -> (v: C1.decode c) → C2.decode (injectCode c)
-   retract: code' → Option code
-   retractWellBehaved: ∀ (c: code), retract (injectCode c) = .some c
-   injectWellBehaved: ∀ (c: code), C2.decode (injectCode c) = C1.decode c
+   retractCode: code' → Option code
+   retractCodeWellBehaved: ∀ (c: code), retractCode (injectCode c) = .some c
+   injectCodeWellBehaved: ∀ (c: code), C2.decode (injectCode c) = C1.decode c
+   retractValue: (c': code') -> (v': C2.decode c') -> (c: code) -> Option (C1.decode c)
+   -- retractValueWellBehaved (c: code) (v: C1.decode c): retractValue (injectCode c) (injectValue c v) c = Option.some v
 
 instance [C1: Code c1] [C2: Code c2] : CodeInjection C1 (CodeSum (C1 := C1) (C2 := C2)) where
   injectCode := Sum.inl
   injectValue c v := v
-  retract
+  retractCode
   | Sum.inl c1 => .some c1
   | Sum.inr _ => .none
-  retractWellBehaved c := rfl
-  injectWellBehaved c := by { simp; rfl; }
+  retractCodeWellBehaved c := rfl
+  injectCodeWellBehaved c := by { simp; rfl; }
+  retractValue
+  | Sum.inl c1, v1, c => match (C1.decideCode c1  c) with | .isTrue H => .some (H ▸ v1) | .isFalse _H => .none
+  | Sum.inr _, _, _=> .none
   
 
 -- TODO: Document and finish the Dialect interface
