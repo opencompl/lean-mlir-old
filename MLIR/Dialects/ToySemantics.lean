@@ -1,7 +1,6 @@
 import MLIR.Dialects.ToyModel
 import MLIR.Dialects.BuiltinModel
 import MLIR.Semantics.Fitree
-import MLIR.Semantics.Verifier
 import MLIR.Semantics.SSAEnv
 import MLIR.Semantics.UB
 import MLIR.Semantics.TensorElem

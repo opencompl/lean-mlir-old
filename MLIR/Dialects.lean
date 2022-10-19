@@ -2,6 +2,9 @@
 ## Interface for MLIR dialects
 -/
 
+-- Void type that is inhabited.
+inductive Void :=
+deriving DecidableEq
 
 /-
 ### Extended types and attributes
@@ -136,9 +139,11 @@ class Code (code: Type) where
   decideCode: DecidableEq code
   decode: code -> Type
   showCode: code → String
-  -- readCode: String → Option code
-  --  readShowCode: readCode (showCode c) = .some c
 
+instance EmptyCode: Code Void where
+  decideCode c c' := by cases c
+  decode c := by cases c
+  showCode c := by cases c
 
 instance [Code code] [Code code']: Code (code ⊕ code') where
   decideCode c c' :=
@@ -167,11 +172,15 @@ instance [Code code] [Code code']: Code (code ⊕ code') where
   | .inr cr => Code.decode cr
 
 
-
-structure DSLTypes (code: Type) where
-  decode: code → Type
-
-structure DSLAttrs where
+/-
+A code can inject into a larger code, if the decoding
+of the code is consistent.
+-/
+class InjectCode (CODE: Code code) (CODE': Code code') where
+   injectCode: code → code'
+   retractCode: code' → code
+   retractWellBehaved: ∀ (c: code), retractCode (injectCode c) = c
+   injectWellBehaved: ∀ (c: code), CODE'.decode (injectCode c) = CODE.decode c
 
 
 -- TODO: Document and finish the Dialect interface
@@ -192,8 +201,6 @@ used in a couple of aliases, eg. `MLIRTy` (for `MLIRType Dialect.empty`) and
 `AttrVal` (for `AttrValue Dialect.empty`).
 -/
 
-inductive Void :=
-deriving DecidableEq
 
 instance: DialectTypeIntf Void (fun _ => Unit) where
   inhabited s := nomatch s

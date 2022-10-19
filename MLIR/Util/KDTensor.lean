@@ -495,7 +495,7 @@ theorem shapeProd_nonzero_implies_member_nonzero: ∀ (xs: List Nat)
    (x: Nat) (MEM: List.Mem x xs) (PROD: shapeProd xs > 0) , x > 0 := by {
    intros xs x MEM;
    induction MEM;
-   case head a as => {
+   case head a  => {
      simp [shapeProd, List.foldr];
      intros H;
      rewrite [<- Nat.nonzero_iff_gt_zero];

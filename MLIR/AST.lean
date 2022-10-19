@@ -81,120 +81,119 @@ inductive Signedness :=
 | Signed   -- si*
 deriving DecidableEq
 
-inductive MLIRType (δ: Dialect α σ ε) :=
-| int: Signedness -> Nat -> MLIRType δ
-| float: Nat -> MLIRType δ
-| tensor1d: MLIRType δ -- tensor of int values.
-| tensor2d: MLIRType δ -- tensor of int values.
-| tensor4d: MLIRType δ -- tensor of int values.
-| index:  MLIRType δ
-| undefined: String → MLIRType δ
-| extended: σ → MLIRType δ
-| erased: MLIRType δ -- A type that is erased by dialect retraction.
+inductive MLIRType (τ: Code code) :=
+| int: Signedness -> Nat -> MLIRType τ
+| float: Nat -> MLIRType τ
+| tensor1d: MLIRType τ -- tensor of int values.
+| tensor2d: MLIRType τ -- tensor of int values.
+| tensor4d: MLIRType τ -- tensor of int values.
+| index:  MLIRType τ
+| undefined: String → MLIRType τ
+| extended: code → MLIRType τ
+| erased: MLIRType τ -- A type that is erased by dialect retraction.
 
 -- We define "MLIRTy" to be just the basic types outside of any dialect
-abbrev MLIRTy := @MLIRType _ _ _ Dialect.empty
+abbrev MLIRTy := @MLIRType _ EmptyCode
 -- Other useful abbreviations
-abbrev MLIRType.i1: MLIRType δ := MLIRType.int .Signless 1
-abbrev MLIRType.i32: MLIRType δ := MLIRType.int .Signless 32
+abbrev MLIRType.i1: MLIRType τ := MLIRType.int .Signless 1
+abbrev MLIRType.i32: MLIRType τ := MLIRType.int .Signless 32
 
 -- An SSA value with a type
-abbrev TypedSSAVal (δ: Dialect α σ ε) := SSAVal × MLIRType δ
+abbrev TypedSSAVal (τ: Code code) := SSAVal × MLIRType τ
 
 mutual
 
 -- | TODO: factor Symbol out from AttrValue
-inductive AttrValue (δ: Dialect α σ ε) :=
-| symbol: String -> AttrValue δ -- symbol ref attr
-| str : String -> AttrValue δ
-| int : Int -> AttrValue δ
-| nat: Nat -> AttrValue δ
-| bool : Bool -> AttrValue δ
-| float : Float -> AttrValue δ
-| affine: AffineMap -> AttrValue δ
-| permutation: List Nat -> AttrValue δ -- a permutation
-| list: List (AttrValue δ) -> AttrValue δ
--- | guaranteee: both components will be AttrValue δ.Symbol.
+inductive AttrValue (α: Code code) :=
+| symbol: String -> AttrValue α -- symbol ref attr
+| str : String -> AttrValue α
+| int : Int -> AttrValue α
+| nat: Nat -> AttrValue α
+| bool : Bool -> AttrValue α
+| float : Float -> AttrValue α
+| affine: AffineMap -> AttrValue α
+| permutation: List Nat -> AttrValue α -- a permutation
+| list: List (AttrValue α) -> AttrValue α
+-- | guaranteee: both components will be AttrValue α.Symbol.
 -- | TODO: factor symbols out.
-| nestedsymbol: AttrValue δ -> AttrValue δ -> AttrValue δ
-| alias: String -> AttrValue δ
-| dict: AttrDict δ -> AttrValue δ
-| opaque_: (dialect: String) -> (value: String) -> AttrValue δ
-| opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRType δ) -> AttrValue δ
-| unit: AttrValue δ
-| extended: α → AttrValue δ
-| erased: AttrValue δ
+| nestedsymbol: AttrValue α -> AttrValue α -> AttrValue α
+| alias: String -> AttrValue α
+| dict: AttrDict α -> AttrValue α
+| opaque_: (dialect: String) -> (value: String) -> AttrValue α
+| opaqueElements: (dialect: String) -> (value: String) -> (type: MLIRType α) -> AttrValue α
+| unit: AttrValue α
+| extended: code → AttrValue α
+| erased: AttrValue α
 
 -- https://mlir.llvm.org/docs/LangRef/#attributes
 -- | TODO: add support for mutually inductive records / structures
-inductive AttrEntry (δ: Dialect α σ ε) :=
+inductive AttrEntry (α: Code code) :=
   | mk: (key: String)
-      -> (value: AttrValue δ)
-      -> AttrEntry δ
+      -> (value: AttrValue α)
+      -> AttrEntry α
 
-inductive AttrDict (δ: Dialect α σ ε) :=
-| mk: List (AttrEntry δ) -> AttrDict δ
+inductive AttrDict (α: Code code) :=
+| mk: List (AttrEntry α) -> AttrDict α
 
 end
 
 -- We define "AttrVal" to be just the basic attributes outside of any dialect
-abbrev AttrVal := @AttrValue _ _ _ Dialect.empty
+abbrev AttrVal := @AttrValue _ EmptyCode
 
 
 mutual
 -- | TODO: make this `record` when mutual records are allowed?
 -- | TODO: make these arguments optional?
-inductive Op (δ: Dialect α σ ε) where
+inductive Op  (α: Code attr) (τ: Code type)where
  | mk: (name: String)
-      -> (res: List (TypedSSAVal δ))
-      -> (args: List (TypedSSAVal δ))
-      -> (regions: List (Region δ))
-      -> (attrs: AttrDict δ)
-      -> Op δ
+      -> (res: List (TypedSSAVal τ))
+      -> (args: List (TypedSSAVal τ))
+      -> (regions: List (Region α τ))
+      -> (attrs: AttrDict α)
+      -> Op α τ
 
-inductive Region (δ: Dialect α σ ε) where
+inductive Region (α: Code attr) (τ: Code type) where
 | mk: (name: String)
-      -> (args: List (TypedSSAVal δ))
-      -> (ops: List (Op δ)) -> Region δ
-
+      -> (args: List (TypedSSAVal τ))
+      -> (ops: List (Op α τ)) -> Region α τ
 end
 
 -- Attribute definition on the form #<name> = <val>
-inductive AttrDefn (δ: Dialect α σ ε) where
-| mk: (name: String) -> (val: AttrValue δ) -> AttrDefn δ
+inductive AttrDefn (α: Code attr) where
+| mk: (name: String) -> (val: AttrValue α) -> AttrDefn α
 
 -- | TODO: this seems like a weird exception. Is this really true?
-inductive Module (δ: Dialect α σ ε) where
-| mk: (functions: List (Op δ))
-      -> (attrs: List (AttrDefn δ))
-      ->  Module δ
+inductive Module (τ: Code type) (α: Code attr) where
+| mk: (functions: List (Op τ α))
+      -> (attrs: List (AttrDefn α))
+      ->  Module τ α
 
 
-def Op.name: Op δ -> String
+def Op.name: Op α τ -> String
 | Op.mk name .. => name
 
-def Op.res: Op δ -> List (TypedSSAVal δ)
+def Op.res: Op α τ -> List (TypedSSAVal τ)
 | Op.mk _ res .. => res
 
-def Op.resNames: Op δ → List SSAVal
+def Op.resNames: Op α τ → List SSAVal
 | Op.mk _ res .. => res.map Prod.fst
 
-def Op.resTypes: Op δ → List (MLIRType δ)
+def Op.resTypes: Op α τ → List (MLIRType τ)
 | Op.mk _ res .. => res.map Prod.snd
 
-def Op.args: Op δ -> List (TypedSSAVal δ)
+def Op.args: Op α τ -> List (TypedSSAVal τ)
 | Op.mk _ _ args .. => args
 
-def Op.argNames: Op δ → List SSAVal
+def Op.argNames: Op α τ → List SSAVal
 | Op.mk _ _ args .. => args.map Prod.fst
 
-def Op.argTypes: Op δ → List (MLIRType δ)
+def Op.argTypes: Op α τ → List (MLIRType τ)
 | Op.mk _ _ args .. => args.map Prod.snd
 
-def Op.regions: Op δ -> List (Region δ)
+def Op.regions: Op α τ -> List (Region α τ)
 | Op.mk _ _ _ regions _ => regions
 
-def Op.attrs: Op δ -> AttrDict δ
+def Op.attrs: Op α τ -> AttrDict α
 | Op.mk _ _ _ _ attrs => attrs
 
 
@@ -228,12 +227,23 @@ instance : Coe (List (AttrEntry δ)) (AttrDict δ) where
   coe (v: AttrDict δ) := match v with | AttrDict.mk as => as
 
 
+def Region.name (region: Region α τ): BBName :=
+  match region with
+  | Region.mk name args ops => BBName.mk name
+
+def Region.ops (region: Region α τ): List (Op α τ) :=
+  match region with
+  | Region.mk name args ops => ops
+
+
 -- Coercions across dialects
-
-mutual
+/-
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
+-/
 
-def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
+/-
+def coeMLIRType [τ: Code ty] [τ': Code ty'] [inj: InjectCode τ τ']:
+ MLIRType τ  → MLIRType τ'
   | .int sgn n   => .int sgn n
   | .float n     => .float n
   | .index       => .index
@@ -242,37 +252,13 @@ def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .tensor2d => .tensor2d
   | .tensor4d => .tensor4d
   | .erased => .erased
-  | .extended s  => .extended (c.coe_σ _ _ s)
+  | .extended s  => .extended (inj.injectCode τ τ' s)
 
-def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
-  | []    => []
-  | τ::τs => coeMLIRType τ :: coeMLIRTypeList τs
-end
 
-instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
-    Coe (MLIRType δ₁) (MLIRType δ₂) where
+instance {τ: Code ty} {τ': Code ty'} [inj: InjectCode τ τ']:
+    Coe (MLIRType τ) (MLIRType τ') where
   coe := coeMLIRType
 
--- Useful locally when dealing with tuple types
-instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
-    Coe (List (MLIRType δ₁)) (List (MLIRType δ₂)) where
-  coe := coeMLIRTypeList
-
--- Useful locally when dealing with basic block arguments
-instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
-    Coe (List (SSAVal × MLIRType δ₁)) (List (SSAVal × MLIRType δ₂)) where
-  coe := List.map (fun (v, τ) => (v, Coe.coe τ))
-
-
-def Region.name (region: Region δ): BBName :=
-  match region with
-  | Region.mk name args ops => BBName.mk name
-
-def Region.ops (region: Region δ): List (Op δ) :=
-  match region with
-  | Region.mk name args ops => ops
-
--- TODO: delete CoeDialect
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
@@ -366,6 +352,7 @@ instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (List (Region δ₁)) (List (Region δ₂)) where
   coe := coeRegionList
+-/
 
 
 instance : Pretty Signedness where
@@ -393,10 +380,10 @@ partial instance : Pretty TensorElem where
     go t
 
 -- | TODO: allow typeclass instances inside mutual blocks
-mutual
-variable {α σ ε} [δ: Dialect α σ ε]
+section
+variable {ty} [τ: Code ty]
 
-partial def docMLIRType: MLIRType δ → Doc
+partial def docMLIRType: MLIRType τ → Doc
   | .int .Signless k => [doc| "i"k]
   | .int .Unsigned k => [doc| "u"k]
   | .int .Signed k => [doc| "si"k]
@@ -407,9 +394,11 @@ partial def docMLIRType: MLIRType δ → Doc
   | .index => [doc| "index"]
   | .undefined name => [doc| "!" name]
   | .erased => [doc| "erased"]
-  | .extended sig => DialectTypeIntf.typeStr ε sig
+  | .extended sig =>  τ.showCode sig
+end
 
-partial def docAttrVal: AttrValue δ → Doc
+mutual
+partial def docAttrVal: AttrValue α → Doc
   | .symbol s => "@" ++ doc_surround_dbl_quot s
   | .permutation ps => [doc| "[permutation " (ps),* "]"]
   | .nestedsymbol s t => (docAttrVal s) ++ "::" ++ (docAttrVal t)
@@ -425,33 +414,33 @@ partial def docAttrVal: AttrValue δ → Doc
   | .opaque_ dialect val => [doc| "#" (dialect) "<"  (val) ">"]
   | .opaqueElements dialect val ty => [doc| "#opaque<" (dialect) ","  (val) ">" ":" (docMLIRType ty)]
   | .unit => "()"
-  | .extended a => DialectAttrIntf.str a
+  | .extended a => α.showCode a
   | .erased => "<erased>"
 
-partial def docAttrEntry: AttrEntry δ → Doc
+partial def docAttrEntry: AttrEntry α → Doc
   | .mk k v => k ++ " = " ++ (docAttrVal v)
 
-partial def docAttrDict: AttrDict δ → Doc
+partial def docAttrDict: AttrDict α → Doc
   | .mk attrs =>
       if List.isEmpty attrs
       then Doc.Text ""
       else "{" ++ Doc.Nest (vintercalate_doc (attrs.map docAttrEntry)  ", ")  ++ "}"
 end
 
-instance : Pretty (MLIRType δ) where
+instance : Pretty (MLIRType τ) where
  doc := docMLIRType
 
-instance : Pretty (AttrValue δ) where
+instance : Pretty (AttrValue α) where
  doc := docAttrVal
 
-instance : Pretty (AttrEntry δ) where
+instance : Pretty (AttrEntry α) where
   doc := docAttrEntry
 
-instance : Pretty (AttrDict δ) where
+instance : Pretty (AttrDict α) where
    doc := docAttrDict
 
-instance : Pretty (AttrDefn δ) where
-  doc (v: AttrDefn δ) :=
+instance : Pretty (AttrDefn α) where
+  doc (v: AttrDefn α) :=
   match v with
   | AttrDefn.mk name val => "#" ++ name ++ " := " ++ (doc val)
 
@@ -467,7 +456,7 @@ instance : ToFormat SSAVal where
 -- | would be so much nicer if I could pretend that these had real instances.
 mutual
 
-def op_to_doc (op: Op δ): Doc :=
+def op_to_doc (op: Op α τ): Doc :=
     match op with
     | (Op.mk name res args rgns attrs) =>
         /- v3: macros + if stuff-/
@@ -498,12 +487,12 @@ def op_to_doc (op: Op δ): Doc :=
 
         doc_name ++ doc_args ++  doc_bbs ++ doc_rgns ++ doc attrs ++ " : " ++ doc ty -/
 
-def list_op_to_doc: List (Op δ) → List Doc
+def list_op_to_doc: List (Op α τ) → List Doc
   | [] => []
   | op :: ops => op_to_doc op :: list_op_to_doc ops
 
 -- | TODO: fix the dugly syntax
-def rgn_to_doc: Region δ → Doc
+def rgn_to_doc: Region α τ → Doc
   | (Region.mk name args ops) =>
     [doc| {
         (ifdoc args.isEmpty
@@ -511,18 +500,18 @@ def rgn_to_doc: Region δ → Doc
          else  "^" name "(" (args.map $ fun (v, t) => [doc| v ":" t]),* ")" ":");
         (nest list_op_to_doc ops);* ; } ]
 
-def list_rgn_to_doc: List (Region δ) → List Doc
+def list_rgn_to_doc: List (Region α τ) → List Doc
   | [] => []
   | r :: rs => rgn_to_doc r :: list_rgn_to_doc rs
 end
 
-instance : Pretty (Op δ) where
+instance : Pretty (Op α τ) where
   doc := op_to_doc
 
-instance : Pretty (Region δ) where
+instance : Pretty (Region α τ) where
   doc := rgn_to_doc
 
-instance : Pretty (Region δ) where
+instance : Pretty (Region α τ) where
   doc := rgn_to_doc
 
 def AttrEntry.key (a: AttrEntry δ): String :=
@@ -534,61 +523,61 @@ match a with
 | AttrEntry.mk k v => v
 
 
-def AttrDict.empty : AttrDict δ := AttrDict.mk []
+def AttrDict.empty : AttrDict α := AttrDict.mk []
 
-def Op.empty (name: String) : Op δ := Op.mk name [] [] [] AttrDict.empty
+def Op.empty (name: String) : Op α τ := Op.mk name [] [] [] AttrDict.empty
 
 -- | TODO: needs to happen in a monad to ensure that ty has the right type!
-def Op.addArg (o: Op δ) (arg: TypedSSAVal δ): Op δ :=
+def Op.addArg (o: Op α τ) (arg: TypedSSAVal τ): Op α τ :=
   match o with
   | Op.mk name res args regions attrs =>
     Op.mk name res (args ++ [arg])  regions attrs
 
-def Op.addResult (o: Op δ) (new_res: TypedSSAVal δ): Op δ :=
+def Op.addResult (o: Op α τ) (new_res: TypedSSAVal τ): Op α τ :=
  match o with
  | Op.mk name res args  regions attrs =>
     Op.mk name (res ++ [new_res]) args  regions attrs
 
-def Op.appendRegion (o: Op δ) (r: Region δ): Op δ :=
+def Op.appendRegion (o: Op α τ) (r: Region α τ): Op α τ :=
   match o with
   | Op.mk name res args regions attrs =>
       Op.mk name res args (regions ++ [r]) attrs
 
 
 -- | Note: AttrEntry can be given as String × AttrValue
-def AttrDict.add (attrs: AttrDict δ) (entry: AttrEntry δ): AttrDict δ :=
-    Coe.coe $ (entry :: Coe.coe attrs)
+def AttrDict.add [α: Code attr] (attrs: AttrDict α) (entry: AttrEntry α): AttrDict α :=
+    (entry :: attrs)
 
-def AttrDict.find (attrs: AttrDict δ) (name: String): Option (AttrValue δ) :=
+def AttrDict.find [α: Code attr] (attrs: AttrDict α) (name: String): Option (AttrValue α) :=
   match attrs with
   | AttrDict.mk entries =>
       match entries.find? (fun entry => entry.key == name) with
       | some v => v.value
       | none => none
 
-def AttrDict.find_nat (attrs: AttrDict δ)
+def AttrDict.find_nat (attrs: AttrDict α)
   (name: String): Option Nat :=
   match attrs.find name with
   | .some (AttrValue.nat i) =>  .some i
   | _ => .none
 
-def AttrDict.find_int (attrs: AttrDict δ)
+def AttrDict.find_int [α: Code attr] (attrs: AttrDict α)
   (name: String): Option Int :=
   match attrs.find name with
   | .some (AttrValue.int i) => .some i
   | _ => .none
 
-def AttrDict.find_int' (attrs: AttrDict δ) (name: String): Option Int :=
+def AttrDict.find_int' [α: Code attr] (attrs: AttrDict α) (name: String): Option Int :=
   match attrs.find name with
   | .some (AttrValue.int i) =>  .some i
   | _ => .none
 
-@[simp] theorem AttrDict.find_none {δ: Dialect α σ ε}:
-    AttrDict.find (δ := δ) (AttrDict.mk []) n' = none := by
+@[simp] theorem AttrDict.find_none [α: Code attr]:
+    AttrDict.find (α := α) (AttrDict.mk []) name = none := by
   simp [AttrDict.find, List.find?]
 
-@[simp] theorem AttrDict.find_next {δ: Dialect α σ ε} (v: AttrValue δ)
-  (l: List (AttrEntry δ)):
+@[simp] theorem AttrDict.find_next [α: Code attr] (v: AttrValue α)
+  (l: List (AttrEntry α)):
     AttrDict.find (AttrDict.mk (AttrEntry.mk n v :: l)) n' =
     if n == n' then some v else AttrDict.find (AttrDict.mk l) n' := by
   cases H: n == n' <;>
@@ -598,56 +587,56 @@ def AttrDict.addString (attrs: AttrDict δ) (k: String) (v: String): AttrDict δ
     AttrEntry.mk k (v: AttrValue δ) :: attrs
 
 
-def Op.addAttr (o: Op δ) (k: String) (v: AttrValue δ): Op δ :=
+def Op.addAttr (o: Op α τ) (k: String) (v: AttrValue α): Op α τ :=
  match o with
  | Op.mk name res args regions attrs =>
     Op.mk name res args regions (attrs.add (k, v))
 
-def Region.empty (name: String): Region δ := Region.mk name [] []
-def Region.appendOp (bb: Region δ) (op: Op δ): Region δ :=
+def Region.empty (name: String): Region α τ := Region.mk name [] []
+def Region.appendOp (bb: Region α τ) (op: Op α τ): Region α τ :=
   match bb with
   | Region.mk name args bbs => Region.mk name args (bbs ++ [op])
 
-def Region.appendOps (bb: Region δ) (ops: List (Op δ)): Region δ :=
+def Region.appendOps (bb: Region α τ) (ops: List (Op α τ)): Region α τ :=
   match bb with
   | Region.mk name args bbs => Region.mk name args (bbs ++ ops)
 
 
-instance : Pretty (Op δ) where
+instance : Pretty (Op α τ) where
   doc := op_to_doc
 
-instance : Pretty (Region δ) where
+instance : Pretty (Region α τ) where
   doc := rgn_to_doc
 
 instance [Pretty a] : ToString a where
   toString (v: a) := layout80col (doc v)
 
-instance : ToFormat (Op δ) where
-    format (x: Op δ) := layout80col (doc x)
+instance : ToFormat (Op α τ) where
+    format (x: Op α τ) := layout80col (doc x)
 
 
-instance : Inhabited (MLIRType δ) where
+instance : Inhabited (MLIRType τ) where
   default := MLIRType.undefined "INHABITANT"
 
-instance : Inhabited (AttrValue δ) where
+instance : Inhabited (AttrValue α) where
   default := AttrValue.str "INHABITANT"
 
-instance : Inhabited (Op δ) where
+instance : Inhabited (Op α τ) where
   default := Op.empty "INHABITANT"
 
-instance : Inhabited (Region δ) where
+instance : Inhabited (Region α τ) where
   default := Region.empty "INHABITANT"
 
-instance : Pretty (Module δ) where
-  doc (m: Module δ) :=
+instance : Pretty (Module α τ) where
+  doc (m: Module α τ) :=
     match m with
     | Module.mk fs attrs =>
       Doc.VGroup (attrs.map doc ++ fs.map doc)
 
-def Region.fromOps (os: List (Op δ)) (name: String := "entry"): Region δ :=
+def Region.fromOps (os: List (Op α τ)) (name: String := "entry"): Region α τ :=
   Region.mk name [] os
 
-def Region.setArgs (bb: Region δ) (args: List (SSAVal × MLIRType δ)) : Region δ :=
+def Region.setArgs (bb: Region α τ) (args: List (TypedSSAVal τ)) : Region α τ :=
 match bb with
   | (Region.mk name _ ops) => (Region.mk name args ops)
 

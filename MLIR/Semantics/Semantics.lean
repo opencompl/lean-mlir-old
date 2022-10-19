@@ -16,7 +16,6 @@ open MLIR.AST
 
 abbrev TypedArg (δ: Dialect α σ ε) := (τ: MLIRType δ) × MLIRType.eval τ
 
-
 -- | Abbreviation with a typeclass context?
 @[simp]
 abbrev TypedArgs (δ: Dialect α σ ε) := List (TypedArg δ)
