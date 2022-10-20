@@ -133,8 +133,18 @@ theorem TopM.get_env_set_commutes :
 theorem TopM.set_env_set_commutes :
     TopM.set τ name v env = Except.ok (r, env') ->
     name' ≠ name ->
-    TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
-  sorry
+    ∃ env'', (env'.set name' τ' v').equiv env'' ∧
+      TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'') := by
+  intros H Hname
+  simp [set] at *; simp_monad at *
+  revert H; cases Hget: (env.get name τ) <;> simp <;> intros H <;> try contradiction
+  rw [SSAEnv.get_set_ne_val _ _ (by assumption)]
+  rw [Hget]; simp
+  subst env'
+  exists (SSAEnv.set name τ v (SSAEnv.set name' τ' v' env))
+  simp
+  apply SSAEnv.set_commutes <;> try assumption
+  simp [Ne.symm Hname]
 
 /-
 TODO:
