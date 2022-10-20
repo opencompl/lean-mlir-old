@@ -673,14 +673,57 @@ theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
       simp [bind, StateT.bind, Except.bind, pure, StateT.pure, Except.pure] at HInd
       rw [HInd] <;> assumption
 
+def denoteTypedArgs_cons_args :
+    denoteTypedArgs (argsHead::argsTail) vals env = Except.ok (res, env') →
+    exists valHead valTail,
+      vals = valHead::valTail ∧
+      TopM.set argsHead.fst valHead argsHead.snd env =
+        Except.ok (unit, env.set headVal argsHead.fst argsHead.snd) := by
+  intros H
+  simp [denoteTypedArgs] at H
+  cases vals <;> try contradiction
+  case cons headVal tailVal =>
+  exists headVal
+  exists tailVal
+  simp_monad at *
+  revert H
+  split <;> intros H <;> try contradiction
+  case h_2 _ _ v _ =>
+  have ⟨fst, snd⟩ := v; cases fst
+  case unit =>
+  simp_semantics_monad at *
 
-def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs Δ}:
+
+def denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedArg Δ)) (env: SSAEnv Δ):
+    denoteTypedArgs (headArgs::tailArgs) (headVal::tailVal) env =
+      (do
+         TopM.set headArgs.fst headVal headArgs.snd
+         denoteTypedArgs tailArgs tailVal) env := by
+  simp [denoteTypedArgs]
+
+def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] (regArgs: TypedArgs Δ):
     ∀ vals env res env',
-    denoteTypedArgs regArgs vals env = Except.ok (res, env')->
+    denoteTypedArgs regArgs vals env = Except.ok (res, env') →
     ∀ name, name ∉ vals →
-    ∀ τ v, denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) =
-      Except.ok (res, SSAEnv.set name τ v env') := by
-  sorry
+    ∀ τ v, ∃ env'',
+    (SSAEnv.set name τ v env').equiv env'' ∧
+    denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) = Except.ok (res, env'') := by
+  induction regArgs
+  case nil =>
+    intros vals env res env' H name Hname τ v
+    simp [denoteTypedArgs] at *; simp_monad at *; subst env
+    exists (env'.set name τ v)
+    simp
+    apply SSAenv.equiv_rfl
+  case cons head tail HInd =>
+    intros vals env res env' H name Hname τ v
+    have ⟨headVal, tailVal, HVal⟩ := denoteTypedArg_cons_args H; subst vals
+    simp [denoteTypedArgs] at H; simp_monad at H
+    unfold denoteTypedArgs at H
+    cases vals <;> try contradiction
+    case cons headVal tailVal =>
+    simp_monad at H
+    sorry
 
 def run_denoteRegionByIx_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ] 
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
