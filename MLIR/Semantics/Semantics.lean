@@ -649,7 +649,7 @@ theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
       rw [Hhead] at H
       simp [List.all, List.foldr] at Hname
       have ⟨Hname_head, _⟩ := Hname
-      rw [TopM.get_env_set_commutes Hname_head Hhead]
+      rw [TopM.get_env_set_commutes Hhead Hname_head]
       simp at *
       split at H <;> try contradiction
       case h_2 rTail Htail =>
@@ -666,25 +666,7 @@ def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs 
     ∀ name, name ∉ vals →
     ∀ τ v, denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) =
       Except.ok (res, SSAEnv.set name τ v env') := by
-  induction regArgs
-  case nil =>
-    intros vals env res env' H name Hname τ v
-    simp [denoteTypedArgs] at *
-    simp_monad at *
-    subst env; rfl
-  case cons head tail HInd =>
-    intros vals env res env' H name Hname τ v
-    simp [denoteTypedArgs] at *
-    cases vals
-    case nil => simp at H; contradiction
-    case cons valHead valTail =>
-    simp_monad at *
-    split at H <;> try contradiction
-    case h_2 headSet HHeadSet => 
-    have ⟨headSetR, headSetEnv⟩ := headSet
-    simp at *
-    rw [TopM.set_env_set_commutes]
-    sorry
+  sorry
 
 def run_denoteRegionByIx_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ] 
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
