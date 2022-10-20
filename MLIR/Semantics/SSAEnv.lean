@@ -98,7 +98,6 @@ theorem SSAScope.equiv_refl {δ: Dialect α σ ε} (scope: SSAScope δ):
 
 theorem SSAScope.equiv_symm {δ: Dialect α σ ε} ⦃scope scope': SSAScope δ⦄:
     scope.equiv scope' → scope'.equiv scope := by
-  intros H name τ
   specialize H name τ
   simp [H]
 
@@ -171,12 +170,6 @@ theorem SSAScope.get_none_getT {δ: Dialect α σ ε} ⦃name: SSAVal⦄
   simp at H
 
 theorem SSAScope.getT_set_ne ⦃v v': SSAVal⦄:
-    v' ≠ v →
-    ∀ ⦃scope: SSAScope δ⦄ ⦃τ: MLIRType δ⦄ ⦃val⦄,
-    getT v (set v' τ val scope) = getT v scope := by
-  intros Hne scope τ val
-  induction scope with
-  | nil => simp [Hne]
   | cons head tail =>
     simp
     byCases H: head.fst = v'
