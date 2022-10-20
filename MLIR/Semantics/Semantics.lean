@@ -89,7 +89,7 @@ def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ
 def TopM.set {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (v: τ.eval): TopM Δ Unit := do
   let s ← StateT.get
   match SSAEnv.get name τ s with
-  | .some v' => if v == v' then pure () else TopM.raiseUB "setting to SSA value twice!"
+  | .some _ => TopM.raiseUB "setting to SSA value twice!"
   | .none => StateT.set (SSAEnv.set name τ v s)
 
 theorem TopM.get_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (env: SSAEnv Δ) :
@@ -106,14 +106,18 @@ theorem TopM.get_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) 
 theorem TopM.set_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (env: SSAEnv Δ) (v: MLIRType.eval τ):
     TopM.set τ name v env =
     match env.get name τ with
-    | some v' => if v == v' then Except.ok ((), env) else Except.error ("setting to SSA value twice!", env)
+    | some _ => Except.error ("setting to SSA value twice!", env)
     | none => Except.ok ((), env.set name τ v) := by
   simp [TopM.set]
   simp_monad
-  cases (env.get name τ) <;> try rfl
-  case some val =>
-  simp
-  byCases Heq: v = val <;> rfl
+  cases (env.get name τ) <;> rfl
+
+theorem TopM.set_ok {Δ: Dialect α σ ε} :
+    TopM.set τ name v env = Except.ok r ->
+    r = (unit, env.set name τ v) ∧ env.get name τ = none := by 
+  simp [set]; simp_monad
+  cases (env.get name τ) <;> simp <;> intros H <;> try contradiction
+  rw [H]
 
 theorem TopM.get_env_set_commutes :
     TopM.get τ name env = Except.ok (r, env') ->
