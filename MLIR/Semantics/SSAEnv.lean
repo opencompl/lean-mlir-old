@@ -403,13 +403,6 @@ theorem SSAEnv.set_commutes ⦃v v': SSAVal⦄:
     ∀ ⦃env: SSAEnv δ⦄ ⦃τ τ': MLIRType δ⦄ ⦃val val'⦄,
     equiv (set v τ val (set v' τ' val' env)) (set v' τ' val' (set v τ val env)) := by
   intros Hne env τ τ' val val' v₂ τ₂
-  repeat rw [get_set]
-  split
-  . subst v
-    simp [Hne]
-  . split <;> simp
-
-/-
 ### Interactions manipulating the environment
 -/
 

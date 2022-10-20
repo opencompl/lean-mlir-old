@@ -103,15 +103,34 @@ theorem TopM.get_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) 
   simp_monad
   cases (env.get name τ) <;> rfl
 
-theorem TopM.get_env_set_commutes :
-    name' ≠ name ->
-    TopM.get τ name env = Except.ok (r, env') ->
-    TopM.get τ name (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
-  intros Hne
-  repeat (rw [TopM.get_unfold])
+theorem TopM.set_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) (env: SSAEnv Δ) (v: MLIRType.eval τ):
+    TopM.set τ name v env =
+    match env.get name τ with
+    | some v' => if v == v' then Except.ok ((), env) else Except.error ("setting to SSA value twice!", env)
+    | none => Except.ok ((), env.set name τ v) := by
+  simp [TopM.set]
   simp_monad
-  simp_ssaenv
-  cases (env.get name τ) <;> intros H <;> simp at * <;> have ⟨H1, H2⟩ := H <;> subst r <;> subst env <;> simp
+  cases (env.get name τ) <;> try rfl
+  case some val =>
+  simp
+  byCases Heq: v = val <;> rfl
+
+theorem TopM.get_env_set_commutes :
+    TopM.get τ name env = Except.ok (r, env') ->
+    name' ≠ name ->
+    TopM.get τ name (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
+  intros H Hne
+  rw [TopM.get_unfold] at *
+  simp_monad at *
+  simp_ssaenv at *
+  revert H
+  cases (env.get name τ) <;> simp at * <;> intros H <;> have ⟨H1, H2⟩ := H <;> subst r <;> subst env <;> simp
+
+theorem TopM.set_env_set_commutes :
+    TopM.set τ name v env = Except.ok (r, env') ->
+    name' ≠ name ->
+    TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by
+  sorry
 
 /-
 TODO:
@@ -143,14 +162,13 @@ class Semantics (Δ: Dialect α σ ε)  where
 -- lemmas about `Fitree.trigger` from applying.
 -- attribute [reducible] Semantics.E
 
--- | TODO: throw error if we don't have enough names
 -- | TODO: Make this dependently typed to never allow such an error
 def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
  match args with
  | [] => return ()
  | ⟨τ, val⟩::args =>
     match names with
-    | [] => return ()
+    | [] => TopM.raiseUB "not enough names in denoteTypedArgs"
     | name :: names => do
         TopM.set τ name val
         denoteTypedArgs args names
@@ -587,13 +605,21 @@ resulting environment of the interpretation of a TopM monad.
 -/
 
 macro "simp_semantics_monad" : tactic =>   
-  `(tactic| simp_monad; repeat (rw [TopM.get_unfold]); simp)
+  `(tactic| simp_monad;
+            (repeat rw [TopM.get_unfold]);
+            (repeat rw [TopM.get_unfold]); simp)
 
 macro "simp_semantics_monad" "at" Hname:ident : tactic =>   
-  `(tactic| simp_monad at $Hname; repeat (rw [TopM.get_unfold] at $Hname:ident); simp at $Hname:ident)
+  `(tactic| simp_monad at $Hname;
+            (repeat rw [TopM.get_unfold] at $Hname:ident);
+            (repeat rw [TopM.set_unfold] at $Hname:ident);
+            simp at $Hname:ident)
 
 macro "simp_semantics_monad" "at" "*" : tactic =>   
-  `(tactic| simp_monad at *; repeat (rw [TopM.get_unfold] at *); simp at *)
+  `(tactic| simp_monad at *;
+            (repeat rw [TopM.get_unfold] at *);
+            (repeat rw [TopM.set_unfold] at *);
+            simp at *)
 
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
@@ -635,10 +661,30 @@ theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
 
 
 def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] {regArgs: TypedArgs Δ}:
+    ∀ vals env res env',
     denoteTypedArgs regArgs vals env = Except.ok (res, env')->
-    denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) =
+    ∀ name, name ∉ vals →
+    ∀ τ v, denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) =
       Except.ok (res, SSAEnv.set name τ v env') := by
-  sorry
+  induction regArgs
+  case nil =>
+    intros vals env res env' H name Hname τ v
+    simp [denoteTypedArgs] at *
+    simp_monad at *
+    subst env; rfl
+  case cons head tail HInd =>
+    intros vals env res env' H name Hname τ v
+    simp [denoteTypedArgs] at *
+    cases vals
+    case nil => simp at H; contradiction
+    case cons valHead valTail =>
+    simp_monad at *
+    split at H <;> try contradiction
+    case h_2 headSet HHeadSet => 
+    have ⟨headSetR, headSetEnv⟩ := headSet
+    simp at *
+    rw [TopM.set_env_set_commutes]
+    sorry
 
 def run_denoteRegionByIx_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ] 
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
