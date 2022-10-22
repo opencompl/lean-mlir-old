@@ -112,9 +112,9 @@ theorem TopM.set_unfold {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal) 
   simp_monad
   cases (env.get name τ) <;> rfl
 
-theorem TopM.set_ok {Δ: Dialect α σ ε} :
+theorem TopM.set_ok {Δ: Dialect α σ ε} {τ: MLIRType Δ} {name: SSAVal} {v: MLIRType.eval τ} {env: SSAEnv Δ} {r}:
     TopM.set τ name v env = Except.ok r ->
-    r = (unit, env.set name τ v) ∧ env.get name τ = none := by 
+    r = ((), env.set name τ v) ∧ env.get name τ = none := by 
   simp [set]; simp_monad
   cases (env.get name τ) <;> simp <;> intros H <;> try contradiction
   rw [H]
@@ -130,12 +130,12 @@ theorem TopM.get_env_set_commutes :
   revert H
   cases (env.get name τ) <;> simp at * <;> intros H <;> have ⟨H1, H2⟩ := H <;> subst r <;> subst env <;> simp
 
-theorem TopM.set_env_set_commutes :
+theorem TopM.set_env_set_commutes {Δ: Dialect α σ ε} (τ: MLIRType Δ) name v env r env':
     TopM.set τ name v env = Except.ok (r, env') ->
-    name' ≠ name ->
-    ∃ env'', (env'.set name' τ' v').equiv env'' ∧
+    ∀ name', name' ≠ name ->
+    ∀ τ' v', ∃ env'', (env'.set name' τ' v').equiv env'' ∧
       TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'') := by
-  intros H Hname
+  intros H name' Hname τ' v'
   simp [set] at *; simp_monad at *
   revert H; cases Hget: (env.get name τ) <;> simp <;> intros H <;> try contradiction
   rw [SSAEnv.get_set_ne_val _ _ (by assumption)]
@@ -673,14 +673,15 @@ theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
       simp [bind, StateT.bind, Except.bind, pure, StateT.pure, Except.pure] at HInd
       rw [HInd] <;> assumption
 
-def denoteTypedArgs_cons_args :
-    denoteTypedArgs (argsHead::argsTail) vals env = Except.ok (res, env') →
-    ∃ valHead valTail,
-      vals = valHead::valTail ∧
-      TopM.set argsHead.fst valHead argsHead.snd env =
-        Except.ok (unit, env.set valHead argsHead.fst argsHead.snd) ∧ 
-      denoteTypedArgs argsTail valTail (env.set valHead argsHead.fst argsHead.snd) =
-        Except.ok (unit, env'):= by
+theorem denoteTypedArgs_cons_args {δ: Dialect α σ ε} {argsHead: TypedArg δ}
+    {argsTail: TypedArgs δ} {vals: List SSAVal} {env: SSAEnv δ} {res} {env': SSAEnv δ} :
+  denoteTypedArgs (argsHead::argsTail) vals env = Except.ok (res, env') →
+  ∃ valHead valTail,
+    vals = valHead::valTail ∧
+    TopM.set argsHead.fst valHead argsHead.snd env =
+      Except.ok ((), env.set valHead argsHead.fst argsHead.snd) ∧ 
+    denoteTypedArgs argsTail valTail (env.set valHead argsHead.fst argsHead.snd) =
+      Except.ok ((), env'):= by
   intros H
   simp [denoteTypedArgs] at H
   cases vals <;> try contradiction
@@ -690,7 +691,7 @@ def denoteTypedArgs_cons_args :
   simp_monad at *
   revert H
   split <;> intros H <;> try contradiction
-  case h_2 _ _ v Hv =>
+  case h_2 v Hv =>
   have ⟨fst, snd⟩ := v; cases fst
   case unit =>
   simp_semantics_monad at *
@@ -706,29 +707,41 @@ def denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedAr
          denoteTypedArgs tailArgs tailVal) env := by
   simp [denoteTypedArgs]
 
+def denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} {val} {env₁} {r} {env₁'}: 
+    denoteTypedArgs args val env₁ = Except.ok (r, env₁') →
+    ∀ env₂, env₁.equiv env₂ →
+    ∃ env₂', denoteTypedArgs args val env₂ = Except.ok (r, env₂') ∧
+             env₁'.equiv env₂' := by sorry
+
+
 def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] (regArgs: TypedArgs Δ):
     ∀ vals env res env',
     denoteTypedArgs regArgs vals env = Except.ok (res, env') →
     ∀ name, name ∉ vals →
     ∀ τ v, ∃ env'',
-    (SSAEnv.set name τ v env').equiv env'' ∧
-    denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) = Except.ok (res, env'') := by
+    denoteTypedArgs regArgs vals (SSAEnv.set name τ v env) = Except.ok (res, env'') ∧
+    (SSAEnv.set name τ v env').equiv env'' := by
   induction regArgs
   case nil =>
-    intros vals env res env' H name Hname τ v
+    intros vals env res env' H name _ τ v
     simp [denoteTypedArgs] at *; simp_monad at *; subst env
     exists (env'.set name τ v)
     simp
-    apply SSAenv.equiv_rfl
+    apply SSAEnv.equiv_rfl
   case cons head tail HInd =>
     intros vals env res env' H name Hname τ v
-    have ⟨headVal, tailVal, HVal⟩ := denoteTypedArg_cons_args H; subst vals
-    simp [denoteTypedArgs] at H; simp_monad at H
-    unfold denoteTypedArgs at H
-    cases vals <;> try contradiction
-    case cons headVal tailVal =>
-    simp_monad at H
-    sorry
+    have ⟨valHead, valTail, HVal, HHead, HTail⟩ := denoteTypedArgs_cons_args H
+    subst vals; have ⟨HNameHead, HNameTail⟩ := List.ne_mem_cons _ _ _ Hname
+    rw [denoteTypedArgs_cons_unfold]; simp_monad
+    have ⟨envHead, HEnvHeadEquiv, HEnvHead⟩ := TopM.set_env_set_commutes _ _ _ _ _ _ HHead _ HNameHead τ v
+    have ⟨HEnvHead, _⟩ := TopM.set_ok HEnvHead
+    simp at HEnvHead; subst envHead
+    have ⟨env'', HdenoteTail, HEquiv⟩ := HInd _ _ _ _ HTail name HNameTail τ v
+    have ⟨env₂'', Henv₂'', Henv₂equiv''⟩ := denoteTypedArgs_equiv HdenoteTail _ HEnvHeadEquiv
+    exists env₂''
+    simp [HEnvHead, Henv₂'']
+    apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
+
 
 def run_denoteRegionByIx_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ] 
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
