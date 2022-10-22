@@ -675,10 +675,12 @@ theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
 
 def denoteTypedArgs_cons_args :
     denoteTypedArgs (argsHead::argsTail) vals env = Except.ok (res, env') →
-    exists valHead valTail,
+    ∃ valHead valTail,
       vals = valHead::valTail ∧
       TopM.set argsHead.fst valHead argsHead.snd env =
-        Except.ok (unit, env.set headVal argsHead.fst argsHead.snd) := by
+        Except.ok (unit, env.set valHead argsHead.fst argsHead.snd) ∧ 
+      denoteTypedArgs argsTail valTail (env.set valHead argsHead.fst argsHead.snd) =
+        Except.ok (unit, env'):= by
   intros H
   simp [denoteTypedArgs] at H
   cases vals <;> try contradiction
@@ -688,10 +690,13 @@ def denoteTypedArgs_cons_args :
   simp_monad at *
   revert H
   split <;> intros H <;> try contradiction
-  case h_2 _ _ v _ =>
+  case h_2 _ _ v Hv =>
   have ⟨fst, snd⟩ := v; cases fst
   case unit =>
   simp_semantics_monad at *
+  revert Hv; split <;> intros Hv <;> try contradiction
+  simp at Hv; subst snd
+  simp [H]
 
 
 def denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedArg Δ)) (env: SSAEnv Δ):
