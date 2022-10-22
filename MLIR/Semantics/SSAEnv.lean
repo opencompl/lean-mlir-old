@@ -320,16 +320,7 @@ theorem SSAEnv.equiv_trans {δ: Dialect α σ ε}:
   simp [H1, H2]
 
 theorem SSAEnv.getT_set_ne ⦃v v': SSAVal⦄:
-    v' ≠ v →
-    ∀ ⦃env: SSAEnv δ⦄ ⦃τ: MLIRType δ⦄ ⦃val⦄,
     getT v (set v' τ val env) = getT v env := by
-  intros Hne env τ val
-  cases env with
-  | One s =>
-    simp [getT, set]
-    rw [SSAScope.getT_set_ne]
-    assumption
-  | Cons head tail =>
     simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
     rw [SSAScope.getT_set_ne]
     assumption
@@ -339,11 +330,7 @@ theorem SSAEnv.getT_set_eq (env: SSAEnv δ) (v: SSAVal) (τ: MLIRType δ) val:
   cases env with
   | One s =>
     simp [getT, set]
-    rw [SSAScope.getT_set_eq]
   | Cons head tail =>
-    simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
-    simp [SSAScope.getT_set_eq]
-
 theorem SSAEnv.get_set_ne_val ⦃v v': SSAVal⦄:
     v' ≠ v →
     ∀ ⦃env: SSAEnv δ⦄ ⦃τ τ': MLIRType δ⦄ ⦃val⦄,
