@@ -850,11 +850,22 @@ def OpM.toTopM_regions_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ
     simp [HdenoteIx]
     apply OpM.toTopM_regions_env_set_preserves <;> assumption
 
-def TopM.set_env_set_preserves :
-  TopM.set τ name v env = Except.ok (r, env') ->
-  TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env'.set name' τ' v') := by sorry
-
-
+def TopM.set_env_set_preserves {δ: Dialect α σ ε} {name name': SSAVal}:
+    name' ≠ name →
+    ∀ {τ: MLIRType δ} {v env r env'},
+    TopM.set τ name v env = Except.ok (r, env') ->
+    ∀ {τ' v'},
+    ∃ env₂', TopM.set τ name v (env.set name' τ' v') = Except.ok (r, env₂') ∧
+      env₂'.equiv (env'.set name' τ' v') := by
+  intros Hname' τ v env r env' Hset τ' v'
+  simp [set_unfold]
+  have ⟨Hr, Hget⟩ := set_ok Hset
+  simp at Hr; subst env'
+  rw [SSAEnv.get_set_ne_val] <;> try assumption
+  simp [Hget]
+  exists (env.set name' τ' v').set name τ v
+  simp
+  apply SSAEnv.set_commutes; assumption
 
 mutual
 variable {Δ: Dialect α σ ε} [S: Semantics Δ] (name: SSAVal) (τ: MLIRType Δ) (v: MLIRType.eval τ)
