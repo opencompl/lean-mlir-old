@@ -146,6 +146,28 @@ theorem TopM.set_env_set_commutes {Δ: Dialect α σ ε} (τ: MLIRType Δ) name 
   apply SSAEnv.set_commutes <;> try assumption
   simp [Ne.symm Hname]
 
+
+theorem TopM.get_equiv {Δ: Dialect α σ ε} (env₁ env₂: SSAEnv Δ):
+    env₁.equiv env₂ ->
+    ∀ τ name r env₁', TopM.get τ name env₁ = Except.ok (r, env₁') →
+                      TopM.get τ name env₂ = Except.ok (r, env₂):= by
+  intros Hequiv τ name r env₁'
+  repeat rw [TopM.get_unfold]
+  rw [Hequiv]
+  simp_monad
+  intros H; have ⟨H, _⟩ := H
+  rw [H]
+
+theorem TopM.set_equiv {Δ: Dialect α σ ε} (env₁ env₂: SSAEnv Δ):
+    env₁.equiv env₂ ->
+    ∀ τ name v r env₁', TopM.set τ name v env₁ = Except.ok (r, env₁') →
+      TopM.set τ name v env₂ = Except.ok (r, env₂.set name τ v):= by
+  intros Hequiv τ name v r env₁'
+  repeat rw [TopM.set_unfold]
+  rw [Hequiv]
+  simp_monad
+  cases (SSAEnv.get name τ env₂) <;> simp
+
 /-
 TODO:
 
