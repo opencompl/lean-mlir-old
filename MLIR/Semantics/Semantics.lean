@@ -729,11 +729,32 @@ def denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedAr
          denoteTypedArgs tailArgs tailVal) env := by
   simp [denoteTypedArgs]
 
-def denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} {val} {env₁} {r} {env₁'}: 
-    denoteTypedArgs args val env₁ = Except.ok (r, env₁') →
-    ∀ env₂, env₁.equiv env₂ →
-    ∃ env₂', denoteTypedArgs args val env₂ = Except.ok (r, env₂') ∧
-             env₁'.equiv env₂' := by sorry
+
+def denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
+    ∀ {vals} {env₁} {r} {env₁'}, 
+    denoteTypedArgs args vals env₁ = Except.ok (r, env₁') →
+    ∀ {env₂}, env₁.equiv env₂ →
+    ∃ env₂', denoteTypedArgs args vals env₂ = Except.ok (r, env₂') ∧
+             env₁'.equiv env₂' := by
+  induction args
+  case nil =>
+    intros val env₁ r env₁' H env₂ Henv₂
+    simp [denoteTypedArgs] at *
+    exists env₂
+    simp_monad at *; subst H; assumption
+  case cons argsHead argsTail HInd =>
+    intros vals env₁ r env₁' H env₂ Henv₂
+    have ⟨valsHead, valsTail, HVals, HHead, HTail⟩ := denoteTypedArgs_cons_args H
+    subst vals
+    have HHead₂ := TopM.set_equiv _ _ Henv₂ _ _ _ _ _ HHead
+    specialize (HInd HTail (SSAEnv.equiv_set _ _ Henv₂ _ _ _))
+    have ⟨env₂', Henv₂', Hequiv₂'⟩ := HInd
+    exists env₂'
+    cases r
+    rw [denoteTypedArgs_cons_unfold]
+    simp_monad
+    rw [HHead₂]; simp; rw [Henv₂']
+    simp; assumption
 
 
 def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] (regArgs: TypedArgs Δ):
