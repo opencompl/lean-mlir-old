@@ -780,7 +780,7 @@ def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] (regArgs: TypedArgs 
     have ⟨HEnvHead, _⟩ := TopM.set_ok HEnvHead
     simp at HEnvHead; subst envHead
     have ⟨env'', HdenoteTail, HEquiv⟩ := HInd _ _ _ _ HTail name HNameTail τ v
-    have ⟨env₂'', Henv₂'', Henv₂equiv''⟩ := denoteTypedArgs_equiv HdenoteTail _ HEnvHeadEquiv
+    have ⟨env₂'', Henv₂'', Henv₂equiv''⟩ := denoteTypedArgs_equiv HdenoteTail HEnvHeadEquiv
     exists env₂''
     simp [HEnvHead, Henv₂'']
     apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
