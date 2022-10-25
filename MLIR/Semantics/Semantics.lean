@@ -660,6 +660,33 @@ macro "simp_semantics_monad" "at" "*" : tactic =>
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
 
+theorem denoteOpArgs_res [S: Semantics Δ] (args: List (TypedSSAVal Δ)):
+    ∀ ⦃env r env'⦄, denoteOpArgs Δ args env = Except.ok (r, env') →
+    env' = env := by
+  induction args <;> intros env r env' H
+  case nil =>
+    simp [denoteOpArgs] at *
+    simp_monad at *
+    cases H; subst r env
+    simp
+  case cons head tail HInd =>
+    simp [denoteOpArgs]; simp [denoteOpArgs] at H
+    have ⟨headName, headτ⟩ := head
+    simp_monad at *
+    revert H
+    cases Hhead: TopM.get headτ headName env <;> simp <;> intros H <;> try contradiction
+    case ok r =>
+    rw [TopM.get_unfold] at Hhead
+    have ⟨rRes, rEnv⟩ := r; simp at Hhead; cases Hhead; subst rEnv
+    simp [denoteOpArgs] at HInd
+    split at H <;> try contradiction
+    case h_2 tailR HTailR =>
+    have ⟨tailRes, tailEnv⟩ := tailR
+    simp at *
+    specialize HInd HTailR
+    cases H; subst env'
+    assumption
+
 
 theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
     (args: List (TypedSSAVal Δ)):
@@ -914,6 +941,25 @@ def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
 
 
 mutual
+variable {Δ: Dialect α σ ε} [S: Semantics Δ]
+theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
+    ∀ ⦃env r env'⦄,
+    denoteOp Δ op env = Except.ok (r, env') →
+    ∀ ⦃env₂⦄, env.equiv env₂ →
+    ∃ env₂', env'.equiv env₂' ∧
+      denoteOp Δ op env₂ = Except.ok (r, env₂')
+  | Op.mk op_name res args regions attrs => by
+    unfold denoteOp; simp_monad
+    intros env r env' H env₂ Henv₂
+    split at H <;> try contradiction
+    case h_2 _ argsRes HargsRes =>
+    have ⟨argRes, argResEnv⟩ := argsRes
+    have ⟨env₂', Henv₂', HargsRes⟩ := denoteOpArgs_equiv HargsRes Henv₂
+    sorry
+end
+
+/-
+mutual
 variable {Δ: Dialect α σ ε} [S: Semantics Δ] (name: SSAVal) (τ: MLIRType Δ) (v: MLIRType.eval τ)
 
 -- run_denoteOp_env_set_preserves
@@ -1037,8 +1083,7 @@ def mapDenoteRegion_env_set_preserves:
     case tail =>
       apply (mapDenoteRegion_env_set_preserves tail) <;> assumption
 end
-
-
+-/
 
 
 def postSSAEnv.env_set_preserves [S: Semantics δ] (op: Op δ) (env: SSAEnv δ) :
