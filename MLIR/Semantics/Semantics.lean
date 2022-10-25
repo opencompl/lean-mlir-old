@@ -883,16 +883,12 @@ def denoteRegionsSetCommutesInvariant {Δ: Dialect α σ ε} [S: Semantics Δ]
 
 def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
-    ∀ name τ v,
-    (∀ ⦃region⦄, region ∈ regions ->
-     ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') ->
-     ∃ env₂', (env'.set name τ v).equiv env₂' ∧
-     region args (env.set name τ v)  = Except.ok (res, env₂')
-    ) ->
-    ∀ ⦃opM env res env'⦄, OpM.toTopM regions opM env = Except.ok (res, env') -> 
+    denoteRegionsEquivInvariant regions →
+    ∀ name τ v, denoteRegionsSetCommutesInvariant name τ v regions →
+    ∀ ⦃opM env res env'⦄, OpM.toTopM regions opM env = Except.ok (res, env') →
     ∃ env₂', (env'.set name τ v).equiv env₂' ∧
       OpM.toTopM regions opM (env.set name τ v) = Except.ok (res, env₂') := by
-  intros name τ v Hregs opM
+  intros HRegsEquiv name τ v HRegs opM
   induction opM <;> intros env res env' H <;> try contradiction
 
   -- Ret case, we return the same value in both cases, so this is trivial
@@ -909,42 +905,12 @@ def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
     simp_monad at *
     rw [HReg] at H; simp at H
 
-    have ⟨env₂', Henv₂', HIx⟩ := denoteRegionByIx_set_commutes name τ v regions Hregs HReg
+    have ⟨env₂', Henv₂', HIx⟩ := denoteRegionByIx_set_commutes name τ v regions HRegs HReg
     rw [HIx]; simp
-    specialize (HInd resReg H)
-
-
-
-def OpM.toTopM_regions_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ]
-  (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
-    ∀ name τ v,
-    (∀ region args env res env', region ∈ regions ->
-      region args env = Except.ok (res, env') ->
-      region args (env.set name τ v)  = Except.ok (res, env'.set name τ v)
-      ) ->
-    ∀ opM env res env',
-    OpM.toTopM regions opM env = Except.ok (res, env') -> 
-    OpM.toTopM regions opM (env.set name τ v) = Except.ok (res, (env'.set name τ v)) := by
-  intros name τ v Hregs opM env res env' H
-  cases opM <;> try contradiction
-
-  -- Ret case, we return the same value in both cases, so this is trivial
-  case Ret ret =>
-    unfold OpM.toTopM; unfold OpM.toTopM at H
-    cases H <;> simp
-    rfl
-
-  -- Running a region. This is the inductive case over opM
-  case RunRegion idx args continuation =>
-    unfold OpM.toTopM; unfold OpM.toTopM at H
-    have ⟨⟨resReg, envReg⟩, HReg⟩ := ExceptMonad.split H
-    simp [Bind.bind, StateT.bind, Except.bind] at *
-    rw [HReg] at H; simp at H
-
-    have HdenoteIx := @run_denoteRegionByIx_env_set_preserves
-    specialize (HdenoteIx regions name τ v Hregs idx args env _ _ HReg)
-    simp [HdenoteIx]
-    apply OpM.toTopM_regions_env_set_preserves <;> assumption
+    have ⟨env₃', Henv₃', HInd⟩ := HInd resReg H
+    have ⟨env₄', Henv₄', HRegEquiv⟩ := toTopM_regions_equiv regions (by assumption) HInd  Henv₂'
+    exists env₄'; simp [HRegEquiv]
+    apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
 
 
 mutual
