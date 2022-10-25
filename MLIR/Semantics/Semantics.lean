@@ -756,8 +756,72 @@ def denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
     rw [HHead₂]; simp; rw [Henv₂']
     simp; assumption
 
+def denoteRegionByIx_equiv {Δ: Dialect α σ ε}
+  (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
+    (∀ ⦃region⦄, region ∈ regions →
+      ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
+      ∀ ⦃env₂⦄, env.equiv env₂ →
+      ∃ env₂', env'.equiv env₂' ∧
+        region args env₂ = Except.ok (res, env₂')
+      ) ->
+    ∀ ⦃idx args env res env'⦄, 
+    TopM.denoteRegionsByIx regions idx args env = Except.ok (res, env') →
+    ∀ ⦃env₂⦄, env.equiv env₂ → 
+    ∃ env₂', env'.equiv env₂' ∧
+      TopM.denoteRegionsByIx regions idx args env₂ = Except.ok (res, env₂') := by
+  -- We just find the region we have to run, and apply the recursion
+  induction regions <;> intros H idx args env res env' Hrun env₂ Henv₂ <;> try contradiction
+  case cons head tail HInd =>
+    cases idx
+    case zero =>
+      simp at *
+      specialize (H (by constructor) (by assumption) (by assumption))
+      assumption
+    case succ idx' =>
+      specialize (HInd (by 
+        intros region Hregions args env res env' Hrun env₂ Henv₂
+        specialize (H (.tail _ Hregions) (by assumption) (by assumption))
+        assumption
+      ))
+      simp at Hrun
+      specialize (HInd Hrun Henv₂)
+      assumption
 
-def run_denoteTypedArgs_env_set_preserves [S: Semantics Δ] (regArgs: TypedArgs Δ):
+def OpM.toTopM_regions_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]
+  (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
+    (∀ ⦃region⦄, region ∈ regions →
+      ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
+      ∀ ⦃env₂⦄, env.equiv env₂ →
+      ∃ env₂', env'.equiv env₂' ∧
+        region args env₂ = Except.ok (res, env₂')
+      ) ->
+    ∀ ⦃opM env res env'⦄,
+    OpM.toTopM regions opM env = Except.ok (res, env') →
+    ∀ ⦃env₂⦄, env.equiv env₂ →
+    ∃ env₂', env'.equiv env₂' ∧
+      OpM.toTopM regions opM env₂ = Except.ok (res, env₂') := by
+  intros Hregs opM
+  induction opM <;> intros env res env' H env₂ Henv₂ <;> try contradiction
+
+  -- Ret case, we return the same value in both cases, so this is trivial
+  case Ret ret =>
+    unfold OpM.toTopM; unfold OpM.toTopM at H
+    cases H <;> simp
+    exists env₂
+
+  -- Running a region. This is the inductive case over opM
+  case RunRegion idx args continuation HInd =>
+    unfold OpM.toTopM; unfold OpM.toTopM at H
+    have ⟨⟨resReg, envReg⟩, HReg⟩ := ExceptMonad.split H
+    simp_monad at *
+    rw [HReg] at H; simp at H
+
+    have ⟨env₂', Henv₂', HIx⟩ := denoteRegionByIx_equiv regions Hregs HReg Henv₂
+    specialize (HInd resReg (by assumption) (by assumption))
+    rw [HIx]; simp
+    assumption
+
+def run_denoteTypedArgs_env_set_preserves (regArgs: TypedArgs Δ):
     ∀ vals env res env',
     denoteTypedArgs regArgs vals env = Except.ok (res, env') →
     ∀ name, name ∉ vals →
