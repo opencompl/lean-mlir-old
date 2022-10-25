@@ -34,7 +34,6 @@ import MLIR.Util.Arith
 import MLIR.Util.List
 import MLIR.Util.FinInt
 import MLIR.Util.KDTensor
-import MLIR.Semantics.Fitree
 import MLIR.AST
 
 
@@ -91,7 +90,7 @@ instance: DecidableEq (MLIRType δ) :=
  the elaborator, so instead we define it manually with the recursor.
  See: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/reduction.20of.20dependent.20return.20type/near/276044057 -/
 
-@[reducible, simp_itree, simp]
+@[reducible, simp]
 def MLIR.AST.MLIRType.eval: MLIRType δ -> Type
 | .float _ => Float
 | .int signedness sz=> FinInt sz

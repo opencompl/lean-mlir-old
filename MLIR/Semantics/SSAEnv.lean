@@ -27,7 +27,7 @@ care when proving the correction of transformations.
 
 import MLIR.Semantics.Fitree
 import MLIR.Semantics.Types
-import MLIR.Util.WriterT
+import Mathlib.Control.Writer
 import MLIR.Util.Tactics
 
 import MLIR.AST
@@ -256,7 +256,6 @@ inductive SSAEnvE (δ: Dialect α σ ε): Type → Type where
   | Get: (τ: MLIRType δ) → [Inhabited τ.eval] → SSAVal → SSAEnvE δ τ.eval
   | Set: (τ: MLIRType δ) → SSAVal → τ.eval → SSAEnvE δ Unit
 
-@[simp_itree]
 def SSAEnvE.handle {E}: SSAEnvE δ ~> StateT (SSAEnv δ) (Fitree E) :=
   fun _ e env =>
     match e with
@@ -267,30 +266,11 @@ def SSAEnvE.handle {E}: SSAEnvE δ ~> StateT (SSAEnv δ) (Fitree E) :=
     | Set τ name v =>
         return (.unit, env.set name τ v)
 
-def SSAEnvE.handleLogged {E}:
-    SSAEnvE δ ~> WriterT (StateT (SSAEnv δ) (Fitree E)) :=
-  fun _ e => do
-    let env <- WriterT.lift StateT.get
-    match e with
-    | Get τ name =>
-        match env.get name τ with
-        | some v => do
-            logWriterT s!"get {name} (={v}); "
-            return v
-        | none =>
-            logWriterT s!"get {name} (not found!); "
-            return default
-    | Set τ name v =>
-        logWriterT s!"set {name}={v}; "
-        WriterT.lift $ StateT.set (env.set name τ v)
-        return ()
 
-@[simp_itree]
 def SSAEnv.get? {E} (δ: Dialect α σ ε) [Member (SSAEnvE δ) E]
   (τ: MLIRType δ) (name: SSAVal): Fitree E τ.eval :=
     Fitree.trigger (SSAEnvE.Get τ name)
 
-@[simp_itree]
 def SSAEnv.set? {E} {δ: Dialect α σ ε} [Member (SSAEnvE δ) E]
     (τ: MLIRType δ) (name?: Option SSAVal) (v: τ.eval): Fitree E Unit :=
   match name? with
@@ -308,13 +288,6 @@ def interpSSA' {E} (t: Fitree (SSAEnvE δ +' E) R):
     StateT (SSAEnv δ) (Fitree E) R :=
   t.interpState (Fitree.case SSAEnvE.handle Fitree.liftHandler)
 
-def interpSSALogged (t: Fitree (SSAEnvE δ) R):
-    WriterT (StateT (SSAEnv δ) (Fitree Void1)) R :=
-  t.interp SSAEnvE.handleLogged
-
-def interpSSALogged' {E} (t: Fitree (SSAEnvE δ +' E) R):
-    WriterT (StateT (SSAEnv δ) (Fitree E)) R :=
-  t.interp (Fitree.case SSAEnvE.handleLogged Fitree.liftHandler)
 
 @[simp] theorem interpSSA'_Vis_left {δ: Dialect α σ ε}
     (k: T → Fitree (SSAEnvE δ +' E) R) (e: SSAEnvE δ T) (s₁: SSAEnv δ):

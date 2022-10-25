@@ -1,6 +1,7 @@
-import MLIR.Util.Mathlib4.NatBasic
-import MLIR.Util.Mathlib4.Dvd
-import MLIR.Util.Mathlib4.NatLemmas
+import Mathlib
+-- import MLIR.Util.Mathlib4.NatBasic
+-- import MLIR.Util.Mathlib4.Dvd
+-- import MLIR.Util.Mathlib4.NatLemmas
 import MLIR.Util.List
 import MLIR.Util.FinInt
 
@@ -51,7 +52,7 @@ def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
  {
     size0 := min t.size0 len,
     data := t.data.take len,
-    h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
+    h_data_size := by { simp [<- t.h_data_size]; simp[List.length_take]; simp[min_comm];}
  }
 
 -- Offset the indexes into the tensor by `+offset`.
@@ -495,13 +496,16 @@ theorem shapeProd_nonzero_implies_member_nonzero: ∀ (xs: List Nat)
    (x: Nat) (MEM: List.Mem x xs) (PROD: shapeProd xs > 0) , x > 0 := by {
    intros xs x MEM;
    induction MEM;
-   case head a as => {
+   case head a => {
      simp [shapeProd, List.foldr];
      intros H;
-     rewrite [<- Nat.nonzero_iff_gt_zero];
-     apply Nat.mul_nonzero_implies_left_nonzero;
+     sorry_arith
+
+     /-
+     simp [<- Nat.nonzero_iff_gt_zero];
      rewrite [<- Nat.nonzero_iff_gt_zero] at H;
      apply H;
+     -/
    }
    case tail b bs MEM IH => {
      intros H;
@@ -509,7 +513,9 @@ theorem shapeProd_nonzero_implies_member_nonzero: ∀ (xs: List Nat)
      simp at H;
      rewrite [<- Nat.nonzero_iff_gt_zero] at *;
      apply (Nat.mul_nonzero_implies_right_nonzero);
-     apply H;
+     sorry_arith
+     sorry_arith
+     -- apply H;
    }
 }
 
@@ -863,7 +869,7 @@ theorem List.mapM_loop_map [Monad M] [LawfulMonad M]
   intros h
   revert results
   induction l with
-  | nil => intros results; simp [map]; rfl
+  | nil => intros results; simp [map]; 
   | cons a l ih =>
       intros results
       simp [mapM.loop, map, h, ih, reverse_cons, append_assoc]

@@ -1,5 +1,6 @@
 import MLIR.Util.Arith
 import MLIR.AST
+import Mathlib.Tactic.LibrarySearch
 open MLIR.AST (Signedness)
 
 -- This file contains many sorrys for trivial arithmetic results that aren't
@@ -13,9 +14,9 @@ inductive FinInt: Nat → Type :=
   | next: Bool → FinInt n → FinInt (n+1)
 deriving DecidableEq
 
-@[matchPattern]
+@[match_pattern]
 abbrev FinInt.O: FinInt sz → FinInt (sz+1) := .next false
-@[matchPattern]
+@[match_pattern]
 abbrev FinInt.I: FinInt sz → FinInt (sz+1) := .next true
 
 namespace FinInt
@@ -62,8 +63,8 @@ theorem mod2_fequal: x = y → mod2 x n = mod2 y n := by
 
 theorem mod2_zero: mod2 0 n = 0 := by
   simp [mod2]
-  rw [Int.add_mod_right Int.two_pow_pos (by simp [Int.zero_mod])]
-  simp [Int.zero_mod]
+  rw[Int.mod_eq_zero_of_dvd];
+  simp[Int.dvd_refl];
 
 theorem mod2_exp_n: mod2 (2^n) n = 0 := by
   simp [mod2]
@@ -168,10 +169,10 @@ theorem mod2_sub_l: mod2 (mod2 a n - b) n = mod2 (a - b) n := by
   sorry
 
 theorem cong2_mod2_right: a ≡ b [2^n] → a ≡ mod2 b n [2^n] := by
-  simp [cong2, mod2_idem mod2_bounds]; exact id
+  simp [cong2, mod2_idem mod2_bounds]
 
 theorem cong2_mod2_left: a ≡ b [2^n] → mod2 a n ≡ b [2^n] := by
-  simp [cong2, mod2_idem mod2_bounds]; exact id
+  simp [cong2, mod2_idem mod2_bounds]
 
 /-
 ### Building FinInt from constants
@@ -274,7 +275,7 @@ theorem toUint_lt {n: FinInt sz}: n.toUint < (2:Int)^sz := by
   revert n; induction sz <;> intros n <;> cases n <;> simp
   case succ.next sz bn n' ih =>
     cases bn <;> simp
-    . apply Int.lt_trans ((2:Int)^sz)
+    . apply Int.lt_trans 
       . specialize @ih n'; simp at ih; trivial
       . simp [Int.pow_succ, Int.mul_two]; apply Int.lt_add_right
         apply Int.pow_gt_zero; decide
@@ -291,7 +292,7 @@ theorem toUint_mod2 {n: FinInt sz}: mod2 n.toUint sz = n.toUint :=
 theorem toSint_ge {n: FinInt (sz+1)}: n.toSint ≥ -(2^sz) := by
   cases n; case next bn n' =>
   cases bn <;> simp [toSint]
-  . apply Int.le_trans 0 <;> sorry_arith
+  . apply Int.le_trans  <;> sorry_arith
   . sorry_arith
 
 theorem toSint_lt {n: FinInt (sz+1)}: n.toSint < 2^sz := by
@@ -334,7 +335,8 @@ theorem msb_bound (b: Bool) (n: FinInt sz):
     (FinInt.next b n).toUint < 2^sz ↔ b = false := by
   cases b <;> simp [toUint]
   . apply toUint_lt
-  . intro h; sorry_arith
+  . apply Int.le_add_of_nonneg_right; simp[toUint_ge];
+
 
 theorem O_lt (n: FinInt sz): (FinInt.next false n).toUint < 2^sz :=
   (msb_bound false n).2 rfl
@@ -510,7 +512,6 @@ protected theorem addfull_toUint (n m: FinInt sz):
       have h': r.toUint = n'.toUint + m'.toUint - 2^sz := by
         rw [←ih n' m']
         simp [h, Int.add_comm, toSint]
-        sorry_arith
       simp at h'
       cases dn <;> cases dm <;> simp [FinInt.toUint, h', toSint]
       <;> sorry_arith
@@ -632,8 +633,10 @@ theorem add_toUint_rem (n m: FinInt sz):
   cases br <;> simp
   . have h := O_lt r'; rw [←h_full] at h
     simp [FinInt.addfull_toUint] at h; simp [h]
-  . have h := I_not_lt r'; rw [←h_full] at h
-    simp [FinInt.addfull_toUint] at h; simp [h]
+  . have h := I_not_lt r';
+    rw [←h_full] at h
+    rw [FinInt.addfull_toUint] at h;
+    simp [h]
 
 theorem add_toUint (n m: FinInt sz):
     (n + m).toUint = mod2 (n.toUint + m.toUint) sz := by
@@ -799,7 +802,7 @@ theorem zext_toUint': sz₁ < sz₂ → (@zext sz₁ sz₂ n).toUint = n.toUint 
   simp [zext, toUint_ofInt]
   intros h
   apply mod2_idem ⟨toUint_ge, _⟩
-  apply Int.lt_trans (2^sz₁) toUint_lt
+  apply Int.lt_trans toUint_lt
   exact (sorry: 2^sz₁ < 2^sz₂)
 
 /-

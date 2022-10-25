@@ -9,7 +9,7 @@ import MLIR.Tests.AllTests
 import MLIR.Examples.FinIntBruteforce
 
 -- Testing imports for semantics
-import MLIR.Dialects.ToySemantics
+-- import MLIR.Dialects.ToySemantics
 import MLIR.Dialects.PDLSemantics
 -- import MLIR.Dialects.ControlFlowSemantics
 import MLIR.Dialects.ScfSemantics

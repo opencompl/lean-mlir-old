@@ -8,9 +8,6 @@ theorem Fitree.map_const:
 theorem Fitree.id_map (t: Fitree E R):
     id <$> t = t := by
   simp [Functor.map]
-  induction t with
-  | Ret _ => rfl
-  | Vis _ _ ih => simp [bind, ih]
 
 theorem Fitree.comp_map (f: R₁ → R₂) (g: R₂ → R₃) (t: Fitree E R₁):
     (g ∘ f) <$> t = g <$> f <$> t := by
@@ -38,7 +35,7 @@ theorem Fitree.seqRight_eq (t₁: Fitree E R₁) (t₂: Fitree E R₂):
   | Ret _ =>
     simp [Function.const, Function.comp, bind]
   | Vis _ _ ih =>
-    simp [bind]; funext _; simp [ih]; sorry
+    simp [bind];
 
 theorem Fitree.pure_seq (f: R₁ → R₂) (t: Fitree E R₁):
     pure f <*> t = f <$> t :=

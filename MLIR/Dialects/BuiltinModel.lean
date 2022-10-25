@@ -5,10 +5,11 @@
 import MLIR.AST
 import MLIR.Doc
 import MLIR.Semantics.Types
-import MLIR.Semantics.TensorElem
-import MLIR.Util.Mathlib4.NatBasic
-import MLIR.Util.Mathlib4.Dvd
-import MLIR.Util.Mathlib4.NatLemmas
+-- import MLIR.Semantics.TensorElem
+import Mathlib
+-- import MLIR.Util.Mathlib4.NatBasic
+-- import MLIR.Util.Mathlib4.Dvd
+-- import MLIR.Util.Mathlib4.NatLemmas
 open MLIR.AST
 
 
@@ -109,113 +110,6 @@ def Tensor.mapWithFlatIndexCorrect
 }
 
 
-
-/-
-## Ranked tensor type
-
-A ranked tensor extends the runtime tensor with a statically-known list of
-dimensions (all of which may not be known) which adds more invariants.
--/
-
-structure RankedTensor (D: DimList) (τ: MLIRTy) extends Tensor τ where
-  -- Invariants: shape/dimension must be compatible, shape/size must match
-  h_refines: D.shapeRefines shape
-
-theorem RankedTensor.eq_of_fields_eq {τ D} (t₁ t₂: RankedTensor τ D):
-    t₁.shape = t₂.shape → t₁.data = t₂.data → t₁ = t₂ := by
-  intros h_shape h_data
-  suffices t₁.toTensor = t₂.toTensor by
-    cases t₁; cases t₂; simp at *; trivial
-  apply Tensor.eq_of_fields_eq <;> trivial
-
-instance {τ D}: DecidableEq (RankedTensor τ D) := fun t₁ t₂ => by
-  cases t₁; cases t₂; simp
-  exact inferInstance
-
-def RankedTensor.uniform {τ} (D: DimList) (v: τ.eval): RankedTensor D τ :=
-  { Tensor.uniform D.defaultRefinement v with
-    h_refines   := DimList.defaultRefinement_refines _ }
-
-instance {τ D}: Inhabited (RankedTensor D τ) where
-  default := RankedTensor.uniform D default
-
-def RankedTensor.typeStr (τ: MLIRTy) (D: DimList): String :=
-  let dims := "x".intercalate (D.map (MLIR.Doc.Pretty.doc ·))
-  s!"tensor<{dims}x{τ}>"
-
-def RankedTensor.str {τ D} (t: RankedTensor D τ): String :=
-  let dims := "×".intercalate (D.map (MLIR.Doc.Pretty.doc ·))
-  let data := "[" ++ " ".intercalate (t.data.map toString) ++ "]"
-  s!"({dims}){data}"
-
--- Map a function over a tensor.
-def RankedTensor.map {σ σ': MLIRTy} {D: DimList} (v: RankedTensor D σ) (f: σ.eval → σ'.eval): RankedTensor D σ' :=
-  let t' : Tensor σ' := v.toTensor.map f
-  let H : D.shapeRefines t'.shape := by {
-      rewrite [← Tensor.map_shape];
-      simp [v.h_refines];
-  };
-  RankedTensor.mk t' H
-
--- Conversion from TensorElem
-
-def RankedTensor.ofTensorLiteral (lit: TensorLiteral D τ): RankedTensor D τ :=
-  match τ, lit, lit.h_rank with
-  | .int sgn 1, lit, .UniformBool b _ _ =>
-      RankedTensor.uniform D (FinInt.ofInt 1 (if b then 1 else 0))
-  | .int sgn sz, lit, .UniformInt i _ _ _ _ =>
-      RankedTensor.uniform D (FinInt.ofInt sz i)
-  | .float bitsize, lit, .UniformFloat f _ _ =>
-      RankedTensor.uniform D f
-  | τ, lit, .HasShape s _ Hshape Hrefines =>
-      { shape       := s,
-        data        := lit.elem.flatten lit.h_type,
-        h_refines   := Hrefines,
-        h_data_size := TensorElem.flatten_size lit.elem s Hshape lit.h_type }
-
-def RankedTensor.ofTensorElem {τ} (D: DimList) (elem: TensorElem)
-    (h_type: elem.hasType τ) (h_rank: elem.rankCompatibleWith D τ):
-    RankedTensor D τ :=
-  ofTensorLiteral { elem, h_type, h_rank }
-
-
-open DimList in
-def reshape {τ} {D: DimList} (D': DimList)
-    (H: D.known) (H': D'.known) (Hprod: D'.prod = D.prod):
-    RankedTensor D τ → RankedTensor D' τ :=
-  fun t =>
-    { shape       := D'.project,
-      data        := t.data
-      h_refines   := dim_known_project_refines H',
-      h_data_size := by rw [t.h_data_size, dim_known_prod D' H', Hprod]
-                        rw [dim_known_prod_refines H]
-                        apply t.h_refines }
-
-theorem reshape_reshape {τ} {D: DimList} (D₁ D₂: DimList)
-    (H: D.known) (H₁: D₁.known) (H₂: D₂.known)
-    (Hprod₁: D₁.prod = D.prod) (Hprod₂: D₂.prod = D₁.prod)
-    (t: RankedTensor D τ):
-      reshape D₂ H₁ H₂ Hprod₂ (reshape D₁ H H₁ Hprod₁ t) =
-      reshape D₂ H H₂ (Eq.trans Hprod₂ Hprod₁) t :=
-  rfl
-
-open DimList in
-theorem reshape_self {τ} D H₁ H₂ Hprod (t: RankedTensor D τ):
-    reshape D H₁ H₂ Hprod t = t := by
-  simp [reshape, dim_known_project_eq H₁ t.h_refines]
-
-
--- Type interface for registration with MLIRType
-
-private abbrev σ_RankedTensor := DimList × MLIRTy
-private abbrev ε_RankedTensor := fun (D, τ) => RankedTensor D τ
-
-instance: DialectTypeIntf σ_RankedTensor ε_RankedTensor where
-  inhabited := default
-  typeEq := inferInstance
-  eq := inferInstance
-  str := fun (τ, D) t => t.str
-  typeStr := fun (τ, D) => RankedTensor.typeStr D τ
 
 /-
 ## Unranked tensor type
@@ -352,21 +246,16 @@ match spec with
 -/
 
 abbrev builtin.σ :=
-  (σ_RankedTensor ⊕ σ_UnrankedTensor) ⊕ σ_Vector
+  σ_UnrankedTensor ⊕ σ_Vector
 abbrev builtin.ε :=
-  Sum.cases
-    (Sum.cases ε_RankedTensor ε_UnrankedTensor)
-    ε_Vector
+    Sum.cases ε_UnrankedTensor ε_Vector
 
-@[matchPattern]
-def builtin.σ.tensor (D: DimList) (τ: MLIRTy): builtin.σ :=
-  Sum.inl (Sum.inl (D, τ))
 
-@[matchPattern]
+@[match_pattern]
 def builtin.σ.tensor_unranked (τ: MLIRTy): builtin.σ :=
-  Sum.inl (Sum.inr τ)
+  Sum.inl τ
 
-@[matchPattern]
+@[match_pattern]
 def builtin.σ.vector (fixed scalable: List Nat) (τ: MLIRTy): builtin.σ :=
   Sum.inr (fixed, scalable, τ)
 
@@ -375,25 +264,11 @@ def builtin.σ.vector (fixed scalable: List Nat) (τ: MLIRTy): builtin.σ :=
 ## Dense vector/tensor attribute
 -/
 
-structure DenseAttr: Type where
-  elem: TensorElem
-  τ_sig: builtin.σ
-deriving DecidableEq
-
--- TODO: String representation of dense<> attributes via TensorElem
-def DenseAttr.str (a: DenseAttr): String :=
-  let τ_str :=
-    match a.τ_sig with
-    | builtin.σ.tensor τ D => RankedTensor.typeStr D τ
-    | builtin.σ.tensor_unranked τ => UnrankedTensor.typeStr τ
-    | builtin.σ.vector f s τ => Vector.typeStr f s τ
-  s!"dense<...>: {τ_str}"
-
-private abbrev α_DenseAttr := DenseAttr
+private abbrev α_DenseAttr := Unit
 
 instance: DialectAttrIntf α_DenseAttr where
   eq := inferInstance
-  str := DenseAttr.str
+  str := fun () => "()"
 
 
 /-
@@ -415,64 +290,29 @@ instance builtin: Dialect builtin.α builtin.σ builtin.ε where
 
 -- Custom types
 
-@[matchPattern, simp]
-def builtin.tensor (D: DimList) (τ: MLIRTy): MLIRType builtin :=
-  MLIRType.extended (builtin.σ.tensor D τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.tensor_unranked (τ: MLIRTy): MLIRType builtin :=
   MLIRType.extended (builtin.σ.tensor_unranked τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.vector (fixed scalable: List Nat) (τ: MLIRTy):
     MLIRType builtin :=
   MLIRType.extended (builtin.σ.vector fixed scalable τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.memref (D: DimList) (τ: MLIRTy) (layout: Option MemrefLayoutSpec)
     (memspace: Option AttrVal): MLIRType builtin :=
   MLIRType.undefined "builtin.memref"
 
-@[matchPattern]
+@[match_pattern]
 def builtin.memref_unranked (τ: MLIRTy) (memspace: Option AttrVal):
     MLIRType builtin :=
   MLIRType.undefined "builtin.memref_unranked"
 
--- Custom attributes
-
-@[matchPattern]
-def builtin.dense_vector_attr (e: TensorElem) (fixed scalable: List Nat)
-    (τ: MLIRTy): AttrValue builtin :=
-  AttrValue.extended (DenseAttr.mk e (builtin.σ.vector fixed scalable τ))
-
-@[matchPattern]
-def builtin.dense_tensor_attr (e: TensorElem) (D: DimList) (τ: MLIRTy):
-    AttrValue builtin :=
-  AttrValue.extended (DenseAttr.mk e (builtin.σ.tensor D τ))
-
-@[matchPattern]
-def builtin.dense_attr (e: TensorElem) {s: builtin.σ}: AttrValue builtin :=
-  AttrValue.extended (DenseAttr.mk e s)
 
 
 /-
 ## High-level utilities
 -/
-
--- Create a dense vector from a vector type
--- FIXME: Does AttrVal.dense actually also support tensor types??
-def builtin.denseWithType (e: TensorElem) (τ: MLIRType builtin):
-    AttrValue builtin :=
-  match τ with
-  | builtin.tensor D τ =>
-      builtin.dense_tensor_attr e D τ
-  | builtin.vector fixed scalable τ =>
-      builtin.dense_vector_attr e fixed scalable τ
-  | _ =>
-      panic! s!"buitin.denseVectorWithType: {τ} not a vector type"
-
--- Create a dense vector with values `xs` and type `vector<len(xs)*ity>`
-def builtin.denseVectorOfList (xs: List Int) (ity: MLIRTy := .i32):
-    AttrValue builtin :=
-  builtin.dense_vector_attr xs [xs.length] [] ity
 

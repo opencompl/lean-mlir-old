@@ -33,7 +33,7 @@ and we only model programs that always terminate.
 
 import MLIR.Semantics.SimpItree
 import MLIR.Dialects
-import MLIR.Util.WriterT
+import Mathlib.Control.Writer
 
 /- Extendable effect families -/
 
@@ -167,11 +167,6 @@ def Fitree.interpState {M S} [Monad M] {E} (h: E ~> StateT S M):
   interp h
 
 @[simp_itree]
-def Fitree.interpWriter {M} [Monad M] {E} (h: E ~> WriterT M):
-    forall {R}, Fitree E R → WriterT M R :=
-  interp h
-
-@[simp_itree]
 def Fitree.interpOption {M} [Monad M] {E} (h: E ~> OptionT M):
     forall {R}, Fitree E R → OptionT M R :=
   interp h
@@ -226,10 +221,6 @@ equalities.
   StateT.bind (m := Fitree E) t k =
     fun s => Fitree.bind (t s) (fun (x,s) => k x s) := rfl
 
-@[simp] theorem Fitree.WriterT_bind_is_bind (k: T → Fitree E (R × String)):
-  WriterT.bind (m := Fitree E) t k =
-    Fitree.bind t (WriterT.bindCont k) := rfl
-
 @[simp] theorem Fitree.OptionT_bind_is_bind (k: T → Fitree E (Option R)):
   OptionT.bind (m := Fitree E) t k =
     Fitree.bind t (fun
@@ -242,10 +233,6 @@ equalities.
 @[simp] theorem Fitree.liftHandler_StateT_is_StateT_lift:
   @Fitree.liftHandler F (StateT S (Fitree F)) _ _ e =
   fun s => Fitree.bind (Fitree.trigger e) (fun x => Fitree.ret (x, s)) := rfl
-
-@[simp] theorem Fitree.liftHandler_WriterT_is_WriterT_lift:
-  @Fitree.liftHandler F (WriterT (Fitree F)) _ _ e =
-  Fitree.bind (Fitree.trigger e) (fun x => Fitree.ret (x, "")) := rfl
 
 @[simp] theorem Fitree.liftHandler_OptionT_is_OptionT_lift:
   @Fitree.liftHandler F (OptionT (Fitree F)) _ _ e =
@@ -304,13 +291,6 @@ equalities.
 @[simp] theorem Fitree.interpState_Vis {M S} [Monad M] (h: E ~> StateT S M):
   Fitree.interpState h (Fitree.Vis e k) =
   StateT.bind (h _ e) (fun x => Fitree.interpState h (k x)) := rfl
-
-@[simp] theorem Fitree.interpWriter_ret:
-  Fitree.interpWriter h (Fitree.ret r) = Fitree.ret (r, "") := rfl
-
-@[simp] theorem Fitree.interpWriter_Vis {M} [Monad M] (h: E ~> WriterT M):
-  Fitree.interpWriter h (Fitree.Vis e k) =
-  WriterT.bind (h _ e) (fun x => Fitree.interpWriter h (k x)) := rfl
 
 @[simp] theorem Fitree.interpOption_ret:
   Fitree.interpOption h (Fitree.ret r) = Fitree.ret (some r) := rfl
@@ -376,32 +356,6 @@ theorem Fitree.interpState_bind (h: E ~> StateT S (Fitree F)) (t: Fitree E R):
     simp [interpState] at *
     simp [interp, Bind.bind, StateT.bind]
     simp [ih]
-
-example {F R}: WriterT (Fitree F) R = Fitree F (R × String) := by
-  simp [WriterT]
-
-theorem Fitree.interpWriter_bind (h: E ~> WriterT (Fitree F))
-  (t: Fitree E T) (k: T → Fitree E R):
-    Fitree.interpWriter h (Fitree.bind t k) =
-    Fitree.bind (Fitree.interpWriter h t) fun (x,s₁) =>
-      Fitree.bind (Fitree.interpWriter h (k x)) fun (y,s₂) =>
-        Fitree.ret (y,s₁++s₂) := by
-  induction t with
-  | Ret _ =>
-      simp [bind, interpWriter]
-      have h₁: forall x, "" ++ x = x := by
-        simp [HAppend.hAppend, Append.append, String.append]
-        simp [List.nil_append]
-      simp [h₁]
-      have h₂: forall (α β: Type) (x: α × β), (x.fst, x.snd) = x := by simp
-      simp [h₂]
-  | Vis _ _ ih =>
-      simp [interpWriter] at *
-      simp [interp, Bind.bind, WriterT.bindCont, WriterT.mk]
-      have h: forall (x y z: String), x ++ (y ++ z) = x ++ y ++ z := by
-        simp [HAppend.hAppend, Append.append, String.append]
-        simp [List.append_assoc]
-      simp [ih, h]
 
 theorem Fitree.interpOption_bind (h: E ~> OptionT (Fitree F))
   (t: Fitree E T) (k: T → Fitree E R):

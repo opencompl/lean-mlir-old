@@ -131,10 +131,10 @@ def balancedBrackets : Parser :=
 
 
 -- Code stolen from test/WebServer/lean
-@[combinatorFormatter MLIR.EDSL.balancedBrackets]
+@[combinator_formatter MLIR.EDSL.balancedBrackets]
 def MLIR.EDSL.balancedBrackets.formatter : Formatter := pure ()
 
-@[combinatorParenthesizer MLIR.EDSL.balancedBrackets]
+@[combinator_parenthesizer MLIR.EDSL.balancedBrackets]
 def MLIR.EDSL.balancedBracketsParenthesizer : Parenthesizer := pure ()
 
 
@@ -483,12 +483,6 @@ def vectorTy2 := [mlir_type| vector<2 × 3 × [ 4 ] × i32>]
 
 -- | TODO: fix bug that does not allow a trailing times.
 
-syntax "tensor" "<"  mlir_dimension_list  ">"  : mlir_type
-macro_rules
-| `([mlir_type| tensor < $dims:mlir_dimension_list  >]) => do
-    let (dims, ty) <- parseTensorDimensionList dims
-    `(builtin.tensor $dims $ty)
-
 -- | TODO: this is a huge hack.
 -- | TODO: I should be able to use the lower level parser to parse this cleanly?
 syntax "tensor" "<"  "*" "×" mlir_type ">"  : mlir_type
@@ -511,9 +505,6 @@ macro_rules
 | `([mlir_type| tensor <*×$ty:mlir_type >]) => do
     `(builtin.tensor_unranked [mlir_type| $ty])
 
--- Automatically inferred as MLIRType builtin
-def tensorTy0 := [mlir_type| tensor<3×3×i32>]
-#print tensorTy0
 
 def tensorTy1 := [mlir_type| tensor< * × i32>]
 #print tensorTy1
@@ -711,16 +702,6 @@ macro_rules
   | `([mlir_attr_val| $ty:mlir_type]) => `(AttrValue.type [mlir_type| $ty])
 
 
-syntax "dense<" mlir_tensor  ">" ":" mlir_type : mlir_attr_val
-macro_rules
-| `([mlir_attr_val| dense< $v:mlir_tensor > : $t:mlir_type]) =>
-    `(builtin.denseWithType [mlir_tensor| $v] [mlir_type| $t])
-
-syntax "dense<" ">" ":" mlir_type: mlir_attr_val
-macro_rules
-| `([mlir_attr_val| dense< > : $t:mlir_type]) =>
-    `(builtin.denseWithType TensorElem.empty [mlir_type| $t])
-
 macro_rules
   | `([mlir_attr_val| $a:affine_map]) =>
       `(AttrValue.affine [affine_map| $a])
@@ -805,9 +786,6 @@ def attrVal10Float :  AttrVal := [mlir_attr_val| 0.0023 ]
 def attrVal11Escape :  AttrVal := [mlir_attr_val| $(attrVal10Float) ]
 #print attrVal11Escape
 
--- The dense<> attribute requires the builtin dialect for the tensor type
-def attrVal12DenseEmpty: AttrValue builtin := [mlir_attr_val| dense<> : tensor<0 × i64>]
-#print attrVal12DenseEmpty
 
 
 -- MLIR ATTRIBUTE

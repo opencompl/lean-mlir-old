@@ -5,31 +5,12 @@ namespace List
 
 -- General theorems
 
-theorem all_cons {α} (P: α → Bool) head tail:
-    all (head::tail) P ↔ P head ∧ all tail P := by
-  simp [all, foldr]
 
 theorem all_one {α} (P: α → Bool) a:
     all [a] P ↔ P a := by
   simp [all, foldr]
 
-@[simp]
-theorem all_nil {α} (P: α → Bool):
-    all [] P = true := by
-  simp [all, foldr]
 
-@[simp]
-theorem length_take {α} (as: List α) (len: Nat):
-  (as.take len).length = min as.length len := by sorry
-
-theorem length_take_le (as: List α) (len: Nat):
-    (as.take len).length ≤ as.length := by
-  simp [length_take]
-  apply min_le_left
-
-@[simp]
-theorem length_drop {α} (as: List α) (k: Nat):
-  (as.drop k).length = as.length - k:= by sorry
 
 @[simp] -- repeat for @[simp]
 theorem length_replicate_2 {α} (N: Nat) (a: α):
@@ -98,7 +79,7 @@ def getF_take {α: Type} {l: List α} {N n: Nat} (h: n < length (take N l)):
     getF (List.take N l) n h = getF l n (by
       simp [length_take] at h
       apply Nat.lt_of_lt_of_le h
-      apply Nat.min_le_left) := by
+      sorry;) := by
   revert n l
   induction N with
   | zero => intros l n h; cases h
