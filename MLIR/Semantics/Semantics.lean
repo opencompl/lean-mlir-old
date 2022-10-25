@@ -722,7 +722,7 @@ theorem denoteTypedArgs_cons_args {δ: Dialect α σ ε} {argsHead: TypedArg δ}
   simp [H]
 
 
-def denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedArg Δ)) (env: SSAEnv Δ):
+theorem denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedArg Δ)) (env: SSAEnv Δ):
     denoteTypedArgs (headArgs::tailArgs) (headVal::tailVal) env =
       (do
          TopM.set headArgs.fst headVal headArgs.snd
@@ -730,7 +730,7 @@ def denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (TypedAr
   simp [denoteTypedArgs]
 
 
-def denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
+theorem denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
     ∀ {vals} {env₁} {r} {env₁'}, 
     denoteTypedArgs args vals env₁ = Except.ok (r, env₁') →
     ∀ {env₂}, env₁.equiv env₂ →
@@ -756,14 +756,18 @@ def denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
     rw [HHead₂]; simp; rw [Henv₂']
     simp; assumption
 
-def denoteRegionByIx_equiv {Δ: Dialect α σ ε}
+def denoteRegionsEquivInvariant {Δ: Dialect α σ ε}
+    (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :=
+  ∀ ⦃region⦄, region ∈ regions →
+  ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
+  ∀ ⦃env₂⦄, env.equiv env₂ →
+  ∃ env₂', env'.equiv env₂' ∧
+    region args env₂ = Except.ok (res, env₂')
+
+
+theorem denoteRegionByIx_equiv {Δ: Dialect α σ ε}
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
-    (∀ ⦃region⦄, region ∈ regions →
-      ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
-      ∀ ⦃env₂⦄, env.equiv env₂ →
-      ∃ env₂', env'.equiv env₂' ∧
-        region args env₂ = Except.ok (res, env₂')
-      ) ->
+    denoteRegionsEquivInvariant regions ->
     ∀ ⦃idx args env res env'⦄, 
     TopM.denoteRegionsByIx regions idx args env = Except.ok (res, env') →
     ∀ ⦃env₂⦄, env.equiv env₂ → 
@@ -786,14 +790,9 @@ def denoteRegionByIx_equiv {Δ: Dialect α σ ε}
       specialize (HInd Hrun Henv₂)
       assumption
 
-def OpM.toTopM_regions_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]
+theorem OpM.toTopM_regions_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
-    (∀ ⦃region⦄, region ∈ regions →
-      ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
-      ∀ ⦃env₂⦄, env.equiv env₂ →
-      ∃ env₂', env'.equiv env₂' ∧
-        region args env₂ = Except.ok (res, env₂')
-      ) ->
+    denoteRegionsEquivInvariant regions ->
     ∀ ⦃opM env res env'⦄,
     OpM.toTopM regions opM env = Except.ok (res, env') →
     ∀ ⦃env₂⦄, env.equiv env₂ →
@@ -846,9 +845,9 @@ def denoteTypedArgs_set_commutes (regArgs: TypedArgs Δ):
     exists env₂''
     simp [HEnvHead, Henv₂'']
     apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
+  
 
-
-def denoteRegionByIx_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ] 
+theorem denoteRegionByIx_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ] 
   name τ v (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
     (∀ ⦃region⦄, region ∈ regions →
       ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
@@ -874,6 +873,13 @@ def denoteRegionByIx_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
       ))
       simp at Hrun
       apply (HInd Hrun)
+
+def denoteRegionsSetCommutesInvariant {Δ: Dialect α σ ε} [S: Semantics Δ]
+    name τ v (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :=
+    ∀ ⦃region⦄, region ∈ regions →
+      ∀ ⦃args env res env'⦄, region args env = Except.ok (res, env') →
+      ∃ env₂', (env'.set name τ v).equiv env₂' ∧
+      region args (env.set name τ v)  = Except.ok (res, env₂')
 
 def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
