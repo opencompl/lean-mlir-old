@@ -15,10 +15,16 @@ TODO: please unify:
 - MLIR/Semantics/TensorElem.lean
 -/
 
+structure TensorIndex1D (size0: Nat): Type where
+  ix0: Fin size0
+
+
+def TensorIndex1D.enlarge (t: TensorIndex1D size0) (H:size0 < size1): TensorIndex1D size1 :=
+  { ix0 := ⟨t.ix0.val, by { have H': t.ix0.val < size0 := t.ix0.isLt; apply Nat.lt_trans; exact H'; exact H; } ⟩ }
+
 structure Tensor1D where
   size0: Nat
-  data: List (FinInt 32) --  -> Int
-  h_data_size: data.length = size0
+  data: TensorIndex1D size0  -> Int
 
 def Tensor1D.isEq (v1 v2: Tensor1D): Decidable (v1 = v2) := by {
   cases v1;
@@ -26,6 +32,7 @@ def Tensor1D.isEq (v1 v2: Tensor1D): Decidable (v1 = v2) := by {
   simp;
   exact inferInstance;
 }
+
 
 
 /-
@@ -38,20 +45,18 @@ allows us to decompose the shape reasoning from the data reasoning.
 
 All other operations must be written in terms of these primitives.
 -/
-def Tensor1D.empty: Tensor1D := { size0 := 0, data := [], h_data_size :=  rfl }
+def Tensor1D.empty: Tensor1D := { size0 := 0, data := fun absurd => absurd.ix0.elim0 }
 
-def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
+def Tensor1D.fill (t: Tensor1D) (cst: Int): Tensor1D :=  {
   size0 := t.size0
-  data := List.replicate t.size0 cst
-  h_data_size := by { simp[List.length_replicate] }
+  data := fun _ => cst
 }
 
 -- Extract upto len `len` from the tensor.
 def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
  {
     size0 := min t.size0 len,
-    data := t.data.take len,
-    h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
+    data := fun ix => t.data ix.enlarge sorry
  }
 
 -- Offset the indexes into the tensor by `+offset`.
