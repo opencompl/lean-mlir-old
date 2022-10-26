@@ -660,7 +660,7 @@ macro "simp_semantics_monad" "at" "*" : tactic =>
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
 
-theorem denoteOpArgs_res [S: Semantics Δ] (args: List (TypedSSAVal Δ)):
+theorem denoteOpArgs_res [S: Semantics Δ] ⦃args: List (TypedSSAVal Δ)⦄:
     ∀ ⦃env r env'⦄, denoteOpArgs Δ args env = Except.ok (r, env') →
     env' = env := by
   induction args <;> intros env r env' H
@@ -687,6 +687,36 @@ theorem denoteOpArgs_res [S: Semantics Δ] (args: List (TypedSSAVal Δ)):
     cases H; subst env'
     assumption
 
+theorem denoteOpArgs_equiv [S: Semantics Δ] ⦃args: List (TypedSSAVal Δ)⦄:
+    ∀ ⦃env r env'⦄, denoteOpArgs Δ args env = Except.ok (r, env') →
+    ∀ ⦃env₂⦄, env.equiv env₂ →
+    denoteOpArgs Δ args env₂ = Except.ok (r, env₂) := by
+  induction args <;> intros env r env' H
+  case nil =>
+    simp [denoteOpArgs] at *
+    simp_monad at *
+    cases H; subst r env
+    simp
+  case cons head tail HInd =>
+    intros env₂ Henv₂
+    simp [denoteOpArgs]; simp [denoteOpArgs] at H
+    have ⟨headName, headτ⟩ := head
+    simp_monad at *
+    revert H
+    cases Hhead: TopM.get headτ headName env <;> simp <;> intros H <;> try contradiction
+    case ok headR =>
+    have ⟨headR, headEnv⟩ := headR
+    simp [TopM.get_equiv _ _ Henv₂ _ _ _ _ Hhead]
+    split at H <;> try contradiction
+    case h_2 tailR HTailR =>
+    simp at H; cases H; subst env' r
+    have ⟨tailR, tailEnv⟩ := tailR; simp at HTailR
+    have AOEU := HInd HTailR
+    rw [TopM.get_unfold] at Hhead; simp at Hhead; cases Hhead; subst env
+    specialize HInd HTailR Henv₂
+    simp [denoteOpArgs] at HInd
+    simp_monad at *
+    simp [HInd]
 
 theorem denoteOpArgs_env_set_preserves [S: Semantics Δ]
     (args: List (TypedSSAVal Δ)):
