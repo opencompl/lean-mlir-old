@@ -847,7 +847,7 @@ theorem denoteRegionByIx_equiv {Δ: Dialect α σ ε}
       specialize (HInd Hrun Henv₂)
       assumption
 
-theorem OpM.toTopM_regions_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]
+theorem OpM.toTopM_regions_equiv {Δ: Dialect α σ ε}
   (regions: List (TypedArgs Δ -> TopM Δ (TypedArgs Δ))) :
     denoteRegionsEquivInvariant regions ->
     ∀ ⦃opM env res env'⦄,
@@ -970,9 +970,7 @@ def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
     apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
 
 
-mutual
-variable {Δ: Dialect α σ ε} [S: Semantics Δ]
-theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
+theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op Δ⦄,
     ∀ ⦃env r env'⦄,
     denoteOp Δ op env = Except.ok (r, env') →
     ∀ ⦃env₂⦄, env.equiv env₂ →
@@ -981,12 +979,50 @@ theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
   | Op.mk op_name res args regions attrs => by
     unfold denoteOp; simp_monad
     intros env r env' H env₂ Henv₂
+
+    -- denoteOpArgs
     split at H <;> try contradiction
     case h_2 _ argsRes HargsRes =>
     have ⟨argRes, argResEnv⟩ := argsRes
-    have ⟨env₂', Henv₂', HargsRes⟩ := denoteOpArgs_equiv HargsRes Henv₂
-    sorry
-end
+    have _ := denoteOpArgs_res HargsRes; subst argResEnv
+    simp [denoteOpArgs_equiv HargsRes Henv₂]
+
+    -- interpreting regions
+    split at H <;> try contradiction
+    case h_2 regR HregR =>
+    have ⟨regR, regEnv⟩ := regR
+    have HRegInd := OpM.toTopM_regions_equiv (TopM.mapDenoteRegion Δ regions)
+    have ⟨regEnv₂, HregEnv₂, HregR₂⟩ := HRegInd (by sorry) HregR Henv₂
+    simp [HregR₂]
+
+    -- interpreting the operation results
+    cases res
+    case nil =>
+      simp at *; cases H; exists regEnv₂
+      subst r env'; simp [HregEnv₂]
+    case cons headRes tailRes =>
+      cases tailRes
+      case cons _ _ => simp at *; cases H 
+      case nil =>
+        simp
+        cases regR
+        case nil => simp at *; cases H 
+        case cons opRHead opRTail => 
+          cases opRTail
+          case cons _ _ =>  simp at *; cases H
+          case nil => 
+              simp at *
+              split at H <;> try contradiction
+              case h_2 setRes HSetRes =>
+              rw [TopM.set_equiv _ _ HregEnv₂ _ _ _ _ _ HSetRes]; simp
+              cases H; have ⟨setRes, setEnv⟩ := setRes
+              have Hset := TopM.set_ok HSetRes; cases Hset; simp at *
+              exists (regEnv₂.set headRes.fst opRHead.fst opRHead.snd)
+              subst setEnv
+              simp
+              apply SSAEnv.equiv_set
+              assumption
+--end
 
 /-
 mutual
