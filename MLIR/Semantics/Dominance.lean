@@ -162,13 +162,15 @@ end
 Get the definition of a variable, or check if it is used
 -/
 
+def isDefined (var: SSAVal) (op: Op δ) : Bool :=
+  var ∈ op.resNames
 
 mutual
 variable (mVar: SSAVal)
 
 def isSSADefInOp (op: Op δ) : Bool :=
   match op with
-  | .mk _ _ _ regions _ => isSSADefInRegions regions
+  | .mk _ _ _ regions _ => isDefined mVar op || isSSADefInRegions regions
 
 def isSSADefInRegions (regions: List (Region δ)) : Bool :=
   match regions with
