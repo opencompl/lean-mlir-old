@@ -969,10 +969,7 @@ def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
     exists env₄'; simp [HRegEquiv]
     apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
 
-mutual
-variable {Δ: Dialect α σ ε} [S: Semantics Δ]
-
-theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
+theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op Δ⦄,
     ∀ ⦃env r env'⦄,
     denoteOp Δ op env = Except.ok (r, env') →
     ∀ ⦃env₂⦄, env.equiv env₂ →
@@ -994,7 +991,7 @@ theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
     case h_2 regR HregR =>
     have ⟨regR, regEnv⟩ := regR
     have HRegInd := OpM.toTopM_regions_equiv (TopM.mapDenoteRegion Δ regions)
-    have ⟨regEnv₂, HregEnv₂, HregR₂⟩ := HRegInd (@mapDenoteRegion_equiv regions) HregR Henv₂
+    have ⟨regEnv₂, HregEnv₂, HregR₂⟩ := HRegInd (by sorry) HregR Henv₂
     simp [HregR₂]
 
     -- interpreting the operation results
@@ -1025,7 +1022,7 @@ theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
               apply SSAEnv.equiv_set
               assumption
 
-theorem denoteOps_equiv:
+theorem denoteOps_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]:
   ∀ ⦃ops: List (Op Δ)⦄ ⦃env res env'⦄, 
   denoteOps Δ ops env = Except.ok (res, env') →
   ∀ ⦃env₂⦄, env.equiv env₂ →
@@ -1052,7 +1049,7 @@ theorem denoteOps_equiv:
       rw [←TAIL] at H; rw [←TAIL]
       apply denoteOps_equiv H HenvHead
 
-theorem denoteRegion_equiv ⦃region⦄:
+theorem denoteRegion_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] ⦃region⦄:
     ∀ ⦃args env res env'⦄,
     denoteRegion Δ region args env = Except.ok (res, env') →
     ∀ ⦃env₂⦄, env.equiv env₂ →
@@ -1068,7 +1065,7 @@ theorem denoteRegion_equiv ⦃region⦄:
   rw [HdenoteArgs]; simp at *
   apply denoteOps_equiv (by assumption) (by assumption)
 
-theorem mapDenoteRegion_equiv ⦃regions⦄:
+theorem mapDenoteRegion_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] ⦃regions⦄:
     denoteRegionsEquivInvariant (TopM.mapDenoteRegion Δ regions) := by
   match REGIONS: regions with
   | .nil =>
@@ -1088,8 +1085,6 @@ theorem mapDenoteRegion_equiv ⦃regions⦄:
       assumption
     case tail =>
       apply mapDenoteRegion_equiv <;> assumption
-end
-
 
 /-
 mutual
