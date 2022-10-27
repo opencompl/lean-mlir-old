@@ -788,11 +788,11 @@ theorem denoteTypedArgs_cons_unfold (headArgs: TypedArg Δ) (tailArgs: List (Typ
 
 
 theorem denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
-    ∀ {vals} {env₁} {r} {env₁'}, 
+    ∀ ⦃vals env₁ r env₁'⦄, 
     denoteTypedArgs args vals env₁ = Except.ok (r, env₁') →
-    ∀ {env₂}, env₁.equiv env₂ →
-    ∃ env₂', denoteTypedArgs args vals env₂ = Except.ok (r, env₂') ∧
-             env₁'.equiv env₂' := by
+    ∀ ⦃env₂⦄, env₁.equiv env₂ →
+    ∃ env₂', env₁'.equiv env₂' ∧
+             denoteTypedArgs args vals env₂ = Except.ok (r, env₂') := by
   induction args
   case nil =>
     intros val env₁ r env₁' H env₂ Henv₂
@@ -805,7 +805,7 @@ theorem denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
     subst vals
     have HHead₂ := TopM.set_equiv _ _ Henv₂ _ _ _ _ _ HHead
     specialize (HInd HTail (SSAEnv.equiv_set _ _ Henv₂ _ _ _))
-    have ⟨env₂', Henv₂', Hequiv₂'⟩ := HInd
+    have ⟨env₂', Hequiv₂', Henv₂'⟩ := HInd
     exists env₂'
     cases r
     rw [denoteTypedArgs_cons_unfold]
@@ -898,7 +898,7 @@ def denoteTypedArgs_set_commutes (regArgs: TypedArgs Δ):
     have ⟨HEnvHead, _⟩ := TopM.set_ok HEnvHead
     simp at HEnvHead; subst envHead
     have ⟨env'', HEquiv, HdenoteTail⟩ := HInd HTail HNameTail τ v
-    have ⟨env₂'', Henv₂'', Henv₂equiv''⟩ := denoteTypedArgs_equiv HdenoteTail HEnvHeadEquiv
+    have ⟨env₂'', Henv₂equiv'', Henv₂''⟩ := denoteTypedArgs_equiv HdenoteTail HEnvHeadEquiv
     exists env₂''
     simp [HEnvHead, Henv₂'']
     apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
@@ -969,8 +969,10 @@ def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
     exists env₄'; simp [HRegEquiv]
     apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
 
+mutual
+variable {Δ: Dialect α σ ε} [S: Semantics Δ]
 
-theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op Δ⦄,
+theorem denoteOp_equiv : ∀ ⦃op: Op Δ⦄,
     ∀ ⦃env r env'⦄,
     denoteOp Δ op env = Except.ok (r, env') →
     ∀ ⦃env₂⦄, env.equiv env₂ →
@@ -992,7 +994,7 @@ theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op 
     case h_2 regR HregR =>
     have ⟨regR, regEnv⟩ := regR
     have HRegInd := OpM.toTopM_regions_equiv (TopM.mapDenoteRegion Δ regions)
-    have ⟨regEnv₂, HregEnv₂, HregR₂⟩ := HRegInd (by sorry) HregR Henv₂
+    have ⟨regEnv₂, HregEnv₂, HregR₂⟩ := HRegInd (@mapDenoteRegion_equiv regions) HregR Henv₂
     simp [HregR₂]
 
     -- interpreting the operation results
@@ -1022,7 +1024,72 @@ theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op 
               simp
               apply SSAEnv.equiv_set
               assumption
---end
+
+theorem denoteOps_equiv:
+  ∀ ⦃ops: List (Op Δ)⦄ ⦃env res env'⦄, 
+  denoteOps Δ ops env = Except.ok (res, env') →
+  ∀ ⦃env₂⦄, env.equiv env₂ →
+  ∃ env₂', env'.equiv env₂' ∧
+  denoteOps Δ ops env₂ = Except.ok (res, env₂')
+  | [] => by
+    intros env res env' H env₂ Henv₂
+    simp [denoteOps] at *; simp_monad at *
+    cases H; subst res env
+    exists env₂
+  | head::tail => by
+    intros env res env' H env₂ Henv₂
+    unfold denoteOps at H; simp_monad at H
+    match TAIL: tail with
+    | .nil =>
+      apply denoteOp_equiv <;> assumption
+    | .cons head2 tail2 =>
+      simp [denoteOps] at *; simp_monad at *
+      split at H <;> try contradiction
+      case h_2 headR HHeadR =>
+      have ⟨headR, headEnv⟩ := headR; simp at *
+      have ⟨envHead, HenvHead, HdenoteHead⟩ := denoteOp_equiv HHeadR Henv₂
+      simp [HdenoteHead]
+      rw [←TAIL] at H; rw [←TAIL]
+      apply denoteOps_equiv H HenvHead
+
+theorem denoteRegion_equiv ⦃region⦄:
+    ∀ ⦃args env res env'⦄,
+    denoteRegion Δ region args env = Except.ok (res, env') →
+    ∀ ⦃env₂⦄, env.equiv env₂ →
+    ∃ env₂', env'.equiv env₂' ∧
+    denoteRegion Δ region args env₂ = Except.ok (res, env₂') := by
+  cases region
+  case mk rName rArgs rOps =>
+  intros args env res env' H env₂ Henv₂
+  simp [denoteRegion] at *; simp_monad at *
+  (split at H <;> try contradiction); rename_i argsR HargsR
+  have ⟨argsR, argsEnv⟩ := argsR; cases argsR
+  have ⟨argsEnv₂, HargsEnv₂, HdenoteArgs⟩ := denoteTypedArgs_equiv HargsR Henv₂
+  rw [HdenoteArgs]; simp at *
+  apply denoteOps_equiv (by assumption) (by assumption)
+
+theorem mapDenoteRegion_equiv ⦃regions⦄:
+    denoteRegionsEquivInvariant (TopM.mapDenoteRegion Δ regions) := by
+  match REGIONS: regions with
+  | .nil =>
+    intros region HregIn args env res env' H env₂ Henv₂
+    contradiction
+  | .cons head tail =>
+    intros region HregIn args env res env' H env₂ Henv₂
+    simp [TopM.mapDenoteRegion] at HregIn
+    cases HregIn
+    case head => 
+      simp [TopM.scoped] at *; simp_monad at *
+      (split at H <;> try contradiction); rename_i regR HregR
+      have ⟨regR, regEnv⟩ := regR; simp at *; cases H; subst regR env'
+      have ⟨regEnv₂, _, Hregion⟩ := denoteRegion_equiv HregR Henv₂
+      exists env₂
+      simp [Hregion]
+      assumption
+    case tail =>
+      apply mapDenoteRegion_equiv <;> assumption
+end
+
 
 /-
 mutual
