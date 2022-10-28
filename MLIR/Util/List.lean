@@ -36,6 +36,14 @@ theorem length_replicate_2 {α} (N: Nat) (a: α):
     length (List.replicate N a) = N :=
   length_replicate _ _
 
+@[simp]
+theorem ne_mem_cons {α} ⦃x a: α⦄ ⦃as: List α⦄:
+    x ∉ a::as → x ≠ a ∧ x ∉ as := by
+  intros Hne
+  apply And.intro <;> intros _ <;> apply Hne
+  . subst x; constructor
+  . constructor; assumption
+
 -- getF and reasoning on lists by extensionality
 
 def getF {α} (l: List α) (n: Nat) (h: n < l.length): α :=
