@@ -892,7 +892,7 @@ def denoteTypedArgs_set_commutes (regArgs: TypedArgs Δ):
   case cons head tail HInd =>
     intros vals env res env' H name Hname τ v
     have ⟨valHead, valTail, HVal, HHead, HTail⟩ := denoteTypedArgs_cons_args H
-    subst vals; have ⟨HNameHead, HNameTail⟩ := List.ne_mem_cons _ _ _ Hname
+    subst vals; have ⟨HNameHead, HNameTail⟩ := List.ne_mem_cons Hname
     rw [denoteTypedArgs_cons_unfold]; simp_monad
     have ⟨envHead, HEnvHeadEquiv, HEnvHead⟩ := TopM.set_env_set_commutes _ _ _ _ _ _ HHead _ HNameHead τ v
     have ⟨HEnvHead, _⟩ := TopM.set_ok HEnvHead
