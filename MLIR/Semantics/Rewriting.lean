@@ -7,7 +7,9 @@ import MLIR.AST
 import MLIR.Semantics.Matching
 import MLIR.Semantics.Semantics
 import MLIR.Semantics.Refinement
+import MLIR.Semantics.Dominance
 open MLIR.AST
+
 
 /-
 ### replace an operation with multiple operations
@@ -48,11 +50,23 @@ structure PeepholeRewriteOp (δ: Dialect α σ ε) [S: Semantics δ] where
   findRoot: MTerm δ
   findSubtree: List (MTerm δ)
   replaceSubtree: List (MTerm δ)
+  wellformed:
+    ∀ (findProg: Op δ)
+      (replacedProg: List (Op δ))
+      (matchctx: VarCtx δ)
+      (domctx: DomContext δ)
+      (MATCH: matchMProgInOp findProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
+      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
+      (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
+      (DOMFIND: (singleBBRegionOpsObeySSA foundProg domctx).isSome = true)
+      , (singleBBRegionOpsObeySSA replacedProg domctx).isSome = true
+
   correct:
     ∀ (findProg: Op δ)
       (replacedProg: List (Op δ))
-      (ctx: VarCtx δ)
-      (MATCH: matchMProgInOp findProg (findSubtree ++ [findRoot]) [] = .some (_, ctx))
-      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) ctx = .some foundProg)
-      (SUBST: MTerm.concretizeProg replaceSubtree ctx = .some replacedProg)
+      (matchctx: VarCtx δ)
+      (domctx: DomContext δ)
+      (MATCH: matchMProgInOp findProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
+      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
+      (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
       ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines (denoteOps (Δ := δ) (S := S) foundProg).run
