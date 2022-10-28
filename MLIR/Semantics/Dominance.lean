@@ -162,13 +162,15 @@ end
 Get the definition of a variable, or check if it is used
 -/
 
+def isDefined (var: SSAVal) (op: Op δ) : Bool :=
+  var ∈ op.resNames
 
 mutual
 variable (mVar: SSAVal)
 
 def isSSADefInOp (op: Op δ) : Bool :=
   match op with
-  | .mk _ _ _ regions _ => isSSADefInRegions regions
+  | .mk _ _ _ regions _ => isDefined mVar op || isSSADefInRegions regions
 
 def isSSADefInRegions (regions: List (Region δ)) : Bool :=
   match regions with
@@ -256,3 +258,48 @@ def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
     | some op => some op
     | none => getDefiningOpInOps ops'
 end
+
+/-
+Check if the variable is free in a program.
+A variable is free if it is not used or defined in the program.
+-/
+
+mutual
+variable (var: SSAVal)
+
+def isVarFreeInOp (op: Op δ) : Bool :=
+  match op with
+  | .mk _ _ _ regions _ => ¬isUsed var op && ¬isDefined var op && isVarFreeInRegions regions
+
+def isVarFreeInRegions (regions: List (Region δ)) : Bool :=
+  match regions with
+  | [] => False
+  | region::regions' => isVarFreeInRegion region && isVarFreeInRegions regions'
+
+def isVarFreeInRegion (rgn: Region δ) : Bool :=
+  match rgn with
+  | .mk _ _ ops => isVarFreeInOps ops
+
+def isVarFreeInOps (ops: List (Op δ)) : Bool :=
+  match ops with
+  | [] => False
+  | op::ops' => isVarFreeInOp op && isVarFreeInOps ops'
+end
+
+def freeInOp_implies_not_used :
+    isVarFreeInOp var op -> ¬isUsed var op := by
+  unfold isVarFreeInOp
+  cases op
+  simp
+  intros H
+  let ⟨⟨H, _⟩, _⟩ := H
+  apply H
+
+def freeInOp_implies_not_defined :
+    isVarFreeInOp var op -> ¬isDefined var op := by
+  unfold isVarFreeInOp
+  cases op
+  simp
+  intros H
+  let ⟨⟨_, H⟩, _⟩ := H
+  apply H
