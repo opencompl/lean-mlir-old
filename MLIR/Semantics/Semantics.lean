@@ -138,7 +138,7 @@ theorem TopM.set_env_set_commutes {Δ: Dialect α σ ε} (τ: MLIRType Δ) name 
   intros H name' Hname τ' v'
   simp [set] at *; simp_monad at *
   revert H; cases Hget: (env.get name τ) <;> simp <;> intros H <;> try contradiction
-  rw [SSAEnv.get_set_ne_val _ _ (by assumption)]
+  simp_ssaenv
   rw [Hget]; simp
   subst env'
   exists (SSAEnv.set name τ v (SSAEnv.set name' τ' v' env))
@@ -804,7 +804,7 @@ theorem denoteTypedArgs_equiv {Δ: Dialect α σ ε} {args: TypedArgs Δ} :
     have ⟨valsHead, valsTail, HVals, HHead, HTail⟩ := denoteTypedArgs_cons_args H
     subst vals
     have HHead₂ := TopM.set_equiv _ _ Henv₂ _ _ _ _ _ HHead
-    specialize (HInd HTail (SSAEnv.equiv_set _ _ Henv₂ _ _ _))
+    specialize (HInd HTail (by apply SSAEnv.equiv_set Henv₂))
     have ⟨env₂', Hequiv₂', Henv₂'⟩ := HInd
     exists env₂'
     cases r
@@ -901,7 +901,7 @@ def denoteTypedArgs_set_commutes (regArgs: TypedArgs Δ):
     have ⟨env₂'', Henv₂equiv'', Henv₂''⟩ := denoteTypedArgs_equiv HdenoteTail HEnvHeadEquiv
     exists env₂''
     simp [HEnvHead, Henv₂'']
-    apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
+    apply SSAEnv.equiv_trans (by assumption) (by assumption)
   
 
 theorem denoteRegionByIx_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ] 
@@ -967,7 +967,7 @@ def OpM.toTopM_set_commutes {Δ: Dialect α σ ε} [S: Semantics Δ]
     have ⟨env₃', Henv₃', HInd⟩ := HInd resReg H
     have ⟨env₄', Henv₄', HRegEquiv⟩ := toTopM_regions_equiv regions (by assumption) HInd  Henv₂'
     exists env₄'; simp [HRegEquiv]
-    apply SSAEnv.equiv_trans _ _ (by assumption) _ (by assumption)
+    apply SSAEnv.equiv_trans (by assumption) (by assumption)
 
 theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op Δ⦄,
     ∀ ⦃env r env'⦄,
