@@ -366,9 +366,9 @@ theorem equivalent (n m: FinInt 32):
   simp [LHS, RHS,
         run, StateT.run,
         denoteOp, bind, List.mapM, StateT.bind,
-        List.mapM.loop, Except.bind, TopM.get, StateT.get, pure, Except.pure, StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval];
-   unfold cast;
-   unfold MLIRType.eval;
+        List.mapM.loop, Except.bind, TopM.get, StateT.get, pure, Except.pure,
+        StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval,
+        SSAEnv.get, SSAEnv.getT, cast];
    simp[FinInt.add_comm'];
 end th1
 
