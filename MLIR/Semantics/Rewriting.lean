@@ -4,6 +4,9 @@ This file implements a rewriting system for MLIR, following the ideas of PDL.
 -/
 
 import MLIR.AST
+import MLIR.Semantics.Matching
+import MLIR.Semantics.Semantics
+import MLIR.Semantics.Refinement
 open MLIR.AST
 
 /-
@@ -16,7 +19,7 @@ TODO: Remove this restriction, and have a way to identify uniquely operations.
 mutual
 variable (nameMatch: SSAVal) (new_ops: List (Op δ))
 
-def replaceOpInOp (op: Op δ) : Op δ := 
+def replaceOpInOp (op: Op δ) : Op δ :=
   match op with
   | .mk name res args regions attrs =>
     Op.mk name res args (replaceOpInRegions regions) attrs
@@ -38,3 +41,18 @@ def replaceOpInOps (stmts: List (Op δ)) : List (Op δ) :=
     (replaceOpInOp op)::(replaceOpInOps ops')
 end
 
+/-
+A peephole rewrite for operations.
+-/
+structure PeepholeRewriteOp (δ: Dialect α σ ε) [S: Semantics δ] where
+  findRoot: MTerm δ
+  findSubtree: List (MTerm δ)
+  replaceSubtree: List (MTerm δ)
+  correct:
+    ∀ (findProg: Op δ)
+      (replacedProg: List (Op δ))
+      (ctx: VarCtx δ)
+      (MATCH: matchMProgInOp findProg (findSubtree ++ [findRoot]) [] = .some (_, ctx))
+      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) ctx = .some foundProg)
+      (SUBST: MTerm.concretizeProg replaceSubtree ctx = .some replacedProg)
+      ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines (denoteOps (Δ := δ) (S := S) foundProg).run
