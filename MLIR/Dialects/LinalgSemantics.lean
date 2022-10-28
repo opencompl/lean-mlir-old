@@ -214,13 +214,10 @@ theorem equiv (t: Tensor1D) r rSpec:
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast, OpM.denoteRegions, TopM.mapDenoteRegion,
              OpM.toTopM, denoteRegion];
-      save;
+      -- save;
       simp [Semantics.semantics_op];
-      rewrite [linalg_semantics_generic1d];
-      simp;
-      sorry;
-      sorry;
-      sorry;
+      -- rewrite [linalg_semantics_generic1d];
+      sorry
     }
 end ExtractSliceGenericCommute1D
 

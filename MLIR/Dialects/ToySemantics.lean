@@ -148,6 +148,6 @@ theorem double_transpose_correct:
   simp [double_transpose, toy_semantics_region, toy_semantics_op]; simp_itree
   simp [interpUB'!]; simp_itree
   simp [interpSSA', Fitree.interpState, SSAEnvE.handle]; simp_itree
-  simp [SSAEnv.get, SSAEnv.set]; simp_itree
-  simp [SSAEnv.get, SSAEnv.set]; simp_itree
+  simp [SSAEnv.get, SSAEnv.getT, SSAEnv.set]; simp_itree
+  simp [SSAEnv.get, SSAEnv.getT, SSAEnv.set]; simp_itree
   rw [transpose_involutive]
