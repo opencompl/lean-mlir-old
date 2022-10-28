@@ -898,3 +898,383 @@ theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
   rw [List.mapM_map]
   . simp [v.h_data_size]; rfl
   . intros a; cases a; simp [h]
+
+/-
+3D Tensors
+-/
+
+structure TensorIndex3D (sizes: Fin 3 -> Nat): Type where
+  dim2ix: (dim: Fin 3) -> Fin (sizes dim) -- given [0,1,2], return the index value
+
+structure Tensor3D where
+  sizes: Fin 3 → Nat
+  data: TensorIndex3D sizes -> Int
+
+-- function with finite domain.
+structure Findom (n: Nat) (α: Type) where
+  f: Fin n → α
+
+-- cast the domain of a findom along an equality.
+def Findom.castDomain {n m: Nat} (f: Findom n α) (EQ: m = n): Findom m α :=
+  EQ ▸ f
+
+-- Convert a list into a finite domain function
+def List.toFindom: (xs: List α) → Findom (xs.length) α
+| xs => { f := fun ix => xs.getF ix.val ix.isLt }
+
+-- Convert a finite domain function into a list.
+def Findom.toList (fs: Findom n α): { xs: List α // xs.length = n }:=
+  Subtype.mk ((List.rangeF n).map fs.f) (by {
+     induction n;
+     case zero => simp;
+     case succ n' IH => simp;
+  })
+
+theorem toFindom_toList_id (xs: List α): xs.toFindom.toList = xs := by sorry
+theorem toList_toFindom_id (fs: Findom n α):
+  let xs  := fs.toList;  xs.property ▸ xs.val.toFindom = fs := by sorry
+
+-- an endomorphism on Fin n
+structure Endomorphism (n: Nat) extends Findom n (Fin n) where
+
+def Endomorphism.id : Endomorphism n := { f := fun ix => ix }
+-- g ∘ f = g after f
+def Endomorphism.after (g f: Endomorphism n): Endomorphism n :=
+  { f := g.f ∘ f.f }
+
+def Findom.toEndo (fs: Findom n (Fin n)): Endomorphism n := { f := fs.f }
+
+def List.mapFilter (f: a -> Option b): List a → List b
+| [] => []
+| x::xs => match f x with
+           | .none => xs.mapFilter f
+           | .some y => y :: xs.mapFilter f
+
+-- Get the fibers of the endomorphism
+-- TODO: get rid of this subtype.
+def Endomorphism.fiber (e: Endomorphism n) (y: Fin n):
+  List ({ x: Fin n // e.f x = y }) :=
+  (List.rangeF n).mapFilter
+     (fun i => if H:e.f i = y then .some (Subtype.mk i H) else .none)
+
+def Endomorphism.fiber_sound (e: Endomorphism n) (y: Fin n):
+ ∀ x, x ∈ e.fiber y -> e.f x = y := by {
+
+}
+
+-- the fiber of y contains all elements x such that f x = y.
+-- This will allow us to prove uniqueness of toSection.
+def Endomorphism.fiber_complete
+  (e: Endomorphism n) (X: { x : Fin n // e.f x = y }) (y: Fin n) (X: e.f x = y):
+  List.Mem X (e.fiber y) := by {
+}
+
+def List.mapOption (f: a -> Option b): List a -> Option (List b)
+| [] => .some []
+| (x::xs) => sorry
+
+
+def List.sequenceOptional: List (Option α) ->  Option (List α)
+| [] => .some []
+| (.some x)::xs => match xs.sequenceOptional with
+                   | .some xs' => x::xs'
+                   | .none => .none
+| .none::_xs => .none
+
+theorem List.sequenceOptional_length:
+  ∀ (xs: List (Option α)) (xs': List α) (XS: xs.sequenceOptional = some xs'),
+    length xs' = length xs := by {
+   intros xs;
+   induction xs;
+   case nil =>  {
+   intros  xs' XS;
+   simp[sequenceOptional] at XS;
+   simp[XS];
+   rewrite [<- XS];
+   simp;
+   }
+   case cons head tail IH => {
+    intros  xs' XS;
+    cases head;
+    case none => {
+      simp[sequenceOptional] at XS;
+    }
+    case some head' => {
+      simp[sequenceOptional] at XS;
+      cases REC:(sequenceOptional tail);
+      case none => {
+        simp[REC] at XS;
+      }
+      case some sequenceOptional' => {
+          simp[REC] at XS;
+          simp[XS];
+          rewrite[<- XS];
+          simp;
+          apply IH;
+          exact REC;
+      }
+    }
+   }
+}
+
+
+-- traversable. What I really need is traverse.
+-- Why does over half of this API reduce to having clever variants
+-- of 'traverse'?
+def findom_pointwise_optional_to_optional_global_findom
+  (fs: Findom n (Option α)): Option (Findom n α) :=
+  let xs := fs.toList
+  let xs'? := xs.val.sequenceOptional
+  match XS':xs'? with
+  | .none => .none
+  | .some xs' => have H: xs'.length = n := by {
+       have H : List.length xs.val = n:= xs.property;
+       rewrite [<- H];
+       apply List.sequenceOptional_length;
+       rewrite [<- XS']
+       simp;
+      }; H ▸ xs'.toFindom
+
+
+-- This is kind of a misnomer, it rather returns the *unique section*
+-- if such an object exists.
+def Endomorphism.toSection? (e: Endomorphism n): Findom n (Option (Fin n)) := {
+   f := fun y =>
+    match e.fiber y with
+    | [x] => .some x.val
+    | _ => .none
+  }
+
+-- if we have a point where `s(i) = .some si`, then `si` is the unique
+-- value in the codomain such that `pi(si) = i`
+def Endomorphism.toSection?_is_unique (pi: Endomorphism n)
+  (s: Findom n (Option (Fin n)))
+  (S: pi.toSection? = s)
+  (i: Fin n)
+  (si: Fin n)
+  (SI: s.f i = .some si)
+  (sj: Fin n)
+  (SJ: pi.f sj = i): sj = si := by {
+   simp [Endomorphism.toSection?] at S;
+   rewrite[<- S] at SI;
+   simp at SI;
+   cases FIBER:(Endomorphism.fiber pi i);
+   case nil => { -- empty fiber, contradiction.
+     simp [FIBER] at SI;
+   }
+   case cons head tail => {
+     cases tail;
+     case nil => { -- exactly 1 element in fiber, good case!
+      simp [FIBER] at SI;
+      rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
+      simp[head.property]; -- see that by being in the section, it projects to the correct value downstairs.
+
+    }
+     case cons head' tail => { -- > 2 elements in fiber, contradiction.
+       simp [FIBER] at SI;
+     }
+
+   }
+
+
+}
+
+
+
+-- Prove that if we manage to compute a section, then at every point
+-- `i` that the section is defined, `pi(s(i)) = i`, upto `Option`
+-- juggling.
+-- The `option` juggling is necessary since we try to be nice.
+def Endormophism.toSection?_is_section (pi: Endomorphism n)
+  (s: Findom n (Option (Fin n)))
+  (S: pi.toSection? = s)
+  (i: Fin n)
+  (si: Fin n)
+  (SI: s.f i = .some si):
+  pi.f si = i := by {
+   simp [Endomorphism.toSection?] at S;
+   rewrite[<- S] at SI;
+   simp at SI;
+   cases FIBER:(Endomorphism.fiber pi i);
+   case nil => { -- empty fiber, contradiction.
+     simp [FIBER] at SI;
+   }
+   case cons head tail => {
+     cases tail;
+     case nil => { -- exactly 1 element in fiber, good case!
+      simp [FIBER] at SI;
+      rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
+      simp[head.property]; -- see that by being in the section, it projects to the correct value downstairs.
+
+    }
+     case cons head' tail => { -- > 2 elements in fiber, contradiction.
+       simp [FIBER] at SI;
+     }
+
+   }
+}
+
+/-
+TODO: consider using the galois connection given by defining
+for a number 'x', the largest location 'y' such that (f y = x).
+
+`(f y < x) v/s y < lloc x`
+-/
+/-
+Dependently typed programming is like the expression problem.
+We can either write Ohad/OOP, where we have data and proofs (behaviour)
+next to each other. Or we can write in Xavier/functional style, where
+the data is separate from the proofs (behaviour).
+-/
+def Endomorphism.inverse? (e: Endomorphism n): Option (Endomorphism n) :=
+ let fs?: Findom n (Option (Fin n)) := e.toSection?
+ let fs? := findom_pointwise_optional_to_optional_global_findom fs?
+ match fs? with
+ | .none => .none
+ | .some fs' => fs'.toEndo
+
+theorem Endomorphism.inverse?_fg (f g: Endomorphism n)
+  (G: f.inverse? = .some g): f.after g = id := by {
+  simp[inverse?] at G;
+  cases GLOBAL_SECTION:(findom_pointwise_optional_to_optional_global_findom (toSection? f));
+  case none => {
+    simp[GLOBAL_SECTION] at G; -- contradiction
+  }
+  case some s => { -- global section
+   simp[GLOBAL_SECTION] at G;
+   simp [Findom.toEndo] at G;
+   rewrite [<- G];
+   simp[after, id];
+   funext v;
+   simp[G];
+   sorry -- this is the wrong direction, I need the other direction which is easier.
+  }
+}
+
+
+-- Convert a list into an endomorphism
+def List.toEndo (xs: List (Fin n)) (LEN: n = length xs): Endomorphism n :=
+  let fs : Findom n (Fin n) := xs.toFindom.castDomain LEN;
+  fs.toEndo
+
+
+-- Witnesses that the endomorphism 'f' is a permutation
+structure Permutation (n: Nat) extends Endomorphism n where
+   g: Fin n -> Fin n
+   gf: g ∘ f = id
+   fg: f ∘ g = id
+
+-- identity permutation
+def Permutation.identity: Permutation n :=
+ { f := id, g := id, gf := by { funext x; simp }, fg := by { funext x; simp } }
+
+def Fin.enlarge (f: Fin n) (LT: n <= m): Fin m :=
+ ⟨f.val, by { apply Nat.lt_of_lt_of_le; exact f.isLt; exact LT; }⟩
+
+
+
+-- drop a value from a permutation
+/-
+def Permutation.drop (p: Permutation (n+1)): Permutation n :=
+    {
+     f := fun ix =>
+       let im := p.f (ix.enlarge (by simp_arith))
+       if H:im = n - 1 then p.f (im)
+       else im
+    , g := sorry
+    , gf := sorry
+    , fg := sorry }
+-/
+
+
+/-
+def Permutation.swap (x: Fin n) (y: Fin n): Permutation n :=
+-/
+
+
+
+
+
+
+-- permute the tensor index by `f`.
+def TensorIndex3D.permute
+   (f: (Fin 3) → (Fin 3)): TensorIndex3D sizes -> TensorIndex3D (sizes ∘ f)
+| TensorIndex3D.mk dim2ix => TensorIndex3D.mk (fun dim => dim2ix (f dim))
+
+
+theorem comp_assoc: f ∘ (g ∘ h) = (f ∘ g) ∘ h := by {
+  funext x;
+  simp[Function.comp];
+}
+
+theorem Permutation.simp_left (P: Permutation n): (k ∘ P.f) ∘ P.g = k := by {
+   rewrite[<- comp_assoc];
+   simp[P.fg];
+   funext x;
+   simp;
+}
+
+
+-- Permute the tensor dimensions  by f.
+def Tensor3D.permute (P: Permutation 3): Tensor3D -> Tensor3D
+| Tensor3D.mk sizes data =>
+  Tensor3D.mk (sizes ∘ P.f) (fun ix => by {
+    let ix' := ix.permute P.g
+    have H : (sizes ∘ P.f) ∘ P.g = sizes := P.simp_left
+    have ix'' : TensorIndex3D sizes := H ▸ ix'
+    exact (data ix'')
+   })
+
+#print Tensor3D.permute
+
+/-
+Potential ways to represent permutations:
+- function (Fin n -> Fin n) with given inverse
+- a List of naturals of length n with no repeats.
+
+How to check if a list is a permutation:
+Check if each number in [0..n-1] occurs exactly once in the list.
+
+How to check if a function is a permutation:
+-
+-/
+-- Create a nat to a Fin value, if it is within the Fin.
+def Nat.toFin (lim: Nat) (n: Nat): Option (Fin lim) :=
+  if H: n < lim
+  then .some (⟨n, H⟩)
+  else .none
+
+-- Convert a list of Nat to a list of Fin
+def ListNat2ListFin (lim: Nat): List Nat -> Option (List (Fin lim))
+| [] => .some []
+| x::xs =>
+      match Nat.toFin lim x with
+      | .none => .none
+      | .some y =>  match ListNat2ListFin lim xs with
+                | .none => .none
+                | .some ys' => y::ys'
+
+-- Loop to get the index of an element in the function
+def finGetIndexOf_loop [DecidableEq a] (i: Nat) (I: i < n)
+  (f: Fin n -> a) (x: a): Option (Fin n)  :=
+  if f ⟨i, I⟩ == x then .some ⟨i, I⟩ else
+  match H:i with
+  | 0 => .none
+  | i'+1 => finGetIndexOf_loop i'
+         (by { simp_arith; apply le_of_lt; exact I; })
+         f x
+
+-- Get the index of an element in the function.
+def finGetIndexOf [DecidableEq a] (f: Fin n -> a) (x: a): Option (Fin n) :=
+  match H:n with
+  | 0 => .none
+  | n'+1 => finGetIndexOf_loop n' (by { simp_arith; }) f x
+
+
+
+-- Create a function (Fin n -> Option (Fin n))
+def mkInversePointwise?: (Fin n -> Fin n) -> Fin n -> Option (Fin n)
+| f, ix => finGetIndexOf f ix
+
+def mkInverseGlobal?: (Fin n -> Fin n) -> Option (Fin n -> Fin n)
+| f, ix => FinOption2OptionFin (mkInversePointwise? f ix)
