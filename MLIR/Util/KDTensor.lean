@@ -910,11 +910,34 @@ structure Tensor3D where
   sizes: Fin 3 → Nat
   data: TensorIndex3D sizes -> Int
 
+-- any natural than one is zero.
+@[simp]
+theorem Nat.zero_of_lt_one (n: Nat) (LTONE: n < 1): n = 0 := by {
+  cases LTONE;
+  case refl =>  { simp; }
+  case step H => { simp_arith [H]; contradiction; }
+}
+
+theorem Nat.lt_one_is_zero (n: Nat) (LTONE: n < 1): n = 0 := Nat.zero_of_lt_one n LTONE
+
+theorem Fin.one_unique: ∀ (f: Fin 1), f = 0 := by {
+  intros f;
+  cases f;
+  case mk val isLt => {
+    have H: val = 0 := by {
+      apply Nat.lt_one_is_zero <;> assumption;
+    }
+    simp[H];
+    congr;
+  }
+}
+
 -- function with finite domain.
 structure Findom (n: Nat) (α: Type) where
   f: Fin n → α
 
 def Findom.nil: Findom 0 α := ⟨fun ix => ix.elim0⟩
+
 
 -- Nil is uniquely inhabited, as there is only one function (0 -> α)
 -- upto extensionality.
@@ -933,7 +956,7 @@ theorem Findom.nil_unique: ∀ (f: Findom 0 α), f = Findom.nil := by
 def Fin.increment (f: Fin n): Fin (Nat.succ n) := 
   { val := Nat.succ f.val, isLt := by { have H : _ := f.isLt; simp_arith at *; apply H; } }
 
--- get the last element of a list.
+-- get the last element of a fin.
 def Fin.last (n: Nat): Fin (Nat.succ n) :=
   match n with
   | 0 => 0
@@ -942,6 +965,18 @@ def Fin.last (n: Nat): Fin (Nat.succ n) :=
 -- enlarge the 'n' to 'n+1' of Fin.
 def Fin.lift (f: Fin n): Fin (Nat.succ n) :=
   { val := f.val, isLt := by { have H : f.val < n := f.isLt; apply Nat.lt_of_lt_of_le; exact H; simp_arith; } }
+
+-- lift(?x : Fin n) != last (n+1)
+-- lift does not have last in its codomain.
+theorem Fin.lift_neq_last_succ: ∀ (x: Fin (Nat.succ n)), (Fin.lift x) ≠ Fin.last (Nat.succ n) := by {
+  intros x;
+  simp[Fin.last, Fin.lift];
+  have X : x.val < Nat.succ n := x.isLt;
+  simp_arith;
+  by_contra CONTRA;
+  simp [CONTRA] at X;
+} 
+
 
 @[simp]
 theorem le_of_le_of_neq_upper_bound {x N : ℕ} (LEQ: x ≤ N) (NEQ: x ≠ N): x < N := by sorry 
@@ -972,7 +1007,7 @@ theorem Fin.lt_n_of_not_last (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n))
     }
 }
 
--- decrement a fin if it's not the last element, by keeping the value the same.
+-- keep the fin the same, just don't move it.
 def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n := 
   { val := f.val, isLt := by {  
       have H : _ := Fin.lt_n_of_not_last f NOTLAST;
@@ -980,12 +1015,20 @@ def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n :=
     }
   }
 
+
 -- lift of a lower is identity.
-theorem Fin.lift_lower: ∀ (f: Fin (Nat.succ n)) (NEQ: f ≠ Fin.last _), lift (lower f NEQ) = f := by {
+theorem Fin.lift_of_lower: ∀ (f: Fin (Nat.succ n)) (NEQ: f ≠ Fin.last _), lift (lower f NEQ) = f := by {
   intros f NEQ;
   simp[lift, lower];
 }
 
+-- lower of a lift is identity.
+theorem Fin.lower_of_lift: ∀ (f: Fin (Nat.succ n))
+  (NEQ: (lift f) ≠ Fin.last _ := Fin.lift_neq_last_succ f), 
+  Fin.lower f.lift NEQ = f := by {
+  intros f NEQ;
+  simp [lift, lower];
+}
 -- Get findom - last element
 def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
   ⟨fun ix => f.f ix.lift⟩
@@ -1010,11 +1053,44 @@ def Findom.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.appe
           | isFalse HNEQ => by {
             simp[HNEQ];
             simp[Findom.init];
-            simp[Fin.lift_lower];
+            simp[Fin.lift_of_lower];
           }); 
   }
 }
 
+-- the last value of an appended Findom is the element itself.
+def Findom.last_of_append (a: α) (f: Findom n α): (f.append a).f (Fin.last _) = a := by {
+  simp[Findom.append];
+}
+
+-- this is an adjunction between lower and apend?
+-- xs[lower i] = (xs ++ [k])[i] (recall that the lower is an artefact of types, the value does not change.)
+def Findom.val_at_lower_equals_val_at_append (a: α) (f: Findom n α)
+  (k: Fin (Nat.succ n)) (NEQ: k ≠ Fin.last _): 
+    f.f (Fin.lower k NEQ) = (f.append a).f k  := by {
+      cases f;
+      case mk f => {
+        simp;
+        simp [Fin.lower, append];
+        simp[NEQ];
+      }
+} 
+
+
+-- the last value of the init of an appended Findom is the element itself.
+def Findom.init_of_append (a: α) (f: Findom (Nat.succ n) α): (f.append a).init = f := by {
+  simp[Findom.append, Findom.init];
+  congr;
+  funext ix;
+  simp;
+  have H : Fin.lift ix ≠ Fin.last _ := by apply Fin.lift_neq_last_succ;
+  simp[H];
+  cases f;
+  case mk f => {
+    simp;
+    simp[Fin.lower_of_lift]; 
+  }
+}
 
 -- cast the domain of a findom along an equality.
 def Findom.castDomain {n m: Nat} (f: Findom n α) (EQ: m = n): Findom m α :=
@@ -1388,11 +1464,34 @@ def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom 
                         | .none => .none
                         | .some fs' => .some (Findom.append x fs')
 
+theorem Findom.sequenceOptional_append
+  (fs?: Findom n (Option α))
+  (fs: Findom n α)
+  (FS: Findom.sequenceOptional fs? = fs)
+  (a: α): 
+  Findom.sequenceOptional (fs?.append (.some a)) = .some (append a fs)  := by {
+    simp[sequenceOptional];
+    simp[Findom.last_of_append];
+    cases n;
+    case zero => {
+        have FS?VAL : fs? = Findom.nil := by apply Findom.nil_unique;
+        have FSVAL : fs = Findom.nil := by apply Findom.nil_unique;
+        simp[FSVAL];
+        simp [FS?VAL];
+        simp[Findom.append];
+        simp [Findom.init];
+        simp[sequenceOptional];
+    }
+    case succ n' => {
+      simp[Findom.init_of_append (a := some a)];
+      simp[FS];
+    }
+  }
 #print Nat.rec
 #print List.rec
 
 -- induction principle for findom.
-theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop):
+theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n α -> Prop):
   (motive Findom.nil) -> (∀ (x: α) (n: Nat) (f: Findom n α),
       motive f -> motive (Findom.append x f)) -> (f: Findom n α) -> motive f := by {
   intros nil append;
@@ -1416,6 +1515,26 @@ theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop)
   }
 }
 
+-- induction principle for findom where domain is always succ.
+theorem Findom.inductionSucc {α: Type} (motive: ∀ (n: Nat), Findom (Nat.succ n) α -> Prop)
+  (ONE: ∀ f: Findom (Nat.succ 0) α, motive _ f)  (IND: ∀ (x: α) (n: Nat) (f: Findom (Nat.succ n) α),
+      motive n f -> motive _ (Findom.append x f)): ∀ (f: Findom (Nat.succ n) α), motive n f := by {
+  induction n;
+  case zero => {
+    simp[Findom, Findom.nil] at *;
+    intros f;
+    apply ONE;
+  }
+  case succ n' IH => {
+    simp[Findom];
+    intros f';
+    have H : _ := Findom.eq_append_init_last (f := f')
+    rewrite [H];
+    apply IND;
+    apply IH;
+  }
+}
+
 
 theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
   {fs: Findom n α} (FS: fs?.sequenceOptional = .some fs) (i: Fin n):
@@ -1427,34 +1546,101 @@ theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
         apply i.elim0;
       }
       case succ n' IH => {
-        cases fs?.f 0;
-        case none => {
-          simp[sequenceOptional] at FS;
-          simp[FS];
-        }
-        case some x => {
-          simp[sequenceOptional] at FS;
-          cases REC:(sequenceOptional (Findom.tail fs?));
-          case none => {
-            simp[REC] at FS;
-            simp[FS];
-          }
-          case some fs' => {
-            simp[REC] at FS;
-            simp[FS];
-            cases i;
-            case zero => {
-              simp;
+        apply Findom.inductionSucc (motive := 
+          fun (k: Nat) (gs?: Findom (Nat.succ k) (Option α)) => -- motive arguments 
+              ∀ (gs: Findom (Nat.succ k) α) -- impredicativity ftw
+                (GS: sequenceOptional gs? = .some gs) 
+                (i: Fin (Nat.succ k)), -- our prop 
+                  gs?.f i = some (gs.f i));
+        case ONE => {
+          intros gs? gs GS k;
+          simp [sequenceOptional] at GS;
+          simp [Fin.last] at GS;
+          cases EVAL:(gs?.f 0);
+          case none =>  { simp [EVAL] at GS <;> contradiction };
+          case some gs?0 => {
+            simp[EVAL] at GS;
+            simp [append] at GS;
+            simp [GS];
+            have KVAL : k = 0 := by apply Fin.one_unique;
+            simp[KVAL] at *;
+            have GSFN: gs.f = fun ix => gs?0 := by {
+              cases gs;
+              case mk gsfn => {
+                simp at *;
+                funext ix;
+                rewrite [<- GS];
+                simp;
+                have IX: ix = 0 := Fin.one_unique _;
+                simp[IX];
+              }
             }
-            case succ i' => {
-              simp;
-              apply n'.ih;
-              exact REC;
+            rewrite[GSFN] <;> simp[EVAL]
+          }
+        }
+        case IND => {
+          intros last?; 
+          intros size;
+          intros gs? IH gs GS k;
+          simp [append];
+          cases (decEq k (Fin.last (Nat.succ size)));
+          case isTrue KLAST => {
+            simp[KLAST];
+            simp [sequenceOptional] at GS;
+            simp[Findom.last_of_append] at GS;
+            cases LAST:last? <;> simp[LAST] at GS;
+            case some last => {
+              simp[LAST] at GS;
+              simp[GS];
+              simp[Findom.init_of_append] at GS;
+              cases GSLAST:(gs?.f (Fin.last size)) <;> simp [GSLAST] at GS;
+              case some gslast => {
+                simp [GSLAST] at GS;
+                cases RECINIT:(sequenceOptional (init gs?)) <;> simp[RECINIT] at GS;
+                case some recval => {
+                  rewrite[<- GS];
+                  simp[Findom.last_of_append];
+                }
+              }
+            }
+          }
+          case isFalse KLAST => {
+            simp[KLAST];
+
+            simp [sequenceOptional] at GS;
+            simp[Findom.last_of_append] at GS;
+            cases LAST:last?;
+            case none => {
+              simp[LAST] at GS;
+            }
+            case some last => {
+              simp[LAST] at GS;
+              simp[GS];
+              simp[Findom.last_of_append] at GS;
+              simp[Findom.init_of_append] at GS;
+              cases GSLAST:(f gs? (Fin.last size)) <;> simp[GSLAST] at GS;
+              case some gslast => {
+                cases SEQUENCE_INIT_GS:(sequenceOptional (init gs?)) <;> simp [SEQUENCE_INIT_GS] at GS;
+                case some sequence_init_gs => {
+                  -- we need to massage to apply IH, such that the RHS
+                  -- can have a weird looking `gs`, as long as the LHS has a normal looking `gs?`.
+                  -- TODO: consider making it the other way round?
+                  rewrite [<- GS];
+                  rewrite [<- Findom.val_at_lower_equals_val_at_append 
+                      (f := append gslast sequence_init_gs)
+                      (NEQ := KLAST)];
+                  apply IH;
+                  sorry
+                  -- apply Findom.sequenceOptional_append;
+                }
+              }
             }
           }
         }
-      }
-      sorry
+        case GS => {
+          apply FS;
+        }
+    }
 }
 
 
@@ -1612,28 +1798,6 @@ structure Permutation (n: Nat) extends Endomorphism n where
 -- identity permutation
 def Permutation.identity: Permutation n :=
  { f := id, g := id, gf := by { funext x; simp }, fg := by { funext x; simp } }
-
-
--- drop a value from a permutation
-/-
-def Permutation.drop (p: Permutation (n+1)): Permutation n :=
-    {
-     f := fun ix =>
-       let im := p.f (ix.enlarge (by simp_arith))
-       if H:im = n - 1 then p.f (im)
-       else im
-    , g := sorry
-    , gf := sorry
-    , fg := sorry }
--/
-
-
-/-
-def Permutation.swap (x: Fin n) (y: Fin n): Permutation n :=
--/
-
-
-
 
 
 
