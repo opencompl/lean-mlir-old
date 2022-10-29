@@ -914,6 +914,39 @@ structure Tensor3D where
 structure Findom (n: Nat) (α: Type) where
   f: Fin n → α
 
+def Findom.nil: Findom 0 α := ⟨fun ix => ix.elim0⟩
+
+-- Nil is uniquely inhabited, as there is only one function (0 -> α)
+-- upto extensionality.
+theorem Findom.nil_unique: ∀ (f: Findom 0 α), f = Findom.nil := by
+  intros g
+  cases g
+  case mk f => {
+  simp [Findom.nil]
+  funext x;
+  intros;
+  apply x.elim0;
+}
+
+
+-- increment a fin to live in a larger universe.
+def Fin.increment (f: Fin n): Fin (Nat.succ n) := 
+  { val := Nat.succ f.val, isLt := by { have H : _ := f.isLt; simp_arith at *; apply H; } }
+
+
+-- enlarge the 'n' to 'n+1' of Fin.
+def Fin.lift (f: Fin n): Fin (Nat.succ n) :=
+  { val := f.val, isLt := by { have H : f.val < n := f.isLt; apply Nat.lt_of_lt_of_le; exact H; simp_arith; } }
+
+-- Get findom - last element
+def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
+  ⟨fun ix => f.f ix.lift⟩
+
+-- append to the end of a list.
+def Findom.append (a: α) (f: Findom n α): Findom (Nat.succ n) α :=
+  ⟨fun ix => sorry ⟩ 
+
+
 -- cast the domain of a findom along an equality.
 def Findom.castDomain {n m: Nat} (f: Findom n α) (EQ: m = n): Findom m α :=
   EQ ▸ f
@@ -950,37 +983,264 @@ def List.mapFilter (f: a -> Option b): List a → List b
            | .none => xs.mapFilter f
            | .some y => y :: xs.mapFilter f
 
+@[simp]
+def Mem.elimEmpty {y: α} (H: List.Mem y []): False := by {
+  cases H;
+}
+
+
+#check Exists
+def List.inMapFilter
+  [DecidableEq b]  {f: a -> Option b} {xs: List a} {y: b}
+  (Y: List.Mem y (xs.mapFilter f)) :
+  ∃(x : a), List.Mem x xs ∧ (f x = .some y) := by {
+  revert y;
+  induction xs;
+  case nil => {
+    intros y Y;
+    simp[mapFilter] at Y;
+    have H : False := Mem.elimEmpty Y;
+    contradiction;
+  }
+  case cons x' xs IH => {
+    intros y Y;
+    simp at *;
+    simp [mapFilter] at Y;
+    cases FX':(f x');
+    case none => {
+      simp [FX'] at Y;
+      specialize (IH Y);
+      cases IH;
+      case intro val property => {
+         constructor;
+         constructor;
+         apply Mem.tail;
+         exact (property.left);
+         exact property.right;
+      }
+    }
+    case some y' => {
+      simp[FX'] at Y;
+      cases EQ:(decEq y y');
+      case isFalse NEQ => {
+        -- Since y /= y', we can't have y be member of (y' :: ..)
+        cases Y;
+        case head => {
+          simp[NEQ];
+          contradiction;
+        }
+        -- we must be in the tail, use the induction hypothesis.
+        case tail Y => {
+          specialize (IH Y);
+          cases IH; -- @mathieu: how do I do this nicely?
+          case intro x' X' => {
+            apply (Exists.intro);
+            constructor;
+            apply Mem.tail;
+            exact X'.left;
+            exact X'.right;
+          }
+
+        }
+      }
+      case isTrue EQ' => {
+        apply Exists.intro (w := x');
+        constructor;
+        apply Mem.head;
+        simp[EQ'];
+        exact FX';
+      }
+
+    }
+
+  }
+
+}
+
+-- Characterize having '(List.Mem y (xs.mapFilter f)'  based on properties.
+def List.inMapFilter'
+  [DecidableEq b]  {f: a -> Option b} {xs: List a} {x : a} (MEM: List.Mem x xs) : ∀ {y: b}
+  {FX: f x = .some y}, List.Mem y (xs.mapFilter f) := by {
+  induction MEM;
+  case head H x' xs' => {
+       intros y FX;
+       simp [mapFilter, FX];
+       constructor;
+  }
+  case tail p q r s t u => {
+    intros y FX;
+    simp [mapFilter]
+    cases FQ:(f q);
+    case none => {
+        simp;
+        apply u;
+        exact FX;
+    }
+    case some v => {
+      simp;
+      apply Mem.tail;
+      apply u;
+      exact FX;
+    }
+  }
+}
+
 -- Get the fibers of the endomorphism
 -- TODO: get rid of this subtype.
 def Endomorphism.fiber (e: Endomorphism n) (y: Fin n):
-  List ({ x: Fin n // e.f x = y }) :=
+  List (Fin n) :=
   (List.rangeF n).mapFilter
-     (fun i => if H:e.f i = y then .some (Subtype.mk i H) else .none)
+     (fun i => if e.f i = y then .some i else .none)
 
+
+-- Any element in the fiber does project down to `y`.
 def Endomorphism.fiber_sound (e: Endomorphism n) (y: Fin n):
  ∀ x, x ∈ e.fiber y -> e.f x = y := by {
+  intros x X;
+  simp [fiber] at X;
+  have H : _ := List.inMapFilter X;
+  cases H;
+  case intro x' X' => {
+    have H : _ := And.right X';
+    -- inMapFilter tells us that f(e(x')) = y must hold.
+    cases (decEq (Findom.f e.toFindom x')  y);
+    case isFalse NEQ => {
+      simp [NEQ] at H;
+    }
+    case isTrue EQ => {
+      simp [EQ] at H;
+      rewrite [<- H];
+      exact EQ;
+    }
+  }
+}
 
+-- every 'Fin n' is a member of 'List.rangeF n'
+def List.mem_rangeF (x: Fin n): List.Mem x (List.rangeF n) := by {
+ sorry -- TODO: prove this some rainy day.
 }
 
 -- the fiber of y contains all elements x such that f x = y.
 -- This will allow us to prove uniqueness of toSection.
-def Endomorphism.fiber_complete
-  (e: Endomorphism n) (X: { x : Fin n // e.f x = y }) (y: Fin n) (X: e.f x = y):
-  List.Mem X (e.fiber y) := by {
+def Endomorphism.fiber_complete (e: Endomorphism n) (y: Fin n):
+ ∀ x,  e.f x = y -> x ∈ e.fiber y := by {
+  intros x X;
+  simp[fiber];
+  apply List.inMapFilter' (x := x);
+  apply List.mem_rangeF;
+  simp[X];
 }
 
-def List.mapOption (f: a -> Option b): List a -> Option (List b)
-| [] => .some []
-| (x::xs) => sorry
 
+
+
+
+/-
+def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
+  match H:n with
+  | 0 => .some { f := fun ix => ix.elim0 }
+  | n'+1 => match fs.f 0 with
+          | .some x =>
+            match Findom.sequenceOptional (n := n') { f := fun ix => fs.f ix.lift} with
+            | .some xs => .some { f := fun ix => match ix with
+                                                | 0 => x
+                                                | ix' => xs.f ix'
+                                }
+            | .none => .none
+          | .none => .none
+-/
 
 def List.sequenceOptional: List (Option α) ->  Option (List α)
 | [] => .some []
-| (.some x)::xs => match xs.sequenceOptional with
-                   | .some xs' => x::xs'
+| x? :: xs => match x? with
+      | .some x => match List.sequenceOptional xs with
+                   | .some xs => .some (x :: xs)
                    | .none => .none
-| .none::_xs => .none
+      | .none => .none
 
+/-
+Characterise what elements are in (List.sequenceOptional xs)
+-/
+theorem List.sequenceOptional_Mem {xs?: List (Option α)} {xs: List α}
+  (XS: xs?.sequenceOptional = .some xs) {x: α} (MEM: List.Mem x xs):
+  ∃ x? : Option α, List.Mem x? xs? ∧ x? = .some x := by {
+  revert XS;
+  revert xs?;
+  induction MEM;
+  case head y ys' => {
+    intros xs? XS;
+    induction xs?;
+    case nil => {
+      simp[sequenceOptional] at XS;
+    }
+    case cons x' xs' IH => {
+      cases x';
+      case none => {
+        simp[sequenceOptional] at XS;
+      }
+      case some x'val => {
+        simp[sequenceOptional] at XS;
+        cases CONTRA:(sequenceOptional xs');
+        case none => {
+          simp[CONTRA] at XS;
+        }
+        case some xs'val => {
+          simp[CONTRA] at XS;
+          simp[XS];
+          apply Exists.intro (w := .some x'val);
+          constructor;
+          have X'VAL: x'val = y := XS.left;
+          simp[X'VAL];
+          constructor;
+          have X'VAL: x'val = y := XS.left;
+          simp[X'VAL];
+        }
+      }
+    }
+  }
+  case tail kk head' tail' MEMHEAD' MEMIH => {
+    intros xs? XS;
+    induction xs?;
+    case nil => {
+      simp[sequenceOptional] at XS;
+    }
+    case cons head'' tail'' IH2 => {
+      cases HEAD'':head'';
+      case none => {
+        simp[HEAD''] at XS;
+        simp[sequenceOptional] at XS;
+      }
+      case some head''val => {
+        simp[HEAD''] at XS;
+        simp[sequenceOptional] at XS;
+        simp[IH2] at XS;
+        cases CONTRA:(sequenceOptional tail'');
+        case none => {
+          simp[CONTRA] at XS;
+        }
+        case some xs'val => {
+            simp[CONTRA] at XS;
+            have XSRIGHT : xs'val = tail' := XS.right;
+            have XSLEFT : head''val = kk := XS.left;
+            simp[XSLEFT, XSRIGHT] at *;
+            specialize (MEMIH CONTRA);
+            cases MEMIH;
+            case intro val property => {
+              apply Exists.intro (w := val);
+              constructor;
+              apply Mem.tail;
+              exact property.left;
+              exact property.right;
+            }
+          }
+        }
+      }
+    }
+  }
+
+/-
+If sequenceOptional returns a value, then it has the same length.
+-/
 theorem List.sequenceOptional_length:
   ∀ (xs: List (Option α)) (xs': List α) (XS: xs.sequenceOptional = some xs'),
     length xs' = length xs := by {
@@ -1005,7 +1265,7 @@ theorem List.sequenceOptional_length:
       case none => {
         simp[REC] at XS;
       }
-      case some sequenceOptional' => {
+      case some sequenceOptional => {
           simp[REC] at XS;
           simp[XS];
           rewrite[<- XS];
@@ -1017,23 +1277,115 @@ theorem List.sequenceOptional_length:
    }
 }
 
-
+/-
 -- traversable. What I really need is traverse.
 -- Why does over half of this API reduce to having clever variants
 -- of 'traverse'?
-def findom_pointwise_optional_to_optional_global_findom
+def Findom.everywhere_defined?
   (fs: Findom n (Option α)): Option (Findom n α) :=
   let xs := fs.toList
+  have H : List.length xs.val = n:= xs.property;
   let xs'? := xs.val.sequenceOptional
-  match XS':xs'? with
+  match XS':xs'? with -- how to rewrite?
   | .none => .none
-  | .some xs' => have H: xs'.length = n := by {
-       have H : List.length xs.val = n:= xs.property;
+  | .some xs' => have LEN: xs'.length = n := by {
        rewrite [<- H];
        apply List.sequenceOptional_length;
-       rewrite [<- XS']
-       simp;
-      }; H ▸ xs'.toFindom
+       simp [ XS'] at *;
+      };  LEN ▸ xs'.toFindom
+
+theorem Findom.everywhere_defined?_eval {fs?: Findom n (Option α)}
+  {fs: Findom n α} (FINDOM: fs?.everywhere_defined? = .some fs) (i: Fin n):
+    fs?.f i = .some (fs.f i) := by {
+  simp[everywhere_defined?] at FINDOM;
+  cases XS':List.sequenceOptional (toList fs?).val;
+  case none => {
+    simp[XS'] at FINDOM;
+    sorry
+  }
+  case some fs => {
+    simp[XS'] at FINDOM;
+    sorry
+  }
+}
+-/
+
+def Fin.last (n: Nat): Fin (Nat.succ n) :=
+  match n with
+  | 0 => 0
+  | Nat.succ n' => ⟨Nat.succ n', by { simp_arith; }⟩
+
+def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
+  match n with
+  | 0 => .some Findom.nil
+  | n+1 => match fs.f (Fin.last n) with
+           | .none => .none
+           | .some x => match Findom.sequenceOptional (Findom.init fs) with
+                        | .none => .none
+                        | .some fs' => .some (Findom.append x fs')
+
+#print Nat.rec
+
+theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop):
+  (motive Findom.nil) -> (∀ (x: α) (n: Nat) (f: Findom n α),
+      motive f -> motive (Findom.prepend x f)) -> (f: Findom n α) -> motive f := by {
+  intros nil prepend;
+  induction n;
+  case zero => {
+    simp[Findom, Findom.nil] at *;
+    intros f;
+    have H: f = Findom.nil := by {
+      simp[Findom.nil_unique];
+    }; 
+    rewrite[H];
+    exact nil;
+  }
+  case succ n' IH => {
+    simp[Findom];
+    intros f';
+    exact prepend (f.f 0) (Findom.tail f) (IH (Findom.tail f));
+  }
+}
+
+theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
+  {fs: Findom n α} (FS: fs?.sequenceOptional = .some fs) (i: Fin n):
+    fs?.f i = .some (fs.f i) := by {
+      induction n;
+      case zero => {
+        simp[sequenceOptional] at FS;
+        simp[FS];
+        apply i.elim0;
+      }
+      case succ n' IH => {
+        cases fs?.f 0;
+        case none => {
+          simp[sequenceOptional] at FS;
+          simp[FS];
+        }
+        case some x => {
+          simp[sequenceOptional] at FS;
+          cases REC:(sequenceOptional (Findom.tail fs?));
+          case none => {
+            simp[REC] at FS;
+            simp[FS];
+          }
+          case some fs' => {
+            simp[REC] at FS;
+            simp[FS];
+            cases i;
+            case zero => {
+              simp;
+            }
+            case succ i' => {
+              simp;
+              apply n'.ih;
+              exact REC;
+            }
+          }
+        }
+      }
+      sorry
+}
 
 
 -- This is kind of a misnomer, it rather returns the *unique section*
@@ -1041,9 +1393,20 @@ def findom_pointwise_optional_to_optional_global_findom
 def Endomorphism.toSection? (e: Endomorphism n): Findom n (Option (Fin n)) := {
    f := fun y =>
     match e.fiber y with
-    | [x] => .some x.val
+    | [x] => .some x
     | _ => .none
   }
+
+@[simp]
+theorem List.mem_singleton (a a': α) (H: List.Mem a  [a']): a = a' := by {
+  cases H <;> simp at *;
+  case tail IH => {
+    simp[IH];
+    have H : False := Mem.elimEmpty IH;
+    contradiction;
+  }
+
+}
 
 -- if we have a point where `s(i) = .some si`, then `si` is the unique
 -- value in the codomain such that `pi(si) = i`
@@ -1067,7 +1430,14 @@ def Endomorphism.toSection?_is_unique (pi: Endomorphism n)
      case nil => { -- exactly 1 element in fiber, good case!
       simp [FIBER] at SI;
       rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
-      simp[head.property]; -- see that by being in the section, it projects to the correct value downstairs.
+      have IN: sj ∈ pi.fiber i := by {
+           apply Endomorphism.fiber_complete;
+           exact SJ;
+      }
+      simp[FIBER] at IN;
+      simp at IN;
+      apply List.mem_singleton; simp;
+      exact IN;
 
     }
      case cons head' tail => { -- > 2 elements in fiber, contradiction.
@@ -1104,7 +1474,9 @@ def Endormophism.toSection?_is_section (pi: Endomorphism n)
      case nil => { -- exactly 1 element in fiber, good case!
       simp [FIBER] at SI;
       rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
-      simp[head.property]; -- see that by being in the section, it projects to the correct value downstairs.
+      apply Endomorphism.fiber_sound;
+      rewrite [FIBER];
+      constructor;
 
     }
      case cons head' tail => { -- > 2 elements in fiber, contradiction.
@@ -1128,28 +1500,31 @@ the data is separate from the proofs (behaviour).
 -/
 def Endomorphism.inverse? (e: Endomorphism n): Option (Endomorphism n) :=
  let fs?: Findom n (Option (Fin n)) := e.toSection?
- let fs? := findom_pointwise_optional_to_optional_global_findom fs?
+ let fs? := Findom.sequenceOptional fs?
  match fs? with
  | .none => .none
  | .some fs' => fs'.toEndo
 
+
 theorem Endomorphism.inverse?_fg (f g: Endomorphism n)
   (G: f.inverse? = .some g): f.after g = id := by {
   simp[inverse?] at G;
-  cases GLOBAL_SECTION:(findom_pointwise_optional_to_optional_global_findom (toSection? f));
+  cases GLOBAL_SECTION:(Findom.sequenceOptional (toSection? f));
   case none => {
     simp[GLOBAL_SECTION] at G; -- contradiction
   }
   case some s => { -- global section
-   simp[GLOBAL_SECTION] at G;
-   simp [Findom.toEndo] at G;
-   rewrite [<- G];
-   simp[after, id];
-   funext v;
-   simp[G];
-   sorry -- this is the wrong direction, I need the other direction which is easier.
+    simp[GLOBAL_SECTION] at G;
+
+    sorry
   }
 }
+
+theorem Endomorphism.inverse?_gf (f g: Endomorphism n)
+  (G: f.inverse? = .some g):  g.after f = id := by { sorry}
+
+
+
 
 
 -- Convert a list into an endomorphism
@@ -1167,10 +1542,6 @@ structure Permutation (n: Nat) extends Endomorphism n where
 -- identity permutation
 def Permutation.identity: Permutation n :=
  { f := id, g := id, gf := by { funext x; simp }, fg := by { funext x; simp } }
-
-def Fin.enlarge (f: Fin n) (LT: n <= m): Fin m :=
- ⟨f.val, by { apply Nat.lt_of_lt_of_le; exact f.isLt; exact LT; }⟩
-
 
 
 -- drop a value from a permutation
