@@ -943,6 +943,9 @@ def Fin.last (n: Nat): Fin (Nat.succ n) :=
 def Fin.lift (f: Fin n): Fin (Nat.succ n) :=
   { val := f.val, isLt := by { have H : f.val < n := f.isLt; apply Nat.lt_of_lt_of_le; exact H; simp_arith; } }
 
+@[simp]
+theorem le_of_le_of_neq_upper_bound {x N : ℕ} (LEQ: x ≤ N) (NEQ: x ≠ N): x < N := by sorry 
+
 -- if not last, then value is less than n
 theorem Fin.lt_n_of_not_last (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): f.val < n := by{
   cases f;
@@ -957,8 +960,18 @@ theorem Fin.lt_n_of_not_last (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n))
       simp[H] at NOTLAST;
       contradiction;
     }
-  }
-} 
+    case succ n' => {
+      simp[NOTLAST];
+      simp at NOTLAST;
+      simp_arith at *;
+      have H : v < Nat.succ n' := by { 
+          apply le_of_le_of_neq_upper_bound <;> simp_arith at * <;> simp <;> try assumption;
+      };
+      simp_arith at * <;> assumption;
+    }
+    }
+}
+
 -- decrement a fin if it's not the last element, by keeping the value the same.
 def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n := 
   { val := f.val, isLt := by {  
@@ -966,6 +979,12 @@ def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n :=
       simp_arith[H];
     }
   }
+
+-- lift of a lower is identity.
+theorem Fin.lift_lower: ∀ (f: Fin (Nat.succ n)) (NEQ: f ≠ Fin.last _), lift (lower f NEQ) = f := by {
+  intros f NEQ;
+  simp[lift, lower];
+}
 
 -- Get findom - last element
 def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
@@ -976,7 +995,7 @@ def Findom.append (a: α) (f: Findom n α): Findom (Nat.succ n) α :=
   ⟨fun ix => if H:ix = (Fin.last n) then a else f.f (ix.lower H) ⟩ 
 
 -- a findom is equal to its init appended with its lsat.
-def Fin.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.append (f.f (Fin.last _)) := by {
+def Findom.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.append (f.f (Fin.last _)) := by {
   intros f;
   simp[Findom.append];
   cases f;
@@ -984,9 +1003,16 @@ def Fin.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.append 
     congr;
     funext ix;
     simp;
-    cases H:(ix = last n); -- How do I get out of this dependnetly typed hell?
+    exact (match H:(decEq ix (Fin.last n)) with 
+          | isTrue HEQ => by {
+            simp[HEQ];
+          }
+          | isFalse HNEQ => by {
+            simp[HNEQ];
+            simp[Findom.init];
+            simp[Fin.lift_lower];
+          }); 
   }
-
 }
 
 
@@ -1365,6 +1391,7 @@ def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom 
 #print Nat.rec
 #print List.rec
 
+-- induction principle for findom.
 theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop):
   (motive Findom.nil) -> (∀ (x: α) (n: Nat) (f: Findom n α),
       motive f -> motive (Findom.append x f)) -> (f: Findom n α) -> motive f := by {
@@ -1377,14 +1404,18 @@ theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop)
       simp[Findom.nil_unique];
     }; 
     rewrite[H];
-    exact nil;
+    apply nil;
   }
   case succ n' IH => {
     simp[Findom];
     intros f';
-
+    have H : _ := Findom.eq_append_init_last (f := f')
+    rewrite [H];
+    apply append;
+    apply IH;
   }
 }
+
 
 theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
   {fs: Findom n α} (FS: fs?.sequenceOptional = .some fs) (i: Fin n):
