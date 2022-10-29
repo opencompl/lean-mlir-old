@@ -19,6 +19,7 @@ import MLIR.Dialects.BuiltinModel
 import MLIR.Util.Metagen
 import MLIR.AST
 import MLIR.EDSL
+import MLIR.Semantics.Rewriting
 open MLIR.AST
 
 /-
