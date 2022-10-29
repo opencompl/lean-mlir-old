@@ -917,10 +917,39 @@ theorem Findom.nil_unique: ∀ (f: Findom 0 α), f = Findom.nil := by
 def Fin.increment (f: Fin n): Fin (Nat.succ n) := 
   { val := Nat.succ f.val, isLt := by { have H : _ := f.isLt; simp_arith at *; apply H; } }
 
+-- get the last element of a list.
+def Fin.last (n: Nat): Fin (Nat.succ n) :=
+  match n with
+  | 0 => 0
+  | Nat.succ n' => ⟨Nat.succ n', by { simp_arith; }⟩
 
 -- enlarge the 'n' to 'n+1' of Fin.
 def Fin.lift (f: Fin n): Fin (Nat.succ n) :=
   { val := f.val, isLt := by { have H : f.val < n := f.isLt; apply Nat.lt_of_lt_of_le; exact H; simp_arith; } }
+
+-- if not last, then value is less than n
+theorem Fin.lt_n_of_not_last (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): f.val < n := by{
+  cases f;
+  case mk v isLt => {
+    simp[last] at NOTLAST;
+    cases n;
+    case zero => {
+      simp[NOTLAST];
+      simp at NOTLAST;
+      -- v < 1 => v = 0
+      have H : v = 0 := by { sorry };
+      simp[H] at NOTLAST;
+      contradiction;
+    }
+  }
+} 
+-- decrement a fin if it's not the last element, by keeping the value the same.
+def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n := 
+  { val := f.val, isLt := by {  
+      have H : _ := Fin.lt_n_of_not_last f NOTLAST;
+      simp_arith[H];
+    }
+  }
 
 -- Get findom - last element
 def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
@@ -928,7 +957,21 @@ def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
 
 -- append to the end of a list.
 def Findom.append (a: α) (f: Findom n α): Findom (Nat.succ n) α :=
-  ⟨fun ix => sorry ⟩ 
+  ⟨fun ix => if H:ix = (Fin.last n) then a else f.f (ix.lower H) ⟩ 
+
+-- a findom is equal to its init appended with its lsat.
+def Fin.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.append (f.f (Fin.last _)) := by {
+  intros f;
+  simp[Findom.append];
+  cases f;
+  case mk f => {
+    congr;
+    funext ix;
+    simp;
+    cases H:(ix = last n); -- How do I get out of this dependnetly typed hell?
+  }
+
+}
 
 
 -- cast the domain of a findom along an equality.
@@ -1294,11 +1337,6 @@ theorem Findom.everywhere_defined?_eval {fs?: Findom n (Option α)}
 }
 -/
 
-def Fin.last (n: Nat): Fin (Nat.succ n) :=
-  match n with
-  | 0 => 0
-  | Nat.succ n' => ⟨Nat.succ n', by { simp_arith; }⟩
-
 def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
   match n with
   | 0 => .some Findom.nil
@@ -1309,11 +1347,12 @@ def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom 
                         | .some fs' => .some (Findom.append x fs')
 
 #print Nat.rec
+#print List.rec
 
 theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop):
   (motive Findom.nil) -> (∀ (x: α) (n: Nat) (f: Findom n α),
-      motive f -> motive (Findom.prepend x f)) -> (f: Findom n α) -> motive f := by {
-  intros nil prepend;
+      motive f -> motive (Findom.append x f)) -> (f: Findom n α) -> motive f := by {
+  intros nil append;
   induction n;
   case zero => {
     simp[Findom, Findom.nil] at *;
@@ -1327,7 +1366,7 @@ theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n  α -> Prop)
   case succ n' IH => {
     simp[Findom];
     intros f';
-    exact prepend (f.f 0) (Findom.tail f) (IH (Findom.tail f));
+
   }
 }
 
