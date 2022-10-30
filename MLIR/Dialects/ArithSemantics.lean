@@ -371,9 +371,38 @@ theorem equivalent (n m: FinInt 32):
         StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval,
         SSAEnv.get, SSAEnv.getT, cast];
    simp[FinInt.add_comm'];
+
+def th1 : PeepholeRewriteOp arith := 
+{
+  findRoot := MTerm.buildOp "arith.addi" 
+        [MTerm.buildOperand "n" .i32, MTerm.buildOperand "m" .i32]
+        [MTerm.buildOperand "r" .i32]
+  , findSubtree := []
+  , replaceSubtree := [MTerm.buildOp "arith.addi" 
+        [MTerm.buildOperand "m" .i32, MTerm.buildOperand "n" .i32]
+        [MTerm.buildOperand "r" .i32]]
+  , wellformed := by {
+     intros toplevelProg _prog matchCtx replacedProg matchctx domctx 
+     intros MATCH FIND SUBST DOMFIND
+     simp [List.append] at *;
+     sorry
+  } 
+  , correct := by {
+     intros toplevelProg _prog matchCtx replacedProg matchctx domctx
+     intros MATCH FIND SUBST DOMFIND
+     simp [List.append] at *;
+     simp [MTerm.concretizeProg, List.mapM, List.mapM.loop] at FIND;
+     simp [MTerm.concretizeOp, MTerm.buildOp, MTerm.concretizeOperands, MTerm.concretizeOperand, MTerm.buildOperand,
+        MTerm.concretizeVariable, List.mapM, List.mapM.loop] at FIND;
+      -- cases on the MTerm.getVariable and show that we must have such a variable.
+      -- then generalize on this.
+      sorry
+
+  }
+}
+
 end th1
 
-/-
 /- LLVM InstCombine: `C-(X+C2) --> (C-C2)-X`
    https://github.com/llvm/llvm-project/blob/291e3a85658e264a2918298e804972bd68681af8/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp#L1794 -/
 
@@ -384,6 +413,8 @@ theorem FinInt.sub_add_dist: forall (C X C2: FinInt sz),
   simp [cong2, FinInt.sub_toUint, FinInt.add_toUint]
   apply FinInt.mod2_fequal
   simp [Int.sub_add_dist, Int.sub_assoc]
+
+/-
 
 namespace th2
 def LHS: BasicBlock arith := [mlir_bb|

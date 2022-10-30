@@ -557,6 +557,22 @@ termination_by
   matchMProgInOpAux _ mOps matchOps => (mOps, matchOps)
   matchMProgInOp _ mOps ctx => (mOps, [])
 
+-- variable type
+def MTerm.buildTypeVar (name: String) : MTerm δ := .Var 2 name .MMLIRType
+-- constant type 
+
+def MTerm.buildTypeConst (type: MLIRType δ) : MTerm δ := .ConstMLIRType type
+
+-- operand. For now, assume monomorhpic types.
+def MTerm.buildOperand (name: String) (type: MLIRType δ): MTerm δ := 
+  .App .OPERAND [ .Var (priority := 2) name .MSSAVal,
+                  MTerm.buildTypeConst type ]
+
+def MTerm.buildOp (name: String) (args: List (MTerm δ)) (res: List (MTerm δ)) :
+    MTerm δ :=
+  .App .OP [ .ConstString name, .App (.LIST .MOperand) args,
+    .App (.LIST .MOperand) res ]
+
 private def test_addi_multiple_pattern: List (MTerm δ) :=
   [.App .OP [
     .ConstString "std.addi",

@@ -51,22 +51,24 @@ structure PeepholeRewriteOp (δ: Dialect α σ ε) [S: Semantics δ] where
   findSubtree: List (MTerm δ)
   replaceSubtree: List (MTerm δ)
   wellformed:
-    ∀ (findProg: Op δ)
+    ∀ (toplevelProg: Op δ)
+      (_prog: List (Op δ))
+      (foundProg: List (Op δ))
       (replacedProg: List (Op δ))
       (matchctx: VarCtx δ)
       (domctx: DomContext δ)
-      (MATCH: matchMProgInOp findProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
+      (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
       (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
       (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
       (DOMFIND: (singleBBRegionOpsObeySSA foundProg domctx).isSome = true)
       , (singleBBRegionOpsObeySSA replacedProg domctx).isSome = true
 
   correct:
-    ∀ (findProg: Op δ)
+    ∀ (toplevelProg: Op δ)
       (replacedProg: List (Op δ))
       (matchctx: VarCtx δ)
       (domctx: DomContext δ)
-      (MATCH: matchMProgInOp findProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
+      (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
       (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
       (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
       ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines (denoteOps (Δ := δ) (S := S) foundProg).run
