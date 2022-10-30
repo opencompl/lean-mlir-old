@@ -15,17 +15,23 @@ TODO: please unify:
 - MLIR/Semantics/TensorElem.lean
 -/
 
+structure TensorIndex1D (n: Nat) where
+  ix0: Fin n
+
 structure Tensor1D where
   size0: Nat
-  data: List (FinInt 32) --  -> Int
-  h_data_size: data.length = size0
+  data: TensorIndex1D size0 -> FinInt 32 --  -> Int
 
-def Tensor1D.isEq (v1 v2: Tensor1D): Decidable (v1 = v2) := by {
-  cases v1;
-  cases v2;
-  simp;
-  exact inferInstance;
-}
+def Tensor1D.isEq (v1 v2: Tensor1D): Decidable (v1 = v2) :=
+  match decEq (v1.size0) (v2.size0) with
+  | Decidable.isFalse prf =>
+      Decidable.isFalse (by {
+        intro H;
+        cases H;
+        contradiction;
+      })
+  | Decidable.isTrue SIZE0 =>
+      Decidable.isTrue sorry
 
 
 /-
@@ -38,27 +44,34 @@ allows us to decompose the shape reasoning from the data reasoning.
 
 All other operations must be written in terms of these primitives.
 -/
-def Tensor1D.empty: Tensor1D := { size0 := 0, data := [], h_data_size :=  rfl }
+def Tensor1D.empty: Tensor1D := { size0 := 0, data := fun ix => ix.ix0.elim0 }
 
 def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
   size0 := t.size0
-  data := List.replicate t.size0 cst
-  h_data_size := by { simp[List.length_replicate] }
+  data := fun _ => cst
 }
 
 -- Extract upto len `len` from the tensor.
-def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
+def Tensor1D.extract (t: Tensor1D) (len: Nat) (LEN: len <= t.size0): Tensor1D :=
  {
-    size0 := min t.size0 len,
-    data := t.data.take len,
-    h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
+    data := fun ix => t.data ix
  }
 
+
+def Fin.offset (x: Fin n) (o: Nat): Fin (n + o) :=
+  Fin.mk (x + o) (by { simp_arith; apply x.isLt; })
+
+def TensorIndex1D.offset (ix: TensorIndex1D n) (o: Nat): TensorIndex1D (n + o) :=
+  { ix0 := ix.ix0.offset o }
+
 -- Offset the indexes into the tensor by `+offset`.
-def Tensor1D.offset (t: Tensor1D) (offset: Nat): Tensor1D := {
+def Tensor1D.offset (t: Tensor1D) (offset: Nat) (OFFSET: offset <= t.size0): Tensor1D := {
   size0 := t.size0 - offset
-  data := t.data.drop offset
-  h_data_size := by { rewrite[<- t.h_data_size]; apply List.length_drop; }
+  data := fun ix =>
+     have H : t.size0 - offset + offset = t.size0 := by {
+      apply Nat.sub_add_cancel <;> assumption
+     };
+     t.data (H ▸ ix.offset offset)
 }
 
 -- Stride indexes into the tensor by `*stride*.
@@ -837,10 +850,12 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
 }
 
 
-def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (FinInt 32) →  (FinInt 32)):
-  Tensor1D :=
-  Tensor1D.mk (size0 := v.size0)
-    (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
+-- v This is no longer used, since it uses the old representation of tensors.
+-- def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (FinInt 32) →  (FinInt 32)):
+--   Tensor1D :=
+--   Tensor1D.mk (size0 := v.size0)
+--     (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
+
 
 def Tensor1D.mapM {M: Type -> Type} [Monad M]
   (v: Tensor1D) (f: (FinInt 32) → M (FinInt 32)):
@@ -872,6 +887,7 @@ theorem List.mapM_map [Monad M] [LawfulMonad M] (l: List α) (f: α → β) (fM:
     (forall a, fM a = return f a) →
     l.mapM fM = return l.map f := by
   apply List.mapM_loop_map
+
 
 theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
     (forall flat_index val, fM flat_index val = return f flat_index val) →
