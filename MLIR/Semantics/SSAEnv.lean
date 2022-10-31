@@ -228,6 +228,7 @@ theorem SSAScope.get_set_eq (v: SSAVal) (scope: SSAScope δ) (τ: MLIRType δ) v
     byCases H: head.fst = v <;> try apply cast_eq
     assumption
 
+set_option maxHeartbeats 9999999 in 
 theorem SSAScope.set_commutes ⦃v v': SSAVal⦄:
     v' ≠ v →
     ∀ ⦃scope: SSAScope δ⦄ ⦃τ τ' val val'⦄,

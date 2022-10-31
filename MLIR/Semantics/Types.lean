@@ -55,6 +55,7 @@ variable {α σ ε} [δ: Dialect α σ ε]
 ### Decidable equality for MLIRType
 -/
 
+set_option maxHeartbeats 9999999 in
 mutual
 
 def MLIRType.eq (τ₁ τ₂: MLIRType δ): Decidable (τ₁ = τ₂) := by

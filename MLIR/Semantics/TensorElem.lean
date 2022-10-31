@@ -401,6 +401,7 @@ theorem flatten_list {τ: MLIRTy} (l: List TensorElem) (h: hasType (.nested l) �
   case cons _ _ ih =>
     simp [flatten, mapWithType, List.join, ih]
 
+set_option maxHeartbeats 99999999 in 
 theorem flatten_size {τ: MLIRTy} (e: TensorElem) (shape: List Nat):
     e.hasShape shape → (h: e.hasType τ) → (e.flatten h).length = shapeProd shape := by
   revert shape

@@ -52,6 +52,7 @@ def operandsDefinitionObeySSA (args: List (TypedSSAVal δ)) (ctx: DomContext δ)
 Check that an IR satisfies SSA.
 -/
 
+set_option maxHeartbeats 9999999 in 
 mutual
 def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match op with
@@ -89,14 +90,11 @@ def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (
   | op::ops' => (singleBBRegionOpObeySSA op ctx).bind (singleBBRegionOpsObeySSA ops')
   | [] => some ctx
 end
-
-/-
 termination_by
   singleBBRegionOpObeySSA  op _ => sizeOf op
   singleBBRegionRegionsObeySSA regions _=> sizeOf regions
   singleBBRegionObeySSA rgn _ => sizeOf rgn
   singleBBRegionOpsObeySSA ops _ => sizeOf ops
--/
 
 /-
 ### Uniqueness of SSA names
@@ -286,6 +284,7 @@ def isVarFreeInOps (ops: List (Op δ)) : Bool :=
   | op::ops' => isVarFreeInOp op && isVarFreeInOps ops'
 end
 
+set_option maxHeartbeats 9999999 in 
 def freeInOp_implies_not_used :
     isVarFreeInOp var op -> ¬isUsed var op := by
   unfold isVarFreeInOp
@@ -295,6 +294,7 @@ def freeInOp_implies_not_used :
   let ⟨⟨H, _⟩, _⟩ := H
   apply H
 
+set_option maxHeartbeats 9999999 in 
 def freeInOp_implies_not_defined :
     isVarFreeInOp var op -> ¬isDefined var op := by
   unfold isVarFreeInOp
