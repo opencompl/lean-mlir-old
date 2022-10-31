@@ -15,12 +15,937 @@ TODO: please unify:
 - MLIR/Semantics/TensorElem.lean
 -/
 
-structure TensorIndex1D (n: Nat) where
-  ix0: Fin n
+/-
+#### Finite Integers, Finite Domains, Endomorphisms, Permutations 
+-/
+
+-- function with finite domain.
+@[simp, reducible]
+abbrev Findom (n: Nat) (α: Type) := Fin n → α
+
+def Findom.nil: Findom 0 α := fun ix => ix.elim0
+
+
+-- Nil is uniquely inhabited, as there is only one function (0 -> α)
+-- upto extensionality.
+theorem Findom.nil_unique: ∀ (f: Findom 0 α), f = Findom.nil := by {
+  intros f
+  simp[Findom, Findom.nil] at *;
+  funext x;
+  apply x.elim0;
+}
+
+
+-- increment a fin to live in a larger universe.
+def Fin.increment (f: Fin n): Fin (Nat.succ n) :=
+  { val := Nat.succ f.val, isLt := by { have H : _ := f.isLt; simp_arith at *; apply H; } }
+
+
+-- any natural than one is zero.
+@[simp]
+theorem Nat.zero_of_lt_one (n: Nat) (LTONE: n < 1): n = 0 := by {
+  cases LTONE;
+  case refl =>  { simp; }
+  case step H => { simp_arith [H]; contradiction; }
+}
+
+theorem Nat.lt_one_is_zero (n: Nat) (LTONE: n < 1): n = 0 := Nat.zero_of_lt_one n LTONE
+
+theorem Fin.one_unique: ∀ (f: Fin 1), f = 0 := by {
+  intros f;
+  cases f;
+  case mk val isLt => {
+    have H: val = 0 := by {
+      apply Nat.lt_one_is_zero <;> assumption;
+    }
+    simp[H];
+    congr;
+  }
+}
+
+
+-- get the last element of a fin.
+def Fin.last (n: Nat): Fin (Nat.succ n) :=
+  match n with
+  | 0 => 0
+  | Nat.succ n' => ⟨Nat.succ n', by { simp_arith; }⟩
+
+-- enlarge the 'n' to 'n+1' of Fin.
+def Fin.lift (f: Fin n): Fin (Nat.succ n) :=
+  { val := f.val, isLt := by { have H : f.val < n := f.isLt; apply Nat.lt_of_lt_of_le; exact H; simp_arith; } }
+
+-- lift(?x : Fin n) != last (n+1)
+-- lift does not have last in its codomain.
+theorem Fin.lift_neq_last_succ: ∀ (x: Fin (Nat.succ n)), (Fin.lift x) ≠ Fin.last (Nat.succ n) := by {
+  intros x;
+  simp[Fin.last, Fin.lift];
+  have X : x.val < Nat.succ n := x.isLt;
+  simp_arith;
+  by_contra CONTRA;
+  simp [CONTRA] at X;
+}
+
+
+@[simp]
+theorem le_of_le_of_neq_upper_bound {x N : ℕ} (LEQ: x ≤ N) (NEQ: x ≠ N): x < N := by sorry
+
+-- if not last, then value is less than n
+theorem Fin.lt_n_of_not_last (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): f.val < n := by{
+  cases f;
+  case mk v isLt => {
+    simp[last] at NOTLAST;
+    cases n;
+    case zero => {
+      simp[NOTLAST];
+      simp at NOTLAST;
+      -- v < 1 => v = 0
+      have H : v = 0 := by { sorry };
+      simp[H] at NOTLAST;
+      contradiction;
+    }
+    case succ n' => {
+      simp[NOTLAST];
+      simp at NOTLAST;
+      simp_arith at *;
+      have H : v < Nat.succ n' := by {
+          apply le_of_le_of_neq_upper_bound <;> simp_arith at * <;> simp <;> try assumption;
+      };
+      simp_arith at * <;> assumption;
+    }
+    }
+}
+
+-- keep the fin the same, just don't move it.
+def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n :=
+  { val := f.val, isLt := by {
+      have H : _ := Fin.lt_n_of_not_last f NOTLAST;
+      simp_arith[H];
+    }
+  }
+
+
+-- lift of a lower is identity.
+theorem Fin.lift_of_lower: ∀ (f: Fin (Nat.succ n)) (NEQ: f ≠ Fin.last _), lift (lower f NEQ) = f := by {
+  intros f NEQ;
+  simp[lift, lower];
+}
+
+-- lower of a lift is identity.
+theorem Fin.lower_of_lift: ∀ (f: Fin (Nat.succ n))
+  (NEQ: (lift f) ≠ Fin.last _ := Fin.lift_neq_last_succ f),
+  Fin.lower f.lift NEQ = f := by {
+  intros f NEQ;
+  simp [lift, lower];
+}
+-- Get findom - last element
+def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
+  fun ix => f ix.lift
+
+-- append to the end of a list.
+def Findom.append (a: α) (f: Findom n α): Findom (Nat.succ n) α :=
+  fun ix => if H:ix = (Fin.last n) then a else f (ix.lower H)
+
+-- a findom is equal to its init appended with its lsat.
+def Findom.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.append (f (Fin.last _)) := by {
+  intros f;
+  simp[Findom.append];
+  congr;
+  funext ix;
+  simp;
+  exact (match H:(decEq ix (Fin.last n)) with
+        | isTrue HEQ => by {
+          simp[HEQ];
+        }
+        | isFalse HNEQ => by {
+          simp[HNEQ];
+          simp[Findom.init];
+          simp[Fin.lift_of_lower];
+        });
+}
+
+-- the last value of an appended Findom is the element itself.
+def Findom.last_of_append (a: α) (f: Findom n α): (f.append a) (Fin.last _) = a := by {
+  simp[Findom.append];
+}
+
+-- this is an adjunction between lower and apend?
+-- xs[lower i] = (xs ++ [k])[i] (recall that the lower is an artefact of types, the value does not change.)
+def Findom.val_at_lower_equals_val_at_append (a: α) (f: Findom n α)
+  (k: Fin (Nat.succ n)) (NEQ: k ≠ Fin.last _):
+    f (Fin.lower k NEQ) = (f.append a) k  := by {
+        simp;
+        simp [Fin.lower, append];
+        simp[NEQ];
+}
+
+
+-- the last value of the init of an appended Findom is the element itself.
+def Findom.init_of_append (a: α) (f: Findom (Nat.succ n) α): (f.append a).init = f := by {
+  simp[Findom.append, Findom.init];
+  congr;
+  funext ix;
+  simp;
+  have H : Fin.lift ix ≠ Fin.last _ := by apply Fin.lift_neq_last_succ;
+  simp[H];
+  simp;
+  simp[Fin.lower_of_lift];
+}
+
+-- cast the domain of a findom along an equality.
+def Findom.castDomain {n m: Nat} (f: Findom n α) (EQ: m = n): Findom m α :=
+  EQ ▸ f
+
+-- Convert a list into a finite domain function
+def List.toFindom: (xs: List α) → Findom (xs.length) α
+| xs => fun ix => xs.getF ix.val ix.isLt
+
+-- Convert a finite domain function into a list.
+def Findom.toList (fs: Findom n α): { xs: List α // xs.length = n }:=
+  Subtype.mk ((List.rangeF n).map fs.f) (by {
+     induction n;
+     case zero => simp;
+     case succ n' IH => simp;
+  })
+
+theorem toFindom_toList_id (xs: List α): xs.toFindom.toList = xs := by sorry
+theorem toList_toFindom_id (fs: Findom n α):
+  let xs  := fs.toList;  xs.property ▸ xs.val.toFindom = fs := by sorry
+
+-- an endomorphism on Fin n
+abbrev Endomorphism (n: Nat) := Findom n (Fin n)
+
+def Endomorphism.id : Endomorphism n := fun ix => ix
+-- g ∘ f = g after f
+def Endomorphism.after (g f: Endomorphism n): Endomorphism n :=
+  g∘ f
+
+def Findom.toEndo (fs: Findom n (Fin n)): Endomorphism n :=  
+  fs
+
+def List.mapFilter (f: a -> Option b): List a → List b
+| [] => []
+| x::xs => match f x with
+           | .none => xs.mapFilter f
+           | .some y => y :: xs.mapFilter f
+
+@[simp]
+def Mem.elimEmpty {y: α} (H: List.Mem y []): False := by {
+  cases H;
+}
+
+
+#check Exists
+def List.inMapFilter
+  [DecidableEq b]  {f: a -> Option b} {xs: List a} {y: b}
+  (Y: List.Mem y (xs.mapFilter f)) :
+  ∃(x : a), List.Mem x xs ∧ (f x = .some y) := by {
+  revert y;
+  induction xs;
+  case nil => {
+    intros y Y;
+    simp[mapFilter] at Y;
+    have H : False := Mem.elimEmpty Y;
+    contradiction;
+  }
+  case cons x' xs IH => {
+    intros y Y;
+    simp at *;
+    simp [mapFilter] at Y;
+    cases FX':(f x');
+    case none => {
+      simp [FX'] at Y;
+      specialize (IH Y);
+      cases IH;
+      case intro val property => {
+         constructor;
+         constructor;
+         apply Mem.tail;
+         exact (property.left);
+         exact property.right;
+      }
+    }
+    case some y' => {
+      simp[FX'] at Y;
+      cases EQ:(decEq y y');
+      case isFalse NEQ => {
+        -- Since y /= y', we can't have y be member of (y' :: ..)
+        cases Y;
+        case head => {
+          simp[NEQ];
+          contradiction;
+        }
+        -- we must be in the tail, use the induction hypothesis.
+        case tail Y => {
+          specialize (IH Y);
+          cases IH; -- @mathieu: how do I do this nicely?
+          case intro x' X' => {
+            apply (Exists.intro);
+            constructor;
+            apply Mem.tail;
+            exact X'.left;
+            exact X'.right;
+          }
+
+        }
+      }
+      case isTrue EQ' => {
+        apply Exists.intro (w := x');
+        constructor;
+        apply Mem.head;
+        simp[EQ'];
+        exact FX';
+      }
+
+    }
+
+  }
+
+}
+
+-- Characterize having '(List.Mem y (xs.mapFilter f)'  based on properties.
+def List.inMapFilter'
+  [DecidableEq b]  {f: a -> Option b} {xs: List a} {x : a} (MEM: List.Mem x xs) : ∀ {y: b}
+  {FX: f x = .some y}, List.Mem y (xs.mapFilter f) := by {
+  induction MEM;
+  case head H x' xs' => {
+       intros y FX;
+       simp [mapFilter, FX];
+       constructor;
+  }
+  case tail p q r s t u => {
+    intros y FX;
+    simp [mapFilter]
+    cases FQ:(f q);
+    case none => {
+        simp;
+        apply u;
+        exact FX;
+    }
+    case some v => {
+      simp;
+      apply Mem.tail;
+      apply u;
+      exact FX;
+    }
+  }
+}
+
+-- Get the fibers of the endomorphism
+-- TODO: get rid of this subtype.
+def Endomorphism.fiber (e: Endomorphism n) (y: Fin n):
+  List (Fin n) :=
+  (List.rangeF n).mapFilter
+     (fun i => if e i = y then .some i else .none)
+
+
+-- Any element in the fiber does project down to `y`.
+def Endomorphism.fiber_sound (e: Endomorphism n) (y: Fin n):
+ ∀ x, x ∈ e.fiber y -> e x = y := by {
+  intros x X;
+  simp [fiber] at X;
+  have H : _ := List.inMapFilter X;
+  cases H;
+  case intro x' X' => {
+    have H : _ := And.right X';
+    -- inMapFilter tells us that f(e(x')) = y must hold.
+    cases (decEq (e x')  y);
+    case isFalse NEQ => {
+      simp [NEQ] at H;
+    }
+    case isTrue EQ => {
+      simp [EQ] at H;
+      rewrite [<- H];
+      exact EQ;
+    }
+  }
+}
+
+-- every 'Fin n' is a member of 'List.rangeF n'
+def List.mem_rangeF (x: Fin n): List.Mem x (List.rangeF n) := by {
+ sorry -- TODO: prove this some rainy day.
+}
+
+-- the fiber of y contains all elements x such that f x = y.
+-- This will allow us to prove uniqueness of toSection.
+def Endomorphism.fiber_complete (e: Endomorphism n) (y: Fin n):
+ ∀ x,  e x = y -> x ∈ e.fiber y := by {
+  intros x X;
+  simp[fiber];
+  apply List.inMapFilter' (x := x);
+  apply List.mem_rangeF;
+  simp[X];
+}
+
+
+
+
+
+/-
+def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
+  match H:n with
+  | 0 => .some { f := fun ix => ix.elim0 }
+  | n'+1 => match fs.f 0 with
+          | .some x =>
+            match Findom.sequenceOptional (n := n') { f := fun ix => fs.f ix.lift} with
+            | .some xs => .some { f := fun ix => match ix with
+                                                | 0 => x
+                                                | ix' => xs.f ix'
+                                }
+            | .none => .none
+          | .none => .none
+-/
+
+def List.sequenceOptional: List (Option α) ->  Option (List α)
+| [] => .some []
+| x? :: xs => match x? with
+      | .some x => match List.sequenceOptional xs with
+                   | .some xs => .some (x :: xs)
+                   | .none => .none
+      | .none => .none
+
+/-
+Characterise what elements are in (List.sequenceOptional xs)
+-/
+theorem List.sequenceOptional_Mem {xs?: List (Option α)} {xs: List α}
+  (XS: xs?.sequenceOptional = .some xs) {x: α} (MEM: List.Mem x xs):
+  ∃ x? : Option α, List.Mem x? xs? ∧ x? = .some x := by {
+  revert XS;
+  revert xs?;
+  induction MEM;
+  case head y ys' => {
+    intros xs? XS;
+    induction xs?;
+    case nil => {
+      simp[sequenceOptional] at XS;
+    }
+    case cons x' xs' IH => {
+      cases x';
+      case none => {
+        simp[sequenceOptional] at XS;
+      }
+      case some x'val => {
+        simp[sequenceOptional] at XS;
+        cases CONTRA:(sequenceOptional xs');
+        case none => {
+          simp[CONTRA] at XS;
+        }
+        case some xs'val => {
+          simp[CONTRA] at XS;
+          simp[XS];
+          apply Exists.intro (w := .some x'val);
+          constructor;
+          have X'VAL: x'val = y := XS.left;
+          simp[X'VAL];
+          constructor;
+          have X'VAL: x'val = y := XS.left;
+          simp[X'VAL];
+        }
+      }
+    }
+  }
+  case tail kk head' tail' MEMHEAD' MEMIH => {
+    intros xs? XS;
+    induction xs?;
+    case nil => {
+      simp[sequenceOptional] at XS;
+    }
+    case cons head'' tail'' IH2 => {
+      cases HEAD'':head'';
+      case none => {
+        simp[HEAD''] at XS;
+        simp[sequenceOptional] at XS;
+      }
+      case some head''val => {
+        simp[HEAD''] at XS;
+        simp[sequenceOptional] at XS;
+        simp[IH2] at XS;
+        cases CONTRA:(sequenceOptional tail'');
+        case none => {
+          simp[CONTRA] at XS;
+        }
+        case some xs'val => {
+            simp[CONTRA] at XS;
+            have XSRIGHT : xs'val = tail' := XS.right;
+            have XSLEFT : head''val = kk := XS.left;
+            simp[XSLEFT, XSRIGHT] at *;
+            specialize (MEMIH CONTRA);
+            cases MEMIH;
+            case intro val property => {
+              apply Exists.intro (w := val);
+              constructor;
+              apply Mem.tail;
+              exact property.left;
+              exact property.right;
+            }
+          }
+        }
+      }
+    }
+  }
+
+/-
+If sequenceOptional returns a value, then it has the same length.
+-/
+theorem List.sequenceOptional_length:
+  ∀ (xs: List (Option α)) (xs': List α) (XS: xs.sequenceOptional = some xs'),
+    length xs' = length xs := by {
+   intros xs;
+   induction xs;
+   case nil =>  {
+   intros  xs' XS;
+   simp[sequenceOptional] at XS;
+   simp[XS];
+   rewrite [<- XS];
+   simp;
+   }
+   case cons head tail IH => {
+    intros  xs' XS;
+    cases head;
+    case none => {
+      simp[sequenceOptional] at XS;
+    }
+    case some head' => {
+      simp[sequenceOptional] at XS;
+      cases REC:(sequenceOptional tail);
+      case none => {
+        simp[REC] at XS;
+      }
+      case some sequenceOptional => {
+          simp[REC] at XS;
+          simp[XS];
+          rewrite[<- XS];
+          simp;
+          apply IH;
+          exact REC;
+      }
+    }
+   }
+}
+
+/-
+-- traversable. What I really need is traverse.
+-- Why does over half of this API reduce to having clever variants
+-- of 'traverse'?
+def Findom.everywhere_defined?
+  (fs: Findom n (Option α)): Option (Findom n α) :=
+  let xs := fs.toList
+  have H : List.length xs.val = n:= xs.property;
+  let xs'? := xs.val.sequenceOptional
+  match XS':xs'? with -- how to rewrite?
+  | .none => .none
+  | .some xs' => have LEN: xs'.length = n := by {
+       rewrite [<- H];
+       apply List.sequenceOptional_length;
+       simp [ XS'] at *;
+      };  LEN ▸ xs'.toFindom
+
+theorem Findom.everywhere_defined?_eval {fs?: Findom n (Option α)}
+  {fs: Findom n α} (FINDOM: fs?.everywhere_defined? = .some fs) (i: Fin n):
+    fs?.f i = .some (fs.f i) := by {
+  simp[everywhere_defined?] at FINDOM;
+  cases XS':List.sequenceOptional (toList fs?).val;
+  case none => {
+    simp[XS'] at FINDOM;
+    sorry
+  }
+  case some fs => {
+    simp[XS'] at FINDOM;
+    sorry
+  }
+}
+-/
+
+def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
+  match n with
+  | 0 => .some Findom.nil
+  | n+1 => match fs (Fin.last n) with
+           | .none => .none
+           | .some x => match Findom.sequenceOptional (Findom.init fs) with
+                        | .none => .none
+                        | .some fs' => .some (Findom.append x fs')
+
+
+theorem Findom.sequenceOptional_append
+  (fs?: Findom n (Option α))
+  (fs: Findom n α)
+  (FS: Findom.sequenceOptional fs? = fs)
+  (a: α):
+  Findom.sequenceOptional (fs?.append (.some a)) = .some (append a fs)  := by {
+    simp[sequenceOptional];
+    simp[Findom.last_of_append];
+    cases n;
+    case zero => {
+        have FS?VAL : fs? = Findom.nil := by apply Findom.nil_unique;
+        have FSVAL : fs = Findom.nil := by apply Findom.nil_unique;
+        simp[FSVAL];
+        simp [FS?VAL];
+        simp[Findom.append];
+        simp [Findom.init];
+        simp[sequenceOptional];
+    }
+    case succ n' => {
+      simp[Findom.init_of_append (a := some a)];
+      simp[FS];
+    }
+  }
+
+
+
+#print Nat.rec
+#print List.rec
+
+-- induction principle for findom.
+theorem Findom.induction {α: Type} (motive: ∀ (n: Nat), Findom n α -> Prop):
+  (NIL: motive 0 Findom.nil) -> (CONS: ∀ (x: α) (n: Nat) (f: Findom n α),
+      motive n f -> motive (Nat.succ n) (Findom.append x f)) -> (f: Findom n α) -> motive n f := by {
+  intros nil append;
+  induction n;
+  case zero => {
+    simp[Findom, Findom.nil] at *;
+    intros f;
+    have H: f = Findom.nil := by {
+      simp[Findom.nil_unique];
+    };
+    rewrite[H];
+    apply nil;
+  }
+  case succ n' IH => {
+    simp[Findom];
+    intros f';
+    have H : _ := Findom.eq_append_init_last (f := f')
+    rewrite [H];
+    apply append;
+    apply IH;
+  }
+}
+
+-- induction principle for findom where domain is always succ.
+theorem Findom.inductionSucc {α: Type} (motive: ∀ (n: Nat), Findom (Nat.succ n) α -> Prop)
+  (ONE: ∀ f: Findom (Nat.succ 0) α, motive _ f)  (IND: ∀ (x: α) (n: Nat) (f: Findom (Nat.succ n) α),
+      motive n f -> motive _ (Findom.append x f)): ∀ (f: Findom (Nat.succ n) α), motive n f := by {
+  induction n;
+  case zero => {
+    simp[Findom, Findom.nil] at *;
+    intros f;
+    apply ONE;
+  }
+  case succ n' IH => {
+    simp[Findom];
+    intros f';
+    have H : _ := Findom.eq_append_init_last (f := f')
+    rewrite [H];
+    apply IND;
+    apply IH;
+  }
+}
+
+
+theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
+  {fs: Findom n α} (FS: fs?.sequenceOptional = .some fs) (i: Fin n):
+    fs? i = .some (fs i) := by {
+      induction n;
+      case zero => {
+        simp[sequenceOptional] at FS;
+        simp[FS];
+        apply i.elim0;
+      }
+      case succ n' IH => {
+        apply Findom.inductionSucc (motive :=
+          fun (k: Nat) (gs?: Findom (Nat.succ k) (Option α)) => -- motive arguments
+              ∀ (gs: Findom (Nat.succ k) α) -- impredicativity ftw
+                (GS: sequenceOptional gs? = .some gs)
+                (i: Fin (Nat.succ k)), -- our prop
+                  gs? i = some (gs i));
+        case ONE => {
+          intros gs? gs GS k;
+          simp [sequenceOptional] at GS;
+          simp [Fin.last] at GS;
+          cases EVAL:(gs? 0);
+          case none =>  { simp [EVAL] at GS <;> contradiction };
+          case some gs?0 => {
+            simp[EVAL] at GS;
+            simp [append] at GS;
+            simp [GS];
+            have KVAL : k = 0 := by apply Fin.one_unique;
+            simp[KVAL] at *;
+            have GSFN: gs = fun ix => gs?0 := by {
+                simp at *;
+                funext ix;
+                rewrite [<- GS];
+                simp;
+                have IX: ix = 0 := Fin.one_unique _;
+                simp[IX];
+            }
+            rewrite[GSFN] <;> simp[EVAL]
+          }
+        }
+        case IND => {
+          intros last?;
+          intros size;
+          intros gs? IH gs GS k;
+          simp [append];
+          cases (decEq k (Fin.last (Nat.succ size)));
+          case isTrue KLAST => {
+            simp[KLAST];
+            simp [sequenceOptional] at GS;
+            simp[Findom.last_of_append] at GS;
+            cases LAST:last? <;> simp[LAST] at GS;
+            case some last => {
+              simp[LAST] at GS;
+              simp[GS];
+              simp[Findom.init_of_append] at GS;
+              cases GSLAST:(gs? (Fin.last size)) <;> simp [GSLAST] at GS;
+              case some gslast => {
+                simp [GSLAST] at GS;
+                cases RECINIT:(sequenceOptional (init gs?)) <;> simp[RECINIT] at GS;
+                case some recval => {
+                  rewrite[<- GS];
+                  simp[Findom.last_of_append];
+                }
+              }
+            }
+          }
+          case isFalse KLAST => {
+            simp[KLAST];
+
+            simp [sequenceOptional] at GS;
+            simp[Findom.last_of_append] at GS;
+            cases LAST:last?;
+            case none => {
+              simp[LAST] at GS;
+            }
+            case some last => {
+              simp[LAST] at GS;
+              simp[GS];
+              simp[Findom.last_of_append] at GS;
+              simp[Findom.init_of_append] at GS;
+              cases GSLAST:(gs? (Fin.last size)) <;> simp[GSLAST] at GS;
+              case some gslast => {
+                cases SEQUENCE_INIT_GS:(sequenceOptional (init gs?)) <;> simp [SEQUENCE_INIT_GS] at GS;
+                case some sequence_init_gs => {
+                  -- we need to massage to apply IH, such that the RHS
+                  -- can have a weird looking `gs`, as long as the LHS has a normal looking `gs?`.
+                  -- TODO: consider making it the other way round?
+                  rewrite [<- GS];
+                  rewrite [<- Findom.val_at_lower_equals_val_at_append
+                      (f := append gslast sequence_init_gs)
+                      (NEQ := KLAST)];
+                  apply IH;
+                  rewrite [Findom.eq_append_init_last (f := gs?)];
+                  rewrite[GSLAST];
+                  apply Findom.sequenceOptional_append <;> assumption;
+                }
+              }
+            }
+          }
+        }
+        case GS => {
+          apply FS;
+        }
+    }
+}
+
+
+def Findom.sequenceM {n: Nat} [M: Monad m] [LawfulMonad m] 
+  (fs: Findom n (m α)): m (Findom n α) :=
+  match n with
+  | 0 => pure Findom.nil
+  | n+1 => do 
+          let x <- fs (Fin.last n)
+          let fs' <- Findom.sequenceM (Findom.init fs)
+          pure (Findom.append x fs')
+
+/-
+theorem Findom.sequenceM_append [M: Monad m] [LAWFUL: LawfulMonad m]
+  (fs?: Findom n (m α))
+  (fs: Findom n α)
+  (FS: Findom.sequenceM fs? = pure fs)
+  (a: α):
+  Findom.sequenceM (fs?.append (pure a)) = pure (append a fs)  := by {
+    apply Findom.induction (motive := 
+      fun (n: Nat) (fs?: Findom n (m α)) => 
+        ∀(fs: Findom n α) (FS?: Findom.sequenceM fs? = pure fs) (a: α), 
+          Findom.sequenceM (fs?.append (pure a)) = pure (append a fs));
+    case NIL => {
+        intros fs FS?VAL a;
+        have FSVAL : fs = Findom.nil := by apply Findom.nil_unique;
+        rewrite[FSVAL];
+        simp[append];
+        simp[sequenceM];
+        congr;
+    }
+    case CONS  => {
+      intros x n f IH fs K;
+      intros a;
+      simp[sequenceM];
+      simp[Findom.init_of_append (a := some a)];
+      simp[FS];
+      sorry 
+    }
+  }
+-/
+-- This is kind of a misnomer, it rather returns the *unique section*
+-- if such an object exists.
+def Endomorphism.toSection? (e: Endomorphism n): Findom n (Option (Fin n)) := 
+  fun y =>
+    match e.fiber y with
+    | [x] => .some x
+    | _ => .none
+
+@[simp]
+theorem List.mem_singleton (a a': α) (H: List.Mem a  [a']): a = a' := by {
+  cases H <;> simp at *;
+  case tail IH => {
+    simp[IH];
+    have H : False := Mem.elimEmpty IH;
+    contradiction;
+  }
+
+}
+
+-- if we have a point where `s(i) = .some si`, then `si` is the unique
+-- value in the codomain such that `pi(si) = i`
+def Endomorphism.toSection?_is_unique (pi: Endomorphism n)
+  (s: Findom n (Option (Fin n)))
+  (S: pi.toSection? = s)
+  (i: Fin n)
+  (si: Fin n)
+  (SI: s i = .some si)
+  (sj: Fin n)
+  (SJ: pi sj = i): sj = si := by {
+   simp [Endomorphism.toSection?] at S;
+   rewrite[<- S] at SI;
+   simp at SI;
+   cases FIBER:(Endomorphism.fiber pi i);
+   case nil => { -- empty fiber, contradiction.
+     simp [FIBER] at SI;
+   }
+   case cons head tail => {
+     cases tail;
+     case nil => { -- exactly 1 element in fiber, good case!
+      simp [FIBER] at SI;
+      rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
+      have IN: sj ∈ pi.fiber i := by {
+           apply Endomorphism.fiber_complete;
+           exact SJ;
+      }
+      simp[FIBER] at IN;
+      simp at IN;
+      apply List.mem_singleton; simp;
+      exact IN;
+
+    }
+     case cons head' tail => { -- > 2 elements in fiber, contradiction.
+       simp [FIBER] at SI;
+     }
+   }
+}
+
+
+
+-- Prove that if we manage to compute a section, then at every point
+-- `i` that the section is defined, `pi(s(i)) = i`, upto `Option`
+-- juggling.
+-- The `option` juggling is necessary since we try to be nice.
+def Endormophism.toSection?_is_section (pi: Endomorphism n)
+  (s: Findom n (Option (Fin n)))
+  (S: pi.toSection? = s)
+  (i: Fin n)
+  (si: Fin n)
+  (SI: s i = .some si):
+  pi si = i := by {
+   simp [Endomorphism.toSection?] at S;
+   rewrite[<- S] at SI;
+   simp at SI;
+   cases FIBER:(Endomorphism.fiber pi i);
+   case nil => { -- empty fiber, contradiction.
+     simp [FIBER] at SI;
+   }
+   case cons head tail => {
+     cases tail;
+     case nil => { -- exactly 1 element in fiber, good case!
+      simp [FIBER] at SI;
+      rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
+      apply Endomorphism.fiber_sound;
+      rewrite [FIBER];
+      constructor;
+
+    }
+     case cons head' tail => { -- > 2 elements in fiber, contradiction.
+       simp [FIBER] at SI;
+     }
+
+   }
+}
+
+/-
+TODO: consider using the galois connection given by defining
+for a number 'x', the largest location 'y' such that (f y = x).
+
+`(f y < x) v/s y < lloc x`
+-/
+/-
+Dependently typed programming is like the expression problem.
+We can either write Ohad/OOP, where we have data and proofs (behaviour)
+next to each other. Or we can write in Xavier/functional style, where
+the data is separate from the proofs (behaviour).
+-/
+def Endomorphism.inverse? (e: Endomorphism n): Option (Endomorphism n) :=
+ let fs?: Findom n (Option (Fin n)) := e.toSection?
+ let fs? := Findom.sequenceOptional fs?
+ match fs? with
+ | .none => .none
+ | .some fs' => fs'.toEndo
+
+
+theorem Endomorphism.inverse?_fg (f g: Endomorphism n)
+  (G: f.inverse? = .some g): f.after g = id := by {
+  simp[inverse?] at G;
+  cases GLOBAL_SECTION:(Findom.sequenceOptional (toSection? f));
+  case none => {
+    simp[GLOBAL_SECTION] at G; -- contradiction
+  }
+  case some s => { -- global section
+    simp[GLOBAL_SECTION] at G;
+
+    sorry
+  }
+}
+
+theorem Endomorphism.inverse?_gf (f g: Endomorphism n)
+  (G: f.inverse? = .some g):  g.after f = id := by { sorry}
+
+
+
+
+
+-- Convert a list into an endomorphism
+def List.toEndo (xs: List (Fin n)) (LEN: n = length xs): Endomorphism n :=
+  let fs : Findom n (Fin n) := xs.toFindom.castDomain LEN;
+  fs.toEndo
+
+
+-- Witnesses that the endomorphism 'f' is a permutation
+structure Permutation (n: Nat) where
+   f: Endomorphism n
+   g: Endomorphism n
+   gf: g ∘ f = id
+   fg: f ∘ g = id
+
+-- identity permutation
+def Permutation.identity: Permutation n :=
+ { f := id, g := id, gf := by { funext x; simp }, fg := by { funext x; simp } }
+
+
+/-
+#### 1D Tensors
+-/
+
+abbrev TensorIndex1D (n: Nat) := Fin n
 
 structure Tensor1D where
   size0: Nat
-  data: TensorIndex1D size0 -> FinInt 32 --  -> Int
+  data: Findom size0 Int --  -> Int
 
 def Tensor1D.isEq (v1 v2: Tensor1D): Decidable (v1 = v2) :=
   match decEq (v1.size0) (v2.size0) with
@@ -44,7 +969,8 @@ allows us to decompose the shape reasoning from the data reasoning.
 
 All other operations must be written in terms of these primitives.
 -/
-def Tensor1D.empty: Tensor1D := { size0 := 0, data := fun ix => ix.ix0.elim0 }
+def Tensor1D.empty: Tensor1D :=
+{ size0 := 0, data := fun ix => ix.elim0 }
 
 def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
   size0 := t.size0
@@ -62,7 +988,7 @@ def Fin.offset (x: Fin n) (o: Nat): Fin (n + o) :=
   Fin.mk (x + o) (by { simp_arith; apply x.isLt; })
 
 def TensorIndex1D.offset (ix: TensorIndex1D n) (o: Nat): TensorIndex1D (n + o) :=
-  { ix0 := ix.ix0.offset o }
+    Fin.offset ix o
 
 -- Offset the indexes into the tensor by `+offset`.
 def Tensor1D.offset (t: Tensor1D) (offset: Nat) (OFFSET: offset <= t.size0): Tensor1D := {
@@ -848,57 +1774,6 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
   rewrite [RHS];
   apply List.zip_flat_index_go_get (xs := xs) (ix := 0) (bound := List.length xs) (deltaIx := getIx) (GETIX := GETIX);
 }
-
-
--- v This is no longer used, since it uses the old representation of tensors.
--- def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (FinInt 32) →  (FinInt 32)):
---   Tensor1D :=
---   Tensor1D.mk (size0 := v.size0)
---     (data := (List.zipFlatIndex v.data).map (fun (val, ix) => f (v.h_data_size ▸ ix) val)) (h_data_size := by simp; apply v.h_data_size)
-
-
-def Tensor1D.mapM {M: Type -> Type} [Monad M]
-  (v: Tensor1D) (f: (FinInt 32) → M (FinInt 32)):
-  M Tensor1D := do
-  let data <- List.mapM f v.data
-  pure (Tensor1D.mk data.length data rfl)
-
-def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Monad M]
-  (v: Tensor1D) (f: TensorFlatIndex v.size0 → (FinInt 32) → M (FinInt 32)):
-  M Tensor1D := do
-  let data <-
-      (List.zipFlatIndex v.data).mapM (fun (val, ix) => f (v.h_data_size ▸ ix) val)
-  let temp := Tensor1D.mk data.length data rfl
-  return temp
-
-theorem List.mapM_loop_map [Monad M] [LawfulMonad M]
-    (l: List α) (f: α → β) (fM: α → M β) (results: List β):
-    (forall a, fM a = return f a) →
-    List.mapM.loop fM l results = return results.reverse ++ l.map f := by
-  intros h
-  revert results
-  induction l with
-  | nil => intros results; simp [map]; rfl
-  | cons a l ih =>
-      intros results
-      simp [mapM.loop, map, h, ih, reverse_cons, append_assoc]
-
-theorem List.mapM_map [Monad M] [LawfulMonad M] (l: List α) (f: α → β) (fM: α → M β):
-    (forall a, fM a = return f a) →
-    l.mapM fM = return l.map f := by
-  apply List.mapM_loop_map
-
-
-theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
-    (forall flat_index val, fM flat_index val = return f flat_index val) →
-    mapMWithFlatIndex v fM = return mapWithFlatIndex v f := by
-  intros h
-  unfold mapWithFlatIndex
-  unfold mapMWithFlatIndex
-  rw [List.mapM_map]
-  . simp [v.h_data_size]; rfl
-  . intros a; cases a; simp [h]
-
 /-
 3D Tensors
 -/
@@ -909,901 +1784,6 @@ structure TensorIndex3D (sizes: Fin 3 -> Nat): Type where
 structure Tensor3D where
   sizes: Fin 3 → Nat
   data: TensorIndex3D sizes -> Int
-
--- any natural than one is zero.
-@[simp]
-theorem Nat.zero_of_lt_one (n: Nat) (LTONE: n < 1): n = 0 := by {
-  cases LTONE;
-  case refl =>  { simp; }
-  case step H => { simp_arith [H]; contradiction; }
-}
-
-theorem Nat.lt_one_is_zero (n: Nat) (LTONE: n < 1): n = 0 := Nat.zero_of_lt_one n LTONE
-
-theorem Fin.one_unique: ∀ (f: Fin 1), f = 0 := by {
-  intros f;
-  cases f;
-  case mk val isLt => {
-    have H: val = 0 := by {
-      apply Nat.lt_one_is_zero <;> assumption;
-    }
-    simp[H];
-    congr;
-  }
-}
-
--- function with finite domain.
-structure Findom (n: Nat) (α: Type) where
-  f: Fin n → α
-
-def Findom.nil: Findom 0 α := ⟨fun ix => ix.elim0⟩
-
-
--- Nil is uniquely inhabited, as there is only one function (0 -> α)
--- upto extensionality.
-theorem Findom.nil_unique: ∀ (f: Findom 0 α), f = Findom.nil := by
-  intros g
-  cases g
-  case mk f => {
-  simp [Findom.nil]
-  funext x;
-  intros;
-  apply x.elim0;
-}
-
-
--- increment a fin to live in a larger universe.
-def Fin.increment (f: Fin n): Fin (Nat.succ n) :=
-  { val := Nat.succ f.val, isLt := by { have H : _ := f.isLt; simp_arith at *; apply H; } }
-
--- get the last element of a fin.
-def Fin.last (n: Nat): Fin (Nat.succ n) :=
-  match n with
-  | 0 => 0
-  | Nat.succ n' => ⟨Nat.succ n', by { simp_arith; }⟩
-
--- enlarge the 'n' to 'n+1' of Fin.
-def Fin.lift (f: Fin n): Fin (Nat.succ n) :=
-  { val := f.val, isLt := by { have H : f.val < n := f.isLt; apply Nat.lt_of_lt_of_le; exact H; simp_arith; } }
-
--- lift(?x : Fin n) != last (n+1)
--- lift does not have last in its codomain.
-theorem Fin.lift_neq_last_succ: ∀ (x: Fin (Nat.succ n)), (Fin.lift x) ≠ Fin.last (Nat.succ n) := by {
-  intros x;
-  simp[Fin.last, Fin.lift];
-  have X : x.val < Nat.succ n := x.isLt;
-  simp_arith;
-  by_contra CONTRA;
-  simp [CONTRA] at X;
-}
-
-
-@[simp]
-theorem le_of_le_of_neq_upper_bound {x N : ℕ} (LEQ: x ≤ N) (NEQ: x ≠ N): x < N := by sorry
-
--- if not last, then value is less than n
-theorem Fin.lt_n_of_not_last (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): f.val < n := by{
-  cases f;
-  case mk v isLt => {
-    simp[last] at NOTLAST;
-    cases n;
-    case zero => {
-      simp[NOTLAST];
-      simp at NOTLAST;
-      -- v < 1 => v = 0
-      have H : v = 0 := by { sorry };
-      simp[H] at NOTLAST;
-      contradiction;
-    }
-    case succ n' => {
-      simp[NOTLAST];
-      simp at NOTLAST;
-      simp_arith at *;
-      have H : v < Nat.succ n' := by {
-          apply le_of_le_of_neq_upper_bound <;> simp_arith at * <;> simp <;> try assumption;
-      };
-      simp_arith at * <;> assumption;
-    }
-    }
-}
-
--- keep the fin the same, just don't move it.
-def Fin.lower (f: Fin (Nat.succ n)) (NOTLAST: f ≠ (Fin.last n)): Fin n :=
-  { val := f.val, isLt := by {
-      have H : _ := Fin.lt_n_of_not_last f NOTLAST;
-      simp_arith[H];
-    }
-  }
-
-
--- lift of a lower is identity.
-theorem Fin.lift_of_lower: ∀ (f: Fin (Nat.succ n)) (NEQ: f ≠ Fin.last _), lift (lower f NEQ) = f := by {
-  intros f NEQ;
-  simp[lift, lower];
-}
-
--- lower of a lift is identity.
-theorem Fin.lower_of_lift: ∀ (f: Fin (Nat.succ n))
-  (NEQ: (lift f) ≠ Fin.last _ := Fin.lift_neq_last_succ f),
-  Fin.lower f.lift NEQ = f := by {
-  intros f NEQ;
-  simp [lift, lower];
-}
--- Get findom - last element
-def Findom.init (f: Findom (Nat.succ n) α): Findom n α :=
-  ⟨fun ix => f.f ix.lift⟩
-
--- append to the end of a list.
-def Findom.append (a: α) (f: Findom n α): Findom (Nat.succ n) α :=
-  ⟨fun ix => if H:ix = (Fin.last n) then a else f.f (ix.lower H) ⟩
-
--- a findom is equal to its init appended with its lsat.
-def Findom.eq_append_init_last: ∀ (f: Findom (Nat.succ n) α), f = f.init.append (f.f (Fin.last _)) := by {
-  intros f;
-  simp[Findom.append];
-  cases f;
-  case mk f => {
-    congr;
-    funext ix;
-    simp;
-    exact (match H:(decEq ix (Fin.last n)) with
-          | isTrue HEQ => by {
-            simp[HEQ];
-          }
-          | isFalse HNEQ => by {
-            simp[HNEQ];
-            simp[Findom.init];
-            simp[Fin.lift_of_lower];
-          });
-  }
-}
-
--- the last value of an appended Findom is the element itself.
-def Findom.last_of_append (a: α) (f: Findom n α): (f.append a).f (Fin.last _) = a := by {
-  simp[Findom.append];
-}
-
--- this is an adjunction between lower and apend?
--- xs[lower i] = (xs ++ [k])[i] (recall that the lower is an artefact of types, the value does not change.)
-def Findom.val_at_lower_equals_val_at_append (a: α) (f: Findom n α)
-  (k: Fin (Nat.succ n)) (NEQ: k ≠ Fin.last _):
-    f.f (Fin.lower k NEQ) = (f.append a).f k  := by {
-      cases f;
-      case mk f => {
-        simp;
-        simp [Fin.lower, append];
-        simp[NEQ];
-      }
-}
-
-
--- the last value of the init of an appended Findom is the element itself.
-def Findom.init_of_append (a: α) (f: Findom (Nat.succ n) α): (f.append a).init = f := by {
-  simp[Findom.append, Findom.init];
-  congr;
-  funext ix;
-  simp;
-  have H : Fin.lift ix ≠ Fin.last _ := by apply Fin.lift_neq_last_succ;
-  simp[H];
-  cases f;
-  case mk f => {
-    simp;
-    simp[Fin.lower_of_lift];
-  }
-}
-
--- cast the domain of a findom along an equality.
-def Findom.castDomain {n m: Nat} (f: Findom n α) (EQ: m = n): Findom m α :=
-  EQ ▸ f
-
--- Convert a list into a finite domain function
-def List.toFindom: (xs: List α) → Findom (xs.length) α
-| xs => { f := fun ix => xs.getF ix.val ix.isLt }
-
--- Convert a finite domain function into a list.
-def Findom.toList (fs: Findom n α): { xs: List α // xs.length = n }:=
-  Subtype.mk ((List.rangeF n).map fs.f) (by {
-     induction n;
-     case zero => simp;
-     case succ n' IH => simp;
-  })
-
-theorem toFindom_toList_id (xs: List α): xs.toFindom.toList = xs := by sorry
-theorem toList_toFindom_id (fs: Findom n α):
-  let xs  := fs.toList;  xs.property ▸ xs.val.toFindom = fs := by sorry
-
--- an endomorphism on Fin n
-structure Endomorphism (n: Nat) extends Findom n (Fin n) where
-
-def Endomorphism.id : Endomorphism n := { f := fun ix => ix }
--- g ∘ f = g after f
-def Endomorphism.after (g f: Endomorphism n): Endomorphism n :=
-  { f := g.f ∘ f.f }
-
-def Findom.toEndo (fs: Findom n (Fin n)): Endomorphism n := { f := fs.f }
-
-def List.mapFilter (f: a -> Option b): List a → List b
-| [] => []
-| x::xs => match f x with
-           | .none => xs.mapFilter f
-           | .some y => y :: xs.mapFilter f
-
-@[simp]
-def Mem.elimEmpty {y: α} (H: List.Mem y []): False := by {
-  cases H;
-}
-
-
-#check Exists
-def List.inMapFilter
-  [DecidableEq b]  {f: a -> Option b} {xs: List a} {y: b}
-  (Y: List.Mem y (xs.mapFilter f)) :
-  ∃(x : a), List.Mem x xs ∧ (f x = .some y) := by {
-  revert y;
-  induction xs;
-  case nil => {
-    intros y Y;
-    simp[mapFilter] at Y;
-    have H : False := Mem.elimEmpty Y;
-    contradiction;
-  }
-  case cons x' xs IH => {
-    intros y Y;
-    simp at *;
-    simp [mapFilter] at Y;
-    cases FX':(f x');
-    case none => {
-      simp [FX'] at Y;
-      specialize (IH Y);
-      cases IH;
-      case intro val property => {
-         constructor;
-         constructor;
-         apply Mem.tail;
-         exact (property.left);
-         exact property.right;
-      }
-    }
-    case some y' => {
-      simp[FX'] at Y;
-      cases EQ:(decEq y y');
-      case isFalse NEQ => {
-        -- Since y /= y', we can't have y be member of (y' :: ..)
-        cases Y;
-        case head => {
-          simp[NEQ];
-          contradiction;
-        }
-        -- we must be in the tail, use the induction hypothesis.
-        case tail Y => {
-          specialize (IH Y);
-          cases IH; -- @mathieu: how do I do this nicely?
-          case intro x' X' => {
-            apply (Exists.intro);
-            constructor;
-            apply Mem.tail;
-            exact X'.left;
-            exact X'.right;
-          }
-
-        }
-      }
-      case isTrue EQ' => {
-        apply Exists.intro (w := x');
-        constructor;
-        apply Mem.head;
-        simp[EQ'];
-        exact FX';
-      }
-
-    }
-
-  }
-
-}
-
--- Characterize having '(List.Mem y (xs.mapFilter f)'  based on properties.
-def List.inMapFilter'
-  [DecidableEq b]  {f: a -> Option b} {xs: List a} {x : a} (MEM: List.Mem x xs) : ∀ {y: b}
-  {FX: f x = .some y}, List.Mem y (xs.mapFilter f) := by {
-  induction MEM;
-  case head H x' xs' => {
-       intros y FX;
-       simp [mapFilter, FX];
-       constructor;
-  }
-  case tail p q r s t u => {
-    intros y FX;
-    simp [mapFilter]
-    cases FQ:(f q);
-    case none => {
-        simp;
-        apply u;
-        exact FX;
-    }
-    case some v => {
-      simp;
-      apply Mem.tail;
-      apply u;
-      exact FX;
-    }
-  }
-}
-
--- Get the fibers of the endomorphism
--- TODO: get rid of this subtype.
-def Endomorphism.fiber (e: Endomorphism n) (y: Fin n):
-  List (Fin n) :=
-  (List.rangeF n).mapFilter
-     (fun i => if e.f i = y then .some i else .none)
-
-
--- Any element in the fiber does project down to `y`.
-def Endomorphism.fiber_sound (e: Endomorphism n) (y: Fin n):
- ∀ x, x ∈ e.fiber y -> e.f x = y := by {
-  intros x X;
-  simp [fiber] at X;
-  have H : _ := List.inMapFilter X;
-  cases H;
-  case intro x' X' => {
-    have H : _ := And.right X';
-    -- inMapFilter tells us that f(e(x')) = y must hold.
-    cases (decEq (Findom.f e.toFindom x')  y);
-    case isFalse NEQ => {
-      simp [NEQ] at H;
-    }
-    case isTrue EQ => {
-      simp [EQ] at H;
-      rewrite [<- H];
-      exact EQ;
-    }
-  }
-}
-
--- every 'Fin n' is a member of 'List.rangeF n'
-def List.mem_rangeF (x: Fin n): List.Mem x (List.rangeF n) := by {
- sorry -- TODO: prove this some rainy day.
-}
-
--- the fiber of y contains all elements x such that f x = y.
--- This will allow us to prove uniqueness of toSection.
-def Endomorphism.fiber_complete (e: Endomorphism n) (y: Fin n):
- ∀ x,  e.f x = y -> x ∈ e.fiber y := by {
-  intros x X;
-  simp[fiber];
-  apply List.inMapFilter' (x := x);
-  apply List.mem_rangeF;
-  simp[X];
-}
-
-
-
-
-
-/-
-def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
-  match H:n with
-  | 0 => .some { f := fun ix => ix.elim0 }
-  | n'+1 => match fs.f 0 with
-          | .some x =>
-            match Findom.sequenceOptional (n := n') { f := fun ix => fs.f ix.lift} with
-            | .some xs => .some { f := fun ix => match ix with
-                                                | 0 => x
-                                                | ix' => xs.f ix'
-                                }
-            | .none => .none
-          | .none => .none
--/
-
-def List.sequenceOptional: List (Option α) ->  Option (List α)
-| [] => .some []
-| x? :: xs => match x? with
-      | .some x => match List.sequenceOptional xs with
-                   | .some xs => .some (x :: xs)
-                   | .none => .none
-      | .none => .none
-
-/-
-Characterise what elements are in (List.sequenceOptional xs)
--/
-theorem List.sequenceOptional_Mem {xs?: List (Option α)} {xs: List α}
-  (XS: xs?.sequenceOptional = .some xs) {x: α} (MEM: List.Mem x xs):
-  ∃ x? : Option α, List.Mem x? xs? ∧ x? = .some x := by {
-  revert XS;
-  revert xs?;
-  induction MEM;
-  case head y ys' => {
-    intros xs? XS;
-    induction xs?;
-    case nil => {
-      simp[sequenceOptional] at XS;
-    }
-    case cons x' xs' IH => {
-      cases x';
-      case none => {
-        simp[sequenceOptional] at XS;
-      }
-      case some x'val => {
-        simp[sequenceOptional] at XS;
-        cases CONTRA:(sequenceOptional xs');
-        case none => {
-          simp[CONTRA] at XS;
-        }
-        case some xs'val => {
-          simp[CONTRA] at XS;
-          simp[XS];
-          apply Exists.intro (w := .some x'val);
-          constructor;
-          have X'VAL: x'val = y := XS.left;
-          simp[X'VAL];
-          constructor;
-          have X'VAL: x'val = y := XS.left;
-          simp[X'VAL];
-        }
-      }
-    }
-  }
-  case tail kk head' tail' MEMHEAD' MEMIH => {
-    intros xs? XS;
-    induction xs?;
-    case nil => {
-      simp[sequenceOptional] at XS;
-    }
-    case cons head'' tail'' IH2 => {
-      cases HEAD'':head'';
-      case none => {
-        simp[HEAD''] at XS;
-        simp[sequenceOptional] at XS;
-      }
-      case some head''val => {
-        simp[HEAD''] at XS;
-        simp[sequenceOptional] at XS;
-        simp[IH2] at XS;
-        cases CONTRA:(sequenceOptional tail'');
-        case none => {
-          simp[CONTRA] at XS;
-        }
-        case some xs'val => {
-            simp[CONTRA] at XS;
-            have XSRIGHT : xs'val = tail' := XS.right;
-            have XSLEFT : head''val = kk := XS.left;
-            simp[XSLEFT, XSRIGHT] at *;
-            specialize (MEMIH CONTRA);
-            cases MEMIH;
-            case intro val property => {
-              apply Exists.intro (w := val);
-              constructor;
-              apply Mem.tail;
-              exact property.left;
-              exact property.right;
-            }
-          }
-        }
-      }
-    }
-  }
-
-/-
-If sequenceOptional returns a value, then it has the same length.
--/
-theorem List.sequenceOptional_length:
-  ∀ (xs: List (Option α)) (xs': List α) (XS: xs.sequenceOptional = some xs'),
-    length xs' = length xs := by {
-   intros xs;
-   induction xs;
-   case nil =>  {
-   intros  xs' XS;
-   simp[sequenceOptional] at XS;
-   simp[XS];
-   rewrite [<- XS];
-   simp;
-   }
-   case cons head tail IH => {
-    intros  xs' XS;
-    cases head;
-    case none => {
-      simp[sequenceOptional] at XS;
-    }
-    case some head' => {
-      simp[sequenceOptional] at XS;
-      cases REC:(sequenceOptional tail);
-      case none => {
-        simp[REC] at XS;
-      }
-      case some sequenceOptional => {
-          simp[REC] at XS;
-          simp[XS];
-          rewrite[<- XS];
-          simp;
-          apply IH;
-          exact REC;
-      }
-    }
-   }
-}
-
-/-
--- traversable. What I really need is traverse.
--- Why does over half of this API reduce to having clever variants
--- of 'traverse'?
-def Findom.everywhere_defined?
-  (fs: Findom n (Option α)): Option (Findom n α) :=
-  let xs := fs.toList
-  have H : List.length xs.val = n:= xs.property;
-  let xs'? := xs.val.sequenceOptional
-  match XS':xs'? with -- how to rewrite?
-  | .none => .none
-  | .some xs' => have LEN: xs'.length = n := by {
-       rewrite [<- H];
-       apply List.sequenceOptional_length;
-       simp [ XS'] at *;
-      };  LEN ▸ xs'.toFindom
-
-theorem Findom.everywhere_defined?_eval {fs?: Findom n (Option α)}
-  {fs: Findom n α} (FINDOM: fs?.everywhere_defined? = .some fs) (i: Fin n):
-    fs?.f i = .some (fs.f i) := by {
-  simp[everywhere_defined?] at FINDOM;
-  cases XS':List.sequenceOptional (toList fs?).val;
-  case none => {
-    simp[XS'] at FINDOM;
-    sorry
-  }
-  case some fs => {
-    simp[XS'] at FINDOM;
-    sorry
-  }
-}
--/
-
-def Findom.sequenceOptional {n: Nat} (fs: Findom n (Option α)): Option (Findom n α) :=
-  match n with
-  | 0 => .some Findom.nil
-  | n+1 => match fs.f (Fin.last n) with
-           | .none => .none
-           | .some x => match Findom.sequenceOptional (Findom.init fs) with
-                        | .none => .none
-                        | .some fs' => .some (Findom.append x fs')
-
-
-theorem Findom.sequenceOptional_append
-  (fs?: Findom n (Option α))
-  (fs: Findom n α)
-  (FS: Findom.sequenceOptional fs? = fs)
-  (a: α):
-  Findom.sequenceOptional (fs?.append (.some a)) = .some (append a fs)  := by {
-    simp[sequenceOptional];
-    simp[Findom.last_of_append];
-    cases n;
-    case zero => {
-        have FS?VAL : fs? = Findom.nil := by apply Findom.nil_unique;
-        have FSVAL : fs = Findom.nil := by apply Findom.nil_unique;
-        simp[FSVAL];
-        simp [FS?VAL];
-        simp[Findom.append];
-        simp [Findom.init];
-        simp[sequenceOptional];
-    }
-    case succ n' => {
-      simp[Findom.init_of_append (a := some a)];
-      simp[FS];
-    }
-  }
-
-
-
-#print Nat.rec
-#print List.rec
-
--- induction principle for findom.
-theorem Findom.induction {α: Type} (motive: ∀ {n: Nat}, Findom n α -> Prop):
-  (motive Findom.nil) -> (∀ (x: α) (n: Nat) (f: Findom n α),
-      motive f -> motive (Findom.append x f)) -> (f: Findom n α) -> motive f := by {
-  intros nil append;
-  induction n;
-  case zero => {
-    simp[Findom, Findom.nil] at *;
-    intros f;
-    have H: f = Findom.nil := by {
-      simp[Findom.nil_unique];
-    };
-    rewrite[H];
-    apply nil;
-  }
-  case succ n' IH => {
-    simp[Findom];
-    intros f';
-    have H : _ := Findom.eq_append_init_last (f := f')
-    rewrite [H];
-    apply append;
-    apply IH;
-  }
-}
-
--- induction principle for findom where domain is always succ.
-theorem Findom.inductionSucc {α: Type} (motive: ∀ (n: Nat), Findom (Nat.succ n) α -> Prop)
-  (ONE: ∀ f: Findom (Nat.succ 0) α, motive _ f)  (IND: ∀ (x: α) (n: Nat) (f: Findom (Nat.succ n) α),
-      motive n f -> motive _ (Findom.append x f)): ∀ (f: Findom (Nat.succ n) α), motive n f := by {
-  induction n;
-  case zero => {
-    simp[Findom, Findom.nil] at *;
-    intros f;
-    apply ONE;
-  }
-  case succ n' IH => {
-    simp[Findom];
-    intros f';
-    have H : _ := Findom.eq_append_init_last (f := f')
-    rewrite [H];
-    apply IND;
-    apply IH;
-  }
-}
-
-
-theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
-  {fs: Findom n α} (FS: fs?.sequenceOptional = .some fs) (i: Fin n):
-    fs?.f i = .some (fs.f i) := by {
-      induction n;
-      case zero => {
-        simp[sequenceOptional] at FS;
-        simp[FS];
-        apply i.elim0;
-      }
-      case succ n' IH => {
-        apply Findom.inductionSucc (motive :=
-          fun (k: Nat) (gs?: Findom (Nat.succ k) (Option α)) => -- motive arguments
-              ∀ (gs: Findom (Nat.succ k) α) -- impredicativity ftw
-                (GS: sequenceOptional gs? = .some gs)
-                (i: Fin (Nat.succ k)), -- our prop
-                  gs?.f i = some (gs.f i));
-        case ONE => {
-          intros gs? gs GS k;
-          simp [sequenceOptional] at GS;
-          simp [Fin.last] at GS;
-          cases EVAL:(gs?.f 0);
-          case none =>  { simp [EVAL] at GS <;> contradiction };
-          case some gs?0 => {
-            simp[EVAL] at GS;
-            simp [append] at GS;
-            simp [GS];
-            have KVAL : k = 0 := by apply Fin.one_unique;
-            simp[KVAL] at *;
-            have GSFN: gs.f = fun ix => gs?0 := by {
-              cases gs;
-              case mk gsfn => {
-                simp at *;
-                funext ix;
-                rewrite [<- GS];
-                simp;
-                have IX: ix = 0 := Fin.one_unique _;
-                simp[IX];
-              }
-            }
-            rewrite[GSFN] <;> simp[EVAL]
-          }
-        }
-        case IND => {
-          intros last?;
-          intros size;
-          intros gs? IH gs GS k;
-          simp [append];
-          cases (decEq k (Fin.last (Nat.succ size)));
-          case isTrue KLAST => {
-            simp[KLAST];
-            simp [sequenceOptional] at GS;
-            simp[Findom.last_of_append] at GS;
-            cases LAST:last? <;> simp[LAST] at GS;
-            case some last => {
-              simp[LAST] at GS;
-              simp[GS];
-              simp[Findom.init_of_append] at GS;
-              cases GSLAST:(gs?.f (Fin.last size)) <;> simp [GSLAST] at GS;
-              case some gslast => {
-                simp [GSLAST] at GS;
-                cases RECINIT:(sequenceOptional (init gs?)) <;> simp[RECINIT] at GS;
-                case some recval => {
-                  rewrite[<- GS];
-                  simp[Findom.last_of_append];
-                }
-              }
-            }
-          }
-          case isFalse KLAST => {
-            simp[KLAST];
-
-            simp [sequenceOptional] at GS;
-            simp[Findom.last_of_append] at GS;
-            cases LAST:last?;
-            case none => {
-              simp[LAST] at GS;
-            }
-            case some last => {
-              simp[LAST] at GS;
-              simp[GS];
-              simp[Findom.last_of_append] at GS;
-              simp[Findom.init_of_append] at GS;
-              cases GSLAST:(f gs? (Fin.last size)) <;> simp[GSLAST] at GS;
-              case some gslast => {
-                cases SEQUENCE_INIT_GS:(sequenceOptional (init gs?)) <;> simp [SEQUENCE_INIT_GS] at GS;
-                case some sequence_init_gs => {
-                  -- we need to massage to apply IH, such that the RHS
-                  -- can have a weird looking `gs`, as long as the LHS has a normal looking `gs?`.
-                  -- TODO: consider making it the other way round?
-                  rewrite [<- GS];
-                  rewrite [<- Findom.val_at_lower_equals_val_at_append
-                      (f := append gslast sequence_init_gs)
-                      (NEQ := KLAST)];
-                  apply IH;
-                  rewrite [Findom.eq_append_init_last (f := gs?)];
-                  rewrite[GSLAST];
-                  apply Findom.sequenceOptional_append <;> assumption;
-                }
-              }
-            }
-          }
-        }
-        case GS => {
-          apply FS;
-        }
-    }
-}
-
-
--- This is kind of a misnomer, it rather returns the *unique section*
--- if such an object exists.
-def Endomorphism.toSection? (e: Endomorphism n): Findom n (Option (Fin n)) := {
-   f := fun y =>
-    match e.fiber y with
-    | [x] => .some x
-    | _ => .none
-  }
-
-@[simp]
-theorem List.mem_singleton (a a': α) (H: List.Mem a  [a']): a = a' := by {
-  cases H <;> simp at *;
-  case tail IH => {
-    simp[IH];
-    have H : False := Mem.elimEmpty IH;
-    contradiction;
-  }
-
-}
-
--- if we have a point where `s(i) = .some si`, then `si` is the unique
--- value in the codomain such that `pi(si) = i`
-def Endomorphism.toSection?_is_unique (pi: Endomorphism n)
-  (s: Findom n (Option (Fin n)))
-  (S: pi.toSection? = s)
-  (i: Fin n)
-  (si: Fin n)
-  (SI: s.f i = .some si)
-  (sj: Fin n)
-  (SJ: pi.f sj = i): sj = si := by {
-   simp [Endomorphism.toSection?] at S;
-   rewrite[<- S] at SI;
-   simp at SI;
-   cases FIBER:(Endomorphism.fiber pi i);
-   case nil => { -- empty fiber, contradiction.
-     simp [FIBER] at SI;
-   }
-   case cons head tail => {
-     cases tail;
-     case nil => { -- exactly 1 element in fiber, good case!
-      simp [FIBER] at SI;
-      rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
-      have IN: sj ∈ pi.fiber i := by {
-           apply Endomorphism.fiber_complete;
-           exact SJ;
-      }
-      simp[FIBER] at IN;
-      simp at IN;
-      apply List.mem_singleton; simp;
-      exact IN;
-
-    }
-     case cons head' tail => { -- > 2 elements in fiber, contradiction.
-       simp [FIBER] at SI;
-     }
-
-   }
-
-
-}
-
-
-
--- Prove that if we manage to compute a section, then at every point
--- `i` that the section is defined, `pi(s(i)) = i`, upto `Option`
--- juggling.
--- The `option` juggling is necessary since we try to be nice.
-def Endormophism.toSection?_is_section (pi: Endomorphism n)
-  (s: Findom n (Option (Fin n)))
-  (S: pi.toSection? = s)
-  (i: Fin n)
-  (si: Fin n)
-  (SI: s.f i = .some si):
-  pi.f si = i := by {
-   simp [Endomorphism.toSection?] at S;
-   rewrite[<- S] at SI;
-   simp at SI;
-   cases FIBER:(Endomorphism.fiber pi i);
-   case nil => { -- empty fiber, contradiction.
-     simp [FIBER] at SI;
-   }
-   case cons head tail => {
-     cases tail;
-     case nil => { -- exactly 1 element in fiber, good case!
-      simp [FIBER] at SI;
-      rewrite[<- SI]; -- see that value of si is the unique value of the fiber.
-      apply Endomorphism.fiber_sound;
-      rewrite [FIBER];
-      constructor;
-
-    }
-     case cons head' tail => { -- > 2 elements in fiber, contradiction.
-       simp [FIBER] at SI;
-     }
-
-   }
-}
-
-/-
-TODO: consider using the galois connection given by defining
-for a number 'x', the largest location 'y' such that (f y = x).
-
-`(f y < x) v/s y < lloc x`
--/
-/-
-Dependently typed programming is like the expression problem.
-We can either write Ohad/OOP, where we have data and proofs (behaviour)
-next to each other. Or we can write in Xavier/functional style, where
-the data is separate from the proofs (behaviour).
--/
-def Endomorphism.inverse? (e: Endomorphism n): Option (Endomorphism n) :=
- let fs?: Findom n (Option (Fin n)) := e.toSection?
- let fs? := Findom.sequenceOptional fs?
- match fs? with
- | .none => .none
- | .some fs' => fs'.toEndo
-
-
-theorem Endomorphism.inverse?_fg (f g: Endomorphism n)
-  (G: f.inverse? = .some g): f.after g = id := by {
-  simp[inverse?] at G;
-  cases GLOBAL_SECTION:(Findom.sequenceOptional (toSection? f));
-  case none => {
-    simp[GLOBAL_SECTION] at G; -- contradiction
-  }
-  case some s => { -- global section
-    simp[GLOBAL_SECTION] at G;
-
-    sorry
-  }
-}
-
-theorem Endomorphism.inverse?_gf (f g: Endomorphism n)
-  (G: f.inverse? = .some g):  g.after f = id := by { sorry}
-
-
-
-
-
--- Convert a list into an endomorphism
-def List.toEndo (xs: List (Fin n)) (LEN: n = length xs): Endomorphism n :=
-  let fs : Findom n (Fin n) := xs.toFindom.castDomain LEN;
-  fs.toEndo
-
-
--- Witnesses that the endomorphism 'f' is a permutation
-structure Permutation (n: Nat) extends Endomorphism n where
-   g: Fin n -> Fin n
-   gf: g ∘ f = id
-   fg: f ∘ g = id
-
--- identity permutation
-def Permutation.identity: Permutation n :=
- { f := id, g := id, gf := by { funext x; simp }, fg := by { funext x; simp } }
-
 
 
 -- permute the tensor index by `f`.
@@ -1883,8 +1863,111 @@ def finGetIndexOf [DecidableEq a] (f: Fin n -> a) (x: a): Option (Fin n) :=
 
 
 -- Create a function (Fin n -> Option (Fin n))
-def mkInversePointwise?: (Fin n -> Fin n) -> Fin n -> Option (Fin n)
-| f, ix => finGetIndexOf f ix
+-- def mkInversePointwise?: (Fin n -> Fin n) -> Fin n -> Option (Fin n)
+-- | f, ix => finGetIndexOf f ix
+--
+-- def mkInverseGlobal?: (Fin n -> Fin n) -> Option (Fin n -> Fin n)
+-- | f, ix => FinOption2OptionFin (mkInversePointwise? f ix)
 
-def mkInverseGlobal?: (Fin n -> Fin n) -> Option (Fin n -> Fin n)
-| f, ix => FinOption2OptionFin (mkInversePointwise? f ix)
+
+/-
+Tensor1d.mapM
+-/
+
+def List.mapMLengthProof {M: Type -> Type} {α β: Type} [Mon: Monad M] [LawfulMonad M] (f: α → M β) (xs: List α):
+  M { ys :  (List β) // (List.length ys = xs.length) } :=
+  match xs with
+  | [] => pure ⟨[], by { simp }⟩
+  | x::xs' => do
+      let ys' <- List.mapMLengthProof f xs'
+      let y <- f x
+      return ⟨y::ys'.val, by {
+        simp[List.length];
+        have H: length ys'.val = length xs' := ys'.property
+        exact H;
+    }⟩
+
+def Findom.map (f: α → β) (l: Findom n α): Findom n β := f ∘ l
+
+-- mapM for Findom.
+def Findom.mapM {M: Type → Type} {α: Type} [Monad M] [LawfulMonad M] (findom: Findom n α) (f: α → M β):
+  M (Findom n β) := do
+  let l := findom.toList
+  have H : List.length l.val = n := l.property
+  let out : { ys // List.length ys = List.length l.val } <- List.mapMLengthProof f l.val
+  have H' : List.length out.val = List.length l.val := out.property
+  have H'': List.length out.val = n := Eq.trans H' H
+  return (H'' ▸ List.toFindom out.val)
+
+
+theorem Findom.mapM_map [Monad M] [LawfulMonad M] (l: Findom n α) (f: α → β) (fM: α → M β)
+      (F: forall a, fM a = pure (f a)):
+    l.mapM fM = return l.map f := by {
+      apply Findom.induction (motive := fun n l => l.mapM fM = return l.map f); 
+      case NIL => {
+        simp[Findom.mapM, Findom.map];
+        simp[Findom.toList];
+        simp[List.mapMLengthProof];
+        simp[List.mapM];
+        simp[List.map];
+        simp[List.toFindom];
+        congr;
+        funext x;
+        apply x.elim0;
+      }
+      case CONS => {
+        intros x n f1 IH;
+        simp[Findom.mapM, Findom.map];
+        simp[Findom.toList];
+        simp[List.mapM];
+        congr;
+        funext x;
+      }
+}
+
+#check Findom.mapM_map
+
+def Tensor1D.mapM {M: Type -> Type} [Monad M] [LawfulMonad M]
+  (v: Tensor1D) (f: (Int) → M (Int)):
+  M Tensor1D := do
+  let data <- Findom.mapM v.data f
+  pure (Tensor1D.mk v.size0 data) 
+
+
+
+
+-- Old mapM theory: def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Monad M]
+-- Old mapM theory:   (v: Tensor1D) (f: TensorFlatIndex v.size0 → (FinInt 32) → M (FinInt 32)):
+-- Old mapM theory:   M Tensor1D := do
+-- Old mapM theory:   let data <-
+-- Old mapM theory:       (List.zipFlatIndex v.data).mapM (fun (val, ix) => f (v.h_data_size ▸ ix) val)
+-- Old mapM theory:   let temp := Tensor1D.mk data.length data rfl
+-- Old mapM theory:   return temp
+-- Old mapM theory:
+-- Old mapM theory: theorem List.mapM_loop_map [Monad M] [LawfulMonad M]
+-- Old mapM theory:     (l: List α) (f: α → β) (fM: α → M β) (results: List β):
+-- Old mapM theory:     (forall a, fM a = return f a) →
+-- Old mapM theory:     List.mapM.loop fM l results = return results.reverse ++ l.map f := by
+-- Old mapM theory:   intros h
+-- Old mapM theory:   revert results
+-- Old mapM theory:   induction l with
+-- Old mapM theory:   | nil => intros results; simp [map]; rfl
+-- Old mapM theory:   | cons a l ih =>
+-- Old mapM theory:       intros results
+-- Old mapM theory:       simp [mapM.loop, map, h, ih, reverse_cons, append_assoc]
+-- Old mapM theory:
+-- Old mapM theory: theorem List.mapM_map [Monad M] [LawfulMonad M] (l: List α) (f: α → β) (fM: α → M β):
+-- Old mapM theory:     (forall a, fM a = return f a) →
+-- Old mapM theory:     l.mapM fM = return l.map f := by
+-- Old mapM theory:   apply List.mapM_loop_map
+-- Old mapM theory:
+-- Old mapM theory:
+-- Old mapM theory: theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
+-- Old mapM theory:     (forall flat_index val, fM flat_index val = return f flat_index val) →
+-- Old mapM theory:     mapMWithFlatIndex v fM = return mapWithFlatIndex v f := by
+-- Old mapM theory:   intros h
+-- Old mapM theory:   unfold mapWithFlatIndex
+-- Old mapM theory:   unfold mapMWithFlatIndex
+-- Old mapM theory:   rw [List.mapM_map]
+-- Old mapM theory:   . simp [v.h_data_size]; rfl
+-- Old mapM theory:   . intros a; cases a; simp [h]
