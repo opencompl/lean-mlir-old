@@ -45,6 +45,16 @@ end
 
 /-
 A peephole rewrite for operations.
+
+x = ?y + ?y -| findSubtree
+z = x + x -|
+w = z + z -- findRoot
+
+
+=replace=>
+
+a = (?p - ?p + 1) * ?y |
+w = a + a | replaceSubtree
 -/
 structure PeepholeRewriteOp (δ: Dialect α σ ε) [S: Semantics δ] where
   findRoot: MTerm δ
@@ -55,20 +65,37 @@ structure PeepholeRewriteOp (δ: Dialect α σ ε) [S: Semantics δ] where
       (_prog: List (Op δ))
       (foundProg: List (Op δ))
       (replacedProg: List (Op δ))
-      (matchctx: VarCtx δ)
+      (substitution: VarCtx δ)
       (domctx: DomContext δ)
-      (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
-      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
-      (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
+      (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, substitution))
+      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) substitution = .some foundProg)
+      (SUBST: MTerm.concretizeProg replaceSubtree substitution = .some replacedProg)
       (DOMFIND: (singleBBRegionOpsObeySSA foundProg domctx).isSome = true)
       , (singleBBRegionOpsObeySSA replacedProg domctx).isSome = true
 
-  correct:
-    ∀ (toplevelProg: Op δ)
-      (replacedProg: List (Op δ))
-      (matchctx: VarCtx δ)
-      (domctx: DomContext δ)
-      (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
-      (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
-      (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
-      ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines (denoteOps (Δ := δ) (S := S) foundProg).run
+  -- correct:
+  --   ∀ (toplevelProg: Op δ)
+  --     (replacedProg: List (Op δ))
+  --     (substitution: VarCtx δ) -- unification results (substitutions)
+  --     (domctx: DomContext δ) -- typing + dominance context
+  --     (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] =
+  --       .some (foundProg, substitution))
+  --     -- (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) substitution = .some foundProg)
+  --     (SUBST: MTerm.concretizeProg replaceSubtree substitution = .some replacedProg)
+  --     ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines (denoteOps (Δ := δ) (S := S) foundProg).run
+
+  replace_metavars_subset_find_metavars:
+  ∀ (substitution: VarCtx δ) -- unification results (substitutions)
+    (SUBST: MTerm.concretizeProg (findSubtree ++ [findRoot]) substitution = .some findProg),
+    MTerm.concretizeProg replaceSubtree substitution ≠ none
+
+  /-
+  Note that this is sufficient to establish correctness.
+
+  -/
+  correct':
+  ∀ (substitution: VarCtx δ) -- unification results (substitutions)
+    (SUBST: MTerm.concretizeProg (findSubtree ++ [findRoot]) substitution = .some findProg)
+    (SUBST': MTerm.concretizeProg replaceSubtree substitution = .some replacedProg)
+      ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines
+        (denoteOps (Δ := δ) (S := S) findProg).run
