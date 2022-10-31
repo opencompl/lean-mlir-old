@@ -16,7 +16,7 @@ TODO: please unify:
 -/
 
 /-
-#### Finite Integers, Finite Domains, Endomorphisms, Permutations 
+#### Finite Integers, Finite Domains, Endomorphisms, Permutations
 -/
 
 -- function with finite domain.
@@ -25,6 +25,9 @@ abbrev Findom (n: Nat) (α: Type) := Fin n → α
 
 def Findom.nil: Findom 0 α := fun ix => ix.elim0
 
+
+def castFindom (n m : Nat) (EQ: n = m) (v: Findom n α) : Findom m α :=
+  fun ix => v (EQ ▸ ix)
 
 -- Nil is uniquely inhabited, as there is only one function (0 -> α)
 -- upto extensionality.
@@ -201,7 +204,7 @@ def List.toFindom: (xs: List α) → Findom (xs.length) α
 
 -- Convert a finite domain function into a list.
 def Findom.toList (fs: Findom n α): { xs: List α // xs.length = n }:=
-  Subtype.mk ((List.rangeF n).map fs.f) (by {
+  Subtype.mk ((List.rangeF n).map fs) (by {
      induction n;
      case zero => simp;
      case succ n' IH => simp;
@@ -219,7 +222,7 @@ def Endomorphism.id : Endomorphism n := fun ix => ix
 def Endomorphism.after (g f: Endomorphism n): Endomorphism n :=
   g∘ f
 
-def Findom.toEndo (fs: Findom n (Fin n)): Endomorphism n :=  
+def Findom.toEndo (fs: Findom n (Fin n)): Endomorphism n :=
   fs
 
 def List.mapFilter (f: a -> Option b): List a → List b
@@ -746,47 +749,75 @@ theorem Findom.sequenceOptional_is_some_everwhere {fs?: Findom n (Option α)}
 }
 
 
-def Findom.sequenceM {n: Nat} [M: Monad m] [LawfulMonad m] 
+def Findom.sequenceM {n: Nat} [M: Monad m] [LawfulMonad m]
   (fs: Findom n (m α)): m (Findom n α) :=
   match n with
   | 0 => pure Findom.nil
-  | n+1 => do 
+  | n+1 => do
           let x <- fs (Fin.last n)
           let fs' <- Findom.sequenceM (Findom.init fs)
           pure (Findom.append x fs')
 
-/-
+
 theorem Findom.sequenceM_append [M: Monad m] [LAWFUL: LawfulMonad m]
   (fs?: Findom n (m α))
   (fs: Findom n α)
   (FS: Findom.sequenceM fs? = pure fs)
   (a: α):
   Findom.sequenceM (fs?.append (pure a)) = pure (append a fs)  := by {
-    apply Findom.induction (motive := 
-      fun (n: Nat) (fs?: Findom n (m α)) => 
-        ∀(fs: Findom n α) (FS?: Findom.sequenceM fs? = pure fs) (a: α), 
-          Findom.sequenceM (fs?.append (pure a)) = pure (append a fs));
-    case NIL => {
-        intros fs FS?VAL a;
-        have FSVAL : fs = Findom.nil := by apply Findom.nil_unique;
-        rewrite[FSVAL];
-        simp[append];
-        simp[sequenceM];
-        congr;
-    }
-    case CONS  => {
-      intros x n f IH fs K;
-      intros a;
-      simp[sequenceM];
-      simp[Findom.init_of_append (a := some a)];
+    revert α;
+    induction n;
+    case zero => {
+      intros α fs? fs FS a;
+      simp[sequenceOptional] at FS;
       simp[FS];
-      sorry 
+      simp[sequenceM];
+      have FSNIL: fs? = Findom.nil := Findom.nil_unique _;
+      simp[FSNIL];
+      simp[append];
+      congr;
+      funext x;
+      have X: x = Fin.last 0 := Fin.one_unique _;
+      simp[X];
+    }
+    case succ n' IH => {
+      intros α fs? fs FS a;
+      apply Findom.inductionSucc (motive :=
+        fun (n: Nat) (fs?: Findom (Nat.succ n) (m α)) =>
+          ∀(fs: Findom (Nat.succ n) α) (FS?: Findom.sequenceM fs? = pure fs) (a: α),
+            Findom.sequenceM (fs?.append (pure a)) = pure (append a fs));
+      case ONE => {
+          intros gs? gs GS val;
+          simp[sequenceM];
+          simp[Findom.last_of_append];
+          simp[Findom.init_of_append];
+          simp[LAWFUL.seq_pure];
+          simp[sequenceM] at GS;
+          simp[sequenceM] at IH;
+          simp[Findom.last_of_append] at IH;
+          simp[Findom.init_of_append] at IH;
+
+          have FSONE : _ := Findom.eq_append_init_last ;
+          congr;
+      }
+      case CONS  => {
+        intros mx n f IH fs K;
+        intros a;
+        simp[sequenceM];
+        simp[Findom.init_of_append (a := some a)];
+        simp[Findom.init_of_append];
+        simp[Findom.last_of_append];
+        simp[Findom.init_of_append];
+        simp[FS, K];
+
+        sorry
+      }
     }
   }
--/
+
 -- This is kind of a misnomer, it rather returns the *unique section*
 -- if such an object exists.
-def Endomorphism.toSection? (e: Endomorphism n): Findom n (Option (Fin n)) := 
+def Endomorphism.toSection? (e: Endomorphism n): Findom n (Option (Fin n)) :=
   fun y =>
     match e.fiber y with
     | [x] => .some x
@@ -972,7 +1003,7 @@ All other operations must be written in terms of these primitives.
 def Tensor1D.empty: Tensor1D :=
 { size0 := 0, data := fun ix => ix.elim0 }
 
-def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
+def Tensor1D.fill (t: Tensor1D) (cst: Int): Tensor1D :=  {
   size0 := t.size0
   data := fun _ => cst
 }
@@ -1361,7 +1392,6 @@ theorem TensorFlatIndex.bound_zero_absurd (flat: TensorFlatIndex 0): False := by
 @[simp]
 theorem Nat.succ_gt_zero (n: Nat): Nat.succ n > 0 := by {
   simp [GT.gt];
-  simp [Nat.zero_lt_succ];
 }
 
 @[simp]
@@ -1874,7 +1904,8 @@ def finGetIndexOf [DecidableEq a] (f: Fin n -> a) (x: a): Option (Fin n) :=
 Tensor1d.mapM
 -/
 
-def List.mapMLengthProof {M: Type -> Type} {α β: Type} [Mon: Monad M] [LawfulMonad M] (f: α → M β) (xs: List α):
+def List.mapMLengthProof {M: Type -> Type} {α β: Type} [Mon: Monad M] [LawfulMonad M]
+  (f: α → M β) (xs: List α):
   M { ys :  (List β) // (List.length ys = xs.length) } :=
   match xs with
   | [] => pure ⟨[], by { simp }⟩
@@ -1890,7 +1921,8 @@ def List.mapMLengthProof {M: Type -> Type} {α β: Type} [Mon: Monad M] [LawfulM
 def Findom.map (f: α → β) (l: Findom n α): Findom n β := f ∘ l
 
 -- mapM for Findom.
-def Findom.mapM {M: Type → Type} {α: Type} [Monad M] [LawfulMonad M] (findom: Findom n α) (f: α → M β):
+def Findom.mapM {M: Type → Type} {α: Type} [Monad M] [LawfulMonad M]
+  (findom: Findom n α) (f: α → M β):
   M (Findom n β) := do
   let l := findom.toList
   have H : List.length l.val = n := l.property
@@ -1903,7 +1935,7 @@ def Findom.mapM {M: Type → Type} {α: Type} [Monad M] [LawfulMonad M] (findom:
 theorem Findom.mapM_map [Monad M] [LawfulMonad M] (l: Findom n α) (f: α → β) (fM: α → M β)
       (F: forall a, fM a = pure (f a)):
     l.mapM fM = return l.map f := by {
-      apply Findom.induction (motive := fun n l => l.mapM fM = return l.map f); 
+      apply Findom.induction (motive := fun n l => l.mapM fM = return l.map f);
       case NIL => {
         simp[Findom.mapM, Findom.map];
         simp[Findom.toList];
@@ -1920,8 +1952,7 @@ theorem Findom.mapM_map [Monad M] [LawfulMonad M] (l: Findom n α) (f: α → β
         simp[Findom.mapM, Findom.map];
         simp[Findom.toList];
         simp[List.mapM];
-        congr;
-        funext x;
+        sorry
       }
 }
 
@@ -1931,7 +1962,7 @@ def Tensor1D.mapM {M: Type -> Type} [Monad M] [LawfulMonad M]
   (v: Tensor1D) (f: (Int) → M (Int)):
   M Tensor1D := do
   let data <- Findom.mapM v.data f
-  pure (Tensor1D.mk v.size0 data) 
+  pure (Tensor1D.mk v.size0 data)
 
 
 
