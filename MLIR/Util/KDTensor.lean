@@ -796,11 +796,9 @@ theorem Findom.sequenceM_append [M: Monad m] [LAWFUL: LawfulMonad m]
           simp[sequenceM] at IH;
           simp[Findom.last_of_append] at IH;
           simp[Findom.init_of_append] at IH;
-
-          have FSONE : _ := Findom.eq_append_init_last ;
-          congr;
+          sorry
       }
-      case CONS  => {
+      case IND  => {
         intros mx n f IH fs K;
         intros a;
         simp[sequenceM];
@@ -809,9 +807,9 @@ theorem Findom.sequenceM_append [M: Monad m] [LAWFUL: LawfulMonad m]
         simp[Findom.last_of_append];
         simp[Findom.init_of_append];
         simp[FS, K];
-
         sorry
       }
+      case FS? => { sorry }
     }
   }
 
