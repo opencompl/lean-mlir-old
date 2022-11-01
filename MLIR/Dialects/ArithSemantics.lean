@@ -366,11 +366,11 @@ theorem equivalent (n m: FinInt 32):
     run ⟦RHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
   simp [LHS, RHS,
         run, StateT.run,
-        denoteOp, bind, List.mapM, StateT.bind,
+        denoteOp, bind, List.mapM, StateT.bind, denoteOpArgs, List.mapM,
         List.mapM.loop, Except.bind, TopM.get, StateT.get, pure, Except.pure,
-        StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval,
+        StateT.pure, TopM.mapDenoteRegion, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval,
         SSAEnv.get, SSAEnv.getT, cast];
-   simp[FinInt.add_comm'];
+  simp [FinInt.add_comm']
 
 def th1 : PeepholeRewriteOp arith := 
 {
