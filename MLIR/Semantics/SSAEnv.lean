@@ -98,6 +98,7 @@ theorem SSAScope.equiv_refl {δ: Dialect α σ ε} (scope: SSAScope δ):
 
 theorem SSAScope.equiv_symm {δ: Dialect α σ ε} ⦃scope scope': SSAScope δ⦄:
     scope.equiv scope' → scope'.equiv scope := by
+  intros H name τ
   specialize H name τ
   simp [H]
 
@@ -170,6 +171,12 @@ theorem SSAScope.get_none_getT {δ: Dialect α σ ε} ⦃name: SSAVal⦄
   simp at H
 
 theorem SSAScope.getT_set_ne ⦃v v': SSAVal⦄:
+    v' ≠ v →
+    ∀ ⦃scope: SSAScope δ⦄ ⦃τ: MLIRType δ⦄ ⦃val⦄,
+    getT v (set v' τ val scope) = getT v scope := by
+  intros Hne scope τ val
+  induction scope with
+  | nil => simp [Hne]
   | cons head tail =>
     simp
     byCases H: head.fst = v'
@@ -320,7 +327,16 @@ theorem SSAEnv.equiv_trans {δ: Dialect α σ ε}:
   simp [H1, H2]
 
 theorem SSAEnv.getT_set_ne ⦃v v': SSAVal⦄:
+    v' ≠ v →
+    ∀ ⦃env: SSAEnv δ⦄ ⦃τ: MLIRType δ⦄ ⦃val⦄,
     getT v (set v' τ val env) = getT v env := by
+  intros Hne env τ val
+  cases env with
+  | One s =>
+    simp [getT, set]
+    rw [SSAScope.getT_set_ne]
+    assumption
+  | Cons head tail =>
     simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
     rw [SSAScope.getT_set_ne]
     assumption
@@ -330,7 +346,11 @@ theorem SSAEnv.getT_set_eq (env: SSAEnv δ) (v: SSAVal) (τ: MLIRType δ) val:
   cases env with
   | One s =>
     simp [getT, set]
+    rw [SSAScope.getT_set_eq]
   | Cons head tail =>
+    simp [getT, set, HOrElse.hOrElse, OrElse.orElse, Option.orElse]
+    simp [SSAScope.getT_set_eq]
+
 theorem SSAEnv.get_set_ne_val ⦃v v': SSAVal⦄:
     v' ≠ v →
     ∀ ⦃env: SSAEnv δ⦄ ⦃τ τ': MLIRType δ⦄ ⦃val⦄,
@@ -383,6 +403,13 @@ theorem SSAEnv.set_commutes ⦃v v': SSAVal⦄:
     ∀ ⦃env: SSAEnv δ⦄ ⦃τ τ': MLIRType δ⦄ ⦃val val'⦄,
     equiv (set v τ val (set v' τ' val' env)) (set v' τ' val' (set v τ val env)) := by
   intros Hne env τ τ' val val' v₂ τ₂
+  repeat rw [get_set]
+  split
+  . subst v
+    simp [Hne]
+  . split <;> simp
+
+/-
 ### Interactions manipulating the environment
 -/
 
