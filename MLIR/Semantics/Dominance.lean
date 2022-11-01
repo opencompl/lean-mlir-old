@@ -11,6 +11,8 @@ import MLIR.AST
 import MLIR.Semantics.Types
 open MLIR.AST
 
+set_option maxHeartbeats 9999999
+
 /-
 ### Dominance Context
 
@@ -52,7 +54,6 @@ def operandsDefinitionObeySSA (args: List (TypedSSAVal δ)) (ctx: DomContext δ)
 Check that an IR satisfies SSA.
 -/
 
-set_option maxHeartbeats 9999999 in 
 mutual
 def singleBBRegionOpObeySSA (op: Op δ) (ctx: DomContext δ) : Option (DomContext δ) :=
   match op with

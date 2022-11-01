@@ -80,7 +80,7 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
 
 -- getter at a flat index
 def Tensor.getAtFlatIndex {σ} (v: Tensor σ) (ix: TensorFlatIndex (shapeProd v.shape)): σ.eval :=
-  List.getF v.data ix.ix (h := by {  rewrite [v.h_data_size]; exact ix.h_ix_inbound; })
+  List.getF v.data ix.val (h := by {  rewrite [v.h_data_size]; exact ix.isLt; })
 
 
 theorem arg_equal_implies_fn_equal (α β: Type) (x y :α) (f: α -> β) (EQ: x = y): f x = f y := by {
@@ -101,8 +101,8 @@ def Tensor.mapWithFlatIndexCorrect
   (v.mapWithFlatIndex f).getAtFlatIndex ix = f ix (v.getAtFlatIndex ix) := by {
   simp [Tensor.getAtFlatIndex];
   simp [Tensor.mapWithFlatIndex];
-  rewrite [List.zip_flat_index_get (xs := v.data) (getIx := ix.ix)
-      (GETIX := by {  rewrite [v.h_data_size];  simp[ix.h_ix_inbound]; } )];
+  rewrite [List.zip_flat_index_get (xs := v.data) (getIx := ix.val)
+      (GETIX := by {  rewrite [v.h_data_size];  simp[ix.isLt]; } )];
   simp;
   rewrite [TensorFlatIndex.cast_left];
   rfl;

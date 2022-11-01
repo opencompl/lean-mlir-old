@@ -11,6 +11,8 @@ import MLIR.EDSL
 open MLIR.AST
 
 
+set_option maxHeartbeats 9999999999
+
 /-
 Consider the following MWE:
 
@@ -61,30 +63,36 @@ def OpM.findI32 (d: AttrDict δ) (key: String): OpM Δ (FinInt 32) :=
  | .some (v, _) => return (FinInt.ofInt 32 v)
  | _ => OpM.Error s!"{d}.lookup {key} failed to find int"
 
+#check decide
 
 -- in general, xtract slice has offset, size, stride.
 -- We ignore the stride and offset for now, just use size.
 def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
  | IOp.mk "linalg.extractslice1d" _ [⟨.tensor1d, t⟩] [] dict => do
-    let len ←  OpM.findIndex dict "len"
-    let t' := t.extract len
-    return [⟨.tensor1d, t'⟩]
+   let len ←  OpM.findIndex dict "len"
+   if H: len ≤ t.size0 then
+      let t' := t.extract len H
+      return [⟨.tensor1d, t'⟩]
+   else
+      OpM.Error s!"expected {len} ≤ {t.size0}."
  | IOp.mk "linalg.fill1d" _ [⟨.tensor1d, t⟩]  [] dict => do
-     let cst ←  OpM.findI32 dict "cst"
+     let cst ←  OpM.findIndex dict "cst"
      let t' := t.fill cst
      return [⟨.tensor1d, t'⟩]
  | IOp.mk "linalg.generic1d'" _ [⟨.tensor1d, t⟩] [r] _ => do -- generic1d without array index.
       let t' <- t.mapM (fun val => do
-            let rets ← r [⟨.i32, val⟩]
+            let rets ← r [⟨.index, val⟩]
             match rets with
-            | [⟨.i32, v⟩] => pure v
+            | [⟨.index, v⟩] => pure v
             | _ => OpM.Error s!"linalg.generic1d: unknown return value '{rets}'")
       return [⟨.tensor1d, t'⟩]
  | IOp.mk "linalg.generic1d" _ [⟨.tensor1d, t⟩] [r] _ => do
-      let t' <- t.mapMWithFlatIndex (fun idx val => do
-            let rets ← r [⟨.index, idx.ix⟩, ⟨.i32, val⟩]
+      let t' <- t.mapMWithFlatIndex (fun validx => do
+            let val := validx.fst
+            let idx := validx.snd
+            let rets ← r [⟨.index, idx⟩, ⟨.index, val⟩]
             match rets with
-            | [⟨.i32, v⟩] => pure v
+            | [⟨.index, v⟩] => pure v
             | _ => OpM.Error s!"linalg.generic1d: unknown return value '{rets}'")
       return [⟨.tensor1d, t'⟩]
  | IOp.mk "linalg.extractslice2d" _ [⟨.tensor2d, t⟩]  [r] dict =>  do
@@ -108,9 +116,9 @@ def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
  | IOp.mk "linalg.transpose2d"   _ [⟨.tensor2d, t⟩]  [r] dict => do
      let t' := t.transpose
      return [⟨.tensor2d, t'⟩]
- | IOp.mk "linalg.insertslice2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.generic2d" _ [⟨.tensor1d, t⟩]  [r] dict => sorry
- | IOp.mk "linalg.parallel2d" _ [⟨.tensor1d, t⟩]  [r] dict => do
+ | IOp.mk "linalg.insertslice2d" _ [⟨.tensor2d, t⟩]  [r] dict => sorry
+ | IOp.mk "linalg.generic2d" _ [⟨.tensor2d, t⟩]  [r] dict => sorry
+ | IOp.mk "linalg.parallel2d" _ [⟨.tensor2d, t⟩]  [r] dict => do
       return []
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
@@ -118,7 +126,7 @@ theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec 
   validGenericRegion r rSpec →
   linalg_semantics_op (Δ := Δ)
       (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [OpM.denoteRegion r 0] attrs) =
-    return [⟨.tensor1d, t.mapWithFlatIndex (fun idx val => rSpec idx.ix val)⟩] := by
+    return [⟨.tensor1d, t.mapWithFlatIndex (fun idxval => rSpec idxval.fst idxval.snd)⟩] := by
   intros h
   simp [linalg_semantics_op]
   simp [validGenericRegion] at h
@@ -213,7 +221,7 @@ theorem equiv (t: Tensor1D) r rSpec:
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast, OpM.denoteRegions, TopM.mapDenoteRegion,
-             OpM.toTopM, denoteRegion];
+             OpM.toTopM, denoteRegion] (config := { maxSteps := 99999999 });
       -- save;
       simp [Semantics.semantics_op];
       -- rewrite [linalg_semantics_generic1d];

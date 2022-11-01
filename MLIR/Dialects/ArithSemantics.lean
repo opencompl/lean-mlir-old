@@ -22,6 +22,8 @@ import MLIR.EDSL
 import MLIR.Semantics.Rewriting
 open MLIR.AST
 
+set_option maxHeartbeats 999999999
+
 /-
 ### Dialect extensions
 
@@ -361,16 +363,18 @@ def RHS: Op arith := [mlir_op|
   %r = "arith.addi"(%m, %n): (i32, i32) -> i32
 ]
 
+
 theorem equivalent (n m: FinInt 32):
     run ⟦LHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) =
     run ⟦RHS⟧ (SSAEnv.One [ ("n", ⟨.i32, n⟩), ("m", ⟨.i32, m⟩) ]) := by
-  simp [LHS, RHS,
-        run, StateT.run,
-        denoteOp, bind, List.mapM, StateT.bind,
+    sorry
+  /-
+  simp [LHS, RHS, run, StateT.run, denoteOp, bind, List.mapM, StateT.bind,
         List.mapM.loop, Except.bind, TopM.get, StateT.get, pure, Except.pure,
         StateT.pure, OpM.toTopM, TopM.set, StateT.set, MLIRType.eval,
-        SSAEnv.get, SSAEnv.getT, cast];
+        SSAEnv.get, SSAEnv.getT, cast]; -- (config := { maxSteps := 999999999 });
    simp[FinInt.add_comm'];
+  -/
 
 def th1 : PeepholeRewriteOp arith := 
 {
@@ -387,18 +391,13 @@ def th1 : PeepholeRewriteOp arith :=
      simp [List.append] at *;
      sorry
   } 
-  , correct := by {
-     intros toplevelProg _prog matchCtx replacedProg matchctx domctx
-     intros MATCH FIND SUBST DOMFIND
-     simp [List.append] at *;
-     simp [MTerm.concretizeProg, List.mapM, List.mapM.loop] at FIND;
-     simp [MTerm.concretizeOp, MTerm.buildOp, MTerm.concretizeOperands, MTerm.concretizeOperand, MTerm.buildOperand,
-        MTerm.concretizeVariable, List.mapM, List.mapM.loop] at FIND;
+  , correct' := by {
       -- cases on the MTerm.getVariable and show that we must have such a variable.
       -- then generalize on this.
       sorry
 
   }
+  , replace_metavars_subset_find_metavars := by sorry
 }
 
 end th1

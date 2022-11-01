@@ -1342,11 +1342,9 @@ theorem shapeProd.cons_unfold: ∀ (x: Nat) (xs: List Nat),
 /-
 A 1D index into a tensor. Witnesses that the flat index is in bounds of the shape of the tensor.
 -/
-structure TensorFlatIndex (bound: Nat) where
-  ix: Nat
-  h_ix_inbound: (ix < bound)
+abbrev TensorFlatIndex (bound: Nat) := Fin bound
 
-def TensorFlatIndex.eq_proof_irrelevant  (f1: TensorFlatIndex b) (f2: TensorFlatIndex b) (IXEQ: f1.ix = f2.ix): f1 = f2 := by {
+def TensorFlatIndex.eq_proof_irrelevant  (f1: TensorFlatIndex b) (f2: TensorFlatIndex b) (IXEQ: f1.val = f2.val): f1 = f2 := by {
   induction f1;
   case mk ix1 H1 => {
   induction f2;
@@ -1358,7 +1356,7 @@ def TensorFlatIndex.eq_proof_irrelevant  (f1: TensorFlatIndex b) (f2: TensorFlat
 
 
 def TensorFlatIndex.cast_left: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix: ℕ) (prf: ix < bound) (prf': ix < bound'),
-  EQ ▸ { ix := ix, h_ix_inbound := prf : TensorFlatIndex bound } = {ix := ix, h_ix_inbound := prf' }
+  EQ ▸ { val := ix, isLt := prf : TensorFlatIndex bound } = {val := ix, isLt := prf' }
    := by {
   intros bound bound';
   intros EQ ix prf prf';
@@ -1367,7 +1365,7 @@ def TensorFlatIndex.cast_left: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix:
 }
 
 def TensorFlatIndex.cast_right: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix: ℕ) (prf: ix < bound) (prf': ix < bound'),
-  { ix := ix, h_ix_inbound := prf : TensorFlatIndex bound } = EQ ▸ {ix := ix, h_ix_inbound := prf' }
+  { val := ix, isLt := prf : TensorFlatIndex bound } = EQ ▸ {val := ix, isLt := prf' }
    := by {
   intros bound bound';
   intros EQ ix prf prf';
@@ -1377,13 +1375,13 @@ def TensorFlatIndex.cast_right: ∀ (bound bound': ℕ) (EQ: bound = bound') (ix
 
 theorem TensorFlatIndex.bound_non_zero (flat: TensorFlatIndex bound): bound ≠ 0 := by {
   intros BOUND;
-  have H_INBOUND := flat.h_ix_inbound;
+  have H_INBOUND := flat.isLt;
   simp [BOUND] at H_INBOUND;
   simp [Nat.not_lt_zero] at H_INBOUND;
 }
 
 theorem TensorFlatIndex.bound_zero_absurd (flat: TensorFlatIndex 0): False := by {
-  have H_INBOUND := flat.h_ix_inbound;
+  have H_INBOUND := flat.isLt;
   simp [Nat.not_lt_zero] at H_INBOUND;
 }
 
@@ -1529,8 +1527,8 @@ theorem Nat.div_lt_if_mod (ix bound modulus: Nat) (IX: ix < bound) (MODULUS: mod
 def TensorFlatIndex.split
   (n modulus: Nat) (MODULUS: modulus > 0) (DIV: n % modulus = 0)
   (flat: TensorFlatIndex n): (TensorFlatIndex modulus) × (TensorFlatIndex (n/modulus)) :=
-  (TensorFlatIndex.mk (flat.ix %  modulus) (Nat.mod_lt flat.ix MODULUS),
-   TensorFlatIndex.mk (flat.ix / modulus) (Nat.div_lt_if_mod flat.ix n modulus flat.h_ix_inbound MODULUS DIV))
+  (Fin.mk (flat.val %  modulus) (Nat.mod_lt flat.val MODULUS),
+   Fin.mk (flat.val / modulus) (Nat.div_lt_if_mod flat.val n modulus flat.isLt MODULUS DIV))
 
 theorem Nat.le_pred_if_lt (x n : Nat) (X_LT_N: x < n): x <= pred n := by {
      cases n;
@@ -1570,10 +1568,10 @@ theorem Nat.le_mul_pred (x y n: Nat) (LE: x <= Nat.pred n): x * y <= n * y - y :
 def TensorFlatIndex.merge
   (flat0: TensorFlatIndex N0)
   (flat1: TensorFlatIndex N1): TensorFlatIndex (N0 * N1) :=
-  TensorFlatIndex.mk (flat1.ix * N1 + flat0.ix) (by {
-     have IX0: flat0.ix <= Nat.pred N0 := Nat.le_pred_if_lt _ _ flat0.h_ix_inbound;
-     have IX1: flat1.ix <= Nat.pred N1 := Nat.le_pred_if_lt _ _ flat1.h_ix_inbound;
-     have IX0_N: flat0.ix * N1 <= N0 * N1 - N1 := by {
+  Fin.mk (flat1.val * N1 + flat0.val) (by {
+     have IX0: flat0.val <= Nat.pred N0 := Nat.le_pred_if_lt _ _ flat0.isLt;
+     have IX1: flat1.val <= Nat.pred N1 := Nat.le_pred_if_lt _ _ flat1.isLt;
+     have IX0_N: flat0.val * N1 <= N0 * N1 - N1 := by {
       apply Nat.le_mul_pred <;> simp;
       exact IX0;
      }
@@ -1619,7 +1617,7 @@ theorem TensorIndex'.empty_dims_is_empty (index: TensorIndex' []): index = .Empt
 def TensorIndex'.getLinearizedIndexNumber
    {dims: List Nat} (index: TensorIndex' dims) : TensorFlatIndex (shapeProd dims) :=
     match index with
-    | .Empty =>  TensorFlatIndex.mk 0 (by {simp[shapeProd];})
+    | .Empty =>  Fin.mk 0 (by {simp[shapeProd];})
     | .Dim bound0 ix rest => ix.merge rest.getLinearizedIndexNumber
 
 
@@ -1725,7 +1723,7 @@ def zipFlatIndexGo (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bou
        rewrite [SWIZZLE];
        simp;
      }
-     (x, TensorFlatIndex.mk ix ix_inbounds) :: zipFlatIndexGo xs' ix' bound H'
+     (x, Fin.mk ix ix_inbounds) :: zipFlatIndexGo xs' ix' bound H'
 
 
 
@@ -1752,9 +1750,9 @@ theorem zip_flat_index_go_length (xs: List α): ∀ (ix: Nat) (bound: Nat) (H: i
 theorem List.zip_flat_index_go_get: ∀ (xs: List α) (ix: Nat) (bound: Nat) (H: ix + xs.length = bound)
   (deltaIx: Nat) (GETIX: deltaIx < xs.length),
   ((zipFlatIndexGo xs ix bound H).getF deltaIx (zip_flat_index_go_length xs ix bound H ▸ GETIX)) =
-  (xs.getF deltaIx GETIX, TensorFlatIndex.mk (bound := bound)
-                           (ix := ix + deltaIx)
-                           (h_ix_inbound := by { rewrite [<- H]; simp [Nat.add_lt_add_left, GETIX]; } )) := by {
+  (xs.getF deltaIx GETIX, Fin.mk (n := bound)
+                           (val := ix + deltaIx)
+                           (isLt := by { rewrite [<- H]; simp [Nat.add_lt_add_left, GETIX]; } )) := by {
   intros xs;
   induction xs;
   case nil => {
@@ -1794,9 +1792,9 @@ theorem List.length_zip_flat_index (xs: List α): length (List.zipFlatIndex xs) 
 
 -- The correctness of `List.zipFlatIndex`: value that it zips is the index of the element.
 theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.length):
-  (List.getF (List.zipFlatIndex xs) getIx (by simp; apply GETIX)) = (List.getF xs getIx GETIX, TensorFlatIndex.mk (bound := xs.length) getIx GETIX) := by {
+  (List.getF (List.zipFlatIndex xs) getIx (by simp; apply GETIX)) = (List.getF xs getIx GETIX, Fin.mk (n := xs.length) getIx GETIX) := by {
   simp[zipFlatIndex];
-  have RHS :  { ix := getIx, h_ix_inbound := GETIX : TensorFlatIndex (xs.length) } = {ix := 0 + getIx, h_ix_inbound := by { simp; apply GETIX } : TensorFlatIndex (xs.length)} := by {
+  have RHS :  { val := getIx, isLt := GETIX : TensorFlatIndex (xs.length) } = {val := 0 + getIx, isLt := by { simp; apply GETIX } : TensorFlatIndex (xs.length)} := by {
     simp;
   }
   rewrite [RHS];
@@ -1916,6 +1914,7 @@ def List.mapMLengthProof {M: Type -> Type} {α β: Type} [Mon: Monad M] [LawfulM
         exact H;
     }⟩
 
+
 def Findom.map (f: α → β) (l: Findom n α): Findom n β := f ∘ l
 
 -- mapM for Findom.
@@ -1928,6 +1927,26 @@ def Findom.mapM {M: Type → Type} {α: Type} [Monad M] [LawfulMonad M]
   have H' : List.length out.val = List.length l.val := out.property
   have H'': List.length out.val = n := Eq.trans H' H
   return (H'' ▸ List.toFindom out.val)
+
+
+-- theorem List.mapLength (f: a -> b) (xs: List a): List.length (List.map f xs) = List.length xs := by {
+--   induction xs;
+--   case nil => simp[List.length]
+--   case cons x xs' IH => simp[List.length];
+-- }
+
+def Findom.mapMWithIndex {M: Type → Type} {α: Type} [Monad M] [LawfulMonad M]
+  (findom: Findom n α) (f: α × Fin n → M β):
+  M (Findom n β) := do
+  let l := findom.toList
+  have L_LENGTH_EQ_N : l.val.length = n := l.property
+
+  let ys : List (α × TensorFlatIndex (List.length l.val)) := List.zipFlatIndex l.val
+  let ys' : List (α × TensorFlatIndex n) := ys.map (L_LENGTH_EQ_N ▸ .)
+  let YS'_LENGTH_EQ_N : ys'.length = n := sorry
+  let out : { out // List.length out = List.length ys' } <- List.mapMLengthProof f ys'
+  have OUT_LENGTH_EQ_N: List.length out.val = n := Eq.trans out.property YS'_LENGTH_EQ_N
+  return (OUT_LENGTH_EQ_N ▸ List.toFindom out.val)
 
 
 theorem Findom.mapM_map [Monad M] [LawfulMonad M] (l: Findom n α) (f: α → β) (fM: α → M β)
@@ -1956,10 +1975,24 @@ theorem Findom.mapM_map [Monad M] [LawfulMonad M] (l: Findom n α) (f: α → β
 
 #check Findom.mapM_map
 
+def Tensor1D.map (v: Tensor1D) (f: Int -> Int): Tensor1D := (Tensor1D.mk v.size0 (v.data.map f))
+
 def Tensor1D.mapM {M: Type -> Type} [Monad M] [LawfulMonad M]
   (v: Tensor1D) (f: (Int) → M (Int)):
   M Tensor1D := do
   let data <- Findom.mapM v.data f
+  pure (Tensor1D.mk v.size0 data)
+
+
+theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] (v: Tensor1D) (f: Int -> Int) (fM: Int → M Int)
+      (F: forall a, fM a = pure (f a)):
+    v.mapM fM = return v.map f := by sorry
+
+
+def Tensor1D.mapMWithFlatIndex {M: Type -> Type} [Monad M] [LawfulMonad M]
+  (v: Tensor1D) (f: Int × Fin v.size0 → M (Int)):
+  M Tensor1D := do
+  let data <- Findom.mapMWithIndex v.data f
   pure (Tensor1D.mk v.size0 data)
 
 

@@ -13,6 +13,8 @@ import MLIR.Semantics.UB
 import MLIR.AST
 open MLIR.AST
 
+set_option maxHeartbeats 9999999999
+
 
 abbrev TypedArg (δ: Dialect α σ ε) := (τ: MLIRType δ) × MLIRType.eval τ
 

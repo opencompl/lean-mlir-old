@@ -7,6 +7,9 @@ import MLIR.AST
 import MLIR.EDSL
 open MLIR.AST
 
+
+set_option maxHeartbeats 999999999
+
 /-
 ### Dialect: `scf`
 -/

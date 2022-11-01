@@ -18,7 +18,7 @@ open MLIR.AST
 ### Decidable equality
 -/
 
-set_option maxHeartbeats 99999999 in
+set_option maxHeartbeats 99999999
 mutual
 def TensorElem.eq (e₁ e₂: TensorElem): Decidable (e₁ = e₂) := by
   cases e₁ <;> cases e₂

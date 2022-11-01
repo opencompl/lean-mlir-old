@@ -11,6 +11,8 @@ import MLIR.Semantics.Dominance
 open MLIR.AST
 
 
+set_option maxHeartbeats 999999999
+
 /-
 ### replace an operation with multiple operations
 The operation to replace is identified by the name of its only result.
