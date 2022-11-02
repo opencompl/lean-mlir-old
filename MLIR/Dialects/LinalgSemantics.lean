@@ -122,18 +122,22 @@ def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
       return []
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
-theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec types attrs}:
-  validGenericRegion r rSpec →
-  linalg_semantics_op (Δ := Δ)
-      (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [OpM.denoteRegion r 0] attrs) =
-    return [⟨.tensor1d, t.mapWithFlatIndex (fun idxval => rSpec idxval.fst idxval.snd)⟩] := by
-  intros h
-  simp [linalg_semantics_op]
-  simp [validGenericRegion] at h
-  simp [h]
-  rw [Tensor1D.mapM_map]
-  . rfl
-  . intros; rfl
+-- NOTE: rSpec should be proven about `denoteOp`
+-- theorem linalg_semantics_generic1d 
+--  {Δ: Dialect α σ ε} {r: Region Δ} {rSpec types attrs}:
+--   validGenericRegion r rSpec →
+--   linalg_semantics_op (Δ := Δ)
+--       (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [OpM.denoteRegion r 0] attrs) =
+--     return [⟨.tensor1d, t.mapMWithFlatIndex (fun idxval => 
+--          let rets ← OpM.denoteRegion r 0 [⟨.index, idxval.fst⟩, ⟨.index, idxval.snd⟩])⟩] := by
+
+--   intros h
+--   simp [linalg_semantics_op]
+--   simp [validGenericRegion] at h
+--   simp [h]
+--   rw [Tensor1D.mapM_map]
+--   . rfl
+--   . intros; rfl
 
 instance : Semantics linalg where
    semantics_op := linalg_semantics_op
@@ -146,16 +150,11 @@ For each transformation, we implement
 namespace ExtractSliceFillCommuteOneD
 
 theorem extract_fill_commute:
- Tensor1D.fill (Tensor1D.extract t extractlen) fillval =
- Tensor1D.extract (Tensor1D.fill t fillval) extractlen := by {
+ Tensor1D.fill (Tensor1D.extract t extractlen EXTRACT) fillval =
+ Tensor1D.extract (Tensor1D.fill t fillval) extractlen EXTRACT := by {
    simp [Tensor1D.fill, Tensor1D.extract];
-   apply List.extF
-   intros n h; simp; simp at h
-   repeat rw [List.getF_replicate]
-   . apply Nat.lt_min_left; apply h
-   . simp
-   . assumption
  }
+
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS : Region linalg  := [mlir_region| {
    %x = "linalg.extractslice1d" (%t) { len = 10 : index }: (tensor1d) -> (tensor1d)
@@ -216,14 +215,16 @@ theorem equiv (t: Tensor1D) r rSpec:
    run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
       intros valid_r;
       simp[LHS, RHS];
-      simp_all[denoteRegion, run, StateT.run, List.map, denoteTypedArgs, pure, StateT.pure, Except.pure,
+      /-
+      simp[denoteRegion, run, StateT.run, List.map, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast, OpM.denoteRegions, TopM.mapDenoteRegion,
              OpM.toTopM, denoteRegion] (config := { maxSteps := 99999999 });
+      -/
       -- save;
-      simp [Semantics.semantics_op];
+      -- simp [Semantics.semantics_op];
       -- rewrite [linalg_semantics_generic1d];
       sorry
     }
