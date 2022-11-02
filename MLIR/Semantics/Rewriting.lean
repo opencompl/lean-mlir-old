@@ -64,11 +64,9 @@ structure PeepholeRewriteOp (δ: Dialect α σ ε) [S: Semantics δ] where
       , (singleBBRegionOpsObeySSA replacedProg domctx).isSome = true
 
   correct:
-    ∀ (toplevelProg: Op δ)
-      (replacedProg: List (Op δ))
+    ∀ (replacedProg: List (Op δ))
       (matchctx: VarCtx δ)
-      (domctx: DomContext δ)
-      (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
+      --  (MATCH: matchMProgInOp toplevelProg (findSubtree ++ [findRoot]) [] = .some (_prog, matchctx))
       (FIND: MTerm.concretizeProg (findSubtree ++ [findRoot]) matchctx = .some foundProg)
-      (SUBST: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
+      (REPLACE: MTerm.concretizeProg replaceSubtree matchctx = .some replacedProg)
       ,  (denoteOps (Δ := δ) (S := S) replacedProg).refines (denoteOps (Δ := δ) (S := S) foundProg).run

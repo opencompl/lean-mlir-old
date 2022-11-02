@@ -345,6 +345,7 @@ def MTerm.concretizeDim (m: MTerm δ) (ctx: VarCtx δ) : Option Dimension :=
 def MTerm.concretizeType (m: MTerm δ) (ctx: VarCtx δ) :
     Option (MLIR.AST.MLIRType δ) :=
   match m with
+  | .ConstMLIRType t => some t
   | Var _ _ _ => m.concretizeVariable .MMLIRType ctx
   | .App .INT [mSign, mNat] => do
     let sign ← mSign.concretizeSign ctx
@@ -362,15 +363,15 @@ def MTerm.concretizeOperand (m: MTerm δ) (ctx: VarCtx δ) :
     return (val, type)
   | _ => none
 
-def MTerm.concretizeOperands (m: MTerm δ) (ctx: VarCtx δ) :
+def MTerm.concretizeOperands (l: List (MTerm δ)) (ctx: VarCtx δ) :
     Option (List (MLIR.AST.TypedSSAVal δ)) :=
-  match m with
-  | .App (.LIST .MOperand) l => l.mapM (fun m' => m'.concretizeOperand ctx)
-  | _ => none
+   l.mapM (fun m' => m'.concretizeOperand ctx)
 
 def MTerm.concretizeOp (m: MTerm δ) (ctx: VarCtx δ) : Option (Op δ) :=
   match m with
-  | .App .OP [ .ConstString mName, mOperands, mRes ] => do
+  | .App .OP [ .ConstString mName
+             , .APP (.LIST MOperand) mOperands
+             , .APP (.LIST MOperand) mRes ] => do
     let operands ← MTerm.concretizeOperands mOperands ctx
     let res ← MTerm.concretizeOperands mRes ctx
     match res with

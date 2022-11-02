@@ -372,6 +372,56 @@ theorem equivalent (n m: FinInt 32):
         SSAEnv.get, SSAEnv.getT, cast];
   simp [FinInt.add_comm']
 
+theorem Option.bind_none: ∀ (k: a -> Option b),
+  Option.bind none k = .none := by {
+    simp[Option.bind];
+  }
+
+theorem Option.bind_some: ∀ {a: Type} (v: a) (k: a -> Option b),
+  Option.bind (.some v) k = k v := by {
+    simp[Option.bind];
+  }
+
+theorem MTerm.concreteizeType_of_buildTypeConst{δ: Dialect α σ ε}
+  (matchctx: VarCtx δ) (t: MLIRType δ):
+  MTerm.concretizeType (MTerm.buildTypeConst t) matchctx  =
+    .some  t := by {
+      simp[MTerm.concretizeType, MTerm.buildTypeConst];
+}
+
+-- theorem to unfold concretizeProg in a controlled fashion.
+theorem MTerm.concretizeProg_cons:
+  MTerm.concretizeProg (mop::mops) matchctx =
+  do 
+    let op <- MTerm.concretizeOp mop matchctx
+    let ops <- MTerm.concretizeProg mops matchctx
+    return (op::ops) := by {
+      revert mop;
+      revert matchctx;
+      induction mops;
+      case nil => {
+        simp[MTerm.concretizeProg, List.mapM, List.mapM.loop];
+        intros mop matchctx;
+        simp_monad;
+        cases H:(MTerm.concretizeOp matchctx mop) <;> 
+          simp[H, Option.bind_none, Option.bind_some];
+      }
+      case cons x xs IH => {
+        intros matchctx mop;
+        simp[MTerm.concretizeProg];
+        simp[List.mapM, List.mapM.loop];
+        sorry
+      }
+    }
+theorem MTerm.concretizeOp_of_buildOp
+    (OPERANDS: MTerm.concretizeOperands moperands matchctx = .some operands)
+    (RESULTS: MTerm.concretizeOperands mresults matchctx = .some results):
+    MTerm.concretizeOp (MTerm.buildOp name moperands mresults) matchctx = 
+      Op.mk name results operands [] (AttrDict.mk []) := by {
+    simp[MTerm.buildOp, MTerm.concretizeOp];
+}
+
+
 def th1 : PeepholeRewriteOp arith := 
 {
   findRoot := MTerm.buildOp "arith.addi" 
@@ -388,15 +438,34 @@ def th1 : PeepholeRewriteOp arith :=
      sorry
   } 
   , correct := by {
-     intros toplevelProg _prog matchCtx replacedProg matchctx domctx
-     intros MATCH FIND SUBST DOMFIND
+     intros foundProg replacedProg matchctx
+     intros FIND REPLACE
      simp [List.append] at *;
+     -- TODO: write rewrite rules.
      simp [MTerm.concretizeProg, List.mapM, List.mapM.loop] at FIND;
      simp [MTerm.concretizeOp, MTerm.buildOp, MTerm.concretizeOperands, MTerm.concretizeOperand, MTerm.buildOperand,
         MTerm.concretizeVariable, List.mapM, List.mapM.loop] at FIND;
-      -- cases on the MTerm.getVariable and show that we must have such a variable.
-      -- then generalize on this.
-      sorry
+      simp_monad at FIND;
+      cases N:(VarCtx.get matchctx MSort.MSSAVal "n") <;>
+         simp [N, Option.bind_none, Option.bind_some] at FIND;
+      case some n => {
+          simp[MTerm.concreteizeType_of_buildTypeConst 
+            (t := MLIRType.i32) (δ := arith) (matchctx := matchctx), Option.bind_some] at FIND;
+          cases M:(VarCtx.get matchctx MSort.MSSAVal "m") <;>
+            simp [M, Option.bind_none, Option.bind_some] at FIND;
+          case some m => {
+            -- | Show mathieu how copilot is a tactic ;) 
+            cases R:(VarCtx.get matchctx MSort.MSSAVal "r") <;>
+              simp [R, Option.bind_none, Option.bind_some] at FIND;
+            case some r => {
+                rewrite[<- FIND];
+                simp[MTerm.concretizeProg] at REPLACE;
+                simp[List.mapM, List.mapM.loop] at REPLACE;
+                simp[MTerm.concretizeProg_cons] at REPLACE;
+                -- TODO: write simpliciation rewrite rules for SUBST.
+            }
+          }
+      }
 
   }
 }
