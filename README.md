@@ -86,3 +86,5 @@ $ cd examples; lit -v . # run all examples, report failures.
 # License
 
 Some source code from Mathlib4 is included in `MLIR/Util/Mathlib4`, licenser under [Apache 2.0](https://github.com/leanprover-community/mathlib4/blob/master/LICENSE).
+
+Check shallow clone push.
