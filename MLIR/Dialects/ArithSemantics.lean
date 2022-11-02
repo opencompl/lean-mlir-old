@@ -392,7 +392,7 @@ theorem MTerm.concreteizeType_of_buildTypeConst{δ: Dialect α σ ε}
 -- theorem to unfold concretizeProg in a controlled fashion.
 theorem MTerm.concretizeProg_cons:
   MTerm.concretizeProg (mop::mops) matchctx =
-  do 
+  do
     let op <- MTerm.concretizeOp mop matchctx
     let ops <- MTerm.concretizeProg mops matchctx
     return (op::ops) := by {
@@ -403,7 +403,7 @@ theorem MTerm.concretizeProg_cons:
         simp[MTerm.concretizeProg, List.mapM, List.mapM.loop];
         intros mop matchctx;
         simp_monad;
-        cases H:(MTerm.concretizeOp matchctx mop) <;> 
+        cases H:(MTerm.concretizeOp matchctx mop) <;>
           simp[H, Option.bind_none, Option.bind_some];
       }
       case cons x xs IH => {
@@ -416,27 +416,34 @@ theorem MTerm.concretizeProg_cons:
 theorem MTerm.concretizeOp_of_buildOp
     (OPERANDS: MTerm.concretizeOperands moperands matchctx = .some operands)
     (RESULTS: MTerm.concretizeOperands mresults matchctx = .some results):
-    MTerm.concretizeOp (MTerm.buildOp name moperands mresults) matchctx = 
-      Op.mk name results operands [] (AttrDict.mk []) := by {
+    MTerm.concretizeOp (MTerm.buildOp name moperands mresults) matchctx =
+      Op.mk name operands results [] (AttrDict.mk []) := by {
     simp[MTerm.buildOp, MTerm.concretizeOp];
+    simp[RESULTS];
+    simp[OPERANDS];
+    simp_monad;
+    simp[Option.bind_none, Option.bind_some];
 }
 
+theorem MTerm.concretizeOperand_of_buildOperand
+MTerm.concretizeOperand (MTerm.buildOperand "m" MLIRType.i32) matchctx
 
-def th1 : PeepholeRewriteOp arith := 
+
+def th1 : PeepholeRewriteOp arith :=
 {
-  findRoot := MTerm.buildOp "arith.addi" 
+  findRoot := MTerm.buildOp "arith.addi"
         [MTerm.buildOperand "n" .i32, MTerm.buildOperand "m" .i32]
         [MTerm.buildOperand "r" .i32]
   , findSubtree := []
-  , replaceSubtree := [MTerm.buildOp "arith.addi" 
+  , replaceSubtree := [MTerm.buildOp "arith.addi"
         [MTerm.buildOperand "m" .i32, MTerm.buildOperand "n" .i32]
         [MTerm.buildOperand "r" .i32]]
   , wellformed := by {
-     intros toplevelProg _prog matchCtx replacedProg matchctx domctx 
+     intros toplevelProg _prog matchCtx replacedProg matchctx domctx
      intros MATCH FIND SUBST DOMFIND
      simp [List.append] at *;
      sorry
-  } 
+  }
   , correct := by {
      intros foundProg replacedProg matchctx
      intros FIND REPLACE
@@ -449,12 +456,12 @@ def th1 : PeepholeRewriteOp arith :=
       cases N:(VarCtx.get matchctx MSort.MSSAVal "n") <;>
          simp [N, Option.bind_none, Option.bind_some] at FIND;
       case some n => {
-          simp[MTerm.concreteizeType_of_buildTypeConst 
+          simp[MTerm.concreteizeType_of_buildTypeConst
             (t := MLIRType.i32) (δ := arith) (matchctx := matchctx), Option.bind_some] at FIND;
           cases M:(VarCtx.get matchctx MSort.MSSAVal "m") <;>
             simp [M, Option.bind_none, Option.bind_some] at FIND;
           case some m => {
-            -- | Show mathieu how copilot is a tactic ;) 
+            -- | Show mathieu how copilot is a tactic ;)
             cases R:(VarCtx.get matchctx MSort.MSSAVal "r") <;>
               simp [R, Option.bind_none, Option.bind_some] at FIND;
             case some r => {
@@ -463,6 +470,16 @@ def th1 : PeepholeRewriteOp arith :=
                 simp[List.mapM, List.mapM.loop] at REPLACE;
                 simp[MTerm.concretizeProg_cons] at REPLACE;
                 -- TODO: write simpliciation rewrite rules for SUBST.
+                have A :
+                  MTerm.concretizeOp
+                    (MTerm.buildOp "arith.addi"
+                      [MTerm.buildOperand "m" MLIRType.i32,
+                      MTerm.buildOperand "n" MLIRType.i32]
+                      [MTerm.buildOperand "r" MLIRType.i32]) matchctx =
+                  .some (Op.mk "arith.addi" [(m, .i32), (n, .i32)] [(r, .i32)] [] (AttrDict.mk [])) := by {
+                      apply MTerm.concretizeOp_of_buildOp;
+                      simp [MTerm.concretizeOperands, List.mapM, List.mapM.loop]
+                  }
             }
           }
       }

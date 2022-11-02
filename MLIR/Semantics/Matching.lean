@@ -370,15 +370,14 @@ def MTerm.concretizeOperands (l: List (MTerm δ)) (ctx: VarCtx δ) :
 def MTerm.concretizeOp (m: MTerm δ) (ctx: VarCtx δ) : Option (Op δ) :=
   match m with
   | .App .OP [ .ConstString mName
-             , .APP (.LIST MOperand) mOperands
-             , .APP (.LIST MOperand) mRes ] => do
-    let operands ← MTerm.concretizeOperands mOperands ctx
-    let res ← MTerm.concretizeOperands mRes ctx
-    match res with
-    | [resVal] =>
-      return .mk mName [resVal] operands [] (AttrDict.mk [])
-    | _ => none
+             , .App (.LIST .MOperand) mOperands'
+             , .App (.LIST .MOperand) res' ] => do
+      let operands ← MTerm.concretizeOperands mOperands' ctx
+      let res ← MTerm.concretizeOperands res' ctx
+      return Op.mk mName operands res (regions := []) (AttrDict.mk [])
   | _ => none
+
+
 
 def MTerm.concretizeProg (m: List (MTerm δ)) (ctx: VarCtx δ) :
     Option (List (Op δ)) :=
@@ -560,12 +559,12 @@ termination_by
 
 -- variable type
 def MTerm.buildTypeVar (name: String) : MTerm δ := .Var 2 name .MMLIRType
--- constant type 
+-- constant type
 
 def MTerm.buildTypeConst (type: MLIRType δ) : MTerm δ := .ConstMLIRType type
 
 -- operand. For now, assume monomorhpic types.
-def MTerm.buildOperand (name: String) (type: MLIRType δ): MTerm δ := 
+def MTerm.buildOperand (name: String) (type: MLIRType δ): MTerm δ :=
   .App .OPERAND [ .Var (priority := 2) name .MSSAVal,
                   MTerm.buildTypeConst type ]
 
