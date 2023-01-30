@@ -1,3 +1,4 @@
+import MLIR.Bitfid.Decide
 import MLIR.Doc
 import MLIR.CParser
 import MLIR.FFI
