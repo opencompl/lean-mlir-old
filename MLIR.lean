@@ -1,4 +1,4 @@
-import MLIR.Bitfid.Decide
+-- import MLIR.Bitfid.Decide FIXME: commented out because it needs mathlib.
 import MLIR.Doc
 import MLIR.CParser
 import MLIR.FFI
