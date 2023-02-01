@@ -142,13 +142,9 @@ def INPUT (n: Nat): SSAEnv scf := SSAEnv.One [
   ⟨"c0", .index, 0⟩,
   ⟨"c1", .index, 1⟩]
 
-/-
-theorem peel_run_loop_bounded {n: Nat} {ix: Int} (start: BlockResult Δ):
-  run_loop_bounded (n+1) ix start =
-  Fitree.bind (Fitree.trigger <| RegionE.RunRegion 0 [⟨.index, ix⟩])
+/- theorem peel_run_loop_bounded {n: Nat} {ix: Int} (start: BlockResult Δ):
     (fun (_: BlockResult Δ) => run_loop_bounded n (ix+1) (.Ret [])) := rfl
--/
--- The main requirement for this theorem is that `r` satisfies SSA invariants,
+-/ -- The main requirement for this theorem is that `r` satisfies SSA invariants,
 -- ie. values available before it runs are unchanged by its execution. Here we
 -- assume something quite a bit stronger, to simplify the proof of the actual
 -- property, which is that a read can commute with running the region.

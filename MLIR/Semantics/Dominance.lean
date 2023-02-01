@@ -90,13 +90,11 @@ def singleBBRegionOpsObeySSA (ops: List (Op δ)) (ctx: DomContext δ) : Option (
   | [] => some ctx
 end
 
-/-
 termination_by
   singleBBRegionOpObeySSA  op _ => sizeOf op
   singleBBRegionRegionsObeySSA regions _=> sizeOf regions
   singleBBRegionObeySSA rgn _ => sizeOf rgn
   singleBBRegionOpsObeySSA ops _ => sizeOf ops
--/
 
 /-
 ### Uniqueness of SSA names
@@ -156,6 +154,13 @@ def hasUniqueNamesOps (ops: List (Op δ)) (ctx: NameContext) :
   | [] => none
 end
 
+termination_by
+  hasUniqueNamesOp  op _ => sizeOf op
+  hasUniqueNamesRegion regions _=> sizeOf regions
+  hasUniqueNamesRegions rgn _ => sizeOf rgn
+  hasUniqueNamesOps ops _ => sizeOf ops
+
+
 /-
 ### Use-def chain operations
 
@@ -186,6 +191,12 @@ def isSSADefInOps (ops: List (Op δ)) : Bool :=
   | [] => False
   | op::ops' => isSSADefInOp op || isSSADefInOps ops'
 end
+
+termination_by
+  isSSADefInOp  op _ => sizeOf op
+  isSSADefInRegions regions _=> sizeOf regions
+  isSSADefInRegion rgn _ => sizeOf rgn
+  isSSADefInOps ops _ => sizeOf ops
 
 
 /-
@@ -228,6 +239,13 @@ def isSSAUsedInOps (ops: List (Op δ)) : Bool :=
   | op::ops' => isSSAUsedInOp op || isSSAUsedInOps ops'
 end
 
+termination_by
+  isSSAUsedInOp  op _ => sizeOf op
+  isSSAUsedInRegions regions _=> sizeOf regions
+  isSSAUsedInRegion rgn _ => sizeOf rgn
+  isSSAUsedInOps ops _ => sizeOf ops
+
+
 
 mutual
 variable (mVar: SSAVal)
@@ -259,6 +277,14 @@ def getDefiningOpInOps (ops: List (Op δ)) : Option (Op δ) :=
     | none => getDefiningOpInOps ops'
 end
 
+termination_by
+  getDefiningOpInOp op _ => sizeOf op
+  getDefiningOpInRegions regions _=> sizeOf regions
+  getDefiningOpInRegion rgn _ => sizeOf rgn
+  getDefiningOpInOps ops _ => sizeOf ops
+
+
+
 /-
 Check if the variable is free in a program.
 A variable is free if it is not used or defined in the program.
@@ -274,7 +300,8 @@ def isVarFreeInOp (op: Op δ) : Bool :=
 def isVarFreeInRegions (regions: List (Region δ)) : Bool :=
   match regions with
   | [] => False
-  | region::regions' => isVarFreeInRegion region && isVarFreeInRegions regions'
+  | region::regions' =>
+      isVarFreeInRegion region && isVarFreeInRegions regions'
 
 def isVarFreeInRegion (rgn: Region δ) : Bool :=
   match rgn with
@@ -285,21 +312,25 @@ def isVarFreeInOps (ops: List (Op δ)) : Bool :=
   | [] => False
   | op::ops' => isVarFreeInOp op && isVarFreeInOps ops'
 end
+termination_by
+  isVarFreeInOp  op _ => sizeOf op
+  isVarFreeInRegions regions _=> sizeOf regions
+  isVarFreeInRegion rgn _ => sizeOf rgn
+  isVarFreeInOps ops _ => sizeOf ops
+
 
 def freeInOp_implies_not_used :
     isVarFreeInOp var op -> ¬isUsed var op := by
   unfold isVarFreeInOp
   cases op
   simp
-  intros H
-  let ⟨⟨H, _⟩, _⟩ := H
-  apply H
+  intros H1 H2 H3
+  assumption
 
 def freeInOp_implies_not_defined :
     isVarFreeInOp var op -> ¬isDefined var op := by
   unfold isVarFreeInOp
   cases op
   simp
-  intros H
-  let ⟨⟨_, H⟩, _⟩ := H
-  apply H
+  intros H1 H2 H3
+  assumption

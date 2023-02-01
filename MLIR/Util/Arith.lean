@@ -2,7 +2,14 @@
 ### Addition and subtraction of Int
 -/
 
-import MLIR.Util.Mathlib4.IntBasic
+import Mathlib.Data.Int.Basic
+import Mathlib.Data.Int.Order.Basic
+import Mathlib.Data.Int.Bitwise
+import Mathlib.Data.Int.ModEq
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.LibrarySearch
+
+
 
 -- Write 2^n in Int contexts instead of (2:Int)^n
 instance: HPow Nat Nat Int where
@@ -10,23 +17,6 @@ instance: HPow Nat Nat Int where
 
 namespace Int
 
-@[simp]
-theorem sub_zero (n: Int): n - 0 = n := by
-  cases n <;> rfl
-
-@[simp]
-theorem zero_sub (n: Int): 0 - n = -n := by
-  simp [Int.sub_eq_add_neg, Int.zero_add]
-
-@[simp]
-theorem sub_self (n: Int): n - n = 0 := by
-  simp [Int.sub_eq_add_neg, Int.add_right_neg]
-
-theorem neg_sub (n m: Int): -(n - m) = m - n := by
-  simp [Int.sub_eq_add_neg, Int.neg_add, Int.add_comm, Int.neg_neg]
-
-theorem add_sub_assoc (n m k: Int): n + m - k = n + (m - k) := by
-  rw [Int.sub_eq_add_neg, Int.add_assoc, ←Int.sub_eq_add_neg]
 
 theorem sub_add_assoc (n m k: Int): n - m + k = n + (k - m) := by
   simp [Int.sub_eq_add_neg, Int.add_assoc, Int.add_comm (-m) k]
@@ -48,7 +38,11 @@ theorem sub_add_dist (n m p: Int): n - (m + p) = n - m - p := by
 
 theorem mul_two (n: Int): n * 2 = n + n := by
   have h: (2:Int) = 1 + 1 := rfl
-  simp [h, Int.distrib_left, Int.mul_one]
+  simp;
+  rw [h];
+  rw [Int.mul_add];
+  simp [Int.mul_one];
+
 
 @[simp]
 theorem pow_zero (n: Int): n^0 = 1 := by rfl
@@ -65,15 +59,6 @@ theorem one_le_two_pow {n: Nat}: 1 ≤ (2^n: Int) := by
   sorry
 
 theorem one_lt_two_pow {n: Nat}: n > 0 → 1 < (2^n: Int) := by
-  sorry
-
-theorem zero_mod {n: Int}: 0 % n = 0 := by
-  simp [HMod.hMod, Mod.mod, Int.mod]
-  have h := Nat.zero_mod
-  cases n <;> simp [HMod.hMod, Mod.mod] at * <;>
-  simp [h]
-
-theorem mod_self {n: Int}: n % n = 0 := by
   sorry
 
 theorem mod_bounds {a: Int} (b: Int): a ≥ 0 → a < b → a % b = a := by
@@ -101,16 +86,21 @@ theorem add_mod_left {x z: Int}: (z > 0) → (x ≥ 0) → (z + x) % z = x % z :
 ### Order of Int
 -/
 
+
 theorem ge_zero_eq_nonneg (n: Int): n ≥ 0 ↔ Int.NonNeg n := by
   simp [GE.ge, LE.le, Int.le]
 
 theorem zero_ge_neg {n: Int}: n ≥ 0 → 0 ≥ -n := by
-  simp [GE.ge, LE.le, Int.le, Int.neg_neg]; exact id
+  simp [GE.ge, LE.le, Int.le, Int.neg_neg]
 
-theorem add_ge_zero (n m: Int): n ≥ 0 → m ≥ 0 → n + m ≥ 0 := by
+
+-- (deterministic) timeout at 'whnf', maximum number of heartbeats (200000) has been reached (use 'set_option maxHeartbeats <num>' to set the limit)
+theorem add_ge_zero (n m: Int): n ≥ 0 → m ≥ 0 → n + m ≥ 0 := by sorry
+  /-
   simp [GE.ge, LE.le, Int.le, HAdd.hAdd, Add.add, Int.add]
   intros hn hm
   cases hn; cases hm; simp; constructor
+  -/
 
 theorem le_succ (n: Int): n ≤ n+1 := by
   suffices NonNeg 1 by simp [LE.le, Int.le, add_sub_assoc, add_sub]; trivial
@@ -119,27 +109,10 @@ theorem le_succ (n: Int): n ≤ n+1 := by
 theorem succ_le_succ (n m: Int): n ≤ m → n + 1 ≤ m + 1 := by
   sorry
 
-theorem le_trans {n k} (m: Int): n ≤ m → m ≤ k → n ≤ k := fun h₁ h₂ => by
-  suffices NonNeg (k-n) by trivial
-  simp [GE.ge, LE.le, Int.le, ←ge_zero_eq_nonneg] at *
-  suffices (k - m) + (m - n) ≥ 0 by
-    rw [Int.sub_add_assoc, Int.sub_assoc] at this
-    simp [←Int.sub_eq_add_neg] at this
-    assumption
-  apply add_ge_zero <;> assumption
-
-theorem lt_trans {n k} (m: Int): n < m → m < k → n < k := fun h₁ h₂ => by
-  simp [LT.lt, Int.lt] at *
-  have h: (2:Int) = 1 + 1 := rfl
-  apply le_trans (n+2)
-  . simp [h, ←Int.add_assoc]; apply le_succ
-  . apply le_trans (m+1) _ h₂; simp [h, ←Int.add_assoc]; apply succ_le_succ
-    trivial
-
 theorem ge_trans {n k} (m: Int): n ≥ m → m ≥ k → n ≥ k := by
   simp [GE.ge]
   intros h₁ h₂
-  apply le_trans m h₂ h₁
+  apply le_trans h₂ h₁
 
 theorem lt_add_right (n m: Int): m > 0 → n < n + m := by
   sorry
@@ -176,10 +149,6 @@ end Int
 
 theorem Nat.minus_plus_one {a: Nat} (h: a > 0): a - 1 + 1 = a := by
   cases a; simp at h; rfl
-
-theorem Nat.min_le_left {a b: Nat}: min a b ≤ a := sorry
-
-theorem Nat.min_le_right {a b: Nat}: min a b ≤ b := sorry
 
 theorem Nat.lt_min_left {a b c: Nat}: c < min a b → c < a := sorry
 

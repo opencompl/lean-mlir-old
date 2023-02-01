@@ -158,7 +158,7 @@ theorem SSAScope.getT_some_get {δ: Dialect α σ ε} ⦃name: SSAVal⦄
   byCases Hname: head.fst = name <;> try assumption
   have ⟨headName, headτ, headVal⟩ := head; simp at *
   intros H; cases H
-  simp; rfl
+  simp;
 
 theorem SSAScope.get_none_getT {δ: Dialect α σ ε} ⦃name: SSAVal⦄
   ⦃scope: SSAScope δ⦄:
@@ -167,8 +167,6 @@ theorem SSAScope.get_none_getT {δ: Dialect α σ ε} ⦃name: SSAVal⦄
   induction scope <;> simp
   case cons head tail HInd =>
   byCases Hname: head.fst = name <;> try assumption
-  intros H; specialize H head.2.fst
-  simp at H
 
 theorem SSAScope.getT_set_ne ⦃v v': SSAVal⦄:
     v' ≠ v →
@@ -222,7 +220,7 @@ theorem SSAScope.get_set_ne_type ⦃τ τ': MLIRType δ⦄:
 theorem SSAScope.get_set_eq (v: SSAVal) (scope: SSAScope δ) (τ: MLIRType δ) val:
     get v (set v τ val scope) τ = some val := by
   induction scope with
-  | nil => simp; apply cast_eq
+  | nil => simp;
   | cons head nil =>
     simp
     byCases H: head.fst = v <;> try apply cast_eq
@@ -387,7 +385,11 @@ theorem SSAEnv.get_set {δ: Dialect α σ ε} (τ τ': MLIRType δ)
 theorem SSAEnv.get_set_eq (v: SSAVal) (env: SSAEnv δ) (τ: MLIRType δ) val:
     get v τ (set v τ val env) = some val := by
   simp [get, getT_set_eq]
-  rfl
+
+theorem SSAEnv.get_set_neq (v v': SSAVal) (NEQ: v' ≠ v) (env: SSAEnv δ) (τ: MLIRType δ) val:
+    get v τ (set v' τ val env) = get v τ env := by
+  simp[get];
+  rw[SSAEnv.getT_set_ne]; try assumption;
 
 theorem SSAEnv.equiv_set {δ: Dialect α σ ε} ⦃env₁ env₂: SSAEnv δ⦄:
     env₁.equiv env₂ →
@@ -509,22 +511,23 @@ theorem interpSSA'_bind {δ: Dialect α σ ε}
 
 
 macro "simp_ssaenv" : tactic =>
-  `(tactic| (repeat rw [SSAEnv.getT_set_eq]);
-            (repeat rw [SSAEnv.getT_set_ne (by assumption)]);
-            (repeat rw [SSAEnv.get_set_eq]);
-            (repeat rw [SSAEnv.get_set_eq_val]);
-            (repeat rw [SSAEnv.get_set_ne_val (by assumption)]))
+  `(tactic| repeat progress (
+            try rw [SSAEnv.getT_set_eq];
+            try rw [SSAEnv.getT_set_ne (by assumption)]
+            try rw [SSAEnv.get_set_eq]
+            try rw [SSAEnv.get_set_eq_val]
+            try rw [SSAEnv.get_set_ne_val (by assumption)]) )
 
 macro "simp_ssaenv" "at" Hname:ident : tactic =>
-  `(tactic| (repeat rw [SSAEnv.getT_set_eq] at $Hname:ident);
-            (repeat rw [SSAEnv.getT_set_ne (by assumption)] at $Hname:ident);
-            (repeat rw [SSAEnv.get_set_eq] at $Hname:ident);
-            (repeat rw [SSAEnv.get_set_eq_val] at $Hname:ident);
+  `(tactic| (repeat rw [SSAEnv.getT_set_eq] at $Hname:ident) <;>
+            (repeat rw [SSAEnv.getT_set_ne (by assumption)] at $Hname:ident) <;>
+            (repeat rw [SSAEnv.get_set_eq] at $Hname:ident) <;>
+            (repeat rw [SSAEnv.get_set_eq_val] at $Hname:ident) <;>
             (repeat rw [SSAEnv.get_set_ne_val (by assumption)] at $Hname:ident))
 
 macro "simp_ssaenv" "at" "*" : tactic =>
-  `(tactic| (repeat rw [SSAEnv.getT_set_eq] at *);
-            (repeat rw [SSAEnv.getT_set_ne (by assumption)] at *);
-            (repeat rw [SSAEnv.get_set_eq] at *);
-            (repeat rw [SSAEnv.get_set_eq_val] at *);
+  `(tactic| (repeat rw [SSAEnv.getT_set_eq] at *) <;>
+            (repeat rw [SSAEnv.getT_set_ne (by assumption)] at *) <;>
+            (repeat rw [SSAEnv.get_set_eq] at *) <;>
+            (repeat rw [SSAEnv.get_set_eq_val] at *) <;>
             (repeat rw [SSAEnv.get_set_ne_val (by assumption)] at *))

@@ -129,6 +129,31 @@ theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec 
 
 instance : Semantics linalg where
    semantics_op := linalg_semantics_op
+   
+namespace BubbleUpExtractSlice
+/-
+convert extract slice (linalg.generic x) ->  linalg.generic (extract slice x) 
+-/
+
+/- TODO -/
+end BubbleUpExtractSlice
+
+namespace SwapExtractSlice
+/- TODO -/
+end SwapExtractSlice
+
+namespace DecomposeLinalgOps
+/- TODO -/
+end DecomposeLinalgOps
+
+namespace Fusion
+/- TODO -/
+end Fusion
+
+namespace FusionOnTensors
+/- TODO -/
+end FusionOnTensors
+
 /-
 For each transformation, we implement
 1) a theorem that proves correctness

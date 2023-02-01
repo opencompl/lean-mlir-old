@@ -1,35 +1,15 @@
 import MLIR.Util.Arith
 import Init.Data.List
+import Std.Data.List.Basic
+import Std.Data.List.Lemmas
 
 namespace List
 
 -- General theorems
 
-theorem all_cons {α} (P: α → Bool) head tail:
-    all (head::tail) P ↔ P head ∧ all tail P := by
-  simp [all, foldr]
-
 theorem all_one {α} (P: α → Bool) a:
     all [a] P ↔ P a := by
   simp [all, foldr]
-
-@[simp]
-theorem all_nil {α} (P: α → Bool):
-    all [] P = true := by
-  simp [all, foldr]
-
-@[simp]
-theorem length_take {α} (as: List α) (len: Nat):
-  (as.take len).length = min as.length len := by sorry
-
-theorem length_take_le (as: List α) (len: Nat):
-    (as.take len).length ≤ as.length := by
-  simp [length_take]
-  apply min_le_left
-
-@[simp]
-theorem length_drop {α} (as: List α) (k: Nat):
-  (as.drop k).length = as.length - k:= by sorry
 
 @[simp] -- repeat for @[simp]
 theorem length_replicate_2 {α} (N: Nat) (a: α):
@@ -66,7 +46,7 @@ def extF {α} (l₁ l₂: List α) (h_len: l₁.length = l₂.length):
       case cons x₂ t₂ =>
         intros h_ext
         have h_x: x₁ = x₂ := by
-          specialize (h_ext 0 (by simp; simp_arith));
+          specialize (h_ext 0 (by simp));
           simp [getF] at h_ext; apply h_ext
         rw [h_x, ih t₂]
         . simp at h_len; apply h_len
@@ -105,8 +85,7 @@ def getF_replicate {α} (a: α) (N: Nat) (h: n < N):
 def getF_take {α: Type} {l: List α} {N n: Nat} (h: n < length (take N l)):
     getF (List.take N l) n h = getF l n (by
       simp [length_take] at h
-      apply Nat.lt_of_lt_of_le h
-      apply Nat.min_le_left) := by
+      exact (And.right h)) := by
   revert n l
   induction N with
   | zero => intros l n h; cases h
@@ -124,7 +103,6 @@ theorem List.getF_implies_mem: ∀ {α: Type} (xs: List α) (i: Nat) (INBOUND: i
   induction xs;
   case nil => {
     intros i INBOUND; simp at INBOUND;
-    simp [Nat.not_lt_zero] at INBOUND;
   }
   case cons x' xs IH => {
     intros i INBOUND;
@@ -175,7 +153,7 @@ theorem getF_rangeF (n: Nat): ∀ i h,
   induction n with
   | zero =>
       intro i h;
-      cases (Nat.not_lt_zero _ (by simp at h; apply h))
+      simp;
   | succ m ih =>
       intro i
       exact match i with

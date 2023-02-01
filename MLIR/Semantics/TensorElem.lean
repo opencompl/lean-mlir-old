@@ -44,6 +44,10 @@ private def TensorElem.eqList (l₁ l₂: List TensorElem): Decidable (l₁ = l�
   | [], _::_ => isFalse List.noConfusion
   | _::_, [] => isFalse List.noConfusion
 end
+ termination_by
+   TensorElem.eqList l₁ l₂  => sizeOf l₁
+   TensorElem.eq e₁ _ => sizeOf e₁
+
 
 instance: DecidableEq TensorElem :=
   TensorElem.eq
@@ -104,20 +108,25 @@ def hasType: TensorElem → MLIRTy → Bool
 theorem hasType_list_1 {l} {τ: MLIRTy}:
     hasType (.nested l) τ → l.all (hasType . τ) := by
   induction l; simp
-  case cons e l ih =>
+  case cons e l ih' =>
     simp [hasType, List.all_cons]
-    intro h
-    simp [h.1]
-    apply ih h.2
+    intro h' h
+    constructor <;> simp
+    assumption
+    simp[h, h']
+    sorry
+
 
 theorem hasType_list_2 {l} {τ: MLIRTy}:
     l.all (hasType . τ) → hasType (.nested l) τ := by
   induction l; simp [hasType]
   case cons e l ih =>
     simp [hasType, List.all_cons]
-    intro h
-    simp [h.1]
-    apply ih h.2
+    intro h2 h
+    simp [h2]
+    apply ih
+    simp[h]
+    assumption
 
 def mapWithType {τ: MLIRTy} l (f: (e: TensorElem) → (h: e.hasType τ) → α)
     (h: hasType (TensorElem.nested l) τ): List α :=
@@ -162,7 +171,7 @@ theorem inferredShape_cons: ∀ head tail s_head s_tail,
       some ((s_head+1) :: s_tail) := by
   intros head tail s_head s_tail H1 H2
   cases tail
-  . simp [inferredShape, H2, bind, Option.bind] at *; apply H1.1
+  . simp [inferredShape, H2, bind, Option.bind] at *; simp[H1.1];
   . simp [inferredShape, H2, bind, Option.bind, H1]
 
 theorem inferredShape_cons_inv: ∀ {head mid tail s_head s_tail},
@@ -180,7 +189,7 @@ theorem inferredShape_cons_inv: ∀ {head mid tail s_head s_tail},
   case cons s_head' s_tail' =>
   apply dite (head_shape = s_tail')
   . intros Heq; rw [Heq]; simp
-    intros H; rw [←H.1, Nat.add_sub_self_right, ←H.2]
+    intros H H'; rw [←H, Nat.add_sub_self_right, ←H']
     exact ⟨by simp_arith, rfl, rfl, rfl⟩
   . intros Hne; simp [Hne]
 
@@ -206,8 +215,7 @@ theorem inferredShape_list {l head tail}:
       . have helper: forall {n m}, n > 0 → n - 1 = m → n = m + 1 := by
           sorry
         simp [helper H'.1 ih.1]
-      . rw [List.all_cons]
-        constructor; simp [H'.2.1]; exact ih.2
+      . sorry
 
 theorem inferredShape_list_to_cons {l s}:
     inferredShape (.nested l) = some s →
@@ -229,8 +237,7 @@ theorem inferredShape_list_to_cons {l s}:
   case cons s_head s_tail =>
     intro H
     let H' := inferredShape_list H
-    apply Exists.intro s_tail
-    exact ⟨H'.1, rfl⟩
+    exact H'.1
 
 -- We can now show that the shape inference function is correct
 
@@ -266,6 +273,7 @@ theorem hasShape_inferredShape:
   case cons =>
     intros head tail motive_1 ih s H; simp [List.all_cons] at *
     simp [motive_1 _ H.1, ih _ H.2]
+    sorry
 
 end MLIR.AST.TensorElem
 
@@ -401,6 +409,7 @@ theorem flatten_list {τ: MLIRTy} (l: List TensorElem) (h: hasType (.nested l) �
   case cons _ _ ih =>
     simp [flatten, mapWithType, List.join, ih]
 
+/- LONG PROOF -/
 theorem flatten_size {τ: MLIRTy} (e: TensorElem) (shape: List Nat):
     e.hasShape shape → (h: e.hasType τ) → (e.flatten h).length = shapeProd shape := by
   revert shape
@@ -420,9 +429,13 @@ theorem flatten_size {τ: MLIRTy} (e: TensorElem) (shape: List Nat):
     cases τ <;> simp [hasType] at Htype
     cases s <;> simp [flatten, hasShape] at *
   case bool =>
-    intros i s Hshape Htype;
+    constructor;
+    intros s;
+    intros Hshape;
+    intros Htype;
     cases τ <;> simp [hasType] at Htype
     cases s <;> simp [flatten, hasShape] at *
+    sorry
   case nested =>
     intros l motive_2 s Hshape Htype
     cases s <;> simp [hasShape] at Hshape
@@ -433,18 +446,25 @@ theorem flatten_size {τ: MLIRTy} (e: TensorElem) (shape: List Nat):
   case empty =>
     intros s Hshape Htype
     simp [hasType] at Htype
+  /- tag not found??
   case nil =>
     intros _ Htype
     simp [mapWithType, List.join]
+    sorry
+  -/
   case cons =>
-    intros head tail motive_1 IH2 s Hshape Htype
+    intros head tail motive_1 IH2 s Hshape1 Hshape2 Htype1
     simp [List.map, List.join]
     rw [Nat.add_comm]
     simp [Nat.succ_eq_add_one, Nat.right_distrib]
-    simp [List.all_cons] at Hshape
-    simp [List.all_cons] at Htype
-    simp [IH2 s Hshape.2 Htype.2]
-    rw [motive_1 s Hshape.1 Htype.1]
+    simp [List.all_cons] at Hshape1
+    simp [List.all_cons] at Htype1
+    sorry
+    /-
+    simp [IH2 s Hshape2 Htype1]
+    rw [motive_1 s Hshape1 _]
+    sorry
+    -/
 
 inductive rankCompatibleWith (e: TensorElem) (D: DimList): MLIRTy → Type :=
   | UniformInt (i: Int) (sgn: Signedness) (sz: Nat):

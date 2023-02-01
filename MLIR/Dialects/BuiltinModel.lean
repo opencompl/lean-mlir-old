@@ -6,9 +6,9 @@ import MLIR.AST
 import MLIR.Doc
 import MLIR.Semantics.Types
 import MLIR.Semantics.TensorElem
-import MLIR.Util.Mathlib4.NatBasic
-import MLIR.Util.Mathlib4.Dvd
-import MLIR.Util.Mathlib4.NatLemmas
+-- import MLIR.Util.Mathlib4.NatBasic
+-- import MLIR.Util.Mathlib4.Dvd
+-- import MLIR.Util.Mathlib4.NatLemmas
 open MLIR.AST
 
 

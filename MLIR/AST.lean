@@ -248,7 +248,7 @@ def coeMLIRType: MLIRType δ₁ → MLIRType δ₂
   | .tensor2d => .tensor2d
   | .tensor4d => .tensor4d
   | .erased => .erased
-  | .extended s  => .extended (c.coe_σ _ _ s)
+  | .extended s  => .extended (c.coe_σ s)
 
 def coeMLIRTypeList: List (MLIRType δ₁) → List (MLIRType δ₂)
   | []    => []
@@ -299,7 +299,7 @@ private def coeAttrValue: AttrValue δ₁ → AttrValue δ₂
   | .opaque_ d v => .opaque_ d v
   | .opaqueElements d v τ => .opaqueElements d v τ
   | .unit => .unit
-  | .extended a => .extended (c.coe_α _ _ a)
+  | .extended a => .extended (c.coe_α a)
   | .erased => .erased
 
 private def coeAttrValueList: List (AttrValue δ₁) → List (AttrValue δ₂)

@@ -1,6 +1,6 @@
-import MLIR.Util.Mathlib4.NatBasic
-import MLIR.Util.Mathlib4.Dvd
-import MLIR.Util.Mathlib4.NatLemmas
+-- import MLIR.Util.Mathlib4.NatBasic
+-- import MLIR.Util.Mathlib4.Dvd
+-- import MLIR.Util.Mathlib4.NatLemmas
 import MLIR.Util.List
 import MLIR.Util.FinInt
 
@@ -49,9 +49,9 @@ def Tensor1D.fill (t: Tensor1D) (cst: FinInt 32): Tensor1D :=  {
 -- Extract upto len `len` from the tensor.
 def Tensor1D.extract (t: Tensor1D) (len: Nat): Tensor1D :=
  {
-    size0 := min t.size0 len,
+    size0 := min len t.size0,
     data := t.data.take len,
-    h_data_size := by { rewrite [<- t.h_data_size]; apply List.length_take;  }
+    h_data_size := by { rewrite [<- t.h_data_size]; simp[List.length_take];  }
  }
 
 -- Offset the indexes into the tensor by `+offset`.
@@ -383,7 +383,9 @@ def TensorFlatIndex.eq_proof_irrelevant  (f1: TensorFlatIndex b) (f2: TensorFlat
   case mk ix1 H1 => {
   induction f2;
   case mk ix2 H2 => {
+   simp at IXEQ;
    simp [IXEQ];
+
   }
   }
 }
@@ -411,7 +413,6 @@ theorem TensorFlatIndex.bound_non_zero (flat: TensorFlatIndex bound): bound ≠ 
   intros BOUND;
   have H_INBOUND := flat.h_ix_inbound;
   simp [BOUND] at H_INBOUND;
-  simp [Nat.not_lt_zero] at H_INBOUND;
 }
 
 theorem TensorFlatIndex.bound_zero_absurd (flat: TensorFlatIndex 0): False := by {
@@ -422,7 +423,6 @@ theorem TensorFlatIndex.bound_zero_absurd (flat: TensorFlatIndex 0): False := by
 @[simp]
 theorem Nat.succ_gt_zero (n: Nat): Nat.succ n > 0 := by {
   simp [GT.gt];
-  simp [Nat.zero_lt_succ];
 }
 
 @[simp]
@@ -495,12 +495,9 @@ theorem shapeProd_nonzero_implies_member_nonzero: ∀ (xs: List Nat)
    (x: Nat) (MEM: List.Mem x xs) (PROD: shapeProd xs > 0) , x > 0 := by {
    intros xs x MEM;
    induction MEM;
-   case head a as => {
+   case head as => {
      simp [shapeProd, List.foldr];
-     intros H;
-     rewrite [<- Nat.nonzero_iff_gt_zero];
-     apply Nat.mul_nonzero_implies_left_nonzero;
-     rewrite [<- Nat.nonzero_iff_gt_zero] at H;
+     intros H H2;
      apply H;
    }
    case tail b bs MEM IH => {
@@ -508,8 +505,7 @@ theorem shapeProd_nonzero_implies_member_nonzero: ∀ (xs: List Nat)
      apply IH;
      simp at H;
      rewrite [<- Nat.nonzero_iff_gt_zero] at *;
-     apply (Nat.mul_nonzero_implies_right_nonzero);
-     apply H;
+     simp[H];
    }
 }
 
@@ -729,8 +725,6 @@ theorem Nat.mul_of_nonzero_is_nonzero: ∀ (a b: Nat) (A: a ≠ 0) (B: b ≠ 0),
      case succ b' IH' => {
       intros A B;
       simp [Nat.mul];
-      rewrite [Nat.nonzero_iff_gt_zero] at *;
-      simp [Nat.mul_pos];
     }
    }
 
@@ -815,7 +809,7 @@ theorem List.zip_flat_index_go_get: ∀ (xs: List α) (ix: Nat) (bound: Nat) (H:
 
 -- Zip a list with the index of the current value
 def List.zipFlatIndex (xs: List α): List (α × TensorFlatIndex xs.length) :=
-  zipFlatIndexGo xs 0 (H := by simp)
+  zipFlatIndexGo (xs := xs) (ix := 0) (bound := xs.length) (H := by { simp  } )
 
 
 -- zipFlatIndex preserves length of the list
@@ -863,7 +857,7 @@ theorem List.mapM_loop_map [Monad M] [LawfulMonad M]
   intros h
   revert results
   induction l with
-  | nil => intros results; simp [map]; rfl
+  | nil => intros results; simp [map];
   | cons a l ih =>
       intros results
       simp [mapM.loop, map, h, ih, reverse_cons, append_assoc]
