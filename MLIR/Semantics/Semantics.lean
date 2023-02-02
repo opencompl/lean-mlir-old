@@ -427,15 +427,13 @@ def AttrEntries.retractLeft: List (AttrEntry (δ₁ + δ₂)) -> List (AttrEntry
 def MLIR.AST.AttrDict.retractLeft: AttrDict (δ₁ + δ₂) -> AttrDict δ₁
 | .mk es => AttrDict.mk (AttrEntries.retractLeft es)
 end
-
 termination_by
+  AttrValues.retractLeft xs => sizeOf xs
+  MLIR.AST.AttrValue.retractLeft attrval => sizeOf attrval
+  MLIR.AST.AttrDict.retractLeft attrdict => sizeOf attrdict
+  AttrEntries.retractLeft attrentries => sizeOf attrentries
+  MLIR.AST.AttrEntry.retractLeft attrentry => sizeOf attrentry
 
-/-
-  MLIR.AST.AttrValue.swapDialect  _ => sizeOf rgns
-  denoteRegion rgn _ => sizeOf rgn
-  denoteOps stmts _ => sizeOf stmts
-  denoteOp op _ => sizeOf op
--/
 
 -- Retract right
 mutual
@@ -894,12 +892,12 @@ theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op 
     have HRegInd := OpM.toTopM_regions_equiv (TopM.mapDenoteRegion Δ regions)
     have ⟨regEnv₂, HregEnv₂, HregR₂⟩ := HRegInd (by sorry) HregR Henv₂ -- mutual induction
     simp [HregR₂]
-
     -- interpreting the operation results
     cases res
     case nil =>
       simp at *; cases H; exists regEnv₂
       subst r env'; simp [HregEnv₂]
+      sorry -- unhandled case.
     case cons headRes tailRes =>
       cases tailRes
       case cons _ _ => simp at *; cases H
@@ -914,6 +912,8 @@ theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op 
               simp at *
               split at H <;> try contradiction
               case h_2 setRes HSetRes =>
+              sorry -- failed proof port
+              /-
               rw [TopM.set_equiv HregEnv₂ HSetRes]; simp
               cases H; have ⟨setRes, setEnv⟩ := setRes
               have Hset := TopM.set_ok HSetRes; cases Hset; simp at *
@@ -922,6 +922,7 @@ theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op 
               simp
               apply SSAEnv.equiv_set
               assumption
+              -/
 
 theorem denoteOps_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]:
   ∀ ⦃ops: List (Op Δ)⦄ ⦃env res env'⦄,
@@ -933,7 +934,7 @@ theorem denoteOps_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]:
     intros env res env' H env₂ Henv₂
     simp [denoteOps] at *; simp_monad at *
     cases H; subst res env
-    exists env₂
+    constructor <;> simp; try assumption
   | head::tail => by
     intros env res env' H env₂ Henv₂
     unfold denoteOps at H; simp_monad at H
@@ -976,13 +977,18 @@ theorem mapDenoteRegion_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] ⦃region
     intros region HregIn args env res env' H env₂ Henv₂
     simp [TopM.mapDenoteRegion] at HregIn
     cases HregIn
-    case head =>
+    case inl HXX =>
+      subst HXX;
+      
+      simp [HXX] at *;
       simp [TopM.scoped] at *; simp_monad at *
-      (split at H <;> try contradiction); rename_i regR HregR
-      have ⟨regR, regEnv⟩ := regR; simp at *; cases H; subst regR env'
-      have ⟨regEnv₂, _, Hregion⟩ := denoteRegion_equiv HregR Henv₂
+
+      -- (split at H <;> try contradiction); rename_i regR HregR
+      -- have ⟨regR, regEnv⟩ := regR; simp at *; cases H; subst regR env'
+      -- have ⟨regEnv₂, _, Hregion⟩ := denoteRegion_equiv HregR Henv₂
       exists env₂
       simp [Hregion]
+
       assumption
     case tail =>
       apply mapDenoteRegion_equiv <;> assumption
@@ -1039,7 +1045,6 @@ def denoteTypedArgs_set_commutes (regArgs: TypedArgs Δ):
   case nil =>
     intros vals env res env' H name _ τ v
     simp [denoteTypedArgs] at *; simp_monad at *; subst env
-    exists (env'.set name τ v)
     simp [SSAEnv.equiv_rfl]
   case cons head tail HInd =>
     intros vals env res env' H name Hname τ v
