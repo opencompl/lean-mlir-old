@@ -11,7 +11,7 @@ open MLIR.AST
 ### Dialect: `scf`
 -/
 
-instance scf: Dialect Void Void (fun x => Unit) where
+instance scf: Dialect Void Void (fun _x => Unit) where
   name := "scf"
   iα := inferInstance
   iε := inferInstance
@@ -49,7 +49,7 @@ def run_loop_bounded
 -- | TODO: use the return type of Scf.For. For now, just do unit.
 def scf_semantics_op: IOp Δ → OpM Δ (TypedArgs Δ)
   | IOp.mk "scf.if" _ [⟨.i1, b⟩]  [rthen, relse] _ => do
-      if b == 1 then rthen [] else relse []
+      (if b = 1 then rthen else relse) []
   | IOp.mk "scf.for" _ [⟨.index, lo⟩, ⟨.index, hi⟩, ⟨.index, step⟩] [body] _ => do
     let nsteps : Int := (hi - lo) / step
     let _  ← run_loop_bounded_stepped
@@ -90,19 +90,63 @@ def LHS (r₁ r₂: Region scf): Region scf := [mlir_region|
 {
   "scf.if" (%b) ($(r₁), $(r₂)) : (i1) -> ()
 }]
-def INPUT (b: Bool): SSAEnv scf := SSAEnv.One [
-  ⟨"b", MLIRType.i1, if b then 1 else 0⟩
-]
+
+def INPUT (b: Bool): SSAEnv scf :=
+  SSAEnv.set "b" MLIRType.i1 (if b then 1 else 0) SSAEnv.empty
+
 
 -- Pure unfolding-style proof
 theorem equivalent (b: Bool):
     run ⟦LHS r₁ r₂⟧ (INPUT b) =
-    run ⟦if b then r₁ else r₂⟧ (INPUT b) := by
-  simp [LHS, INPUT, denoteRegion,  denoteOps, denoteTypedArgs]
-  simp [denoteOp, List.map, List.zip, List.zipWith, List.mapM, List.mapM.loop, pure,
-        StateT.pure, Except.pure, Except.ok, OpM.toTopM, TopM.get, SSAEnv.get, StateT.get,
-        StateT.bind]
-  sorry -- proof broken when upgrading Lean.
+    run (TopM.scoped (denoteRegion
+          (Δ := scf)
+          (rgn := if b then r₁ else r₂)
+          (args := []))) (INPUT b) := by
+    simp[LHS];
+    simp[run_denoteRegion];
+    simp[run_bind_success];
+    rw[run_seq];
+    simp[run_denoteTypedArgs_nil];
+    simp [run_denoteOps_singleton];
+    simp[run_denoteOp];
+    simp[run_bind];
+    simp[run_denoteOp];
+    simp[run_denoteOpArgs_cons_];
+    simp[run_bind];
+    simp[INPUT];
+    rw[run_TopM_get_];
+    simp[SSAEnv.get_set_eq];
+    simp[run_denoteOpArgs_nil];
+    simp[run_pure];
+    simp[INPUT];
+    simp[TopM.mapDenoteRegion];
+    save
+    simp[OpM.denoteRegions]
+    simp[Semantics.semantics_op];
+    simp[scf_semantics_op]; -- SLOW
+    save
+    -- VERY SLOW
+    cases b <;> simp;
+    case false => {
+      rw[OpM_toTopM_denoteRegion];
+      simp[TopM.denoteRegionsByIx];
+    }
+    case true => {
+      -- TODO, FIXME, BUG: lean does not unfold the definition in the
+      -- 'true' branch, while it does on the 'false' branch.
+      -- This seems to be a tactic bug, because even after
+      -- 'sorry'ing, we still get an error.
+      sorry
+      /-
+      rw[OpM_toTopM_denoteRegion];
+      simp[TopM.denoteRegionsByIx];
+      -/
+    }
+    -- | but having this sorry here fixes the 'case true' error,
+    -- even though lean knows that this tactic in unreachable:
+    --   'this tactic is never executed [linter.unreachableTactic]'
+    sorry
+
 end SCF.IF
 
 

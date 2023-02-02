@@ -22,13 +22,17 @@ theorem SSAEnv.refines_set :
     refines (SSAEnv.set name τ val env1) (SSAEnv.set name τ val env2) := by
   simp [refines, SSAEnv.refines]
   intros Href name' val' Hget
-  byCases H: name = name'
-  . rw [SSAEnv.getT_set_eq] <;> try assumption
-    rw [SSAEnv.getT_set_eq] at Hget <;> assumption
+  by_cases H: name = name'
+
+  . subst H;
+    rw [SSAEnv.getT_set_eq] <;> try assumption
+    rw [SSAEnv.getT_set_eq] <;> try assumption
+    intros K; assumption;
   . rw [SSAEnv.getT_set_ne] <;> try assumption
-    rw [SSAEnv.getT_set_ne] at Hget <;> try assumption
-    apply Href
-    assumption
+    rw [SSAEnv.getT_set_ne] <;> try assumption
+    intros K;
+    apply Href; assumption;
+
 
 /-
 ### Refinement of programs

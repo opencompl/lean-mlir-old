@@ -42,6 +42,11 @@ def replaceOpInOps (stmts: List (Op δ)) : List (Op δ) :=
   | op::ops' =>
     (replaceOpInOp op)::(replaceOpInOps ops')
 end
+termination_by
+  replaceOpInOp op => sizeOf op
+  replaceOpInRegions rgns => sizeOf rgns
+  replaceOpInRegion rgn => sizeOf rgn
+  replaceOpInOps ops => sizeOf ops
 
 /-
 A peephole rewrite for operations.

@@ -114,10 +114,16 @@ def linalg_semantics_op {Δ: Dialect α σ ε}: IOp Δ → OpM Δ (TypedArgs Δ)
       return []
  | IOp.mk name .. => OpM.Unhandled s!"unhandled {name}"
 
+-- TODO: timeout! with maxHeartbeats, all RAM is consumed.
+/-
+set_option maxHeartbeats 10000 in
 theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec types attrs}:
   validGenericRegion r rSpec →
   linalg_semantics_op (Δ := Δ)
-      (IOp.mk "linalg.generic1d" types [⟨.tensor1d, t⟩] [OpM.denoteRegion r 0] attrs) =
+      (IOp.mk "linalg.generic1d"
+         types [⟨.tensor1d, t⟩]
+         [OpM.denoteRegion r 0]
+         attrs) =
     return [⟨.tensor1d, t.mapWithFlatIndex (fun idx val => rSpec idx.ix val)⟩] := by
   intros h
   simp [linalg_semantics_op]
@@ -126,13 +132,13 @@ theorem linalg_semantics_generic1d {Δ: Dialect α σ ε} {r: Region Δ} {rSpec 
   rw [Tensor1D.mapM_map]
   . rfl
   . intros; rfl
-
+-/
 instance : Semantics linalg where
    semantics_op := linalg_semantics_op
-   
+
 namespace BubbleUpExtractSlice
 /-
-convert extract slice (linalg.generic x) ->  linalg.generic (extract slice x) 
+convert extract slice (linalg.generic x) ->  linalg.generic (extract slice x)
 -/
 
 /- TODO -/
@@ -162,16 +168,21 @@ For each transformation, we implement
 -/
 namespace ExtractSliceFillCommuteOneD
 
+-- TODO: timeout!
 theorem extract_fill_commute:
  Tensor1D.fill (Tensor1D.extract t extractlen) fillval =
  Tensor1D.extract (Tensor1D.fill t fillval) extractlen := by {
    simp [Tensor1D.fill, Tensor1D.extract];
    apply List.extF
    intros n h; simp; simp at h
+   sorry
+   sorry
+   /-
    repeat rw [List.getF_replicate]
    . apply Nat.lt_min_left; apply h
    . simp
    . assumption
+   -/
  }
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS : Region linalg  := [mlir_region| {
@@ -233,15 +244,15 @@ theorem equiv (t: Tensor1D) r rSpec:
    run ⟦RHS r⟧ (SSAEnv.One [ ("t", ⟨.tensor1d, t⟩) ]) := by {
       intros valid_r;
       simp[LHS, RHS];
+      -- tactic bug: (kernel) constant has already been declared '_private.MLIR.Dialects.LinalgSemantics.0.linalg_semantics_op.match_2.eq_1'
+      /-
       simp_all[denoteRegion, run, StateT.run, List.map, denoteTypedArgs, pure, StateT.pure, Except.pure,
             StateT.run, Except.ok, bind, Except.bind, denoteOps, denoteOps
             , StateT.bind, denoteOp, List.mapM, List.mapM.loop, TopM.get,
             StateT.get, OpM.toTopM, TopM.raiseUB, liftM, TopM.set,
             StateT.set, cast, OpM.denoteRegions, TopM.mapDenoteRegion,
-             OpM.toTopM, denoteRegion];
-      -- save;
-      simp [Semantics.semantics_op];
-      -- rewrite [linalg_semantics_generic1d];
+             OpM.toTopM, denoteRegion, denoteOpArgs, SSAEnv.get, SSAEnv.getT, Semantics.semantics_op, linalg_semantics_op];
+      -/
       sorry
     }
 end ExtractSliceGenericCommute1D
@@ -272,9 +283,10 @@ theorem mapM_commute [M: Monad m] [LM: LawfulMonad m]
           simp[fish, List.mapM, List.mapM.loop];
      }
      case cons head tail IH => {
+       -- simp[fish];
+       rewrite [mapM_cons];
        simp[fish];
-       rewrite [mapM_cons];
-       rewrite [mapM_cons];
+       -- rewrite [mapM_cons];
 
        simp [bind_assoc]
        simp[mapM_cons];

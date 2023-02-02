@@ -123,6 +123,9 @@ def MTerm.eqList (l₁ l₂: List (MTerm δ)): Bool :=
   | t₁::l₁, t₂::l₂ => eq t₁ t₂ && eqList l₁ l₂
   | _, _ => false
 end
+termination_by
+  MTerm.eq t1 t2 => sizeOf t1 + sizeOf t2
+  MTerm.eqList t1 t2 => sizeOf t1 + sizeOf t2
 
 instance: BEq (MTerm δ) where
   beq := MTerm.eq
@@ -160,6 +163,10 @@ protected def MTerm.strList: List (MTerm δ) → String
   | [t] => str t
   | t::ts => str t ++ ", " ++ MTerm.strList ts
 end
+termination_by
+  MTerm.str t  => sizeOf t
+  MTerm.strList ts => sizeOf ts
+
 
 instance: ToString MSort where
   toString := MSort.str
@@ -205,6 +212,9 @@ protected def MTerm.substList (l: List (MTerm δ)) (name: String)
   | [] => []
   | t::ts => subst t name repl :: MTerm.substList ts name repl
 end
+termination_by
+  MTerm.subst t name repl  => sizeOf t
+  MTerm.substList ts name repl => sizeOf ts
 
 -- Substitue a set of variables in a term
 def MTerm.substVars (t: MTerm δ) (repl: List (String × MTerm δ)): MTerm δ :=
@@ -243,6 +253,9 @@ def MTerm.inferSortList: List (MTerm δ) → Option (List MSort)
   | [] => some []
   | t::l => do return (← inferSort t) :: (← inferSortList l)
 end
+termination_by
+  MTerm.inferSort t => sizeOf t
+  MTerm.inferSortList ts => sizeOf ts
 
 @[reducible]
 def MSort.toType (δ: Dialect α σ ε): MSort -> Type
@@ -526,6 +539,7 @@ termination_by
 mutual
 variable {δ: Dialect α σ ε} -- We need this for termination somehow
 
+#check Preorder
 -- Match a program defined by a list of MTerm (one Operation per MTerm) in
 -- an operation.
 def matchMProgInOp (op: Op δ) (mOps: List (MTerm δ)) (ctx: VarCtx δ) :
@@ -553,18 +567,23 @@ def matchMProgInOpAux (op: Op δ) (mOps: List (MTerm δ))
     | none => matchMProgInOpAux op mOps matchOps'
   | [] => none
 end
+-- TODO: how to use lex ordering for termination? Proof of termination: lex ordering on (mOps, matchOps)
+decreasing_by sorry
+/-
 termination_by
-  matchMProgInOpAux _ mOps matchOps => (mOps, matchOps)
-  matchMProgInOp _ mOps ctx => (mOps, [])
+  matchMProgInOpAux _ mOps matchOps => sizeOf (mOps, matchOps)
+  matchMProgInOp _ mOps ctx  =>
+    sizeOf (mOps, let t : List (Op δ × VarCtx δ) := []; t)
+-/
 
 -- variable type
 def MTerm.buildTypeVar (name: String) : MTerm δ := .Var 2 name .MMLIRType
--- constant type 
+-- constant type
 
 def MTerm.buildTypeConst (type: MLIRType δ) : MTerm δ := .ConstMLIRType type
 
 -- operand. For now, assume monomorhpic types.
-def MTerm.buildOperand (name: String) (type: MLIRType δ): MTerm δ := 
+def MTerm.buildOperand (name: String) (type: MLIRType δ): MTerm δ :=
   .App .OPERAND [ .Var (priority := 2) name .MSSAVal,
                   MTerm.buildTypeConst type ]
 
@@ -661,3 +680,8 @@ def isOpInOps (ops: List (Op δ)) : Bool :=
   | [] => False
   | op::ops' => isOpInOp op || isOpInOps ops'
 end
+ termination_by
+  isOpInOp op => sizeOf op
+  isOpInRegions rgns => sizeOf rgns
+  isOpInRegion rgn => sizeOf rgn
+  isOpInOps ops => sizeOf ops

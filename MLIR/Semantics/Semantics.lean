@@ -82,7 +82,7 @@ def TopM.raiseUB {Δ: Dialect α σ ε} (message: String): TopM Δ R := do
 
 def TopM.get {Δ: Dialect α σ ε} (τ: MLIRType Δ) (name: SSAVal): TopM Δ τ.eval := do
   let s ← StateT.get
-  match SSAEnv.get name τ s with
+  match SSAEnv.get name τ s  with
   | .some v => return v
   | .none => return default
 
@@ -204,8 +204,8 @@ def denoteTypedArgs (args: TypedArgs Δ) (names: List SSAVal): TopM Δ Unit :=
 -- Denote a region with an abstract `OpM.RunRegion`
 def OpM.denoteRegion {Δ: Dialect α σ ε}
   (_r: Region Δ)
-  (ix: Nat): TypedArgs Δ → OpM Δ (TypedArgs Δ) :=
-   fun args => OpM.RunRegion ix args (fun retvals => OpM.Ret retvals)
+  (ix: Nat) (args: TypedArgs Δ): OpM Δ (TypedArgs Δ) :=
+    OpM.RunRegion ix args (fun retvals => OpM.Ret retvals)
 
 -- Denote the list of regions with an abstract `OpM.runRegion`
 def OpM.denoteRegions {Δ: Dialect α σ ε}
@@ -979,7 +979,7 @@ theorem mapDenoteRegion_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] ⦃region
     cases HregIn
     case inl HXX =>
       subst HXX;
-      sorry      
+      sorry
       -- simp [HXX] at *;
       -- simp [TopM.scoped] at *; simp_monad at *
       -- (split at H <;> try contradiction); rename_i regR HregR
@@ -1157,3 +1157,299 @@ resulting environment of the interpretation of a TopM monad.
 
 def postSSAEnv (m: TopM δ R) (env: SSAEnv δ) : Prop :=
   ∃ env' v, run m env' = .ok (v, env)
+
+/-
+### Running lemmas
+
+These lemmas enable us to equationally reason with run (denoteFoo .. ) input
+-/
+
+theorem run_seq {Δ: Dialect α σ ε} {ma: TopM Δ Unit} {mb: TopM Δ β}
+  {env: SSAEnv Δ}:
+  run (do ma; mb) env =
+    match run ma env with
+    | .ok ((), env') => run mb env'
+    | .error e => .error e := by {
+  simp[run];
+  cases H : StateT.run ma env;
+  case error err => {
+    simp[H];
+    simp[bind, Except.bind];
+  }
+  case ok out => {
+    simp[H, bind, Except.bind];
+  }
+}
+
+
+
+abbrev TopM.bind (ma: TopM Δ α) (a2mb: α → TopM Δ β) : TopM Δ β :=
+  StateT.bind ma a2mb
+
+abbrev TopM.map (f: a -> b) (ma: TopM Δ a): TopM Δ b := StateT.map f ma
+
+/-
+Run distributes over '>>='
+-/
+theorem run_bind {Δ: Dialect α σ ε} {ma: TopM Δ a} {k: a → TopM Δ b}
+  {env: SSAEnv Δ}:
+  run (do let a ← ma; k a) env =
+    match run ma env with
+    | .ok (a, env') => run (k a) env'
+    | .error e => .error e := by {
+  simp[run];
+  cases H : StateT.run ma env;
+  case error err => {
+    simp[H];
+    simp[bind, Except.bind];
+  }
+  case ok out => {
+    simp[H, bind, Except.bind];
+  }
+}
+
+theorem run_bind2 {Δ: Dialect α σ ε} {ma: TopM Δ a} {k: a → TopM Δ b}
+  {env: SSAEnv Δ}:
+  run (StateT.bind ma k) env =
+    match run ma env with
+    | .ok (a, env') => run (k a) env'
+    | .error e => .error e := by {
+  simp[run, TopM.bind];
+  cases H : StateT.run ma env;
+  case error err => {
+    simp[bind, Except.bind, StateT.bind, StateT.run] at *;
+    simp[H];
+
+  }
+  case ok out => {
+    simp[bind, Except.bind, StateT.bind, StateT.run] at *;
+    simp[H];
+  }
+}
+
+theorem run_bind3 {Δ: Dialect α σ ε} {ma: TopM Δ a} {k: a → TopM Δ b}
+  {env: SSAEnv Δ}:
+  run (StateT.bind ma (fun x => k x)) env =
+    match run ma env with
+    | .ok (a, env') => run (k a) env'
+    | .error e => .error e := by {
+  simp[run, TopM.bind];
+  cases H : StateT.run ma env;
+  case error err => {
+    simp[bind, Except.bind, StateT.bind, StateT.run] at *;
+    simp[H];
+
+  }
+  case ok out => {
+    simp[bind, Except.bind, StateT.bind, StateT.run] at *;
+    simp[H];
+  }
+}
+
+/-
+running where the output of the first command is ignored
+-/
+theorem run_bind_ {Δ: Dialect α σ ε} {ma: TopM Δ a} {mb: TopM Δ b}
+  {env: SSAEnv Δ}:
+  run (do let _ ← ma; mb) env =
+    match run ma env with
+    | .ok (a_, env') => run mb env'
+    | .error e => .error e := by {
+  simp[run];
+  cases H : StateT.run ma env;
+  case error err => {
+    simp[H];
+    simp[bind, Except.bind];
+  }
+  case ok out => {
+    simp[H, bind, Except.bind];
+  }
+}
+
+
+theorem run_bind_success {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {ma: TopM Δ a} {a2mb: a → TopM Δ b} {env: SSAEnv Δ}
+  {va: a} {env': SSAEnv Δ}
+  (MA: ma env = Except.ok (va, env')):
+  run (ma >>= a2mb) env = run (a2mb va) env' := by {
+    simp[bind, StateT.bind, Except.bind];
+    simp[run, StateT.run] at *;
+    simp[MA];
+}
+
+/-
+denotation of a region is to run arguments, followed by ops.
+-/
+theorem run_denoteRegion {Δ: Dialect α σ ε} {S: Semantics Δ}
+ (args: TypedArgs Δ)
+ (env: SSAEnv Δ)
+ (name: String)
+ (formals: List (TypedSSAVal Δ))
+ (ops: List (Op Δ)):
+     run (denoteRegion Δ (Region.mk name formals ops) args) env = run
+      (do
+        denoteTypedArgs args (List.map Prod.fst formals)
+        denoteOps Δ ops) env
+ := by { simp[denoteRegion]; }
+
+/-
+denotation of empty typed args is success
+-/
+theorem run_denoteTypedArgs_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
+ (env: SSAEnv Δ):
+   run (denoteTypedArgs [] []) env = Except.ok ((), env) := by {
+    simp[denoteTypedArgs, pure, run, StateT.run, StateT.pure, Except.pure];
+}
+
+theorem run_denoteOps_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
+  (env: SSAEnv Δ):
+  run (denoteOps Δ []) env = Except.ok ([], env) := by {
+  simp[denoteOps];
+  simp [pure, StateT.pure, run, StateT.run, Except.pure];
+}
+
+theorem run_denoteOps_cons {Δ: Dialect α σ ε} {S: Semantics Δ}
+  (env: SSAEnv Δ) (op op': Op Δ) (ops: List (Op Δ)):
+  run (denoteOps Δ (op :: op' :: ops)) env =
+  run (do let _ ← denoteOp Δ op; denoteOps Δ (op' :: ops)) env := by {
+  simp[denoteOps];
+}
+
+theorem run_denoteOps_singleton {Δ: Dialect α σ ε} {S: Semantics Δ}
+  (env: SSAEnv Δ) (op: Op Δ):
+  run (denoteOps Δ [op]) env = run (denoteOp Δ op) env := by {
+  simp[denoteOps];
+}
+
+theorem run_denoteOp {Δ: Dialect α σ ε} {S: Semantics Δ}
+  (env: SSAEnv Δ)
+  (name : String)
+  (res args : List (TypedSSAVal Δ))
+  (regions : List (Region Δ))
+  (attrs : AttrDict Δ) :
+   run (denoteOp Δ (Op.mk name res args regions attrs)) env =
+   run (do
+        let args ← denoteOpArgs Δ args
+        let ret ←
+          OpM.toTopM (TopM.mapDenoteRegion Δ regions)
+              (Semantics.semantics_op (IOp.mk name (List.map Prod.snd res) args (OpM.denoteRegions regions 0) attrs))
+        match res with
+          | [] => pure ret
+          | [res] =>
+            match ret with
+            | [{ fst := τ, snd := v }] => do
+              TopM.set τ res.fst v
+              pure ret
+            | x => do
+              TopM.raiseUB (toString "denoteOp: expected 1 return value, got '" ++ toString ret ++ toString "'")
+              pure ret
+          | x => do
+            TopM.raiseUB (toString "denoteOp: expected 0 or 1 results, got '" ++ toString res ++ toString "'")
+            pure ret) env := by {
+   simp [denoteOp];
+}
+
+/-
+internal use. For public facing uses, it is cleaner to use
+run_denoteOpArgs_cons_{success,failure}
+-/
+theorem run_denoteOpArgs_cons_ {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {env: SSAEnv Δ} {name: SSAVal}  {ty: MLIRType Δ} {args: List (TypedSSAVal Δ)}:
+  run (denoteOpArgs Δ (⟨name, ty⟩::args)) env = run (do
+     let x ← TopM.get ty name
+     let xs ← denoteOpArgs Δ args
+     return ⟨ty, x⟩::xs
+  ) env := by {
+  simp[denoteOpArgs];
+}
+
+/-
+internal use. For public facing uses, it is
+cleaner to use run_TopM_get_{success,failure}
+-/
+theorem run_TopM_get_
+  {Δ: Dialect α σ ε}
+  {env: SSAEnv Δ}
+  {ty: MLIRType Δ}
+  {name: SSAVal}:
+  run (TopM.get ty name) env =
+  Except.ok (match SSAEnv.get name ty env  with
+  | .some v => v
+  | .none => default, env) := by {
+  simp[TopM.get, run, StateT.run, StateT.get, bind, StateT.bind, Except.bind, pure,
+  Except.pure, StateT.pure];
+  cases H:SSAEnv.get name ty env <;> simp;
+}
+
+theorem run_TopM_get_success
+  {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {env: SSAEnv Δ}
+  {ty: MLIRType Δ}
+  {v: ty.eval}
+  {name: SSAVal}
+  {ENV: SSAEnv.get name ty env = .some v}:
+  run (TopM.get ty name) env =
+  Except.ok (v, env) := by {
+  simp[run_TopM_get_, ENV];
+}
+
+/-
+evaluate 'denoteOpArgs' when the head of the argument list succeeds in being
+evaluated.
+-/
+theorem run_denoteOpArgs_cons_success
+  {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {env: SSAEnv Δ}
+  {ty: MLIRType Δ}
+  {v: ty.eval}
+  {name: SSAVal}
+  {ENV: SSAEnv.get name ty env = .some v}
+  {args: List (TypedSSAVal Δ)}:
+  run (denoteOpArgs Δ (⟨name, ty⟩::args)) env =
+  match run (denoteOpArgs Δ args) env with
+    | Except.ok (xs, env') => Except.ok (⟨ty, v⟩::xs, env')
+    | Except.error e => Except.error e := by {
+  simp[run_denoteOpArgs_cons_];
+  simp [run_bind];
+  simp[run_TopM_get_success (ENV := ENV)];
+  simp[pure, StateT.pure, run, StateT.run, Except.pure];
+  cases denoteOpArgs Δ args env <;> simp
+}
+
+
+
+theorem run_denoteOpArgs_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {env: SSAEnv Δ}:
+  run (denoteOpArgs Δ []) env = Except.ok ([], env) := by {
+  simp[denoteOpArgs];
+  simp[run, pure, StateT.run, StateT.pure, Except.pure];
+}
+
+theorem run_pure
+  {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {env: SSAEnv Δ}
+  {v: a}:  run (pure v) env = .ok (v, env) := by {
+  simp[run, pure, StateT.run, StateT.pure, Except.pure];
+}
+
+theorem OpM_toTopM_denoteRegion
+  {Δ: Dialect α σ ε}
+  {args: TypedArgs Δ}
+  {r: Region Δ}
+  {rs: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))}:
+    (OpM.toTopM rs (OpM.denoteRegion r ix args)) =
+      TopM.denoteRegionsByIx rs ix args := by {
+   simp[OpM.denoteRegion];
+   simp[OpM.toTopM];
+}
+
+/-
+apply 'funext' on OpM.denoteRegion for unfolding.
+-/
+def OpM_denoteRegion_unfold {Δ: Dialect α σ ε}
+  (_r: Region Δ)
+  (ix: Nat):
+   OpM.denoteRegion _r ix = fun args => OpM.RunRegion ix args (fun retvals => OpM.Ret retvals) := by {
+   funext args;
+   simp[OpM.denoteRegion];
+}
