@@ -80,7 +80,10 @@ def Tensor.mapWithFlatIndex {σ τ} (v: Tensor σ) (f: TensorFlatIndex (shapePro
 
 -- getter at a flat index
 def Tensor.getAtFlatIndex {σ} (v: Tensor σ) (ix: TensorFlatIndex (shapeProd v.shape)): σ.eval :=
-  List.getF v.data ix.ix (h := by {  rewrite [v.h_data_size]; exact ix.h_ix_inbound; })
+  List.getF v.data ix.ix (by {
+     rewrite[v.h_data_size];    
+     simp[ix.h_ix_inbound];
+  })
 
 
 theorem arg_equal_implies_fn_equal (α β: Type) (x y :α) (f: α -> β) (EQ: x = y): f x = f y := by {
@@ -358,15 +361,15 @@ abbrev builtin.ε :=
     (Sum.cases ε_RankedTensor ε_UnrankedTensor)
     ε_Vector
 
-@[matchPattern]
+@[match_pattern]
 def builtin.σ.tensor (D: DimList) (τ: MLIRTy): builtin.σ :=
   Sum.inl (Sum.inl (D, τ))
 
-@[matchPattern]
+@[match_pattern]
 def builtin.σ.tensor_unranked (τ: MLIRTy): builtin.σ :=
   Sum.inl (Sum.inr τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.σ.vector (fixed scalable: List Nat) (τ: MLIRTy): builtin.σ :=
   Sum.inr (fixed, scalable, τ)
 
@@ -415,42 +418,42 @@ instance builtin: Dialect builtin.α builtin.σ builtin.ε where
 
 -- Custom types
 
-@[matchPattern, simp]
+@[match_pattern, simp]
 def builtin.tensor (D: DimList) (τ: MLIRTy): MLIRType builtin :=
   MLIRType.extended (builtin.σ.tensor D τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.tensor_unranked (τ: MLIRTy): MLIRType builtin :=
   MLIRType.extended (builtin.σ.tensor_unranked τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.vector (fixed scalable: List Nat) (τ: MLIRTy):
     MLIRType builtin :=
   MLIRType.extended (builtin.σ.vector fixed scalable τ)
 
-@[matchPattern]
+@[match_pattern]
 def builtin.memref (D: DimList) (τ: MLIRTy) (layout: Option MemrefLayoutSpec)
     (memspace: Option AttrVal): MLIRType builtin :=
   MLIRType.undefined "builtin.memref"
 
-@[matchPattern]
+@[match_pattern]
 def builtin.memref_unranked (τ: MLIRTy) (memspace: Option AttrVal):
     MLIRType builtin :=
   MLIRType.undefined "builtin.memref_unranked"
 
 -- Custom attributes
 
-@[matchPattern]
+@[match_pattern]
 def builtin.dense_vector_attr (e: TensorElem) (fixed scalable: List Nat)
     (τ: MLIRTy): AttrValue builtin :=
   AttrValue.extended (DenseAttr.mk e (builtin.σ.vector fixed scalable τ))
 
-@[matchPattern]
+@[match_pattern]
 def builtin.dense_tensor_attr (e: TensorElem) (D: DimList) (τ: MLIRTy):
     AttrValue builtin :=
   AttrValue.extended (DenseAttr.mk e (builtin.σ.tensor D τ))
 
-@[matchPattern]
+@[match_pattern]
 def builtin.dense_attr (e: TensorElem) {s: builtin.σ}: AttrValue builtin :=
   AttrValue.extended (DenseAttr.mk e s)
 

@@ -979,18 +979,16 @@ theorem mapDenoteRegion_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] ⦃region
     cases HregIn
     case inl HXX =>
       subst HXX;
-      
-      simp [HXX] at *;
-      simp [TopM.scoped] at *; simp_monad at *
-
+      sorry      
+      -- simp [HXX] at *;
+      -- simp [TopM.scoped] at *; simp_monad at *
       -- (split at H <;> try contradiction); rename_i regR HregR
       -- have ⟨regR, regEnv⟩ := regR; simp at *; cases H; subst regR env'
       -- have ⟨regEnv₂, _, Hregion⟩ := denoteRegion_equiv HregR Henv₂
-      exists env₂
-      simp [Hregion]
-
-      assumption
-    case tail =>
+      -- exists env₂
+      -- simp [Hregion]
+      -- assumption
+    case inr HXX =>
       apply mapDenoteRegion_equiv <;> assumption
 
 /-

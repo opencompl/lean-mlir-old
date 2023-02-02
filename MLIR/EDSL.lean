@@ -131,10 +131,10 @@ def balancedBrackets : Parser :=
 
 
 -- Code stolen from test/WebServer/lean
-@[combinatorFormatter MLIR.EDSL.balancedBrackets]
+@[combinator_formatter MLIR.EDSL.balancedBrackets]
 def MLIR.EDSL.balancedBrackets.formatter : Formatter := pure ()
 
-@[combinatorParenthesizer MLIR.EDSL.balancedBrackets]
+@[combinator_parenthesizer MLIR.EDSL.balancedBrackets]
 def MLIR.EDSL.balancedBracketsParenthesizer : Parenthesizer := pure ()
 
 
