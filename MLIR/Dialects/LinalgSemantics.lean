@@ -141,6 +141,15 @@ namespace BubbleUpExtractSlice
 convert extract slice (linalg.generic x) ->  linalg.generic (extract slice x)
 -/
 
+#check mapM
+theorem bubble_up_extract_slice  [MM: Monad M] [LM: LawfulMonad M]
+   (t: Tensor1D)
+   (f : FinInt 32 -> M (FinInt 32)):
+  (fun s => s.extract len) <$> (t.mapM f) =  (t.extract len).mapM f := by {
+  cases t;
+  sorry
+}
+
 /- TODO -/
 end BubbleUpExtractSlice
 
@@ -217,8 +226,6 @@ end ExtractSliceFillCommuteOneD
 namespace ExtractSliceGenericCommute1D
 variable (r : Region linalg)
 
--- {pre} TopM {post}
--- {x1 = 10 * x2 = 30 * x4 = 50}
 
 -- https://mlir.llvm.org/doxygen/BubbleUpExtractSlice_8cpp_source.html
 def LHS: Region linalg  := [mlir_region| {
@@ -303,7 +310,6 @@ theorem mapM_commute [M: Monad m] [LM: LawfulMonad m]
      }
 
 }
-
 end mapMCommute
 
 namespace Generic1DFusion
@@ -354,10 +360,6 @@ def RHS : Region linalg := [mlir_region| {
 }]
 end Generic1DTiling
 
-namespace Generic2DTiling
-
-end Generic2DTiling
-
 namespace Transpose2D
 
 
@@ -368,5 +370,7 @@ def LHS: Region linalg  := [mlir_region| {
 def RHS : Region linalg := [mlir_region| {
    %y = "scf.id"(%x) : (tensor2d) -> (tensor2d)
 }]
+
+-- Done in the tensor, we have the proof that 2d transpose is id.
 
 end Transpose2D

@@ -279,6 +279,22 @@ def Tensor2D.extractslice' (large: Tensor2D)
 def Tensor2D.transpose (t: Tensor2D): Tensor2D :=
   Tensor2D.mk t.size1 t.size0 (fun ix => t.data ix.transpose)
 
+theorem transpose_index_twice_is_id (ix: TensorIndex2D n m):
+  ix.transpose.transpose = ix := by {
+  cases ix;
+  case mk ix0 ix1 IX0 IX1 => {
+    simp[TensorIndex2D.transpose];
+  }
+}
+
+theorem transpose_twice_is_id (t: Tensor2D): t.transpose.transpose = t := by {
+  cases t;
+  case mk size0 size1 data => {
+   simp[Tensor2D.transpose];
+   simp[transpose_index_twice_is_id];
+  }
+}
+
 -- Stride index into a tensor, scaling the indexing by `stride0, stride1`.
 def Tensor2D.stride (t: Tensor2D) (stride0 stride1: Nat)
   (STRIDE0: 0 < stride0) (STRIDE1:  0 < stride1): Tensor2D :=
@@ -830,6 +846,11 @@ theorem List.zip_flat_index_get (xs: List α) (getIx: Nat) (GETIX: getIx < xs.le
   apply List.zip_flat_index_go_get (xs := xs) (ix := 0) (bound := List.length xs) (deltaIx := getIx) (GETIX := GETIX);
 }
 
+def Tensor1D.map (v: Tensor1D) (f: (FinInt 32) →  (FinInt 32)):
+  Tensor1D :=
+  Tensor1D.mk (size0 := v.size0)
+    (data := v.data.map f) (h_data_size := by simp; apply v.h_data_size)
+
 
 def Tensor1D.mapWithFlatIndex (v: Tensor1D) (f: TensorFlatIndex v.size0 →  (FinInt 32) →  (FinInt 32)):
   Tensor1D :=
@@ -876,3 +897,15 @@ theorem Tensor1D.mapM_map [Monad M] [LawfulMonad M] v f (fM: _ → _ → M _):
   rw [List.mapM_map]
   . simp [v.h_data_size]; rfl
   . intros a; cases a; simp [h]
+
+/-
+theorem Tensor1D.mapM_map' [Monad M] [LawfulMonad M] v f (fM: _ → M _):
+    (fM val = return (f val)) →
+    mapM v fM = return (map v f) := by
+  intros h
+  unfold map
+  unfold mapM
+  rw [List.mapM_map]
+  . simp [v.h_data_size]; rfl
+  . intros a; cases a;
+-/

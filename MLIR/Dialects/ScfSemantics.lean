@@ -5,6 +5,7 @@ import MLIR.Semantics.UB
 import MLIR.Util.Metagen
 import MLIR.AST
 import MLIR.EDSL
+import Mathlib.Data.List.Dedup
 open MLIR.AST
 
 /-
@@ -119,17 +120,17 @@ theorem equivalent (b: Bool):
     simp[run_denoteOpArgs_nil];
     simp[run_pure];
     simp[INPUT];
-    simp[TopM.mapDenoteRegion];
+    simp[TopM.mapDenoteRegion]; -- TODO: make run version of this
     save
-    simp[OpM.denoteRegions]
-    simp[Semantics.semantics_op];
+    simp[OpM.denoteRegions] -- TODO: make run version
+    simp[Semantics.semantics_op]; -- TODO: make run version
     simp[scf_semantics_op]; -- SLOW
     save
     -- VERY SLOW
     cases b <;> simp;
     case false => {
-      rw[OpM_toTopM_denoteRegion];
-      simp[TopM.denoteRegionsByIx];
+      rw[OpM_toTopM_denoteRegion]; -- TODO: make run version
+      simp[TopM.denoteRegionsByIx]; -- TODO: make run version
     }
     case true => {
       -- TODO, FIXME, BUG: lean does not unfold the definition in the
@@ -150,25 +151,6 @@ theorem equivalent (b: Bool):
 end SCF.IF
 
 
-/-
-theorem run_bind {Δ: Dialect α' σ' ε'} [S: Semantics Δ] {T R}
-    t (k: T → Fitree (SSAEnvE Δ +' UBE) R) env:
-  run (Fitree.bind t k) env =
-    match run t env with
-    | .error ε => .error ε
-    | .ok (x, env') => run (k x) env' := by
-  simp [run]
-  simp [interpSSA'_bind, Fitree.interp'_bind, interpUB_bind]
-  simp [Fitree.run_bind]
-  cases Fitree.run (interpUB _) <;> simp
-
-theorem run_SSAEnvE_get [Δ: Dialect α σ ε] [S: Semantics Δ]
-    (name: SSAVal) (τ: MLIRType Δ) (v: τ.eval) (env: SSAEnv Δ)
-    (k: τ.eval → Fitree (SSAEnvE Δ +' UBE) R)
-    (h: SSAEnv.get name τ env = some v):
-  run (Fitree.Vis (Sum.inl <| SSAEnvE.Get τ name) k) env = run (k v) env := by
-  simp [run, SSAEnvE.handle, h]
--/
 
 namespace SCF.FOR_PEELING
 def LHS (r: Region scf): Region scf := [mlir_region|
@@ -180,23 +162,29 @@ def RHS  (r: Region scf): Region scf := [mlir_region|
   "scf.execute_region" (%c0) ($(r)) : (index) -> ()
   "scf.for'" (%c1, %cn_plus_1) ($(r)) : (index, index) -> ()
 }]
-def INPUT (n: Nat): SSAEnv scf := SSAEnv.One [
+def INPUT (n: Nat): SSAEnv scf :=
+  SSAEnv.set "cn" .index n
+    (SSAEnv.set "cn_plus_1" .index (n + 1)
+      (SSAEnv.set "c0" .index 0
+        (SSAEnv.set "c1" .index 1 SSAEnv.empty)))
+/-
+SSAEnv.One [
   ⟨"cn", .index, n⟩,
   ⟨"cn_plus_1", .index, n + 1⟩,
   ⟨"c0", .index, 0⟩,
   ⟨"c1", .index, 1⟩]
+-/
 
-/- theorem peel_run_loop_bounded {n: Nat} {ix: Int} (start: BlockResult Δ):
-    (fun (_: BlockResult Δ) => run_loop_bounded n (ix+1) (.Ret [])) := rfl
--/ -- The main requirement for this theorem is that `r` satisfies SSA invariants,
+ -- The main requirement for this theorem is that `r` satisfies SSA invariants,
 -- ie. values available before it runs are unchanged by its execution. Here we
 -- assume something quite a bit stronger, to simplify the proof of the actual
 -- property, which is that a read can commute with running the region.
-/-
+
+
 theorem CORRECT_r (n:Nat) (r: Region scf) args:
-    (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n) := by
-  sorry
--/
+    (run (denoteRegion scf r args) (INPUT n)) = .ok ([], INPUT n) := by
+   sorry
+
 /-
 theorem CORRECT_r_commute_run_interpRegion_SSAEnvE_get [S: Semantics scf]
   (CORRECT_r: (run (denoteRegion scf r args) (INPUT n)) = .ok (.Ret [], INPUT n))
@@ -219,15 +207,73 @@ private theorem identity₁ (n: Nat):
     Int.toNat (Int.ofNat n + 1 - 0) = n + 1 := by
   sorry
 
--- Pretty slow due to simplifying scf_semantics_op which contains a large match
-/-
+
+set_option maxHeartbeats 999999999 in
+-- Pretty slow due to simplifying scf_semantics_op
+-- which contains a large match
 theorem equivalent (n: Nat) (r: Region scf):
     (run ⟦LHS r⟧ (INPUT n)) =
-    (run ⟦RHS r⟧ (INPUT n)) := by
+    (run ⟦RHS r⟧ (INPUT n)) := by {
+   simp[LHS, RHS];
+   simp[run_denoteRegion];
+   simp[run_bind];
+   simp[run_denoteTypedArgs_nil];
+   simp[run_denoteOps_singleton];
+   simp[run_denoteOp];
+   simp[run_bind];
+   simp[INPUT];
+   simp[run_denoteOpArgs_cons_];
+   simp[run_bind];
+   rw[run_TopM_get_];
+   rw[SSAEnv.get_set_ne_val];
+   rw[SSAEnv.get_set_ne_val];
+   rw[SSAEnv.get_set_eq_val] <;> simp;
+   simp[run_denoteOpArgs_cons_];
+   simp[run_bind];
+   rw[run_TopM_get_];
+   rw[SSAEnv.get_set_ne_val];
+   rw[SSAEnv.get_set_eq_val] <;> simp;
+   simp[run_denoteOpArgs_nil];
+   simp[run_pure];
+   simp[TopM.mapDenoteRegion]; -- TODO: make a 'run' version of this.
+   simp[Semantics.semantics_op, scf_semantics_op]; -- SLOW :(
+   simp[OpM.denoteRegions];
+   apply Eq.symm;
+   simp[run_denoteOps_cons];
+   simp[run_bind];
+   simp[run_denoteOps_singleton];
+   simp[run_denoteOp];
+   simp[run_bind];
+   simp[run_denoteOpArgs_cons_];
+   simp[run_bind];
+   rw[run_TopM_get_];
+   rw[SSAEnv.get_set_ne_val];
+   rw[SSAEnv.get_set_ne_val];
+   rw[SSAEnv.get_set_eq_val];
+   simp;
+   simp[run_denoteOpArgs_nil];
+   simp[run_pure];
+   simp[TopM_mapDenoteRegion_cons];
+   simp[TopM_mapDenoteRegion_nil];
+   simp[Semantics.semantics_op, scf_semantics_op];
+   simp[OpM_denoteRegions_cons];
+   save
+   -- tactic 'simp' failed, nested error:
+   -- (deterministic) timeout at 'whnf', maximum number of heartbeats (200000)
+   -- has been reached (use 'set_option maxHeartbeats <num>' to set the limit)
+   simp[OpM_denoteRegions_nil];
+   simp[run_OpM_toTopM_denoteRegion];
+   simp[run_TopM_denoteRegionsByIx_cons];
+   sorry
+   sorry
+   simp; simp; simp; simp;
+}
+
+  /-
   simp [LHS, RHS]
   simp [denoteTypedArgs, denoteOps, denoteOp]
   simp [denoteOpBase, Semantics.semantics_op, scf_semantics_op]; simp_itree
-  sorry
+  -/
   /-
   -- simp [denoteRegions]
   rw [run_SSAEnvE_get "c0" .index 0]
@@ -244,7 +290,6 @@ theorem equivalent (n: Nat) (r: Region scf):
   simp [(by sorry: (0:Int) + (1:Int) = (1:Int))]
   all_goals simp [INPUT, cast_eq]
   -/
--/
 end SCF.FOR_PEELING
 
 

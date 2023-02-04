@@ -1426,7 +1426,7 @@ theorem run_denoteOpArgs_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
 }
 
 theorem run_pure
-  {Δ: Dialect α σ ε} {S: Semantics Δ}
+  {Δ: Dialect α σ ε}
   {env: SSAEnv Δ}
   {v: a}:  run (pure v) env = .ok (v, env) := by {
   simp[run, pure, StateT.run, StateT.pure, Except.pure];
@@ -1443,6 +1443,73 @@ theorem OpM_toTopM_denoteRegion
    simp[OpM.toTopM];
 }
 
+theorem run_OpM_toTopM_denoteRegion
+  {Δ: Dialect α σ ε}
+  {args: TypedArgs Δ}
+  {r: Region Δ}
+  {env: SSAEnv Δ}
+  {rs: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))}:
+    run (OpM.toTopM rs (OpM.denoteRegion r ix args)) env =
+      run (TopM.denoteRegionsByIx rs ix args) env := by {
+   simp[OpM.denoteRegion];
+   simp[OpM.toTopM];
+}
+
+theorem run_OpM_toTopM_Ret
+  {Δ: Dialect α σ ε}
+  {env: SSAEnv Δ}
+  {v: TypedArgs Δ}
+  {rs: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))}:
+    run (OpM.toTopM rs (OpM.Ret v)) env = .ok (v, env) := by {
+   simp[OpM.denoteRegion];
+   simp[OpM.toTopM];
+   simp[run_pure];
+ }
+
+theorem TopM_mapDenoteRegion_cons
+  {Δ: Dialect α σ ε} [S: Semantics Δ]
+  {r: Region Δ}
+  {rs: List (Region Δ)}:
+  TopM.mapDenoteRegion Δ (List.cons r rs) =
+  TopM.scoped ∘ denoteRegion Δ r :: TopM.mapDenoteRegion Δ rs := by {
+  simp[TopM.mapDenoteRegion];
+}
+theorem TopM_mapDenoteRegion_nil
+  {Δ: Dialect α σ ε} [S: Semantics Δ]:
+  TopM.mapDenoteRegion Δ List.nil = [] := by {
+  simp[TopM.mapDenoteRegion];
+}
+
+theorem OpM_denoteRegions_cons
+  {Δ: Dialect α σ ε}
+  {r: Region Δ}
+  {rs: List (Region Δ)}
+  {ix: Nat}:
+    OpM.denoteRegions (r::rs) ix =
+    OpM.denoteRegion r ix :: OpM.denoteRegions rs (ix + 1) := by {
+  simp[OpM.denoteRegions];
+
+}
+theorem OpM_denoteRegions_nil
+  {Δ: Dialect α σ ε} {ix: Nat}:
+    OpM.denoteRegions (Δ := Δ) [] ix = [] := by {
+   simp[OpM.denoteRegions];
+}
+
+theorem run_TopM_denoteRegionsByIx_cons
+ {Δ: Dialect α σ ε}
+ {ix: Nat}
+ {r: TypedArgs Δ → TopM Δ (TypedArgs Δ)}
+ {rs: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))}
+ {args: TypedArgs Δ}
+ {env: SSAEnv Δ}:
+  run (TopM.denoteRegionsByIx (r::rs) ix args) env =
+   run (match ix with
+       | 0 => r args
+       | ix' + 1 => TopM.denoteRegionsByIx rs ix' args) env := by {
+  simp[TopM.denoteRegionsByIx];
+}
+
 /-
 apply 'funext' on OpM.denoteRegion for unfolding.
 -/
@@ -1453,3 +1520,6 @@ def OpM_denoteRegion_unfold {Δ: Dialect α σ ε}
    funext args;
    simp[OpM.denoteRegion];
 }
+
+abbrev OpM_denoteRegion {Δ: Dialect α σ ε} (_r: Region Δ) (ix: Nat)
+   := OpM_denoteRegion_unfold (Δ := Δ) (_r := _r) (ix := ix)
