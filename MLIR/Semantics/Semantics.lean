@@ -958,7 +958,7 @@ theorem denoteRegion_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] ⦃region⦄
     ∃ env₂', env'.equiv env₂' ∧
     denoteRegion Δ region args env₂ = Except.ok (res, env₂') := by
   cases region
-  case mk rName rArgs rOps =>
+  case region rName rArgs rOps =>
   intros args env res env' H env₂ Henv₂
   simp [denoteRegion] at *; simp_monad at *
   (split at H <;> try contradiction); rename_i argsR HargsR
