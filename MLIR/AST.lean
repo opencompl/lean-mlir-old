@@ -169,10 +169,7 @@ inductive OR
 | Rs: OR
 inductive OpRegion (δ: Dialect α σ ε) : OR -> Type where
  | op: (name: String)
-      -> (res: List (TypedSSAVal δ))
-      -> (args: List (TypedSSAVal δ))
-      -> (regions: OpRegion δ .Rs)
-      -> (attrs: AttrDict δ)
+         -> (regions: OpRegion δ .Rs)
       -> OpRegion δ .O
  | opsnil : OpRegion  δ .Os
  | opscons : (head : OpRegion δ .O)
@@ -183,8 +180,7 @@ inductive OpRegion (δ: Dialect α σ ε) : OR -> Type where
                  -> (tail: OpRegion  δ .Rs)
                  -> OpRegion δ .Rs
  | region: (name : String)
-           -> (args: List (TypedSSAVal δ))
-           -> (ops: OpRegion δ .Os)
+              -> (ops: OpRegion δ .Os)
            ->  OpRegion δ .R
 
 
@@ -196,18 +192,14 @@ abbrev Ops (δ : Dialect α σ ε): Type := OpRegion δ .Os
 @[match_pattern]
 abbrev Op.mk {δ: Dialect α σ ε}
     (name: String)
-    (res: List (TypedSSAVal δ))
-    (args: List (TypedSSAVal δ))
-    (regions: Regions δ)
-    (attrs: AttrDict δ): OpRegion δ .O :=
-  OpRegion.op name res args regions attrs
+    (regions: Regions δ): OpRegion δ .O :=
+  OpRegion.op name regions
 
 @[match_pattern]
 abbrev Region.mk {δ: Dialect α σ ε}
     (name: String)
-    (args: List (TypedSSAVal δ))
     (ops: Ops δ): OpRegion δ .R :=
-  OpRegion.region name args ops
+  OpRegion.region name  ops
 
 @[match_pattern]
 abbrev Ops.nil  {δ: Dialect α σ ε}: Ops δ :=
@@ -228,14 +220,14 @@ abbrev Regions.cons  {δ: Dialect α σ ε} (r: Region δ) (rs: Regions δ): Reg
 
 mutual
   def Op.countSize {δ: Dialect α σ ε}: Op δ -> Int
-  | Op.mk name res args regions attrs => 1 + Regions.countSize regions
+  | Op.mk name regions  => 1 + Regions.countSize regions
 
   def Ops.countSize {δ: Dialect α σ ε}: Ops δ -> Int
   | .nil => 0
   | .cons o os => Op.countSize o + Ops.countSize os
 
   def Region.countSize {δ: Dialect α σ ε}: Region δ -> Int
-  | Region.mk name args ops => 1 + Ops.countSize ops
+  | Region.mk name ops => 1 + Ops.countSize ops
 
   def Regions.countSize {δ: Dialect α σ ε}: Regions δ -> Int
   | .nil => 0
@@ -255,8 +247,8 @@ def OpRegion.countSize {δ: Dialect α σ ε}: OpRegion δ k → Int
 | .regionscons r rs => r.countSize + rs.countSize
 | .opsnil => 0
 | .opscons o os => o.countSize + os.countSize
-| .op name res args regions attrs => regions.countSize + 1
-| .region name args ops => 1 + ops.countSize
+| .op name regions => regions.countSize + 1
+| .region name ops => 1 + ops.countSize
 
 /-
 This still uses WellFounded.fix.
