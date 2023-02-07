@@ -259,8 +259,10 @@ def OpRegion.countSize {δ: Dialect α σ ε}: OpRegion δ k → Int
 | .region name args ops => 1 + ops.countSize
 
 /-
-This still uses WellFounded.fix
+This still uses WellFounded.fix.
+Question: Is it the extra Dialect argument that confuses the codegen?
 -/
+#print OpRegion.countSize
 #print OpRegion.countSize._unary
 
 -- Attribute definition on the form #<name> = <val>
