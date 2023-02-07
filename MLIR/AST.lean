@@ -84,9 +84,9 @@ deriving DecidableEq
 inductive MLIRType (δ: Dialect α σ ε) :=
 | int: Signedness -> Nat -> MLIRType δ
 | float: Nat -> MLIRType δ
-| tensor1d: MLIRType δ -- tensor of int values. 
-| tensor2d: MLIRType δ -- tensor of int values. 
-| tensor4d: MLIRType δ -- tensor of int values. 
+| tensor1d: MLIRType δ -- tensor of int values.
+| tensor2d: MLIRType δ -- tensor of int values.
+| tensor4d: MLIRType δ -- tensor of int values.
 | index:  MLIRType δ
 | undefined: String → MLIRType δ
 | extended: σ → MLIRType δ
@@ -141,6 +141,7 @@ end
 abbrev AttrVal := @AttrValue _ _ _ Dialect.empty
 
 
+/-
 mutual
 -- | TODO: make this `record` when mutual records are allowed?
 -- | TODO: make these arguments optional?
@@ -158,6 +159,44 @@ inductive Region (δ: Dialect α σ ε) where
       -> (ops: List (Op δ)) -> Region δ
 
 end
+-/
+
+-- op / region tag
+inductive OR
+| O : OR
+| R : OR
+inductive OpRegion (δ: Dialect α σ ε) : OR -> Type where
+ | op: (name: String)
+      -> (res: List (TypedSSAVal δ))
+      -> (args: List (TypedSSAVal δ))
+      -> (regions: List (OpRegion δ .R))
+      -> (attrs: AttrDict δ)
+      -> OpRegion δ .O
+ | region: (name : String)
+           -> (args: List (TypedSSAVal δ))
+           -> (ops: List (OpRegion δ .O))
+           ->  OpRegion δ .R
+
+
+abbrev Op (δ : Dialect α σ ε): Type := OpRegion δ .O
+abbrev Region (δ : Dialect α σ ε): Type := OpRegion δ .R
+
+@[match_pattern]
+abbrev Op.mk {δ: Dialect α σ ε}
+    (name: String)
+    (res: List (TypedSSAVal δ))
+    (args: List (TypedSSAVal δ))
+    (regions: List (OpRegion δ .R))
+    (attrs: AttrDict δ): OpRegion δ .O :=
+  OpRegion.op name res args regions attrs
+
+@[match_pattern]
+abbrev Region.mk {δ: Dialect α σ ε}
+    (name: String)
+    (args: List (TypedSSAVal δ))
+    (ops: List (OpRegion δ .O)): OpRegion δ .R :=
+  OpRegion.region name args ops
+
 
 -- Attribute definition on the form #<name> = <val>
 inductive AttrDefn (δ: Dialect α σ ε) where
@@ -574,13 +613,13 @@ def AttrDict.find (attrs: AttrDict δ) (name: String): Option (AttrValue δ) :=
       | some v => v.value
       | none => none
 
-def AttrDict.find_nat (attrs: AttrDict δ) 
-  (name: String): Option Nat := 
+def AttrDict.find_nat (attrs: AttrDict δ)
+  (name: String): Option Nat :=
   match attrs.find name with
   | .some (AttrValue.nat i) =>  .some i
   | _ => .none
 
-def AttrDict.find_int (attrs: AttrDict δ) 
+def AttrDict.find_int (attrs: AttrDict δ)
   (name: String): Option (Int × MLIRType δ) :=
   match attrs.find name with
   | .some (AttrValue.int i ty) =>  .some (i, ty)
