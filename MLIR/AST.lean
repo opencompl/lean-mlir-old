@@ -197,6 +197,27 @@ abbrev Region.mk {δ: Dialect α σ ε}
     (ops: List (OpRegion δ .O)): OpRegion δ .R :=
   OpRegion.region name args ops
 
+mutual
+  def Op.countSize {δ: Dialect α σ ε}: Op δ -> Int
+  | Op.mk name res args regions attrs => 1 + Regions.countSize regions
+
+  def Ops.countSize {δ: Dialect α σ ε}: List (Op δ) -> Int
+  | [] => 0
+  | o :: os => Op.countSize o + Ops.countSize os
+
+  def Region.countSize {δ: Dialect α σ ε}: Region δ -> Int
+  | Region.mk name args ops => 1 + Ops.countSize ops
+
+  def Regions.countSize {δ: Dialect α σ ε}: List (Region δ) -> Int
+  | [] => 0
+  | r :: rs => Region.countSize r + Regions.countSize rs
+
+end
+
+/-
+Note that this uses WellFounded.fix
+-/
+#print Op.countSize._mutual
 
 -- Attribute definition on the form #<name> = <val>
 inductive AttrDefn (δ: Dialect α σ ε) where
