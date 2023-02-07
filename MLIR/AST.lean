@@ -164,29 +164,41 @@ end
 -- op / region tag
 inductive OR
 | O : OR
+| Os : OR
 | R : OR
+| Rs: OR
 inductive OpRegion (δ: Dialect α σ ε) : OR -> Type where
  | op: (name: String)
       -> (res: List (TypedSSAVal δ))
       -> (args: List (TypedSSAVal δ))
-      -> (regions: List (OpRegion δ .R))
+      -> (regions: OpRegion δ .Rs)
       -> (attrs: AttrDict δ)
       -> OpRegion δ .O
+ | opsnil : OpRegion  δ .Os
+ | opscons : (head : OpRegion δ .O)
+            -> (tail: OpRegion  δ .Os)
+            -> OpRegion δ .Os
+ | regionsnil : OpRegion  δ .Rs
+ | regionscons : (head : OpRegion δ .R)
+                 -> (tail: OpRegion  δ .Rs)
+                 -> OpRegion δ .Rs
  | region: (name : String)
            -> (args: List (TypedSSAVal δ))
-           -> (ops: List (OpRegion δ .O))
+           -> (ops: OpRegion δ .Os)
            ->  OpRegion δ .R
 
 
 abbrev Op (δ : Dialect α σ ε): Type := OpRegion δ .O
 abbrev Region (δ : Dialect α σ ε): Type := OpRegion δ .R
+abbrev Regions (δ : Dialect α σ ε): Type := OpRegion δ .Rs
+abbrev Ops (δ : Dialect α σ ε): Type := OpRegion δ .Os
 
 @[match_pattern]
 abbrev Op.mk {δ: Dialect α σ ε}
     (name: String)
     (res: List (TypedSSAVal δ))
     (args: List (TypedSSAVal δ))
-    (regions: List (OpRegion δ .R))
+    (regions: Regions δ)
     (attrs: AttrDict δ): OpRegion δ .O :=
   OpRegion.op name res args regions attrs
 
@@ -194,30 +206,62 @@ abbrev Op.mk {δ: Dialect α σ ε}
 abbrev Region.mk {δ: Dialect α σ ε}
     (name: String)
     (args: List (TypedSSAVal δ))
-    (ops: List (OpRegion δ .O)): OpRegion δ .R :=
+    (ops: Ops δ): OpRegion δ .R :=
   OpRegion.region name args ops
+
+@[match_pattern]
+abbrev Ops.nil  {δ: Dialect α σ ε}: Ops δ :=
+  OpRegion.opsnil
+
+@[match_pattern]
+abbrev Ops.cons  {δ: Dialect α σ ε} (o: Op δ) (os: Ops δ): Ops δ :=
+  OpRegion.opscons o os
+
+@[match_pattern]
+abbrev Regions.nil  {δ: Dialect α σ ε}: Regions δ :=
+  OpRegion.regionsnil
+
+@[match_pattern]
+abbrev Regions.cons  {δ: Dialect α σ ε} (r: Region δ) (rs: Regions δ): Regions δ :=
+  OpRegion.regionscons r rs
+
 
 mutual
   def Op.countSize {δ: Dialect α σ ε}: Op δ -> Int
   | Op.mk name res args regions attrs => 1 + Regions.countSize regions
 
-  def Ops.countSize {δ: Dialect α σ ε}: List (Op δ) -> Int
-  | [] => 0
-  | o :: os => Op.countSize o + Ops.countSize os
+  def Ops.countSize {δ: Dialect α σ ε}: Ops δ -> Int
+  | .nil => 0
+  | .cons o os => Op.countSize o + Ops.countSize os
 
   def Region.countSize {δ: Dialect α σ ε}: Region δ -> Int
   | Region.mk name args ops => 1 + Ops.countSize ops
 
-  def Regions.countSize {δ: Dialect α σ ε}: List (Region δ) -> Int
-  | [] => 0
-  | r :: rs => Region.countSize r + Regions.countSize rs
+  def Regions.countSize {δ: Dialect α σ ε}: Regions δ -> Int
+  | .nil => 0
+  | .cons r rs => Region.countSize r + Regions.countSize rs
 
 end
 
+
 /-
-Note that this uses WellFounded.fix
+Note that this uses WellFounded.fix.
+Why does this STILL use WellFounded.fix?
 -/
 #print Op.countSize._mutual
+
+def OpRegion.countSize {δ: Dialect α σ ε}: OpRegion δ k → Int
+| .regionsnil => 0
+| .regionscons r rs => r.countSize + rs.countSize
+| .opsnil => 0
+| .opscons o os => o.countSize + os.countSize
+| .op name res args regions attrs => regions.countSize + 1
+| .region name args ops => 1 + ops.countSize
+
+/-
+This still uses WellFounded.fix
+-/
+#print OpRegion.countSize._unary
 
 -- Attribute definition on the form #<name> = <val>
 inductive AttrDefn (δ: Dialect α σ ε) where
