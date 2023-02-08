@@ -163,26 +163,25 @@ end
 
 -- op / region tag
 inductive OR
-| O : OR
-| Os : OR
-| R : OR
-| Rs: OR
-inductive OpRegion (δ: Dialect α σ ε) : OR -> Type where
+| O : OR -- op
+| Os : OR -- list of ops
+| R : OR -- region
+| Rs: OR -- list of regions
+inductive OpRegion (δ: Dialect α σ ε): OR -> Type where
  | op: (name: String)
-         -> (regions: OpRegion δ .Rs)
-      -> OpRegion δ .O
- | opsnil : OpRegion  δ .Os
+      -> (regions: OpRegion δ .Rs)
+       -> OpRegion δ .O
+ | opsnil : OpRegion δ .Os
  | opscons : (head : OpRegion δ .O)
-            -> (tail: OpRegion  δ .Os)
-            -> OpRegion δ .Os
- | regionsnil : OpRegion  δ .Rs
+            -> (tail: OpRegion δ .Os)
+            -> OpRegion δ  .Os
+ | regionsnil : OpRegion δ .Rs
  | regionscons : (head : OpRegion δ .R)
-                 -> (tail: OpRegion  δ .Rs)
+                 -> (tail: OpRegion δ  .Rs)
                  -> OpRegion δ .Rs
  | region: (name : String)
-              -> (ops: OpRegion δ .Os)
-           ->  OpRegion δ .R
-
+           -> (ops: OpRegion δ .Os)
+           ->  OpRegion δ  .R
 
 abbrev Op (δ : Dialect α σ ε): Type := OpRegion δ .O
 abbrev Region (δ : Dialect α σ ε): Type := OpRegion δ .R
@@ -219,17 +218,17 @@ abbrev Regions.cons  {δ: Dialect α σ ε} (r: Region δ) (rs: Regions δ): Reg
 
 
 mutual
-  def Op.countSize {δ: Dialect α σ ε}: Op δ -> Int
+  def Op.countSize: Op δ -> Int
   | Op.mk name regions  => 1 + Regions.countSize regions
 
-  def Ops.countSize {δ: Dialect α σ ε}: Ops δ -> Int
+  def Ops.countSize: Ops δ -> Int
   | .nil => 0
   | .cons o os => Op.countSize o + Ops.countSize os
 
-  def Region.countSize {δ: Dialect α σ ε}: Region δ -> Int
+  def Region.countSize: Region δ -> Int
   | Region.mk name ops => 1 + Ops.countSize ops
 
-  def Regions.countSize {δ: Dialect α σ ε}: Regions δ -> Int
+  def Regions.countSize: Regions δ -> Int
   | .nil => 0
   | .cons r rs => Region.countSize r + Regions.countSize rs
 
@@ -240,22 +239,61 @@ end
 Note that this uses WellFounded.fix.
 Why does this STILL use WellFounded.fix?
 -/
-#print Op.countSize._mutual
+#print Op.countSize
+#print Op.countSize._unary._mutual
 
-def OpRegion.countSize {δ: Dialect α σ ε}: OpRegion δ k → Int
+
+/-
+WTF, why does the explicit (implicit '{δ : Dialect α σ ε}') parameter
+change the elaboration?
+-/
+
+def OpRegion.countSize1: OpRegion δ k → Int
 | .regionsnil => 0
-| .regionscons r rs => r.countSize + rs.countSize
+| .regionscons r rs => r.countSize1 + rs.countSize1
 | .opsnil => 0
-| .opscons o os => o.countSize + os.countSize
-| .op name regions => regions.countSize + 1
-| .region name ops => 1 + ops.countSize
+| .opscons o os => o.countSize1 + os.countSize1
+| .op name regions  => regions.countSize1 + 1
+| .region name ops => 1 + ops.countSize1
+/-
+def MLIR.AST.OpRegion.countSize1 : {α σ : Type} →
+  {ε : σ → Type} → {δ : Dialect α σ ε} → {k : OR} → OpRegion δ k → Int :=
+-/
+#print OpRegion.countSize1
+
+
+-- <non-varying> <varying>
+def OpRegion.countSize2 {δ: Dialect α σ ε}: OpRegion δ k → Int
+| .regionsnil => 0
+| .regionscons r rs => r.countSize2 + rs.countSize2
+| .opsnil => 0
+| .opscons o os => o.countSize2 + os.countSize2
+| .op name regions => regions.countSize2 + 1
+| .region name ops => 1 + ops.countSize2
 
 /-
 This still uses WellFounded.fix.
 Question: Is it the extra Dialect argument that confuses the codegen?
 -/
-#print OpRegion.countSize
-#print OpRegion.countSize._unary
+/-
+def MLIR.AST.OpRegion.countSize2 : {α σ : Type} →
+  {ε : σ → Type} → {k : OR} →  {δ : Dialect α σ ε} → OpRegion δ k → Int :=
+                   ^^^^^^^
+-/
+#print OpRegion.countSize2
+#print OpRegion.countSize2._unary
+
+-- <non-varying> <varying>
+def OpRegion.countSize3 {δ: Dialect α σ ε} {k}: OpRegion δ k → Int
+| .regionsnil => 0
+| .regionscons r rs => r.countSize2 + rs.countSize2
+| .opsnil => 0
+| .opscons o os => o.countSize2 + os.countSize2
+| .op name regions => regions.countSize2 + 1
+| .region name ops => 1 + ops.countSize2
+
+
+#print OpRegion.countSize3
 
 -- Attribute definition on the form #<name> = <val>
 inductive AttrDefn (δ: Dialect α σ ε) where
