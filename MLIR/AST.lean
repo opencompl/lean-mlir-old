@@ -216,6 +216,13 @@ abbrev Regions.nil  {δ: Dialect α σ ε}: Regions δ :=
 abbrev Regions.cons  {δ: Dialect α σ ε} (r: Region δ) (rs: Regions δ): Regions δ :=
   OpRegion.regionscons r rs
 
+def Ops.toList {δ: Dialect α σ ε}: Ops δ → List (Op δ)
+  | .opsnil => []
+  | .opscons o os => o :: toList os
+
+def Regions.toList {δ: Dialect α σ ε}: Regions δ → List (Region δ)
+  | .regionsnil => []
+  | .regionscons r rs => r :: toList rs
 
 mutual
   def Op.countSize: Op δ -> Int
@@ -294,6 +301,153 @@ def OpRegion.countSize3 {δ: Dialect α σ ε} {k}: OpRegion δ k → Int
 
 
 #print OpRegion.countSize3
+
+/-=== Stuff that is defined only once ===-/
+
+-- Subset of OpRegion object types that do not correspond to nested inductives
+inductive OR' := | O | R
+
+-- Extension of motive for occurrences of nested inductives
+abbrev OpRegion.mRecMotive (motive: OR' → Type): OR → Type
+  | .O => motive .O
+  | .Os => List (motive .O)
+  | .R => motive .R
+  | .Rs => List (motive .R)
+
+/- Case types. This repeats OpRegion constructors somewhat -/
+inductive OpRegion.mRec_O_type (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
+  | op (name: String) (regions: Regions δ) (regions_rec: List (motive .R))
+inductive OpRegion.mRec_R_type (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
+  | region (name: String) (ops: Ops δ) (ops_rec: List (motive .O))
+
+-- Short notation for the types of the case functions
+abbrev OpRegion.mRec_O (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε} :=
+  OpRegion.mRec_O_type motive (δ := δ) → motive .O
+abbrev OpRegion.mRec_R (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε} :=
+  OpRegion.mRec_R_type motive (δ := δ) → motive .R
+
+-- Dependent mutual recursor
+def OpRegion.mRec (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
+    (caseO: OpRegion.mRec_O motive (δ := δ))
+    (caseR: OpRegion.mRec_R motive (δ := δ)):
+    forall {tag}, OpRegion δ tag → mRecMotive motive tag := fun
+  | .op name regions =>
+      caseO <| .op name regions (mRec motive caseO caseR regions)
+  | .opsnil => []
+  | .opscons o os =>
+      mRec motive caseO caseR o :: mRec motive caseO caseR os
+  | .region name ops =>
+      caseR <| .region name ops (mRec motive caseO caseR ops)
+  | .regionsnil => []
+  | .regionscons r rs =>
+      mRec motive caseO caseR r :: mRec motive caseO caseR rs
+
+#print OpRegion.mRec
+
+/- Combined recursor, which we can use to get the convenience of repackaging
+   nested inductives without splitting definitions. This can do a lot more type
+   inference because we get the entire motive at once -/
+
+-- Useful middle-man to keep pattern matching for cRec-based definitions
+inductive OpRegion.cRec_type {δ: Dialect α σ ε} (τO τR: Type) :=
+  | op: String → List (Region δ) → List τR → cRec_type τO τR
+  | region: String → List (Op δ) → List τO → cRec_type τO τR
+
+def OpRegion.cRec {δ: Dialect α σ ε} {τO τR: Type}
+    (case: (t: cRec_type (δ := δ) τO τR) → (match t with | .op .. => τO | .region .. => τR)):
+    forall ⦃tag⦄, OpRegion δ tag → mRecMotive (fun | .O => τO | .R => τR) tag :=
+  fun _ o => match o with
+  | .op name regions =>
+      case <| .op name (Regions.toList regions) (cRec case regions)
+  | .opsnil => []
+  | .opscons o os =>
+      cRec case o :: cRec case os
+  | .region name ops =>
+      case <| .region name (Ops.toList ops) (cRec case ops)
+  | .regionsnil => []
+  | .regionscons r rs =>
+      cRec case r :: cRec case rs
+
+#print OpRegion.cRec
+
+/- Non dependent recursor, which we can use to use case functions individually
+   when the motive is the same for both ops and regions -/
+
+inductive OpRegion.mmRec_O_type (motive: Type) {δ: Dialect α σ ε}
+  | op (name: String) (regions: Regions δ) (regions_rec: List motive)
+inductive OpRegion.mmRec_R_type (motive: Type) {δ: Dialect α σ ε}
+  | region (name: String) (ops: Ops δ) (ops_rec: List motive)
+
+abbrev OpRegion.mmRec_O (motive: Type) {α σ ε} {δ: Dialect α σ ε} :=
+  OpRegion.mmRec_O_type motive (δ := δ) → motive
+abbrev OpRegion.mmRec_R (motive: Type) {α σ ε} {δ: Dialect α σ ε} :=
+  OpRegion.mmRec_R_type motive (δ := δ) → motive
+
+def OpRegion.mmRec {δ: Dialect α σ ε} {motive: Type}
+    (caseO: OpRegion.mmRec_O motive (δ := δ))
+    (caseR: OpRegion.mmRec_R motive (δ := δ)):
+    forall {tag}, OpRegion δ tag → mRecMotive (fun _ => motive) tag := fun
+  | .op name regions =>
+      caseO <| .op name regions (mmRec caseO caseR regions)
+  | .opsnil => []
+  | .opscons o os =>
+      mmRec caseO caseR o :: mmRec caseO caseR os
+  | .region name ops =>
+      caseR <| .region name ops (mmRec caseO caseR ops)
+  | .regionsnil => []
+  | .regionscons r rs =>
+      mmRec caseO caseR r :: mmRec caseO caseR rs
+
+#print OpRegion.mmRec
+
+/-=== Stuff that is defined once for each mutually-recursive function ===-/
+
+abbrev CountSize4Motive: OR' → Type
+  | .O => Int
+  | .R => Int
+
+def Op.countSize4 {δ: Dialect α σ ε}: OpRegion.mRec_O CountSize4Motive (δ := δ)
+  | .op _ _ regions_rec => regions_rec |>.foldl (.+.) 1
+def Region.countSize4 {δ: Dialect α σ ε}: OpRegion.mRec_R CountSize4Motive (δ := δ)
+  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+
+def OpRegion.countSize4 {δ: Dialect α σ ε} (o: OpRegion δ tag) :=
+  mRec _ Op.countSize4 Region.countSize4 o
+
+example: OpRegion.countSize4 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+
+-- Other version if we accept to use a single function in exchange for implicit
+-- motives with type inference
+def OpRegion.countSize5 {δ: Dialect α σ ε} := cRec (δ := δ) fun
+  | .op _ _ regions_rec => regions_rec.foldl (.+.) 1
+  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+
+example: OpRegion.countSize5 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+
+-- Other version if we have a uniform motive but want case functions
+
+def Op.countSize6 {δ: Dialect α σ ε}: OpRegion.mmRec_O Int (δ := δ)
+  | .op _ _ regions_rec => regions_rec.foldl (.+.) 1
+def Region.countSize6 {δ: Dialect α σ ε}: OpRegion.mmRec_R Int (δ := δ)
+  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+
+def OpRegion.countSize6 {δ: Dialect α σ ε} (o: OpRegion δ tag) :=
+  mmRec Op.countSize6 Region.countSize6 o
+
+example: OpRegion.countSize6 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+
+-- Better with 'where'
+
+def OpRegion.countSize7 {δ: Dialect α σ ε} (o: OpRegion δ tag) :=
+  mmRec countOp countRegion o where
+countOp
+  | .op  _ _ regions_rec => regions_rec.foldl (.+.) 1
+countRegion
+  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+
+example: OpRegion.countSize7 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+
+/-===-/
 
 -- Attribute definition on the form #<name> = <val>
 inductive AttrDefn (δ: Dialect α σ ε) where
