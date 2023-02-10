@@ -169,8 +169,11 @@ inductive OR
 | Rs: OR -- list of regions
 inductive OpRegion (δ: Dialect α σ ε): OR -> Type where
  | op: (name: String)
+      -> (res: List (TypedSSAVal δ))
+      -> (args: List (TypedSSAVal δ))
       -> (regions: OpRegion δ .Rs)
-       -> OpRegion δ .O
+      -> (attrs: AttrDict δ)
+      -> OpRegion δ .O
  | opsnil : OpRegion δ .Os
  | opscons : (head : OpRegion δ .O)
             -> (tail: OpRegion δ .Os)
@@ -180,25 +183,48 @@ inductive OpRegion (δ: Dialect α σ ε): OR -> Type where
                  -> (tail: OpRegion δ  .Rs)
                  -> OpRegion δ .Rs
  | region: (name : String)
-           -> (ops: OpRegion δ .Os)
-           ->  OpRegion δ  .R
+          -> (args: List (TypedSSAVal δ))
+          -> (ops: OpRegion δ .Os)
+          ->  OpRegion δ  .R
 
 abbrev Op (δ : Dialect α σ ε): Type := OpRegion δ .O
 abbrev Region (δ : Dialect α σ ε): Type := OpRegion δ .R
 abbrev Regions (δ : Dialect α σ ε): Type := OpRegion δ .Rs
 abbrev Ops (δ : Dialect α σ ε): Type := OpRegion δ .Os
 
+def Regions.isEmpty: Regions δ → Bool
+| .regionsnil => True
+| .regionscons k ks => False
+
+def Regions.snoc: Regions δ → Region δ → Regions δ
+| .regionsnil, r => .regionscons r .regionsnil
+| (.regionscons r rs),  r' => .regionscons r (Regions.snoc rs r)
+
+
+def Ops.snoc: Ops δ → Op δ → Ops δ
+| .opsnil, x => .opscons x .opsnil
+| (.opscons x xs),  x' => .opscons x (Ops.snoc xs x')
+
+def Ops.append: Ops δ → Ops δ → Ops δ
+| .opsnil, xs => xs
+| (.opscons x xs),  xs' => .opscons x (Ops.append xs xs')
+
+
 @[match_pattern]
 abbrev Op.mk {δ: Dialect α σ ε}
     (name: String)
-    (regions: Regions δ): OpRegion δ .O :=
-  OpRegion.op name regions
+    (res: List (TypedSSAVal δ))
+    (args: List (TypedSSAVal δ))
+    (regions: Regions δ)
+    (attrs: AttrDict δ) : OpRegion δ .O :=
+  OpRegion.op name res args regions attrs
 
 @[match_pattern]
 abbrev Region.mk {δ: Dialect α σ ε}
     (name: String)
+    (args: List (TypedSSAVal δ))
     (ops: Ops δ): OpRegion δ .R :=
-  OpRegion.region name  ops
+  OpRegion.region name args ops
 
 @[match_pattern]
 abbrev Ops.nil  {δ: Dialect α σ ε}: Ops δ :=
@@ -226,19 +252,18 @@ def Regions.toList {δ: Dialect α σ ε}: Regions δ → List (Region δ)
 
 mutual
   def Op.countSize: Op δ -> Int
-  | Op.mk name regions  => 1 + Regions.countSize regions
+  | Op.mk name res args regions attrs => 1 + Regions.countSize regions
 
   def Ops.countSize: Ops δ -> Int
   | .nil => 0
   | .cons o os => Op.countSize o + Ops.countSize os
 
   def Region.countSize: Region δ -> Int
-  | Region.mk name ops => 1 + Ops.countSize ops
+  | Region.mk name args  ops => 1 + Ops.countSize ops
 
   def Regions.countSize: Regions δ -> Int
   | .nil => 0
   | .cons r rs => Region.countSize r + Regions.countSize rs
-
 end
 
 
@@ -260,8 +285,8 @@ def OpRegion.countSize1: OpRegion δ k → Int
 | .regionscons r rs => r.countSize1 + rs.countSize1
 | .opsnil => 0
 | .opscons o os => o.countSize1 + os.countSize1
-| .op name regions  => regions.countSize1 + 1
-| .region name ops => 1 + ops.countSize1
+| .op name res args regions  attrs => regions.countSize1 + 1
+| .region name args ops => 1 + ops.countSize1
 /-
 def MLIR.AST.OpRegion.countSize1 : {α σ : Type} →
   {ε : σ → Type} → {δ : Dialect α σ ε} → {k : OR} → OpRegion δ k → Int :=
@@ -275,8 +300,8 @@ def OpRegion.countSize2 {δ: Dialect α σ ε}: OpRegion δ k → Int
 | .regionscons r rs => r.countSize2 + rs.countSize2
 | .opsnil => 0
 | .opscons o os => o.countSize2 + os.countSize2
-| .op name regions => regions.countSize2 + 1
-| .region name ops => 1 + ops.countSize2
+| .op name res args regions attrs => regions.countSize2 + 1
+| .region name res ops => 1 + ops.countSize2
 
 /-
 This still uses WellFounded.fix.
@@ -296,8 +321,8 @@ def OpRegion.countSize3 {δ: Dialect α σ ε} {k}: OpRegion δ k → Int
 | .regionscons r rs => r.countSize2 + rs.countSize2
 | .opsnil => 0
 | .opscons o os => o.countSize2 + os.countSize2
-| .op name regions => regions.countSize2 + 1
-| .region name ops => 1 + ops.countSize2
+| .op name res args regions attrs => regions.countSize2 + 1
+| .region name args ops => 1 + ops.countSize2
 
 
 #print OpRegion.countSize3
@@ -316,9 +341,12 @@ abbrev OpRegion.mRecMotive (motive: OR' → Type): OR → Type
 
 /- Case types. This repeats OpRegion constructors somewhat -/
 inductive OpRegion.mRec_O_type (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
-  | op (name: String) (regions: Regions δ) (regions_rec: List (motive .R))
+  | op (name: String)
+    (res args: List (TypedSSAVal δ))
+    (regions: Regions δ) 
+    (attrs: AttrDict δ) (regions_rec: List (motive .R))
 inductive OpRegion.mRec_R_type (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
-  | region (name: String) (ops: Ops δ) (ops_rec: List (motive .O))
+  | region (name: String) (args: List (TypedSSAVal δ)) (ops: Ops δ) (ops_rec: List (motive .O))
 
 -- Short notation for the types of the case functions
 abbrev OpRegion.mRec_O (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε} :=
@@ -331,13 +359,13 @@ def OpRegion.mRec (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
     (caseO: OpRegion.mRec_O motive (δ := δ))
     (caseR: OpRegion.mRec_R motive (δ := δ)):
     forall {tag}, OpRegion δ tag → mRecMotive motive tag := fun
-  | .op name regions =>
-      caseO <| .op name regions (mRec motive caseO caseR regions)
+  | .op name res args regions attrs =>
+      caseO <| .op name res args regions attrs (mRec motive caseO caseR regions)
   | .opsnil => []
   | .opscons o os =>
       mRec motive caseO caseR o :: mRec motive caseO caseR os
-  | .region name ops =>
-      caseR <| .region name ops (mRec motive caseO caseR ops)
+  | .region name args ops =>
+      caseR <| .region name args ops (mRec motive caseO caseR ops)
   | .regionsnil => []
   | .regionscons r rs =>
       mRec motive caseO caseR r :: mRec motive caseO caseR rs
@@ -350,20 +378,21 @@ def OpRegion.mRec (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
 
 -- Useful middle-man to keep pattern matching for cRec-based definitions
 inductive OpRegion.cRec_type {δ: Dialect α σ ε} (τO τR: Type) :=
-  | op: String → List (Region δ) → List τR → cRec_type τO τR
-  | region: String → List (Op δ) → List τO → cRec_type τO τR
+  | op: (name: String) → (res args: List (TypedSSAVal δ)) → List (Region δ) → AttrDict δ → 
+     List τR → cRec_type τO τR
+  | region: String → (args: List (TypedSSAVal δ)) → (ops: List (Op δ)) → List τO → cRec_type τO τR
 
 def OpRegion.cRec {δ: Dialect α σ ε} {τO τR: Type}
     (case: (t: cRec_type (δ := δ) τO τR) → (match t with | .op .. => τO | .region .. => τR)):
     forall ⦃tag⦄, OpRegion δ tag → mRecMotive (fun | .O => τO | .R => τR) tag :=
   fun _ o => match o with
-  | .op name regions =>
-      case <| .op name (Regions.toList regions) (cRec case regions)
+  | .op name res args regions attrs =>
+      case <| .op name res args (Regions.toList regions) attrs (cRec case regions) 
   | .opsnil => []
   | .opscons o os =>
       cRec case o :: cRec case os
-  | .region name ops =>
-      case <| .region name (Ops.toList ops) (cRec case ops)
+  | .region name args ops =>
+      case <| .region name args (Ops.toList ops) (cRec case ops)
   | .regionsnil => []
   | .regionscons r rs =>
       cRec case r :: cRec case rs
@@ -374,9 +403,10 @@ def OpRegion.cRec {δ: Dialect α σ ε} {τO τR: Type}
    when the motive is the same for both ops and regions -/
 
 inductive OpRegion.mmRec_O_type (motive: Type) {δ: Dialect α σ ε}
-  | op (name: String) (regions: Regions δ) (regions_rec: List motive)
+  | op (name: String) (res args: List (TypedSSAVal δ)) (regions: Regions δ)
+      (attrs: AttrDict δ) (regions_rec: List motive)
 inductive OpRegion.mmRec_R_type (motive: Type) {δ: Dialect α σ ε}
-  | region (name: String) (ops: Ops δ) (ops_rec: List motive)
+  | region (name: String) (args: List (TypedSSAVal δ))(ops: Ops δ) (ops_rec: List motive)
 
 abbrev OpRegion.mmRec_O (motive: Type) {α σ ε} {δ: Dialect α σ ε} :=
   OpRegion.mmRec_O_type motive (δ := δ) → motive
@@ -387,13 +417,13 @@ def OpRegion.mmRec {δ: Dialect α σ ε} {motive: Type}
     (caseO: OpRegion.mmRec_O motive (δ := δ))
     (caseR: OpRegion.mmRec_R motive (δ := δ)):
     forall {tag}, OpRegion δ tag → mRecMotive (fun _ => motive) tag := fun
-  | .op name regions =>
-      caseO <| .op name regions (mmRec caseO caseR regions)
+  | .op name res args regions attrs =>
+      caseO <| .op name res args regions attrs (mmRec caseO caseR regions)
   | .opsnil => []
   | .opscons o os =>
       mmRec caseO caseR o :: mmRec caseO caseR os
-  | .region name ops =>
-      caseR <| .region name ops (mmRec caseO caseR ops)
+  | .region name args ops =>
+      caseR <| .region name args ops (mmRec caseO caseR ops)
   | .regionsnil => []
   | .regionscons r rs =>
       mmRec caseO caseR r :: mmRec caseO caseR rs
@@ -407,45 +437,45 @@ abbrev CountSize4Motive: OR' → Type
   | .R => Int
 
 def Op.countSize4 {δ: Dialect α σ ε}: OpRegion.mRec_O CountSize4Motive (δ := δ)
-  | .op _ _ regions_rec => regions_rec |>.foldl (.+.) 1
+  | .op name res args regions attrs regions_rec => regions_rec |>.foldl (.+.) 1
 def Region.countSize4 {δ: Dialect α σ ε}: OpRegion.mRec_R CountSize4Motive (δ := δ)
-  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+  | .region name args regions ops_rec => ops_rec.foldl (.+.) 1
 
 def OpRegion.countSize4 {δ: Dialect α σ ε} (o: OpRegion δ tag) :=
   mRec _ Op.countSize4 Region.countSize4 o
 
-example: OpRegion.countSize4 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+example: OpRegion.countSize4 (δ := .empty) (.op "test" [] [] .regionsnil (AttrDict.mk [])) = 1 := rfl
 
 -- Other version if we accept to use a single function in exchange for implicit
 -- motives with type inference
 def OpRegion.countSize5 {δ: Dialect α σ ε} := cRec (δ := δ) fun
-  | .op _ _ regions_rec => regions_rec.foldl (.+.) 1
-  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+  | .op name res args regions attrs regions_rec => regions_rec.foldl (.+.) 1
+  | .region name args regions ops_rec => ops_rec.foldl (.+.) 1
 
-example: OpRegion.countSize5 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+example: OpRegion.countSize5 (δ := .empty) (.op "test" [] [] .regionsnil (AttrDict.mk [])) = 1 := rfl
 
 -- Other version if we have a uniform motive but want case functions
 
 def Op.countSize6 {δ: Dialect α σ ε}: OpRegion.mmRec_O Int (δ := δ)
-  | .op _ _ regions_rec => regions_rec.foldl (.+.) 1
+  | .op name res args regions attrs regions_rec => regions_rec.foldl (.+.) 1
 def Region.countSize6 {δ: Dialect α σ ε}: OpRegion.mmRec_R Int (δ := δ)
-  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+  | .region name args regions ops_rec => ops_rec.foldl (.+.) 1
 
 def OpRegion.countSize6 {δ: Dialect α σ ε} (o: OpRegion δ tag) :=
   mmRec Op.countSize6 Region.countSize6 o
 
-example: OpRegion.countSize6 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+example: OpRegion.countSize6 (δ := .empty) (.op "test" [] [] .regionsnil (AttrDict.mk [])) = 1 := rfl
 
 -- Better with 'where'
 
 def OpRegion.countSize7 {δ: Dialect α σ ε} (o: OpRegion δ tag) :=
   mmRec countOp countRegion o where
 countOp
-  | .op  _ _ regions_rec => regions_rec.foldl (.+.) 1
+  | .op  name res args regions attrs regions_rec => regions_rec.foldl (.+.) 1
 countRegion
-  | .region _ _ ops_rec => ops_rec.foldl (.+.) 1
+  | .region name args regions ops_rec => ops_rec.foldl (.+.) 1
 
-example: OpRegion.countSize7 (δ := .empty) (.op "test" .regionsnil) = 1 := rfl
+example: OpRegion.countSize7 (δ := .empty) (.op "test" [] [] .regionsnil (AttrDict.mk [])) = 1 := rfl
 
 /-===-/
 
@@ -461,10 +491,10 @@ inductive Module (δ: Dialect α σ ε) where
 
 
 def Op.name: Op δ -> String
-| Op.mk name .. => name
+| .op name .. => name
 
 def Op.res: Op δ -> List (TypedSSAVal δ)
-| Op.mk _ res .. => res
+| .op _ res .. => res
 
 def Op.resNames: Op δ → List SSAVal
 | Op.mk _ res .. => res.map Prod.fst
@@ -481,8 +511,9 @@ def Op.argNames: Op δ → List SSAVal
 def Op.argTypes: Op δ → List (MLIRType δ)
 | Op.mk _ _ args .. => args.map Prod.snd
 
+-- | TODO: See if we want to return this, or we want to return 'Regions δ'
 def Op.regions: Op δ -> List (Region δ)
-| Op.mk _ _ _ regions _ => regions
+| Op.mk name res args regions attrs => regions.toList
 
 def Op.attrs: Op δ -> AttrDict δ
 | Op.mk _ _ _ _ attrs => attrs
@@ -564,9 +595,10 @@ def Region.name (region: Region δ): BBName :=
   match region with
   | Region.mk name args ops => BBName.mk name
 
+-- TODO: see if we want to return this, or if we want to return 'Ops δ'
 def Region.ops (region: Region δ): List (Op δ) :=
   match region with
-  | Region.mk name args ops => ops
+  | Region.mk name args ops => ops.toList
 
 -- TODO: delete CoeDialect
 mutual
@@ -619,6 +651,7 @@ instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [
     Coe (AttrDict δ₁) (AttrDict δ₂) where
   coe := coeAttrDict
 
+/-
 mutual
 variable [δ₁: Dialect α₁ σ₁ ε₁] [δ₂: Dialect α₂ σ₂ ε₂] [c: CoeDialect δ₁ δ₂]
 
@@ -639,31 +672,41 @@ def coeRegionList: List (Region δ₁) → List (Region δ₂)
   | r :: rs => coeRegion r :: coeRegionList rs
 
 end
+-/
+
+def coeOpRegion [CoeDialect δ₁ δ₂]: OpRegion δ₁ k → OpRegion δ₂ k
+| .op name res args regions attrs => 
+    .op name res args (coeOpRegion regions) attrs
+| .opsnil => .opsnil
+| .opscons o os => .opscons (coeOpRegion o) (coeOpRegion os) 
+| .regionsnil => .regionsnil
+| .regionscons r rs => .regionscons (coeOpRegion r) (coeOpRegion rs)
+| .region name args ops => .region name args (coeOpRegion ops)
 
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (Op δ₁) (Op δ₂) where
-  coe := coeOp
+  coe := coeOpRegion
 
+-- | TODO: I should not need this
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (List (Op δ₁)) (List (Op δ₂)) where
-  coe := coeOpList
+  coe := List.map coeOpRegion
 
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (Region δ₁) (Region δ₂) where
-  coe := coeRegion
+  coe := coeOpRegion
 
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (List (Region δ₁)) (List (Region δ₂)) where
-  coe := coeRegionList
+  coe := List.map coeOpRegion
 
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (Region δ₁) (Region δ₂) where
-  coe := coeRegion
+  coe := coeOpRegion
 
 instance {δ₁: Dialect α₁ σ₁ ε₁} {δ₂: Dialect α₂ σ₂ ε₂} [CoeDialect δ₁ δ₂]:
     Coe (List (Region δ₁)) (List (Region δ₂)) where
-  coe := coeRegionList
-
+  coe := List.map coeOpRegion
 
 instance : Pretty Signedness where
   doc sgn :=
@@ -796,9 +839,9 @@ def op_to_doc (op: Op δ): Doc :=
 
         doc_name ++ doc_args ++  doc_bbs ++ doc_rgns ++ doc attrs ++ " : " ++ doc ty -/
 
-def list_op_to_doc: List (Op δ) → List Doc
-  | [] => []
-  | op :: ops => op_to_doc op :: list_op_to_doc ops
+def list_op_to_doc: Ops δ → List Doc
+  | .opsnil => []
+  | .opscons op ops => op_to_doc op :: list_op_to_doc ops
 
 -- | TODO: fix the dugly syntax
 def rgn_to_doc: Region δ → Doc
@@ -809,9 +852,9 @@ def rgn_to_doc: Region δ → Doc
          else  "^" name "(" (args.map $ fun (v, t) => [doc| v ":" t]),* ")" ":");
         (nest list_op_to_doc ops);* ; } ]
 
-def list_rgn_to_doc: List (Region δ) → List Doc
-  | [] => []
-  | r :: rs => rgn_to_doc r :: list_rgn_to_doc rs
+def list_rgn_to_doc: (Regions δ) → List Doc
+  | .regionsnil => []
+  | .regionscons r rs => (rgn_to_doc r) :: (list_rgn_to_doc rs)
 end
 
 instance : Pretty (Op δ) where
@@ -834,7 +877,7 @@ match a with
 
 def AttrDict.empty : AttrDict δ := AttrDict.mk []
 
-def Op.empty (name: String) : Op δ := Op.mk name [] [] [] AttrDict.empty
+def Op.empty (name: String) : Op δ := Op.mk name [] [] .regionsnil AttrDict.empty
 
 -- | TODO: needs to happen in a monad to ensure that ty has the right type!
 def Op.addArg (o: Op δ) (arg: TypedSSAVal δ): Op δ :=
@@ -850,7 +893,7 @@ def Op.addResult (o: Op δ) (new_res: TypedSSAVal δ): Op δ :=
 def Op.appendRegion (o: Op δ) (r: Region δ): Op δ :=
   match o with
   | Op.mk name res args regions attrs =>
-      Op.mk name res args (regions ++ [r]) attrs
+      Op.mk name res args (regions.snoc r) attrs
 
 
 -- | Note: AttrEntry can be given as String × AttrValue
@@ -904,14 +947,14 @@ def Op.addAttr (o: Op δ) (k: String) (v: AttrValue δ): Op δ :=
  | Op.mk name res args regions attrs =>
     Op.mk name res args regions (attrs.add (k, v))
 
-def Region.empty (name: String): Region δ := Region.mk name [] []
+def Region.empty (name: String): Region δ := Region.mk name [] .opsnil
 def Region.appendOp (bb: Region δ) (op: Op δ): Region δ :=
   match bb with
-  | Region.mk name args bbs => Region.mk name args (bbs ++ [op])
+  | Region.mk name args bbs => Region.mk name args (bbs.snoc op)
 
 def Region.appendOps (bb: Region δ) (ops: List (Op δ)): Region δ :=
   match bb with
-  | Region.mk name args bbs => Region.mk name args (bbs ++ ops)
+  | Region.mk name args bbs => Region.mk name args (bbs.append ops)
 
 
 instance : Pretty (Op δ) where
