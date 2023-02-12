@@ -209,6 +209,9 @@ def Ops.append: Ops δ → Ops δ → Ops δ
 | .opsnil, xs => xs
 | (.opscons x xs),  xs' => .opscons x (Ops.append xs xs')
 
+def Ops.fromList: List (Op δ) → Ops δ
+| [] => .opsnil
+| x :: xs => .opscons x (Ops.fromList xs)
 
 @[match_pattern]
 abbrev Op.mk {δ: Dialect α σ ε}
@@ -343,7 +346,7 @@ abbrev OpRegion.mRecMotive (motive: OR' → Type): OR → Type
 inductive OpRegion.mRec_O_type (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
   | op (name: String)
     (res args: List (TypedSSAVal δ))
-    (regions: Regions δ) 
+    (regions: Regions δ)
     (attrs: AttrDict δ) (regions_rec: List (motive .R))
 inductive OpRegion.mRec_R_type (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
   | region (name: String) (args: List (TypedSSAVal δ)) (ops: Ops δ) (ops_rec: List (motive .O))
@@ -378,7 +381,7 @@ def OpRegion.mRec (motive: OR' → Type) {α σ ε} {δ: Dialect α σ ε}
 
 -- Useful middle-man to keep pattern matching for cRec-based definitions
 inductive OpRegion.cRec_type {δ: Dialect α σ ε} (τO τR: Type) :=
-  | op: (name: String) → (res args: List (TypedSSAVal δ)) → List (Region δ) → AttrDict δ → 
+  | op: (name: String) → (res args: List (TypedSSAVal δ)) → List (Region δ) → AttrDict δ →
      List τR → cRec_type τO τR
   | region: String → (args: List (TypedSSAVal δ)) → (ops: List (Op δ)) → List τO → cRec_type τO τR
 
@@ -387,7 +390,7 @@ def OpRegion.cRec {δ: Dialect α σ ε} {τO τR: Type}
     forall ⦃tag⦄, OpRegion δ tag → mRecMotive (fun | .O => τO | .R => τR) tag :=
   fun _ o => match o with
   | .op name res args regions attrs =>
-      case <| .op name res args (Regions.toList regions) attrs (cRec case regions) 
+      case <| .op name res args (Regions.toList regions) attrs (cRec case regions)
   | .opsnil => []
   | .opscons o os =>
       cRec case o :: cRec case os
@@ -675,10 +678,10 @@ end
 -/
 
 def coeOpRegion [CoeDialect δ₁ δ₂]: OpRegion δ₁ k → OpRegion δ₂ k
-| .op name res args regions attrs => 
+| .op name res args regions attrs =>
     .op name res args (coeOpRegion regions) attrs
 | .opsnil => .opsnil
-| .opscons o os => .opscons (coeOpRegion o) (coeOpRegion os) 
+| .opscons o os => .opscons (coeOpRegion o) (coeOpRegion os)
 | .regionsnil => .regionsnil
 | .regionscons r rs => .regionscons (coeOpRegion r) (coeOpRegion rs)
 | .region name args ops => .region name args (coeOpRegion ops)
@@ -954,7 +957,7 @@ def Region.appendOp (bb: Region δ) (op: Op δ): Region δ :=
 
 def Region.appendOps (bb: Region δ) (ops: List (Op δ)): Region δ :=
   match bb with
-  | Region.mk name args bbs => Region.mk name args (bbs.append ops)
+  | Region.mk name args bbs => Region.mk name args (bbs.append <| Ops.fromList ops)
 
 
 instance : Pretty (Op δ) where
@@ -989,7 +992,7 @@ instance : Pretty (Module δ) where
       Doc.VGroup (attrs.map doc ++ fs.map doc)
 
 def Region.fromOps (os: List (Op δ)) (name: String := "entry"): Region δ :=
-  Region.mk name [] os
+  Region.mk name [] (Ops.fromList os)
 
 def Region.setArgs (bb: Region δ) (args: List (SSAVal × MLIRType δ)) : Region δ :=
 match bb with
