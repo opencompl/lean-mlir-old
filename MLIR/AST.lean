@@ -187,10 +187,29 @@ inductive OpRegion (δ: Dialect α σ ε): OR -> Type where
           -> (ops: OpRegion δ .Os)
           ->  OpRegion δ  .R
 
+
 abbrev Op (δ : Dialect α σ ε): Type := OpRegion δ .O
 abbrev Region (δ : Dialect α σ ε): Type := OpRegion δ .R
 abbrev Regions (δ : Dialect α σ ε): Type := OpRegion δ .Rs
 abbrev Ops (δ : Dialect α σ ε): Type := OpRegion δ .Os
+
+/-
+fold over ops and regions with a unary type 'a'.
+-/
+def OpRegion.fold
+   {δ: Dialect α σ ε}
+   {k}
+   (fop: Op δ → a)
+   (fops: a × (a → a → a))
+   (frgn: Region δ → a)
+   (frgns: a × (a → a → a)): OpRegion δ k → a
+| .opsnil => fops.1
+| .opscons head tl => fops.2 (head.fold fop fops frgn frgns) (tl.fold fop fops frgn frgns)
+| .regionsnil => frgns.1
+| .regionscons head tl => frgns.2 (head.fold fop fops frgn frgns) (tl.fold fop fops frgn frgns)
+| .region name args ops => frgn (.region name args ops)
+| .op name res args regions attrs => fop (.op name res args regions attrs)
+
 
 def Regions.isEmpty: Regions δ → Bool
 | .regionsnil => True
