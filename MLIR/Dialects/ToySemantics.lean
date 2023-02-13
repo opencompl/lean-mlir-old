@@ -137,6 +137,8 @@ def double_transpose: Region builtin := [mlir_region| {
 
 #eval Fitree.run <| run_toy (toy_semantics_op constant_stmt) SSAEnv.empty
 
+/-
+See 'bcb600a4500455ae9c72383031290cfc210ce13b' where this infinite looped.
 theorem double_transpose_correct:
   ∀ (t1: RankedTensor [.Known 2, .Known 4] .i32),
     run_toy (toy_semantics_region double_transpose)
@@ -155,3 +157,4 @@ theorem double_transpose_correct:
   simp [SSAEnv.get, SSAEnv.getT, SSAEnv.set]; simp_itree
   simp [SSAEnv.get, SSAEnv.getT, SSAEnv.set]; simp_itree
   rw [transpose_involutive]
+-/
