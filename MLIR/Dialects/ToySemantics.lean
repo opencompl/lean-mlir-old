@@ -38,7 +38,7 @@ inductive ToyOp: Type → Type :=
 def toy_semantics_op (op: Op builtin):
     Fitree (UBE +' SSAEnvE builtin +' ToyOp) Unit :=
   match op with
-  | Op.mk "toy.constant" [(res, builtin.tensor D₁ τ₁)] [] [] attrs =>
+  | Op.mk "toy.constant" [(res, builtin.tensor D₁ τ₁)] [] .regionsnil attrs =>
       match AttrDict.find attrs "value" with
       | some (builtin.dense_tensor_attr elem D₂ τ₂) =>
           match TensorLiteral.ofTensorElem elem D₁ τ₁ with
@@ -50,7 +50,7 @@ def toy_semantics_op (op: Op builtin):
       | _ =>
           raiseUB s!"{op}"
 
-  | Op.mk "toy.transpose" [(res, τ₂)] [(t_name, builtin.tensor D τ)] [] _ =>
+  | Op.mk "toy.transpose" [(res, τ₂)] [(t_name, builtin.tensor D τ)] .regionsnil _ =>
       match D with
       | [Dimension.Known n, Dimension.Known m] => do
           let t ← Fitree.trigger (SSAEnvE.Get (builtin.tensor
@@ -62,7 +62,7 @@ def toy_semantics_op (op: Op builtin):
           raiseUB s!"{op}"
 
   | Op.mk "toy.reshape" [(res, builtin.tensor D' τ₂)]
-        [(t_name, builtin.tensor D τ₁)] [] _ =>
+        [(t_name, builtin.tensor D τ₁)] .regionsnil _ =>
       if H: τ₁ = τ₂
         ∧ DimList.known D
         ∧ DimList.known D'
@@ -77,16 +77,20 @@ def toy_semantics_op (op: Op builtin):
 
   | _ => raiseUB s!"{op}"
 
+def toy_semantics_ops: Ops builtin →
+      Fitree (UBE +' (SSAEnvE builtin) +' ToyOp) Unit
+| .opsnil => Fitree.ret ()
+| .opscons o os => do
+      toy_semantics_op o
+      toy_semantics_ops os
 -- TODO: toy_semantics_bb: handle basic block arguments
 @[simp]
 def toy_semantics_region: Region builtin →
       Fitree (UBE +' (SSAEnvE builtin) +' ToyOp) Unit
-  | Region.mk name args [] =>
+  | Region.mk name args .opsnil =>
       Fitree.ret ()
-  | Region.mk name args (op1::ops) =>
-      List.foldr (fun t acc => Fitree.bind acc (fun _ => t))
-                 (toy_semantics_op op1)
-                 (ops.map toy_semantics_op)
+  | Region.mk name args os =>
+         (toy_semantics_ops os)
 
 /- Manually specified: ToyOp event handler -/
 
