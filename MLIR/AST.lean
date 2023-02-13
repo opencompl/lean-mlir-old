@@ -219,6 +219,10 @@ def Regions.snoc: Regions δ → Region δ → Regions δ
 | .regionsnil, r => .regionscons r .regionsnil
 | (.regionscons r rs),  r' => .regionscons r (Regions.snoc rs r)
 
+def Regions.fromList: List (Region δ) → Regions δ
+| [] => .regionsnil
+| r :: rs => .regionscons r (Regions.fromList rs)
+
 
 def Ops.snoc: Ops δ → Op δ → Ops δ
 | .opsnil, x => .opscons x .opsnil
