@@ -209,11 +209,11 @@ def OpM.denoteRegion {Δ: Dialect α σ ε}
 
 -- Denote the list of regions with an abstract `OpM.runRegion`
 def OpM.denoteRegions {Δ: Dialect α σ ε}
-  (regions: List (Region Δ))
+  (regions: Regions Δ)
   (ix: Nat): List (TypedArgs Δ → OpM Δ (TypedArgs Δ)) :=
  match regions with
- | [] => []
- | r :: rs => (OpM.denoteRegion r ix) :: OpM.denoteRegions rs (ix + 1)
+ | .regionsnil => []
+ | .regionscons r rs => (OpM.denoteRegion r ix) :: OpM.denoteRegions rs (ix + 1)
 
 -- Denote a region by using its denotation function from the list
 -- of regions. TODO: refactor to use Option
@@ -236,6 +236,54 @@ def OpM.toTopM (rs0: List (TypedArgs Δ → TopM Δ (TypedArgs Δ))):
 | OpM.RunRegion ix args k => do
        let ret <- TopM.denoteRegionsByIx rs0 ix args
        OpM.toTopM rs0 (k ret)
+
+/-
+The denotation of an op/sequence of ops has type (TypedArgs Δ).
+The denotation of a region has type (TypedArgs Δ → TypedArgs Δ).
+The denotation of a list of regions  is List (TypedArgs Δ → TypedArgs Δ).
+The return type of 'denoteTop' is dispatched based on the nested inductive tag
+-/
+abbrev MLIR.AST.OR.denoteTopType (Δ: Dialect α' σ' ε'): OR → Type :=
+fun ty => match ty with
+| .O => TopM Δ (TypedArgs Δ)
+| .Os => TopM Δ (TypedArgs Δ)
+| .R => TypedArgs Δ → TopM Δ (TypedArgs Δ)
+| .Rs  => List (TypedArgs Δ → TopM Δ (TypedArgs Δ))
+
+
+def denoteOpArgs (args: List (TypedSSAVal Δ)) : TopM Δ (List (TypedArg Δ)) := do
+  args.mapM (fun (name, τ) => do
+        pure ⟨τ, ← TopM.get τ name⟩)
+
+def MLIR.AST.OpRegion.denoteTop (Δ: Dialect α' σ' ε') [S: Semantics Δ]:
+  (or: OpRegion Δ k) → k.denoteTopType Δ
+| .opsnil => return []
+| .opscons o .opsnil =>  o.denoteTop Δ
+| .opscons o os => do
+    let _ ← o.denoteTop Δ
+    os.denoteTop Δ
+| .regionsnil => []
+| .regionscons r rs => r.denoteTop Δ :: rs.denoteTop Δ
+| .op name res0 args0 regions0 attrs => do
+      let resTy := res0.map Prod.snd
+      let args ← denoteOpArgs args0
+      -- Built the interpreted operation
+      let iop : IOp Δ := IOp.mk name resTy args (OpM.denoteRegions regions0 0) attrs
+      -- Use the dialect-provided semantics, and substitute regions
+      let ret ← OpM.toTopM (regions0.denoteTop Δ) (S.semantics_op iop)
+      match res0 with
+      | [] => pure ()
+      | [res] => match ret with
+          | [⟨τ, v⟩] => TopM.set τ res.fst v
+          | _ => TopM.raiseUB s!"denoteOp: expected 1 return value, got '{ret}'"
+      | _ => TopM.raiseUB s!"denoteOp: expected 0 or 1 results, got '{res0}'"
+      return ret
+| .region _name args body => fun (argvals : TypedArgs Δ) => TopM.scoped do
+     let formalArgs : List SSAVal := args.map Prod.fst
+     denoteTypedArgs argvals formalArgs
+     body.denoteTop Δ
+
+/-
 mutual
 variable (Δ: Dialect α' σ' ε') [S: Semantics Δ]
 
@@ -249,9 +297,6 @@ def TopM.mapDenoteRegion:
   let f := denoteRegion r
   (TopM.scoped ∘ f) :: TopM.mapDenoteRegion rs
 
-def denoteOpArgs (args: List (TypedSSAVal Δ)) : TopM Δ (List (TypedArg Δ)) := do
-  args.mapM (fun (name, τ) => do
-        pure ⟨τ, ← TopM.get τ name⟩)
 
 -- Convert a region to its denotation to establish finiteness.
 -- Then use this finiteness condition to evaluate region semantics.
@@ -299,10 +344,10 @@ termination_by
   denoteOp sem op  => sizeOf op
   denoteOps stmts _ => sizeOf stmts
   denoteRegion rgn _ => sizeOf rgn
+-/
 
 
-
-
+/-
 section Retraction
 
 variable {α₁ σ₁ ε₁} {δ₁: Dialect α₁ σ₁ ε₁}
@@ -599,7 +644,7 @@ instance
     let res1 :=  (S₁.semantics_op op₁)
     let res2 :=  (S₂.semantics_op op₂)
     OpM.orUnhandled res1 res2
-
+-/
 
 
 def run! {Δ: Dialect α' σ' ε'}  {R} [Inhabited R]
@@ -631,6 +676,7 @@ def semanticPostCondition₂ {Δ: Dialect α' σ' ε'}
 ### Denotation notation
 -/
 
+
 class Denote (δ: Dialect α σ ε) [S: Semantics δ]
     (T: {α σ: Type} → {ε: σ → Type} → Dialect α σ ε → Type) where
   denote: T δ → TopM δ (TypedArgs δ)
@@ -638,17 +684,17 @@ class Denote (δ: Dialect α σ ε) [S: Semantics δ]
 notation "⟦ " t " ⟧" => Denote.denote t
 
 instance DenoteOp (δ: Dialect α σ ε) [Semantics δ]: Denote δ Op where
-  denote op := denoteOp δ op
+  denote op := op.denoteTop δ
 -- This only works for single-BB regions with no arguments
 instance DenoteRegion (δ: Dialect α σ ε) [Semantics δ]: Denote δ Region where
-  denote r := denoteRegion δ r []
+  denote r := r.denoteTop δ []
 
 -- Not for regions because we need to specify the fuel
 
 @[simp] theorem Denote.denoteOp [Semantics δ]:
-  Denote.denote (self := DenoteOp δ) op = denoteOp δ op := rfl
+  Denote.denote (self := DenoteOp δ) op =  op.denoteTop δ := rfl
 @[simp] theorem Denote.denoteRegion [Semantics δ]:
-  Denote.denote (self := DenoteRegion δ) r = denoteRegion δ r [] := rfl
+  Denote.denote (self := DenoteRegion δ) r =  r.denoteTop δ [] := rfl
 
 /-
 ### Simplification tactics for semantics monad
@@ -675,6 +721,19 @@ macro "simp_semantics_monad" "at" "*" : tactic =>
 ### General proofs on denotation of programs
 -/
 
+
+/-
+## TODO: find out how to state the theorem!
+theorem denote_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃or: OpRegion Δ k⦄,
+    ∀ ⦃env r env'⦄,
+    or.denoteTop Δ  env = Except.ok (r, env') →
+    ∀ ⦃env₂⦄, env.equiv env₂ →
+    ∃ env₂', env'.equiv env₂' ∧
+      or.deonteTop Δ env₂ = Except.ok (r, env₂')
+-/
+
+
+/-
 theorem denoteOpArgs_res [S: Semantics Δ] ⦃args: List (TypedSSAVal Δ)⦄:
     ∀ ⦃env r env'⦄, denoteOpArgs Δ args env = Except.ok (r, env') →
     env' = env := by
@@ -867,7 +926,6 @@ theorem OpM.toTopM_regions_equiv {Δ: Dialect α σ ε}
     rw [HIx]; simp
     assumption
 
-
 theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op Δ⦄,
     ∀ ⦃env r env'⦄,
     denoteOp Δ op env = Except.ok (r, env') →
@@ -925,23 +983,23 @@ theorem denoteOp_equiv {Δ: Dialect α σ ε} [S: Semantics Δ] : ∀ ⦃op: Op 
               -/
 
 theorem denoteOps_equiv {Δ: Dialect α σ ε} [S: Semantics Δ]:
-  ∀ ⦃ops: List (Op Δ)⦄ ⦃env res env'⦄,
-  denoteOps Δ ops env = Except.ok (res, env') →
+  ∀ ⦃ops: Ops Δ⦄ ⦃env res env'⦄,
+  ops.denoteTop Δ  env = Except.ok (res, env') →
   ∀ ⦃env₂⦄, env.equiv env₂ →
   ∃ env₂', env'.equiv env₂' ∧
-  denoteOps Δ ops env₂ = Except.ok (res, env₂')
-  | [] => by
+  ops.denoteTop Δ env₂ = Except.ok (res, env₂')
+  | .opsnil => by
     intros env res env' H env₂ Henv₂
-    simp [denoteOps] at *; simp_monad at *
+    simp [OpRegion.denoteTop] at *; simp_monad at *
     cases H; subst res env
     constructor <;> simp; try assumption
-  | head::tail => by
+  | .opscons head tail => by
     intros env res env' H env₂ Henv₂
-    unfold denoteOps at H; simp_monad at H
+    unfold OpRegion.denoteTop at H; simp_monad at H
     match TAIL: tail with
-    | .nil =>
+    | .opsnil =>
       apply denoteOp_equiv <;> assumption
-    | .cons head2 tail2 =>
+    | .opscons head2 tail2 =>
       simp [denoteOps] at *; simp_monad at *
       split at H <;> try contradiction
       case h_2 headR HHeadR =>
@@ -1147,6 +1205,7 @@ def mapDenoteRegion_env_set_preserves {Δ: Dialect α σ ε} [S: Semantics Δ]:
     ∀ τ v, ∃ env₂', (env'.set name τ v).equiv env₂' ∧
     region args (env.set name τ v)  = Except.ok (res, env₂') :=
   by sorry
+-/
 
 /-
 ### PostSSAEnv
@@ -1285,12 +1344,12 @@ theorem run_denoteRegion {Δ: Dialect α σ ε} {S: Semantics Δ}
  (env: SSAEnv Δ)
  (name: String)
  (formals: List (TypedSSAVal Δ))
- (ops: List (Op Δ)):
-     run (denoteRegion Δ (Region.mk name formals ops) args) env = run
-      (do
+ (ops: Ops Δ):
+     run ((Region.mk name formals ops).denoteTop Δ args) env = run
+      (TopM.scoped do
         denoteTypedArgs args (List.map Prod.fst formals)
-        denoteOps Δ ops) env
- := by { simp[denoteRegion]; }
+        ops.denoteTop Δ) env
+ := by { simp[OpRegion.denoteTop]; }
 
 /-
 denotation of empty typed args is success
@@ -1303,35 +1362,36 @@ theorem run_denoteTypedArgs_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
 
 theorem run_denoteOps_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
   (env: SSAEnv Δ):
-  run (denoteOps Δ []) env = Except.ok ([], env) := by {
-  simp[denoteOps];
+  run (OpRegion.opsnil.denoteTop Δ) env = Except.ok ([], env) := by {
+  simp[OpRegion.denoteTop];
   simp [pure, StateT.pure, run, StateT.run, Except.pure];
 }
 
+/- TODO: Consider fording? -/
 theorem run_denoteOps_cons {Δ: Dialect α σ ε} {S: Semantics Δ}
-  (env: SSAEnv Δ) (op op': Op Δ) (ops: List (Op Δ)):
-  run (denoteOps Δ (op :: op' :: ops)) env =
-  run (do let _ ← denoteOp Δ op; denoteOps Δ (op' :: ops)) env := by {
-  simp[denoteOps];
+  (env: SSAEnv Δ) (op op': Op Δ) (ops: Ops Δ):
+  run ((OpRegion.opscons op (.opscons op' ops)).denoteTop Δ) env =
+  run (do let _ ← op.denoteTop Δ; (OpRegion.opscons op' ops).denoteTop Δ) env := by {
+  simp[OpRegion.denoteTop];
 }
 
 theorem run_denoteOps_singleton {Δ: Dialect α σ ε} {S: Semantics Δ}
   (env: SSAEnv Δ) (op: Op Δ):
-  run (denoteOps Δ [op]) env = run (denoteOp Δ op) env := by {
-  simp[denoteOps];
+  run ((OpRegion.opscons op .opsnil).denoteTop Δ) env = run (op.denoteTop Δ) env := by {
+  simp[OpRegion.denoteTop];
 }
 
 theorem run_denoteOp {Δ: Dialect α σ ε} {S: Semantics Δ}
   (env: SSAEnv Δ)
   (name : String)
   (res args : List (TypedSSAVal Δ))
-  (regions : List (Region Δ))
+  (regions : Regions Δ)
   (attrs : AttrDict Δ) :
-   run (denoteOp Δ (Op.mk name res args regions attrs)) env =
+   run ((Op.mk name res args regions attrs).denoteTop Δ) env =
    run (do
-        let args ← denoteOpArgs Δ args
+        let args ← denoteOpArgs args
         let ret ←
-          OpM.toTopM (TopM.mapDenoteRegion Δ regions)
+          OpM.toTopM (regions.denoteTop Δ)
               (Semantics.semantics_op (IOp.mk name (List.map Prod.snd res) args (OpM.denoteRegions regions 0) attrs))
         match res with
           | [] => pure ret
@@ -1346,7 +1406,7 @@ theorem run_denoteOp {Δ: Dialect α σ ε} {S: Semantics Δ}
           | x => do
             TopM.raiseUB (toString "denoteOp: expected 0 or 1 results, got '" ++ toString res ++ toString "'")
             pure ret) env := by {
-   simp [denoteOp];
+   simp [OpRegion.denoteTop];
 }
 
 /-
@@ -1355,9 +1415,9 @@ run_denoteOpArgs_cons_{success,failure}
 -/
 theorem run_denoteOpArgs_cons_ {Δ: Dialect α σ ε} {S: Semantics Δ}
   {env: SSAEnv Δ} {name: SSAVal}  {ty: MLIRType Δ} {args: List (TypedSSAVal Δ)}:
-  run (denoteOpArgs Δ (⟨name, ty⟩::args)) env = run (do
+  run (denoteOpArgs (⟨name, ty⟩::args)) env = run (do
      let x ← TopM.get ty name
-     let xs ← denoteOpArgs Δ args
+     let xs ← denoteOpArgs args
      return ⟨ty, x⟩::xs
   ) env := by {
   simp[denoteOpArgs];
@@ -1405,22 +1465,22 @@ theorem run_denoteOpArgs_cons_success
   {name: SSAVal}
   {ENV: SSAEnv.get name ty env = .some v}
   {args: List (TypedSSAVal Δ)}:
-  run (denoteOpArgs Δ (⟨name, ty⟩::args)) env =
-  match run (denoteOpArgs Δ args) env with
+  run (denoteOpArgs (⟨name, ty⟩::args)) env =
+  match run (denoteOpArgs args) env with
     | Except.ok (xs, env') => Except.ok (⟨ty, v⟩::xs, env')
     | Except.error e => Except.error e := by {
   simp[run_denoteOpArgs_cons_];
   simp [run_bind];
   simp[run_TopM_get_success (ENV := ENV)];
   simp[pure, StateT.pure, run, StateT.run, Except.pure];
-  cases denoteOpArgs Δ args env <;> simp
+  cases denoteOpArgs args env <;> simp
 }
 
 
 
 theorem run_denoteOpArgs_nil {Δ: Dialect α σ ε} {S: Semantics Δ}
   {env: SSAEnv Δ}:
-  run (denoteOpArgs Δ []) env = Except.ok ([], env) := by {
+  run (denoteOpArgs []) env = Except.ok ([], env) := by {
   simp[denoteOpArgs];
   simp[run, pure, StateT.run, StateT.pure, Except.pure];
 }
@@ -1469,30 +1529,32 @@ theorem run_OpM_toTopM_Ret
 theorem TopM_mapDenoteRegion_cons
   {Δ: Dialect α σ ε} [S: Semantics Δ]
   {r: Region Δ}
-  {rs: List (Region Δ)}:
-  TopM.mapDenoteRegion Δ (List.cons r rs) =
-  TopM.scoped ∘ denoteRegion Δ r :: TopM.mapDenoteRegion Δ rs := by {
-  simp[TopM.mapDenoteRegion];
+  {rs: Regions Δ}:
+  (OpRegion.regionscons r rs).denoteTop Δ =
+  r.denoteTop Δ :: rs.denoteTop Δ := by {
+  simp[OpRegion.denoteTop];
 }
+
+
 theorem TopM_mapDenoteRegion_nil
   {Δ: Dialect α σ ε} [S: Semantics Δ]:
-  TopM.mapDenoteRegion Δ List.nil = [] := by {
-  simp[TopM.mapDenoteRegion];
+  OpRegion.regionsnil.denoteTop Δ  = [] := by {
+  simp[OpRegion.denoteTop];
 }
 
 theorem OpM_denoteRegions_cons
   {Δ: Dialect α σ ε}
   {r: Region Δ}
-  {rs: List (Region Δ)}
+  {rs: Regions Δ}
   {ix: Nat}:
-    OpM.denoteRegions (r::rs) ix =
+    OpM.denoteRegions (.regionscons r rs) ix =
     OpM.denoteRegion r ix :: OpM.denoteRegions rs (ix + 1) := by {
   simp[OpM.denoteRegions];
 
 }
 theorem OpM_denoteRegions_nil
   {Δ: Dialect α σ ε} {ix: Nat}:
-    OpM.denoteRegions (Δ := Δ) [] ix = [] := by {
+    OpM.denoteRegions (Δ := Δ) .regionsnil ix = [] := by {
    simp[OpM.denoteRegions];
 }
 
