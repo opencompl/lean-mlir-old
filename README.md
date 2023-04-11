@@ -1,7 +1,7 @@
 # `mlir-lean`: embedded MLIR in LEAN
 
 This provides infrastructure for:
-
+- A core calculus for reasoning about the MLIR compiler framework in the Lean4 proof assistant. 
 - An embedding of the MLIR AST in lean (`MLIR/AST.lean`)
 - A lightweight pretty printer library to pretty print the MLIR AST and parse errors (`MLIR/Doc.lean`)
 - A embedded-domain-specific language to build MLIR generic operations via macros (`MLIR/EDSL.lean`)
