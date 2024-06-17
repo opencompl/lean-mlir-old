@@ -1,1 +1,1 @@
-# Project moved to https://github.com/opencompl/ssa
+# Project moved to https://github.com/opencompl/lean-mlir
